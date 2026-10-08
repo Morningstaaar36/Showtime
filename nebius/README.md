@@ -1,6 +1,12 @@
 # Showtime: Red Team Night
 
-**From one sentence to a crowd-safety plan you can defend.**
+**Describe your event. AI builds it, simulates it, breaks it, fixes it, and hands you the plan.**
+
+Event safety planning and crowd simulation are slow, expensive and need specialists, so most
+events never get stress-tested. Showtime lets AI do that work. NVIDIA Nemotron agents drive
+existing, proven simulation software (JuPedSim, PedPy, Pynite, Open-Meteo) and keep costs low:
+small models for everyday calls, the largest only for the final judgement, instant estimates
+before any simulation, and cached results.
 
 Showtime is an affordable crowd-safety planning studio for event organizers, venue managers and
 permit offices. Type what, where, when and how many, for example *“Victory Day concert at Ramna
@@ -87,7 +93,7 @@ simulation*.
 | **Nebius Token Factory** | OpenAI-compatible endpoint behind `LLM_PROVIDER=nebius`; per-role model ids and prices in `.env`; tokens and cost are metered per agent call and shown live. |
 | **Nebius Sandboxes** (contree-sdk) | `SANDBOX_PROVIDER=nebius`: every scenario is a child snapshot of the venue image (attack → fix branches; the Copilot's six-scenario sweep branches from the plan's run), run in parallel. Locally the same interface runs Docker containers with `--network=none`, one at a time. |
 | **LangGraph** | The Event Copilot is a compiled `StateGraph` with conditional routes, checkpointing and custom streaming; `GET /api/v1/copilot/graph` serves its structure, which the UI draws live. |
-| **Tavily** | Optional live web evidence for attack cards and rules (cached, per-session cap). Without a key the red team cites the incident dataset ("Live search is off"). |
+| **Tavily** | Search adapter built (cached, per-session cap) and shown in health. It is not yet wired into the agents; live evidence for attack cards and local rules is planned (see `../plan.md`, N02/N03). Today the red team cites the incident dataset. |
 | **JuPedSim, PedPy, Pynite, Open-Meteo** | Crowd simulation, crowd metrics, stage frame model, gust forecasts. |
 | **OpenStreetMap, OpenFreeMap, MapLibre** | Real sites: place search (Nominatim), buildings, water, paths and entrances (Overpass, with OpenFreeMap vector tiles as fallback), the 3D picking map and the street-map ground in the 3D view. |
 

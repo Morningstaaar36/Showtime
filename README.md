@@ -1,16 +1,45 @@
 # Showtime: Red Team Night
 
-**From one sentence to a crowd-safety plan you can defend.**
+**Describe your event. AI builds it, simulates it, breaks it, fixes it, and hands you the plan.**
 
-Showtime is a crowd-safety planning studio for event organizers, venue managers and permit
-offices. Describe an event in one sentence and the **Event Copilot** (NVIDIA Nemotron) pulls the
-real site from OpenStreetMap, lays out the event, estimates safe capacity, exits, stewards and
-budget from published planning guides, and runs a real crowd simulation (JuPedSim). **Red Team
-Night** then lets AI attackers break the plan with scenarios grounded in real crowd incidents and
-AI defenders fix it, keeping only measured improvements, down to **the latest safe time to start
-evacuating**.
+## The problem
+
+Planning a safe event is slow, expensive and specialist work. Someone draws the site and works
+out capacity, exits, stewards and toilets from planning guides. For the few events that can
+afford it, a consultant builds a crowd model in simulation software and runs a handful of
+scenarios. Most organizers skip the simulation, and on the night they manage the crowd by instinct.
+Itaewon (2022): 159 deaths in a 3.2 m alley. Indiana State Fair (2011): a stage roof fell in a
+59 mph gust.
+
+## Our answer: let AI do the work, with simulators that already exist
+
+Showtime automates event safety planning. AI agents running on **NVIDIA Nemotron** take one sentence and do the
+following. Today they run on your GPU. The **Nebius Token Factory** adapter is built, and the
+live test is pending.
+
+1. **Build the venue**: the real site from OpenStreetMap, or a layout designed from a description.
+2. **Plan for the day**: safe capacity, exits, stewards, first aid, toilets, fencing and budget
+   from published planning guides, every ratio cited.
+3. **Simulate**: the agents drive existing, proven simulation software instead of guessing.
+   [JuPedSim](https://www.jupedsim.org) (Forschungszentrum Jülich) simulates the crowd,
+   [PedPy](https://pedpy.readthedocs.io) measures it, [Pynite](https://github.com/JWock82/Pynite)
+   checks the stage frame and [Open-Meteo](https://open-meteo.com) supplies the wind forecast.
+4. **Break it and fix it (Red Team Night)**: AI attackers try scenarios grounded in 388 real
+   crowd incidents, and AI defenders propose fixes. Each fix is re-simulated, and only measured
+   improvements are kept.
+5. **Hand over**: a report with **the latest safe time to start evacuating**, an evacuation map
+   and a data bundle.
+
+**Cost efficient by design.** A small model handles drafting and a larger one handles edits and
+fixes. The largest model is used only for the final judgement. Millisecond instant estimates
+screen scenarios before any simulation runs. Results are cached by content, and every session
+has token, run and time budgets. A live cost meter shows what each step costs.
 
 > Planning aid, not a safety certification.
+
+**Status and roadmap.** Everything above works locally today (see [HANDOFF](nebius/docs/HANDOFF.md)).
+The plan to the hackathon deadline is in [plan.md](plan.md). It covers running live on Nebius,
+a one-click Autopilot, a simpler three-screen UI, measured cost per plan and a public demo.
 
 ![Event Copilot planning a concert at Ramna Park](nebius/docs/screenshots/copilot.png)
 
