@@ -1,0 +1,10 @@
+[plugin]
+id = "events_core"
+name = "Core scenario events"
+version = "0.1.0"
+api_version = "1"
+provides = ["ScenarioEvent"]
+requires = []
+enabled_by_default = true
+
+[config]

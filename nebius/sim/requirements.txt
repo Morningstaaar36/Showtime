@@ -1,0 +1,50 @@
+contourpy==1.4.0
+    # via matplotlib
+cycler==0.12.1
+    # via matplotlib
+deprecated==1.2.18
+    # via -r requirements.in
+fonttools==4.66.1
+    # via matplotlib
+h5py==3.16.0
+    # via pedpy
+kiwisolver==1.5.1
+    # via matplotlib
+matplotlib==3.11.2
+    # via pedpy
+numpy==2.5.3
+    # via
+    #   -r requirements.in
+    #   contourpy
+    #   h5py
+    #   matplotlib
+    #   pandas
+    #   pedpy
+    #   scipy
+    #   shapely
+packaging==26.3
+    # via matplotlib
+pandas==3.0.6
+    # via pedpy
+pedpy==1.5.1
+    # via -r requirements.in
+pillow==12.3.0
+    # via matplotlib
+pyparsing==3.3.3
+    # via matplotlib
+python-dateutil==2.9.0.post0
+    # via
+    #   matplotlib
+    #   pandas
+scipy==1.18.1
+    # via
+    #   -r requirements.in
+    #   pedpy
+shapely==2.2.0
+    # via
+    #   -r requirements.in
+    #   pedpy
+six==1.17.0
+    # via python-dateutil
+wrapt==1.17.3
+    # via deprecated

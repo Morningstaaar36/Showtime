@@ -1,0 +1,10 @@
+[plugin]
+id = "ops_core"
+name = "Core edit operations"
+version = "0.1.0"
+api_version = "1"
+provides = ["PatchOp"]
+requires = []
+enabled_by_default = true
+
+[config]

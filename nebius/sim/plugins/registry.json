@@ -1,0 +1,19 @@
+{
+  "api_version": "1",
+  "engines": {
+    "jupedsim": {
+      "module": "plugins.engine_jupedsim",
+      "label": "JuPedSim collision-free speed model",
+      "tiers": [2, 3],
+      "metrics": ["rset", "peak_density", "per_exit_flow", "hotspots", "exit_area_density"],
+      "citation": "JuPedSim 1.4 (LGPL-3.0-or-later), https://www.jupedsim.org"
+    }
+  },
+  "metrics": {
+    "rset": {"label": "Evacuation time (95%)", "unit": "s", "formula": "95th percentile of exit times"},
+    "peak_density": {"label": "Peak density", "unit": "people per m²", "formula": "max over time of Gaussian-smoothed 1 m grid counts / walkable area"},
+    "per_exit_flow": {"label": "Exit flow", "unit": "people/s", "formula": "(n-1)/(t_last - t_first) per exit"},
+    "hotspots": {"label": "Hotspots", "unit": "", "formula": "connected cells above the warning threshold"},
+    "exit_area_density": {"label": "Density in front of exits", "unit": "people per m²", "formula": "PedPy classic density in a 2 m band"}
+  }
+}

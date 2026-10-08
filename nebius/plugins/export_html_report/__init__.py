@@ -1,0 +1,370 @@
+"""Printable report (HTML; print to PDF from the browser). Self-contained: inline CSS and SVG."""
+
+from __future__ import annotations
+
+import html
+from collections.abc import Callable
+from typing import Any
+
+from pydantic import BaseModel
+
+from api.core.extensions import Registry, ReportBundle
+from api.core.extensions.geometry import display_names
+from api.models import RunResult
+
+
+class Config(BaseModel):
+    """No settings."""
+
+
+def e(s: object) -> str:
+    return html.escape("" if s is None else str(s), quote=True)
+
+
+def dur(s: float | None) -> str:
+    if s is None:
+        return "–"
+    s = round(s)
+    return f"{s // 60} min {s % 60:02d} s" if s >= 60 else f"{s} s"
+
+
+def num(v: float | None, d: int = 1) -> str:
+    return "–" if v is None else f"{v:,.{d}f}"
+
+
+def clock(s: float | None) -> str:
+    if s is None:
+        return "–"
+    s = round(s)
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def _same(x: Any) -> str:
+    return str(x)
+
+
+def describe_event(ev: dict[str, Any], name: Callable[[Any], str] = _same) -> str:
+    t = ev.get("at_s") or 0
+    at = f" at {clock(t)}" if t else ""
+    k = ev.get("type")
+    if k == "block_exit":
+        return f"{name(ev.get('exit_id'))} blocked{at}"
+    if k == "surge":
+        return f"{ev.get('extra_people')} more people into {name(ev.get('zone_id'))}{at}"
+    if k == "slowdown":
+        return f"walking speed × {ev.get('factor')}{at}"
+    if k == "counterflow":
+        return f"{ev.get('people')} people push in through {name(ev.get('exit_id'))}{at}"
+    if k == "staggered_release":
+        return f"hold {name(ev.get('zone_id'))} for {ev.get('delay_s')} s"
+    if k == "marshal_redirect":
+        return f"marshals send people to {name(ev.get('to_exit_id'))}{at}"
+    if k == "one_way":
+        return f"one-way flow at {name(ev.get('exit_id'))}"
+    return str(k)
+
+
+def describe_op(o: dict[str, Any], name: Callable[[Any], str] = _same) -> str:
+    k = o.get("op")
+    if k == "add_exit":
+        return f"new {o.get('width_m')} m exit" + (
+            f" on the {o.get('wall')} wall" if o.get("wall") else ""
+        )
+    if k == "resize":
+        return f"widen {name(o.get('target'))} to {o.get('width_m')} m"
+    if k == "add_barrier_line":
+        return "new barrier line"
+    if k == "move":
+        return f"move {name(o.get('target'))}"
+    if k == "remove_obstacle":
+        return f"remove {name(o.get('obstacle_id'))}"
+    return str(k)
+
+
+def verdict(r: RunResult | None, danger: float) -> tuple[str, str]:
+    if r is None:
+        return "Not tested", "neutral"
+    m = r.metrics
+    trapped = m.extra.get("trapped", 0)
+    if (
+        m.time_above_danger_s >= 5
+        or trapped
+        or m.agents_not_evacuated > max(5, m.agents_total * 0.005)
+    ):
+        return "Fails", "danger"
+    if m.peak_density_ppm2 >= 3.5:
+        return "At risk", "caution"
+    return "Holds", "egress"
+
+
+CSS = """
+:root{--plan:#EEF2F4;--ink:#1C2329;--muted:#55626D;--line:#8E9BA5;--border:#D3DBE1;--signal:#1F5FBF;
+--egress:#0A7F4F;--caution:#B97F00;--danger:#C62828}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plan);color:var(--ink);font:14px/1.5 "Public Sans",Helvetica,Arial,sans-serif;
+font-variant-numeric:tabular-nums}
+main{max-width:860px;margin:24px auto;background:#fff;padding:40px 48px;border:1px solid var(--border)}
+h1{font-size:26px;margin:4px 0 2px;letter-spacing:-.01em}h2{font-size:18px;margin:32px 0 10px;
+padding-top:14px;border-top:1px solid var(--border)}h3{font-size:14px;margin:16px 0 6px}
+.eyebrow{color:var(--signal);font-weight:600;font-size:12px}.muted{color:var(--muted)}
+.disclaimer{margin:14px 0;padding:8px 12px;border-left:4px solid var(--danger);background:#F9E0DF;font-weight:600}
+.verdict{display:flex;gap:16px;align-items:center;padding:14px 16px;border-radius:10px;margin-top:18px}
+.verdict.danger{background:#F9E0DF;border:1px solid #e9b4b2}.verdict.caution{background:#F8EDD2;border:1px solid #e8d29c}
+.verdict.egress{background:#DDF1E8;border:1px solid #a9d7c2}.verdict.neutral{background:#F3F6F8;border:1px solid var(--border)}
+.verdict b{font-size:20px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.tile{border:1px solid var(--border);border-radius:8px;padding:10px}.tile .v{font-size:20px;font-weight:700}
+.tile .l{font-size:11px;color:var(--muted)}.tile .s{font-size:10px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+th{text-align:left;color:var(--muted);font-weight:600;border-bottom:1.5px solid var(--ink);padding:5px 6px}
+td{border-bottom:1px solid var(--border);padding:5px 6px;vertical-align:top}
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:11px;font-weight:600}
+.tag.danger{background:#F9E0DF;color:var(--danger)}.tag.egress{background:#DDF1E8;color:var(--egress)}
+.tag.neutral{background:#E7ECEF;color:var(--ink)}
+.countdown{display:grid;grid-template-columns:1.3fr 1fr;gap:16px;align-items:center;border:1px solid var(--border);
+border-radius:10px;padding:14px 16px}.countdown .big{font-size:26px;font-weight:700}
+.map{margin-top:10px;border:1px solid var(--border);border-radius:8px;overflow:hidden}.map svg{width:100%;height:auto;display:block}
+a{color:var(--signal)}ol,ul{padding-left:20px}footer{margin-top:28px;font-size:11px;color:var(--muted)}
+.toolbar{max-width:860px;margin:16px auto 0;display:flex;justify-content:flex-end;gap:8px}
+.toolbar button{font:inherit;border:1px solid var(--border);background:#fff;border-radius:6px;padding:6px 12px;cursor:pointer}
+@media print{body{background:#fff}main{margin:0;border:0;padding:0}.toolbar{display:none}h2{break-after:avoid}
+table,.countdown,.map,.verdict{break-inside:avoid}@page{size:A4;margin:16mm 14mm 18mm;
+@bottom-left{content:"Planning aid, not a safety certification.";font-size:9px;color:#C62828}
+@bottom-right{content:counter(page) " / " counter(pages);font-size:9px}}}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+"""
+
+
+def _estimates_html(est: Any) -> str:
+    """Capacity, staffing, sanitation and budget table (from planning ratios, with sources)."""
+    if not est:
+        return ""
+    rows = "".join(
+        f"<tr><td>{e(ln['label'])}</td><td class='num'>{ln['value']:,.0f} {e(ln['unit'])}</td>"
+        f"<td>{e(ln['detail'])}</td><td class='muted'>{e(ln['source'])}</td></tr>"
+        for ln in est.get("lines", [])
+    )
+    cur = e(est.get("currency", "USD"))
+    budget = "".join(
+        f"<tr><td>{e(b['item'])}</td><td class='num'>{b['quantity']:,.0f} {e(b['unit'])}</td>"
+        f"<td class='num'>{b['unit_cost']:,.0f}</td><td class='num'>{b['total']:,.0f}</td></tr>"
+        for b in est.get("budget", [])
+    )
+    note = (
+        "Example unit prices; replace them with local quotes."
+        if est.get("prices_are_examples")
+        else "Unit prices entered in Settings."
+    )
+    return (
+        "<h2>Plan for the day</h2>"
+        f"<p class='muted'>{e(est.get('disclaimer', ''))}</p>"
+        "<table><tr><th>Item</th><th>Estimate</th><th>Basis</th><th>Source</th></tr>"
+        f"{rows}</table>"
+        f"<h3>Budget ({cur})</h3><p class='muted'>{note}</p>"
+        "<table><tr><th>Item</th><th>Quantity</th><th>Unit price</th><th>Total</th></tr>"
+        f"{budget}<tr><td colspan='3'><b>Total</b></td>"
+        f"<td class='num'><b>{est.get('budget_total', 0):,.0f}</b></td></tr></table>"
+    )
+
+
+def render(b: ReportBundle) -> str:
+    """The report as a complete HTML document."""
+    run = b.final or b.baseline
+    v_text, v_tone = verdict(run, b.density_danger_ppm2)
+    venue = b.fixed_venue or b.venue
+    labels = display_names(b.venue, b.fixed_venue)
+
+    def name(x: Any) -> str:
+        return labels.get(str(x), str(x))
+
+    tier = (
+        "confirmed by simulation"
+        if run and run.tier == 3
+        else "ranking run"
+        if run and run.tier == 2
+        else "instant estimate"
+    )
+    m = run.metrics if run else None
+    tiles = ""
+    if m:
+        tiles = "".join(
+            f'<div class="tile"><div class="l">{lbl}</div><div class="v">{val}</div><div class="s">{tier}</div></div>'
+            for lbl, val in [
+                ("People", f"{m.agents_total:,}"),
+                ("Evacuation time (95%)", dur(m.evac_time_p95_s)),
+                ("Peak density", f"{num(m.peak_density_ppm2)} /m²"),
+                ("Time above danger", dur(m.time_above_danger_s)),
+            ]
+        )
+    cd = b.countdown
+    countdown = ""
+    if cd is not None:
+        if cd.status == "ok":
+            head = (
+                f"Start evacuating by {cd.t_latest_iso[11:16]}"
+                if cd.t_latest_iso
+                else f"Start within {dur(cd.t_latest_s)} of the alarm"
+            )
+        elif cd.status == "too_late":
+            head = "Too late to evacuate safely before the hazard"
+        else:
+            head = "No hazard in forecast window"
+        countdown = (
+            f'<h2>Latest safe time to start evacuating</h2><div class="countdown"><div>'
+            f'<div class="big">{e(head)}</div><p class="muted">{e(cd.hazard_explanation)}</p></div>'
+            f"<table><tr><td>Hazard</td><td>{e(cd.t_hazard_iso[11:16] if cd.t_hazard_iso else '–')}</td></tr>"
+            f"<tr><td>Pre-movement</td><td>{dur(cd.pre_movement_s)}</td></tr>"
+            f"<tr><td>Evacuation time (95%)</td><td>{dur(cd.rset_s)}</td></tr>"
+            f"<tr><td>Safety factor</td><td>× {cd.safety_factor}</td></tr></table></div>"
+            f'<p class="muted" style="font-size:11px">{e(cd.formula)}'
+            + (f" · Evacuation time from: {e(cd.rset_source)}" if cd.rset_source else "")
+            + "</p>"
+        )
+    recs = "".join(f"<li>{e(r)}</li>" for r in b.recommendations)
+    scoreboard = " → ".join(f"{s['breaks']}" for s in b.scoreboard)
+    results_by_attack: dict[str, RunResult] = {}
+    for r in b.results.values():
+        if r.attack_id and not r.fix_id and r.tier == 2:
+            results_by_attack[r.attack_id] = r
+    attack_rows = ""
+    for a in b.attacks:
+        r = results_by_attack.get(a.attack_id)
+        info = b.extras.get("run_info", {}).get(r.run_id, {}) if r is not None else {}
+        broke = bool(info.get("is_break"))
+        why = "<br>".join(e(x) for x in info.get("break_reasons", [])[:2])
+        result = (
+            "–"
+            if r is None
+            else f'<span class="tag {"danger" if broke else "egress"}">'
+            f"{'breaks' if broke else 'holds'}</span><br>{num(r.metrics.peak_density_ppm2)} /m² · "
+            f"{dur(r.metrics.time_above_danger_s)} above danger"
+            f"{'<br><span class=muted>' + why + '</span>' if why else ''}"
+        )
+        attack_rows += (
+            f"<tr><td><b>{e(a.attack_id)}</b> {e(a.title)}<br><span class='muted'>"
+            f"{e('; '.join(describe_event(ev.model_dump(), name) for ev in a.events))}</span></td>"
+            f"<td><a href='{e(a.inspired_by.source_url)}'>{e(a.inspired_by.incident)}</a>"
+            f"{' (' + str(a.inspired_by.year) + ')' if a.inspired_by.year else ''}</td><td>{result}</td></tr>"
+        )
+    fix_rows = ""
+    for f in b.fixes:
+        kept = f.fix_id in b.accepted_fix_ids
+        what = "; ".join(
+            [describe_op(o.model_dump(), name) for o in f.patch.ops]
+            + [describe_event(ev.model_dump(), name) for ev in f.operational]
+        )
+        fix_rows += (
+            f"<tr><td><b>{e(f.fix_id)}</b> {e(f.title)}<br><span class='muted'>{e(what)}</span></td>"
+            f"<td>{e(f.for_attack)}</td><td>{e(f.cost_label)}</td>"
+            f"<td><span class='tag {'egress' if kept else 'neutral'}'>{'kept' if kept else 'not kept'}</span></td></tr>"
+        )
+    before_after = ""
+    if b.before and b.after:
+        before_after = (
+            "<h3>Worst attack, before and after the kept fixes (confirmed by simulation)</h3><table>"
+            "<tr><th></th><th>Before</th><th>After</th></tr>"
+            + "".join(
+                f"<tr><td>{lbl}</td><td>{fmt(b.before.get(k))}</td><td><b>{fmt(b.after.get(k))}</b></td></tr>"
+                for lbl, k, fmt in [
+                    ("Evacuation time (95%)", "evac_time_p95_s", dur),
+                    ("Peak density (people per m²)", "peak_density_ppm2", num),
+                    ("Time above danger", "time_above_danger_s", dur),
+                ]
+            )
+            + "</table>"
+        )
+    exit_rows = ""
+    if run:
+        widths = {x.id: x for f in venue.floors for x in f.exits}
+        for p in run.metrics.per_exit:
+            ex = widths.get(p.exit_id)
+            exit_rows += (
+                f"<tr><td>{e(ex.label if ex and ex.label else p.exit_id)}</td><td>{num(ex.width_m if ex else None)} m</td>"
+                f"<td>{p.people:,}</td><td>{num(p.mean_flow_pps)} /s</td><td>{clock(p.last_s)}</td></tr>"
+            )
+    hotspot_rows = "".join(
+        f"<tr><td>{e(h.floor_id)}</td><td>{e(name(h.near) if h.near else f'{h.x:.0f}, {h.y:.0f} m')}</td>"
+        f"<td><span class='tag {'danger' if h.level == 'danger' else 'neutral'}'>{num(h.peak_density_ppm2)}</span></td>"
+        f"<td>{clock(h.t_s)}</td></tr>"
+        for h in (run.hotspots[:8] if run else [])
+    )
+    assumption_rows = "".join(
+        f"<tr><td>{e(a['name'])}</td><td>{e(a['value'])}</td><td class='muted'>{e(a['source'])}</td></tr>"
+        for a in b.assumptions
+    )
+    sources = "".join(
+        f"<li><a href='{e(s['url'])}'>{e(s['label'])}</a></li>" for s in b.sources if s.get("url")
+    )
+    calib = ""
+    if b.calibration.get("ratio_p95"):
+        c = b.calibration
+        calib = (
+            f"<p class='muted'>Calibration for this template: instant estimate {dur(c.get('tier1_p95_s'))} vs "
+            f"simulation {dur(c.get('tier3_p95_s'))} (ratio {c['ratio_p95']:.2f}). Instant estimates are "
+            "screening values; decisions use simulation results.</p>"
+        )
+    map_svg = b.extras.get("map_svg", "")
+    measures = b.extras.get("measures") or []
+    measures_html = (
+        (
+            "<h3>Operational measures in the plan</h3><ul>"
+            + "".join(f"<li>{e(describe_event(mm, name))}</li>" for mm in measures)
+            + "</ul>"
+        )
+        if measures
+        else ""
+    )
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Crowd-safety report · {e(b.project_name)}</title>
+<style>{CSS}</style></head><body>
+<div class="toolbar"><button onclick="window.print()">Print or save as PDF</button></div>
+<main>
+<div class="eyebrow">Showtime · crowd-safety assessment</div>
+<h1>{e(b.project_name)}</h1>
+<div class="muted">{e(venue.name)} · {e(venue.mode)} · version {b.venue_version}{" with red-team fixes" if b.fixed_venue else ""} ·
+{venue.total_people():,} people · generated {e(b.generated_at)} · {e(b.provider_label)}</div>
+<div class="disclaimer">{e(b.disclaimer)} Licensed engineers and the authorities sign off on real plans.</div>
+<div class="verdict {v_tone}"><b>{e(v_text)}</b><span>{e(b.summary_text)}</span></div>
+<div class="tiles">{tiles}</div>
+{countdown}
+{f"<h2>Recommendations</h2><ol>{recs}</ol>" if recs else ""}
+{_estimates_html(b.extras.get("estimates"))}
+<h2>Evacuation map</h2>
+<p class="muted">Arrows show which exit each zone should use (from the flow model), with headcounts. Circles mark density hotspots.</p>
+<div class="map">{map_svg}</div>
+{measures_html}
+{f"<h2>Red team results</h2><p>Breaks per round: <b>{e(scoreboard)}</b>. Each attack is grounded in a real incident and was simulated in an isolated sandbox.</p>" if b.attacks else ""}
+{f"<table><tr><th>Attack</th><th>Inspired by</th><th>Result</th></tr>{attack_rows}</table>" if attack_rows else ""}
+{f"<h3>Fixes proposed by the blue team</h3><table><tr><th>Fix</th><th>For</th><th>Cost</th><th>Outcome</th></tr>{fix_rows}</table>" if fix_rows else ""}
+{before_after}
+<h2>Exit use</h2>
+{f"<table><tr><th>Exit</th><th>Width</th><th>People</th><th>Mean flow</th><th>Last person</th></tr>{exit_rows}</table>" if exit_rows else '<p class="muted">Run a stress test to see exit use.</p>'}
+{f"<h3>Hotspots</h3><table><tr><th>Floor</th><th>Near</th><th>Peak (per m²)</th><th>Time</th></tr>{hotspot_rows}</table>" if hotspot_rows else ""}
+<h2>Assumptions</h2>
+<table><tr><th>Item</th><th>Value</th><th>Source</th></tr>{assumption_rows}</table>
+{calib}
+<h2>Sources</h2><ol>{sources}</ol>
+<h2>How this was computed</h2>
+<p class="muted">People are simulated individually with JuPedSim in an isolated sandbox; density is measured on a 1 m grid.
+Instant estimates use a flow model (exit width × specific flow) for screening. AI agents (NVIDIA Nemotron) choose what
+to test and what to change; every number in this report comes from the simulator, a formula or a cited dataset.
+AI usage for this session: {b.tokens_total:,} tokens (${b.cost_usd:.4f}).</p>
+<footer>{e(b.disclaimer)} Report generated by Showtime 0.1 · run {e(run.run_id if run else "–")}</footer>
+</main></body></html>"""
+
+
+class HtmlReportExporter:
+    """Exporter: printable HTML report."""
+
+    id = "export_html_report"
+    label = "Printable report (PDF via print)"
+    media_type = "text/html"
+    file_ext = "html"
+
+    def render(self, bundle: ReportBundle) -> bytes:
+        return render(bundle).encode()
+
+
+def showtime_register(registry: Registry, config: Config) -> None:
+    """Register the exporter."""
+    registry.add("Exporter", HtmlReportExporter.id, HtmlReportExporter())

@@ -1,0 +1,34 @@
+# secrets
+.env
+.env.*
+!.env.example
+# toolchains, weights, data, outputs (downloaded at setup time)
+# anchored to the repo root: api/models, api/data and web/src/state are source code
+/.tools/
+/models/
+/data/
+/runs/
+/logs/
+/cache/*
+!/cache/demos/
+/cache/demos/**/*.tmp
+*.sqlite
+*.db
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+# node
+node_modules/
+dist/
+web/test-results/
+web/playwright-report/
+*.tsbuildinfo
+.DS_Store
+/state/
+.import_linter_cache/

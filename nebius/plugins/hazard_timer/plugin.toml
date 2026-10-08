@@ -1,0 +1,10 @@
+[plugin]
+id = "hazard_timer"
+name = "Scenario clock (indoor and street hazards)"
+version = "0.1.0"
+api_version = "1"
+provides = ["HazardSource"]
+requires = []
+enabled_by_default = true
+
+[config]

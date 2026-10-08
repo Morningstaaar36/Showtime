@@ -1,0 +1,12 @@
+[plugin]
+id = "hazard_wind"
+name = "Wind hazard (Open-Meteo + stage check)"
+version = "0.1.0"
+api_version = "1"
+provides = ["HazardSource"]
+requires = ["Provider:weather"]
+enabled_by_default = true
+
+[config]
+storm_gust_ms = 20
+event_window_h = 6

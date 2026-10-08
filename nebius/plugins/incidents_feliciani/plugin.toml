@@ -1,0 +1,12 @@
+[plugin]
+id = "incidents_feliciani"
+name = "Crowd accidents 1900–2024 (Feliciani, CC BY 4.0)"
+version = "0.1.0"
+api_version = "1"
+provides = ["IncidentSource"]
+requires = []
+enabled_by_default = true
+
+[config]
+data_file = "data/incidents/incidents.json"
+use_seed = true

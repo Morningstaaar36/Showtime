@@ -1,0 +1,281 @@
+{
+  "venue_id": "conference_hall_2f",
+  "name": "Conference hall, 2 floors",
+  "description": "40 \u00d7 25 m hall, stage on the north wall, two 2.5 m doors on the south wall, a mezzanine reached by one stairwell in the north-east corner. 1,200 people.",
+  "mode": "indoor",
+  "floors": [
+    {
+      "floor_id": "F0",
+      "name": "Ground floor",
+      "elevation_m": 0,
+      "walkable": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          0
+        ],
+        [
+          40,
+          25
+        ],
+        [
+          0,
+          25
+        ]
+      ],
+      "obstacles": [
+        {
+          "id": "stage",
+          "kind": "stage",
+          "polygon": [
+            [
+              12,
+              20
+            ],
+            [
+              28,
+              20
+            ],
+            [
+              28,
+              25
+            ],
+            [
+              12,
+              25
+            ]
+          ],
+          "height_m": 1.0,
+          "label": "Stage"
+        },
+        {
+          "id": "stair_ne_structure",
+          "kind": "other",
+          "polygon": [
+            [
+              36,
+              14
+            ],
+            [
+              39.5,
+              14
+            ],
+            [
+              39.5,
+              22
+            ],
+            [
+              36,
+              22
+            ]
+          ],
+          "height_m": 4.5,
+          "label": "Stair structure"
+        },
+        {
+          "id": "foh_desk",
+          "kind": "booth",
+          "polygon": [
+            [
+              18.5,
+              4.5
+            ],
+            [
+              21.5,
+              4.5
+            ],
+            [
+              21.5,
+              6.0
+            ],
+            [
+              18.5,
+              6.0
+            ]
+          ],
+          "height_m": 1.2,
+          "label": "Sound desk"
+        }
+      ],
+      "exits": [
+        {
+          "id": "door_s1",
+          "polygon": [
+            [
+              7.75,
+              0.02
+            ],
+            [
+              10.25,
+              0.02
+            ],
+            [
+              10.25,
+              0.42000000000000004
+            ],
+            [
+              7.75,
+              0.42000000000000004
+            ]
+          ],
+          "width_m": 2.5,
+          "label": "South door 1"
+        },
+        {
+          "id": "door_s2",
+          "polygon": [
+            [
+              29.75,
+              0.02
+            ],
+            [
+              32.25,
+              0.02
+            ],
+            [
+              32.25,
+              0.42000000000000004
+            ],
+            [
+              29.75,
+              0.42000000000000004
+            ]
+          ],
+          "width_m": 2.5,
+          "label": "South door 2"
+        }
+      ],
+      "zones": [
+        {
+          "id": "audience",
+          "polygon": [
+            [
+              4,
+              7
+            ],
+            [
+              34,
+              7
+            ],
+            [
+              34,
+              18
+            ],
+            [
+              4,
+              18
+            ]
+          ],
+          "people": 900,
+          "label": "Audience"
+        }
+      ]
+    },
+    {
+      "floor_id": "F1",
+      "name": "Mezzanine",
+      "elevation_m": 4.5,
+      "walkable": [
+        [
+          0,
+          15
+        ],
+        [
+          40,
+          15
+        ],
+        [
+          40,
+          25
+        ],
+        [
+          0,
+          25
+        ]
+      ],
+      "obstacles": [],
+      "exits": [],
+      "zones": [
+        {
+          "id": "mezzanine",
+          "polygon": [
+            [
+              2,
+              17
+            ],
+            [
+              30,
+              17
+            ],
+            [
+              30,
+              24
+            ],
+            [
+              2,
+              24
+            ]
+          ],
+          "people": 300,
+          "label": "Mezzanine seating"
+        }
+      ]
+    }
+  ],
+  "stairs": [
+    {
+      "id": "stair_ne",
+      "from_floor": "F1",
+      "to_floor": "F0",
+      "top_polygon": [
+        [
+          36,
+          20
+        ],
+        [
+          39,
+          20
+        ],
+        [
+          39,
+          24
+        ],
+        [
+          36,
+          24
+        ]
+      ],
+      "bottom_polygon": [
+        [
+          36,
+          10
+        ],
+        [
+          39,
+          10
+        ],
+        [
+          39,
+          14
+        ],
+        [
+          36,
+          14
+        ]
+      ],
+      "width_m": 2.0,
+      "length_m": 9.0
+    }
+  ],
+  "stage": null,
+  "location": {
+    "lat": 23.7265,
+    "lon": 90.3925,
+    "timezone": "Asia/Dhaka",
+    "event_start": "2026-11-20T18:00:00"
+  },
+  "rules_profile": "default"
+}

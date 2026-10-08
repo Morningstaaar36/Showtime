@@ -1,0 +1,185 @@
+{
+  "venue_id": "t_alley",
+  "name": "T-shaped alley",
+  "description": "Open-air street: a 3.2 m wide, 45 m long sloped alley meets a 6 m wide street at a T, inspired by the published dimensions of the Itaewon alley (Seoul, 2022). 1,700 people.",
+  "mode": "outdoor",
+  "floors": [
+    {
+      "floor_id": "F0",
+      "name": "Street level",
+      "elevation_m": 0,
+      "walkable": [
+        [
+          58.4,
+          0
+        ],
+        [
+          61.6,
+          0
+        ],
+        [
+          61.6,
+          45
+        ],
+        [
+          120,
+          45
+        ],
+        [
+          120,
+          51
+        ],
+        [
+          0,
+          51
+        ],
+        [
+          0,
+          45
+        ],
+        [
+          58.4,
+          45
+        ]
+      ],
+      "obstacles": [],
+      "exits": [
+        {
+          "id": "alley_s",
+          "polygon": [
+            [
+              58.449999999999996,
+              0.02
+            ],
+            [
+              61.550000000000004,
+              0.02
+            ],
+            [
+              61.550000000000004,
+              0.42000000000000004
+            ],
+            [
+              58.449999999999996,
+              0.42000000000000004
+            ]
+          ],
+          "width_m": 3.1,
+          "label": "Alley to main road"
+        },
+        {
+          "id": "street_w",
+          "polygon": [
+            [
+              0.02,
+              45.2
+            ],
+            [
+              0.42000000000000004,
+              45.2
+            ],
+            [
+              0.42000000000000004,
+              50.8
+            ],
+            [
+              0.02,
+              50.8
+            ]
+          ],
+          "width_m": 5.6,
+          "label": "Street west end"
+        },
+        {
+          "id": "street_e",
+          "polygon": [
+            [
+              119.58,
+              45.2
+            ],
+            [
+              119.98,
+              45.2
+            ],
+            [
+              119.98,
+              50.8
+            ],
+            [
+              119.58,
+              50.8
+            ]
+          ],
+          "width_m": 5.6,
+          "label": "Street east end"
+        }
+      ],
+      "zones": [
+        {
+          "id": "street",
+          "polygon": [
+            [
+              4,
+              45.5
+            ],
+            [
+              116,
+              45.5
+            ],
+            [
+              116,
+              50.5
+            ],
+            [
+              4,
+              50.5
+            ]
+          ],
+          "people": 1400,
+          "label": "Top street"
+        },
+        {
+          "id": "alley",
+          "polygon": [
+            [
+              58.6,
+              8
+            ],
+            [
+              61.4,
+              8
+            ],
+            [
+              61.4,
+              44.5
+            ],
+            [
+              58.6,
+              44.5
+            ]
+          ],
+          "people": 300,
+          "label": "Alley"
+        }
+      ]
+    }
+  ],
+  "stairs": [],
+  "stage": null,
+  "location": {
+    "lat": 37.5347,
+    "lon": 126.9947,
+    "timezone": "Asia/Seoul",
+    "event_start": "2026-10-31T21:00:00"
+  },
+  "rules_profile": "default",
+  "extensions": {
+    "sources": [
+      {
+        "label": "Seoul Halloween crowd crush (Wikipedia): alley about 45 m long and 3.2 m wide",
+        "url": "https://en.wikipedia.org/wiki/Seoul_Halloween_crowd_crush"
+      }
+    ],
+    "slope_note": "The real alley slopes downhill to the south (about 10%); the simulation treats it as flat."
+  }
+}

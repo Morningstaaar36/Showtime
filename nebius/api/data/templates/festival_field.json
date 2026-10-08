@@ -1,0 +1,301 @@
+{
+  "venue_id": "festival_field",
+  "name": "Festival field",
+  "description": "Open-air 80 \u00d7 50 m field, 20 m stage with a 12 m roof on the north side, two 6 m gates in the south fence, bars on both sides. 6,000 people.",
+  "mode": "outdoor",
+  "floors": [
+    {
+      "floor_id": "F0",
+      "name": "Field",
+      "elevation_m": 0,
+      "walkable": [
+        [
+          0,
+          0
+        ],
+        [
+          80,
+          0
+        ],
+        [
+          80,
+          50
+        ],
+        [
+          0,
+          50
+        ]
+      ],
+      "obstacles": [
+        {
+          "id": "stage",
+          "kind": "stage",
+          "polygon": [
+            [
+              30,
+              42
+            ],
+            [
+              50,
+              42
+            ],
+            [
+              50,
+              50
+            ],
+            [
+              30,
+              50
+            ]
+          ],
+          "height_m": 12.0,
+          "label": "Main stage"
+        },
+        {
+          "id": "front_barrier",
+          "kind": "barrier",
+          "polygon": [
+            [
+              27,
+              39.85
+            ],
+            [
+              53,
+              39.85
+            ],
+            [
+              53,
+              40.15
+            ],
+            [
+              27,
+              40.15
+            ]
+          ],
+          "height_m": 1.1,
+          "line": [
+            [
+              27,
+              40
+            ],
+            [
+              53,
+              40
+            ]
+          ],
+          "label": "Front-of-stage barrier"
+        },
+        {
+          "id": "foh_tent",
+          "kind": "booth",
+          "polygon": [
+            [
+              37,
+              18
+            ],
+            [
+              43,
+              18
+            ],
+            [
+              43,
+              22
+            ],
+            [
+              37,
+              22
+            ]
+          ],
+          "height_m": 3.0,
+          "label": "Front-of-house tent"
+        },
+        {
+          "id": "bar_w",
+          "kind": "bar",
+          "polygon": [
+            [
+              1,
+              20
+            ],
+            [
+              6,
+              20
+            ],
+            [
+              6,
+              32
+            ],
+            [
+              1,
+              32
+            ]
+          ],
+          "height_m": 3.0,
+          "label": "West bar"
+        },
+        {
+          "id": "bar_e",
+          "kind": "bar",
+          "polygon": [
+            [
+              74,
+              20
+            ],
+            [
+              79,
+              20
+            ],
+            [
+              79,
+              32
+            ],
+            [
+              74,
+              32
+            ]
+          ],
+          "height_m": 3.0,
+          "label": "East bar"
+        }
+      ],
+      "exits": [
+        {
+          "id": "gate_sw",
+          "polygon": [
+            [
+              14,
+              0.02
+            ],
+            [
+              20,
+              0.02
+            ],
+            [
+              20,
+              0.42000000000000004
+            ],
+            [
+              14,
+              0.42000000000000004
+            ]
+          ],
+          "width_m": 6.0,
+          "label": "South-west gate"
+        },
+        {
+          "id": "gate_se",
+          "polygon": [
+            [
+              60,
+              0.02
+            ],
+            [
+              66,
+              0.02
+            ],
+            [
+              66,
+              0.42000000000000004
+            ],
+            [
+              60,
+              0.42000000000000004
+            ]
+          ],
+          "width_m": 6.0,
+          "label": "South-east gate"
+        }
+      ],
+      "zones": [
+        {
+          "id": "front",
+          "polygon": [
+            [
+              12,
+              28
+            ],
+            [
+              68,
+              28
+            ],
+            [
+              68,
+              39
+            ],
+            [
+              12,
+              39
+            ]
+          ],
+          "people": 1700,
+          "label": "Front of stage"
+        },
+        {
+          "id": "middle",
+          "polygon": [
+            [
+              8,
+              14
+            ],
+            [
+              72,
+              14
+            ],
+            [
+              72,
+              28
+            ],
+            [
+              8,
+              28
+            ]
+          ],
+          "people": 2600,
+          "label": "Middle field"
+        },
+        {
+          "id": "back",
+          "polygon": [
+            [
+              8,
+              3
+            ],
+            [
+              72,
+              3
+            ],
+            [
+              72,
+              14
+            ],
+            [
+              8,
+              14
+            ]
+          ],
+          "people": 1700,
+          "label": "Back field"
+        }
+      ]
+    }
+  ],
+  "stairs": [],
+  "stage": {
+    "width_m": 20,
+    "depth_m": 8,
+    "roof_height_m": 12,
+    "roof_area_m2": 160,
+    "legs": 6,
+    "ballast_kg_per_leg": 2000,
+    "friction_coeff": 0.5,
+    "force_coeff": 1.3,
+    "banner_area_m2": 60
+  },
+  "location": {
+    "lat": 23.7806,
+    "lon": 90.4193,
+    "timezone": "Asia/Dhaka",
+    "event_start": "2026-11-20T18:00:00"
+  },
+  "rules_profile": "default"
+}

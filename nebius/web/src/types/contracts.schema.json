@@ -1,0 +1,2406 @@
+{
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "title": "ShowtimeContracts",
+ "type": "object",
+ "definitions": {
+  "ApiError": {
+   "description": "Consistent error body for every non-2xx response.",
+   "properties": {
+    "code": {
+     "title": "Code",
+     "type": "string"
+    },
+    "message": {
+     "title": "Message",
+     "type": "string"
+    },
+    "hint": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Hint"
+    },
+    "details": {
+     "additionalProperties": true,
+     "title": "Details",
+     "type": "object"
+    }
+   },
+   "required": [
+    "code",
+    "details",
+    "hint",
+    "message"
+   ],
+   "title": "ApiError",
+   "type": "object"
+  },
+  "Attack": {
+   "additionalProperties": false,
+   "description": "A red-team scenario.",
+   "properties": {
+    "schema_version": {
+     "default": 1,
+     "title": "Schema Version",
+     "type": "integer"
+    },
+    "attack_id": {
+     "title": "Attack Id",
+     "type": "string"
+    },
+    "title": {
+     "title": "Title",
+     "type": "string"
+    },
+    "events": {
+     "items": {
+      "$ref": "#/definitions/ScenarioEventIn"
+     },
+     "maxItems": 8,
+     "minItems": 1,
+     "title": "Events",
+     "type": "array"
+    },
+    "inspired_by": {
+     "$ref": "#/definitions/InspiredBy"
+    },
+    "rationale": {
+     "default": "",
+     "title": "Rationale",
+     "type": "string"
+    },
+    "extensions": {
+     "additionalProperties": true,
+     "title": "Extensions",
+     "type": "object"
+    }
+   },
+   "required": [
+    "attack_id",
+    "events",
+    "extensions",
+    "inspired_by",
+    "rationale",
+    "schema_version",
+    "title"
+   ],
+   "title": "Attack",
+   "type": "object"
+  },
+  "Check": {
+   "description": "One validation finding, located so the UI can highlight it in 3D.",
+   "properties": {
+    "code": {
+     "title": "Code",
+     "type": "string"
+    },
+    "severity": {
+     "enum": [
+      "error",
+      "warning",
+      "info"
+     ],
+     "title": "Severity",
+     "type": "string"
+    },
+    "message": {
+     "title": "Message",
+     "type": "string"
+    },
+    "hint": {
+     "default": "",
+     "title": "Hint",
+     "type": "string"
+    },
+    "target_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Target Ids",
+     "type": "array"
+    },
+    "floor_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Floor Id"
+    },
+    "x": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "X"
+    },
+    "y": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Y"
+    }
+   },
+   "required": [
+    "code",
+    "floor_id",
+    "hint",
+    "message",
+    "severity",
+    "target_ids",
+    "x",
+    "y"
+   ],
+   "title": "Check",
+   "type": "object"
+  },
+  "Countdown": {
+   "description": "Latest safe time to start evacuating: T_latest = T_hazard - (T_pre + RSET x SF).",
+   "properties": {
+    "status": {
+     "enum": [
+      "ok",
+      "too_late",
+      "no_hazard",
+      "unknown"
+     ],
+     "title": "Status",
+     "type": "string"
+    },
+    "t_hazard_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "T Hazard S"
+    },
+    "t_hazard_iso": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "T Hazard Iso"
+    },
+    "t_latest_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "T Latest S"
+    },
+    "t_latest_iso": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "T Latest Iso"
+    },
+    "rset_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Rset S"
+    },
+    "pre_movement_s": {
+     "title": "Pre Movement S",
+     "type": "number"
+    },
+    "safety_factor": {
+     "title": "Safety Factor",
+     "type": "number"
+    },
+    "hazard_source": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Hazard Source"
+    },
+    "hazard_explanation": {
+     "default": "",
+     "title": "Hazard Explanation",
+     "type": "string"
+    },
+    "rset_source": {
+     "default": "",
+     "title": "Rset Source",
+     "type": "string"
+    },
+    "formula": {
+     "default": "T_latest = T_hazard \u2212 (T_pre_movement + RSET \u00d7 safety factor)",
+     "title": "Formula",
+     "type": "string"
+    }
+   },
+   "required": [
+    "formula",
+    "hazard_explanation",
+    "hazard_source",
+    "pre_movement_s",
+    "rset_s",
+    "rset_source",
+    "safety_factor",
+    "status",
+    "t_hazard_iso",
+    "t_hazard_s",
+    "t_latest_iso",
+    "t_latest_s"
+   ],
+   "title": "Countdown",
+   "type": "object"
+  },
+  "Exit": {
+   "additionalProperties": false,
+   "description": "An exit area placed just inside the walkable boundary.",
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "polygon": {
+     "items": {
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "items": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ]
+     },
+     "title": "Polygon",
+     "type": "array"
+    },
+    "width_m": {
+     "exclusiveMinimum": 0,
+     "maximum": 50,
+     "title": "Width M",
+     "type": "number"
+    },
+    "blocked": {
+     "default": false,
+     "title": "Blocked",
+     "type": "boolean"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Label"
+    }
+   },
+   "required": [
+    "blocked",
+    "id",
+    "label",
+    "polygon",
+    "width_m"
+   ],
+   "title": "Exit",
+   "type": "object"
+  },
+  "Fix": {
+   "additionalProperties": false,
+   "description": "A blue-team fix: a venue patch and/or operational measures.",
+   "properties": {
+    "schema_version": {
+     "default": 1,
+     "title": "Schema Version",
+     "type": "integer"
+    },
+    "fix_id": {
+     "title": "Fix Id",
+     "type": "string"
+    },
+    "for_attack": {
+     "title": "For Attack",
+     "type": "string"
+    },
+    "title": {
+     "title": "Title",
+     "type": "string"
+    },
+    "patch": {
+     "$ref": "#/definitions/VenuePatch"
+    },
+    "operational": {
+     "items": {
+      "$ref": "#/definitions/ScenarioEventIn"
+     },
+     "maxItems": 8,
+     "title": "Operational",
+     "type": "array"
+    },
+    "rationale": {
+     "default": "",
+     "title": "Rationale",
+     "type": "string"
+    },
+    "cost_label": {
+     "default": "medium",
+     "enum": [
+      "low",
+      "medium",
+      "high"
+     ],
+     "title": "Cost Label",
+     "type": "string"
+    },
+    "extensions": {
+     "additionalProperties": true,
+     "title": "Extensions",
+     "type": "object"
+    }
+   },
+   "required": [
+    "cost_label",
+    "extensions",
+    "fix_id",
+    "for_attack",
+    "operational",
+    "patch",
+    "rationale",
+    "schema_version",
+    "title"
+   ],
+   "title": "Fix",
+   "type": "object"
+  },
+  "Floor": {
+   "additionalProperties": false,
+   "description": "One storey (or the ground of an open-air site).",
+   "properties": {
+    "floor_id": {
+     "title": "Floor Id",
+     "type": "string"
+    },
+    "name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Name"
+    },
+    "elevation_m": {
+     "default": 0.0,
+     "title": "Elevation M",
+     "type": "number"
+    },
+    "walkable": {
+     "items": {
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "items": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ]
+     },
+     "title": "Walkable",
+     "type": "array"
+    },
+    "obstacles": {
+     "items": {
+      "$ref": "#/definitions/Obstacle"
+     },
+     "title": "Obstacles",
+     "type": "array"
+    },
+    "exits": {
+     "items": {
+      "$ref": "#/definitions/Exit"
+     },
+     "title": "Exits",
+     "type": "array"
+    },
+    "zones": {
+     "items": {
+      "$ref": "#/definitions/Zone"
+     },
+     "title": "Zones",
+     "type": "array"
+    }
+   },
+   "required": [
+    "elevation_m",
+    "exits",
+    "floor_id",
+    "name",
+    "obstacles",
+    "walkable",
+    "zones"
+   ],
+   "title": "Floor",
+   "type": "object"
+  },
+  "HazardResult": {
+   "description": "When the venue becomes unsafe, and why. `t_hazard_s` is seconds after event start.",
+   "properties": {
+    "source": {
+     "title": "Source",
+     "type": "string"
+    },
+    "t_hazard_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "T Hazard S"
+    },
+    "t_hazard_iso": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "T Hazard Iso"
+    },
+    "explanation": {
+     "title": "Explanation",
+     "type": "string"
+    },
+    "details": {
+     "additionalProperties": true,
+     "default": {},
+     "title": "Details",
+     "type": "object"
+    },
+    "label": {
+     "default": "screening estimate",
+     "title": "Label",
+     "type": "string"
+    }
+   },
+   "required": [
+    "details",
+    "explanation",
+    "label",
+    "source",
+    "t_hazard_iso",
+    "t_hazard_s"
+   ],
+   "title": "HazardResult",
+   "type": "object"
+  },
+  "Hotspot": {
+   "description": "A cluster of grid cells over the warning threshold.",
+   "properties": {
+    "floor_id": {
+     "title": "Floor Id",
+     "type": "string"
+    },
+    "x": {
+     "title": "X",
+     "type": "number"
+    },
+    "y": {
+     "title": "Y",
+     "type": "number"
+    },
+    "peak_density_ppm2": {
+     "title": "Peak Density Ppm2",
+     "type": "number"
+    },
+    "t_s": {
+     "title": "T S",
+     "type": "number"
+    },
+    "level": {
+     "default": "warning",
+     "enum": [
+      "warning",
+      "danger"
+     ],
+     "title": "Level",
+     "type": "string"
+    },
+    "near": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Near"
+    }
+   },
+   "required": [
+    "floor_id",
+    "level",
+    "near",
+    "peak_density_ppm2",
+    "t_s",
+    "x",
+    "y"
+   ],
+   "title": "Hotspot",
+   "type": "object"
+  },
+  "IncidentRecord": {
+   "description": "One real crowd incident from a dataset.",
+   "properties": {
+    "row_id": {
+     "title": "Row Id",
+     "type": "integer"
+    },
+    "year": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "title": "Year"
+    },
+    "country": {
+     "default": "",
+     "title": "Country",
+     "type": "string"
+    },
+    "city": {
+     "default": "",
+     "title": "City",
+     "type": "string"
+    },
+    "event_type": {
+     "default": "",
+     "title": "Event Type",
+     "type": "string"
+    },
+    "deaths": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Deaths"
+    },
+    "injuries": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Injuries"
+    },
+    "keywords": {
+     "default": [],
+     "items": {
+      "type": "string"
+     },
+     "title": "Keywords",
+     "type": "array"
+    },
+    "description": {
+     "default": "",
+     "title": "Description",
+     "type": "string"
+    },
+    "source_url": {
+     "title": "Source Url",
+     "type": "string"
+    },
+    "setting": {
+     "default": "",
+     "title": "Setting",
+     "type": "string"
+    },
+    "name": {
+     "default": "",
+     "title": "Name",
+     "type": "string"
+    },
+    "date": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Date"
+    },
+    "crowd_size": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Crowd Size"
+    },
+    "dataset_url": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Dataset Url"
+    },
+    "dataset": {
+     "default": "",
+     "title": "Dataset",
+     "type": "string"
+    }
+   },
+   "required": [
+    "city",
+    "country",
+    "crowd_size",
+    "dataset",
+    "dataset_url",
+    "date",
+    "deaths",
+    "description",
+    "event_type",
+    "injuries",
+    "keywords",
+    "name",
+    "row_id",
+    "setting",
+    "source_url",
+    "year"
+   ],
+   "title": "IncidentRecord",
+   "type": "object"
+  },
+  "InspiredBy": {
+   "additionalProperties": false,
+   "description": "The real incident an attack is grounded in. `source_url` is mandatory.",
+   "properties": {
+    "incident": {
+     "title": "Incident",
+     "type": "string"
+    },
+    "year": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Year"
+    },
+    "source_url": {
+     "format": "uri",
+     "maxLength": 2083,
+     "minLength": 1,
+     "title": "Source Url",
+     "type": "string"
+    },
+    "evidence": {
+     "default": "",
+     "title": "Evidence",
+     "type": "string"
+    },
+    "dataset_row": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Dataset Row"
+    }
+   },
+   "required": [
+    "dataset_row",
+    "evidence",
+    "incident",
+    "source_url",
+    "year"
+   ],
+   "title": "InspiredBy",
+   "type": "object"
+  },
+  "Location": {
+   "additionalProperties": false,
+   "description": "Where and when the event happens.",
+   "properties": {
+    "lat": {
+     "maximum": 90,
+     "minimum": -90,
+     "title": "Lat",
+     "type": "number"
+    },
+    "lon": {
+     "maximum": 180,
+     "minimum": -180,
+     "title": "Lon",
+     "type": "number"
+    },
+    "timezone": {
+     "default": "UTC",
+     "title": "Timezone",
+     "type": "string"
+    },
+    "event_start": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Event Start"
+    }
+   },
+   "required": [
+    "event_start",
+    "lat",
+    "lon",
+    "timezone"
+   ],
+   "title": "Location",
+   "type": "object"
+  },
+  "Obstacle": {
+   "additionalProperties": false,
+   "description": "A non-walkable area on a floor (stage, wall segment, barrier, ...).",
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "kind": {
+     "default": "other",
+     "enum": [
+      "stage",
+      "wall",
+      "barrier",
+      "fence",
+      "booth",
+      "seating",
+      "column",
+      "bar",
+      "other"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "polygon": {
+     "items": {
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "items": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ]
+     },
+     "title": "Polygon",
+     "type": "array"
+    },
+    "height_m": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Height M"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Label"
+    },
+    "line": {
+     "anyOf": [
+      {
+       "items": {
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array",
+        "items": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "number"
+         }
+        ]
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Line"
+    }
+   },
+   "required": [
+    "height_m",
+    "id",
+    "kind",
+    "label",
+    "line",
+    "polygon"
+   ],
+   "title": "Obstacle",
+   "type": "object"
+  },
+  "PatchOpIn": {
+   "additionalProperties": true,
+   "description": "One edit operation; validated by the `PatchOp` plugin registered for `op`.",
+   "properties": {
+    "op": {
+     "title": "Op",
+     "type": "string"
+    }
+   },
+   "required": [
+    "op"
+   ],
+   "title": "PatchOpIn",
+   "type": "object"
+  },
+  "PerExit": {
+   "description": "Load and flow through one exit.",
+   "properties": {
+    "exit_id": {
+     "title": "Exit Id",
+     "type": "string"
+    },
+    "people": {
+     "title": "People",
+     "type": "integer"
+    },
+    "mean_flow_pps": {
+     "title": "Mean Flow Pps",
+     "type": "number"
+    },
+    "first_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "First S"
+    },
+    "last_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Last S"
+    }
+   },
+   "required": [
+    "exit_id",
+    "first_s",
+    "last_s",
+    "mean_flow_pps",
+    "people"
+   ],
+   "title": "PerExit",
+   "type": "object"
+  },
+  "ReportBundle": {
+   "description": "Everything an exporter needs. Built by core from stored results only.",
+   "properties": {
+    "project_name": {
+     "title": "Project Name",
+     "type": "string"
+    },
+    "venue": {
+     "$ref": "#/definitions/Venue"
+    },
+    "venue_version": {
+     "title": "Venue Version",
+     "type": "integer"
+    },
+    "baseline": {
+     "anyOf": [
+      {
+       "$ref": "#/definitions/RunResult"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "final": {
+     "anyOf": [
+      {
+       "$ref": "#/definitions/RunResult"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "attacks": {
+     "default": [],
+     "items": {
+      "$ref": "#/definitions/Attack"
+     },
+     "title": "Attacks",
+     "type": "array"
+    },
+    "fixes": {
+     "default": [],
+     "items": {
+      "$ref": "#/definitions/Fix"
+     },
+     "title": "Fixes",
+     "type": "array"
+    },
+    "results": {
+     "additionalProperties": {
+      "$ref": "#/definitions/RunResult"
+     },
+     "default": {},
+     "title": "Results",
+     "type": "object"
+    },
+    "accepted_fix_ids": {
+     "default": [],
+     "items": {
+      "type": "string"
+     },
+     "title": "Accepted Fix Ids",
+     "type": "array"
+    },
+    "countdown": {
+     "anyOf": [
+      {
+       "$ref": "#/definitions/Countdown"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "hazard": {
+     "anyOf": [
+      {
+       "$ref": "#/definitions/HazardResult"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "rules": {
+     "default": [],
+     "items": {
+      "$ref": "#/definitions/RuleFinding"
+     },
+     "title": "Rules",
+     "type": "array"
+    },
+    "assumptions": {
+     "default": [],
+     "items": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object"
+     },
+     "title": "Assumptions",
+     "type": "array"
+    },
+    "sources": {
+     "default": [],
+     "items": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "type": "object"
+     },
+     "title": "Sources",
+     "type": "array"
+    },
+    "exit_assignment": {
+     "additionalProperties": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object"
+     },
+     "default": {},
+     "title": "Exit Assignment",
+     "type": "object"
+    },
+    "summary_text": {
+     "default": "",
+     "title": "Summary Text",
+     "type": "string"
+    },
+    "generated_at": {
+     "title": "Generated At",
+     "type": "string"
+    },
+    "session_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Session Id"
+    },
+    "disclaimer": {
+     "default": "Planning aid, not a safety certification.",
+     "title": "Disclaimer",
+     "type": "string"
+    },
+    "density_danger_ppm2": {
+     "default": 5.0,
+     "title": "Density Danger Ppm2",
+     "type": "number"
+    },
+    "density_warn_ppm2": {
+     "default": 3.5,
+     "title": "Density Warn Ppm2",
+     "type": "number"
+    },
+    "provider_label": {
+     "default": "LOCAL",
+     "title": "Provider Label",
+     "type": "string"
+    },
+    "tokens_total": {
+     "default": 0,
+     "title": "Tokens Total",
+     "type": "integer"
+    },
+    "cost_usd": {
+     "default": 0.0,
+     "title": "Cost Usd",
+     "type": "number"
+    }
+   },
+   "required": [
+    "accepted_fix_ids",
+    "assumptions",
+    "attacks",
+    "baseline",
+    "cost_usd",
+    "countdown",
+    "density_danger_ppm2",
+    "density_warn_ppm2",
+    "disclaimer",
+    "exit_assignment",
+    "final",
+    "fixes",
+    "generated_at",
+    "hazard",
+    "project_name",
+    "provider_label",
+    "results",
+    "rules",
+    "session_id",
+    "sources",
+    "summary_text",
+    "tokens_total",
+    "venue",
+    "venue_version"
+   ],
+   "title": "ReportBundle",
+   "type": "object"
+  },
+  "RuleFinding": {
+   "description": "Result of checking one rule against a venue.",
+   "properties": {
+    "rule_id": {
+     "title": "Rule Id",
+     "type": "string"
+    },
+    "status": {
+     "enum": [
+      "pass",
+      "fail",
+      "unknown"
+     ],
+     "title": "Status",
+     "type": "string"
+    },
+    "message": {
+     "title": "Message",
+     "type": "string"
+    },
+    "metric": {
+     "title": "Metric",
+     "type": "string"
+    },
+    "value": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Value"
+    },
+    "limit": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Limit"
+    },
+    "unit": {
+     "default": "",
+     "title": "Unit",
+     "type": "string"
+    },
+    "source_url": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Source Url"
+    },
+    "target_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Target Id"
+    },
+    "confirmed": {
+     "default": false,
+     "title": "Confirmed",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "confirmed",
+    "limit",
+    "message",
+    "metric",
+    "rule_id",
+    "source_url",
+    "status",
+    "target_id",
+    "unit",
+    "value"
+   ],
+   "title": "RuleFinding",
+   "type": "object"
+  },
+  "RunArtifacts": {
+   "description": "Paths (relative to the project root) of the run's binary artifacts.",
+   "properties": {
+    "trajectory": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Trajectory"
+    },
+    "trajectory_index": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Trajectory Index"
+    },
+    "density_grid": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Density Grid"
+    },
+    "density_index": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Density Index"
+    },
+    "raw": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Raw"
+    }
+   },
+   "title": "RunArtifacts",
+   "type": "object",
+   "required": [
+    "density_grid",
+    "density_index",
+    "raw",
+    "trajectory",
+    "trajectory_index"
+   ]
+  },
+  "RunMetrics": {
+   "description": "Headline metrics. Every number is computed by a formula or the simulator.",
+   "properties": {
+    "evac_time_p95_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Evac Time P95 S"
+    },
+    "evac_time_max_s": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Evac Time Max S"
+    },
+    "peak_density_ppm2": {
+     "default": 0.0,
+     "title": "Peak Density Ppm2",
+     "type": "number"
+    },
+    "time_above_danger_s": {
+     "default": 0.0,
+     "title": "Time Above Danger S",
+     "type": "number"
+    },
+    "time_above_warning_s": {
+     "default": 0.0,
+     "title": "Time Above Warning S",
+     "type": "number"
+    },
+    "agents_total": {
+     "default": 0,
+     "title": "Agents Total",
+     "type": "integer"
+    },
+    "agents_evacuated": {
+     "default": 0,
+     "title": "Agents Evacuated",
+     "type": "integer"
+    },
+    "agents_not_evacuated": {
+     "default": 0,
+     "title": "Agents Not Evacuated",
+     "type": "integer"
+    },
+    "per_exit": {
+     "items": {
+      "$ref": "#/definitions/PerExit"
+     },
+     "title": "Per Exit",
+     "type": "array"
+    },
+    "extra": {
+     "additionalProperties": {
+      "type": "number"
+     },
+     "title": "Extra",
+     "type": "object"
+    }
+   },
+   "title": "RunMetrics",
+   "type": "object",
+   "required": [
+    "agents_evacuated",
+    "agents_not_evacuated",
+    "agents_total",
+    "evac_time_max_s",
+    "evac_time_p95_s",
+    "extra",
+    "peak_density_ppm2",
+    "per_exit",
+    "time_above_danger_s",
+    "time_above_warning_s"
+   ]
+  },
+  "RunRequest": {
+   "additionalProperties": false,
+   "description": "Everything needed to reproduce a run. Same request hash -> same run.",
+   "properties": {
+    "schema_version": {
+     "default": 1,
+     "title": "Schema Version",
+     "type": "integer"
+    },
+    "run_id": {
+     "default": "auto",
+     "title": "Run Id",
+     "type": "string"
+    },
+    "venue_id": {
+     "title": "Venue Id",
+     "type": "string"
+    },
+    "venue_hash": {
+     "default": "",
+     "title": "Venue Hash",
+     "type": "string"
+    },
+    "attack_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Attack Id"
+    },
+    "fix_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fix Id"
+    },
+    "tier": {
+     "default": 3,
+     "enum": [
+      1,
+      2,
+      3
+     ],
+     "title": "Tier",
+     "type": "integer"
+    },
+    "seed": {
+     "default": 42,
+     "title": "Seed",
+     "type": "integer"
+    },
+    "max_people": {
+     "default": 3000,
+     "maximum": 20000,
+     "minimum": 1,
+     "title": "Max People",
+     "type": "integer"
+    },
+    "max_sim_s": {
+     "default": 900.0,
+     "exclusiveMinimum": 0,
+     "maximum": 3600,
+     "title": "Max Sim S",
+     "type": "number"
+    },
+    "max_wall_s": {
+     "default": 240.0,
+     "exclusiveMinimum": 0,
+     "maximum": 3600,
+     "title": "Max Wall S",
+     "type": "number"
+    },
+    "intervention_at_s": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Intervention At S"
+    },
+    "engine": {
+     "default": "jupedsim",
+     "title": "Engine",
+     "type": "string"
+    },
+    "metrics": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Metrics",
+     "type": "array"
+    },
+    "parent_run_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Parent Run Id"
+    },
+    "extensions": {
+     "additionalProperties": true,
+     "title": "Extensions",
+     "type": "object"
+    }
+   },
+   "required": [
+    "attack_id",
+    "engine",
+    "extensions",
+    "fix_id",
+    "intervention_at_s",
+    "max_people",
+    "max_sim_s",
+    "max_wall_s",
+    "metrics",
+    "parent_run_id",
+    "run_id",
+    "schema_version",
+    "seed",
+    "tier",
+    "venue_hash",
+    "venue_id"
+   ],
+   "title": "RunRequest",
+   "type": "object"
+  },
+  "RunResult": {
+   "additionalProperties": false,
+   "description": "Output of any tier. Tier 1 has no artifacts.",
+   "properties": {
+    "schema_version": {
+     "default": 1,
+     "title": "Schema Version",
+     "type": "integer"
+    },
+    "run_id": {
+     "title": "Run Id",
+     "type": "string"
+    },
+    "tier": {
+     "enum": [
+      1,
+      2,
+      3
+     ],
+     "title": "Tier",
+     "type": "integer"
+    },
+    "status": {
+     "enum": [
+      "queued",
+      "running",
+      "ok",
+      "partial",
+      "timeout",
+      "failed",
+      "cancelled"
+     ],
+     "title": "Status",
+     "type": "string"
+    },
+    "engine": {
+     "default": "jupedsim",
+     "title": "Engine",
+     "type": "string"
+    },
+    "metrics": {
+     "$ref": "#/definitions/RunMetrics"
+    },
+    "hotspots": {
+     "items": {
+      "$ref": "#/definitions/Hotspot"
+     },
+     "title": "Hotspots",
+     "type": "array"
+    },
+    "artifacts": {
+     "$ref": "#/definitions/RunArtifacts"
+    },
+    "runtime_s": {
+     "default": 0.0,
+     "title": "Runtime S",
+     "type": "number"
+    },
+    "provider": {
+     "default": "docker",
+     "title": "Provider",
+     "type": "string"
+    },
+    "parent_run_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Parent Run Id"
+    },
+    "venue_hash": {
+     "default": "",
+     "title": "Venue Hash",
+     "type": "string"
+    },
+    "seed": {
+     "default": 0,
+     "title": "Seed",
+     "type": "integer"
+    },
+    "attack_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Attack Id"
+    },
+    "fix_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Fix Id"
+    },
+    "sim_time_s": {
+     "default": 0.0,
+     "title": "Sim Time S",
+     "type": "number"
+    },
+    "notes": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Notes",
+     "type": "array"
+    },
+    "error": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Error"
+    },
+    "extensions": {
+     "additionalProperties": true,
+     "title": "Extensions",
+     "type": "object"
+    }
+   },
+   "required": [
+    "artifacts",
+    "attack_id",
+    "engine",
+    "error",
+    "extensions",
+    "fix_id",
+    "hotspots",
+    "metrics",
+    "notes",
+    "parent_run_id",
+    "provider",
+    "run_id",
+    "runtime_s",
+    "schema_version",
+    "seed",
+    "sim_time_s",
+    "status",
+    "tier",
+    "venue_hash"
+   ],
+   "title": "RunResult",
+   "type": "object"
+  },
+  "ScenarioEventIn": {
+   "additionalProperties": true,
+   "description": "One timed event; validated by the `ScenarioEvent` plugin registered for `type`.",
+   "properties": {
+    "type": {
+     "title": "Type",
+     "type": "string"
+    },
+    "at_s": {
+     "default": 0.0,
+     "minimum": 0,
+     "title": "At S",
+     "type": "number"
+    }
+   },
+   "required": [
+    "at_s",
+    "type"
+   ],
+   "title": "ScenarioEventIn",
+   "type": "object"
+  },
+  "SessionEvent": {
+   "description": "One event in a red-team session stream.",
+   "properties": {
+    "seq": {
+     "default": 0,
+     "title": "Seq",
+     "type": "integer"
+    },
+    "type": {
+     "enum": [
+      "agent_call",
+      "tool_call",
+      "run_started",
+      "run_finished",
+      "attack_card",
+      "fix_card",
+      "branch_node",
+      "score",
+      "cost",
+      "countdown",
+      "log",
+      "status",
+      "marshal"
+     ],
+     "title": "Type",
+     "type": "string"
+    },
+    "ts": {
+     "title": "Ts",
+     "type": "string"
+    },
+    "payload": {
+     "additionalProperties": true,
+     "title": "Payload",
+     "type": "object"
+    }
+   },
+   "required": [
+    "payload",
+    "seq",
+    "ts",
+    "type"
+   ],
+   "title": "SessionEvent",
+   "type": "object"
+  },
+  "StageCheckResult": {
+   "description": "Wind limit and the check that governs it.",
+   "properties": {
+    "v_limit_ms": {
+     "title": "V Limit Ms",
+     "type": "number"
+    },
+    "governing": {
+     "title": "Governing",
+     "type": "string"
+    },
+    "limits_ms": {
+     "additionalProperties": {
+      "type": "number"
+     },
+     "title": "Limits Ms",
+     "type": "object"
+    },
+    "wind_direction": {
+     "title": "Wind Direction",
+     "type": "string"
+    },
+    "assumptions": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Assumptions",
+     "type": "array"
+    },
+    "label": {
+     "default": "screening estimate",
+     "title": "Label",
+     "type": "string"
+    },
+    "formula": {
+     "default": "q = 0.613\u00b7Kz\u00b7Kzt\u00b7Kd\u00b7V\u00b2",
+     "title": "Formula",
+     "type": "string"
+    }
+   },
+   "required": [
+    "assumptions",
+    "formula",
+    "governing",
+    "label",
+    "limits_ms",
+    "v_limit_ms",
+    "wind_direction"
+   ],
+   "title": "StageCheckResult",
+   "type": "object"
+  },
+  "StageParams": {
+   "additionalProperties": false,
+   "description": "Temporary stage structure used by the wind screening check.",
+   "properties": {
+    "width_m": {
+     "exclusiveMinimum": 0,
+     "title": "Width M",
+     "type": "number"
+    },
+    "depth_m": {
+     "exclusiveMinimum": 0,
+     "title": "Depth M",
+     "type": "number"
+    },
+    "roof_height_m": {
+     "exclusiveMinimum": 0,
+     "title": "Roof Height M",
+     "type": "number"
+    },
+    "roof_area_m2": {
+     "exclusiveMinimum": 0,
+     "title": "Roof Area M2",
+     "type": "number"
+    },
+    "legs": {
+     "maximum": 24,
+     "minimum": 4,
+     "title": "Legs",
+     "type": "integer"
+    },
+    "ballast_kg_per_leg": {
+     "minimum": 0,
+     "title": "Ballast Kg Per Leg",
+     "type": "number"
+    },
+    "friction_coeff": {
+     "exclusiveMinimum": 0,
+     "maximum": 1.5,
+     "title": "Friction Coeff",
+     "type": "number"
+    },
+    "force_coeff": {
+     "exclusiveMinimum": 0,
+     "maximum": 3,
+     "title": "Force Coeff",
+     "type": "number"
+    },
+    "banner_area_m2": {
+     "default": 0.0,
+     "minimum": 0,
+     "title": "Banner Area M2",
+     "type": "number"
+    }
+   },
+   "required": [
+    "ballast_kg_per_leg",
+    "banner_area_m2",
+    "depth_m",
+    "force_coeff",
+    "friction_coeff",
+    "legs",
+    "roof_area_m2",
+    "roof_height_m",
+    "width_m"
+   ],
+   "title": "StageParams",
+   "type": "object"
+  },
+  "Stair": {
+   "additionalProperties": false,
+   "description": "A stair connecting an upper floor (top) to a lower floor (bottom).",
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "from_floor": {
+     "title": "From Floor",
+     "type": "string"
+    },
+    "to_floor": {
+     "title": "To Floor",
+     "type": "string"
+    },
+    "top_polygon": {
+     "items": {
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "items": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ]
+     },
+     "title": "Top Polygon",
+     "type": "array"
+    },
+    "bottom_polygon": {
+     "items": {
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "items": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ]
+     },
+     "title": "Bottom Polygon",
+     "type": "array"
+    },
+    "width_m": {
+     "exclusiveMinimum": 0,
+     "title": "Width M",
+     "type": "number"
+    },
+    "length_m": {
+     "exclusiveMinimum": 0,
+     "title": "Length M",
+     "type": "number"
+    }
+   },
+   "required": [
+    "bottom_polygon",
+    "from_floor",
+    "id",
+    "length_m",
+    "to_floor",
+    "top_polygon",
+    "width_m"
+   ],
+   "title": "Stair",
+   "type": "object"
+  },
+  "Usage": {
+   "description": "Token usage and cost of one LLM call.",
+   "properties": {
+    "role": {
+     "title": "Role",
+     "type": "string"
+    },
+    "model": {
+     "title": "Model",
+     "type": "string"
+    },
+    "prompt_tokens": {
+     "default": 0,
+     "title": "Prompt Tokens",
+     "type": "integer"
+    },
+    "completion_tokens": {
+     "default": 0,
+     "title": "Completion Tokens",
+     "type": "integer"
+    },
+    "cost_usd": {
+     "default": 0.0,
+     "title": "Cost Usd",
+     "type": "number"
+    },
+    "cached": {
+     "default": false,
+     "title": "Cached",
+     "type": "boolean"
+    },
+    "provider": {
+     "default": "local",
+     "title": "Provider",
+     "type": "string"
+    }
+   },
+   "required": [
+    "cached",
+    "completion_tokens",
+    "cost_usd",
+    "model",
+    "prompt_tokens",
+    "provider",
+    "role"
+   ],
+   "title": "Usage",
+   "type": "object"
+  },
+  "ValidationReport": {
+   "description": "All findings for a venue.",
+   "properties": {
+    "ok": {
+     "title": "Ok",
+     "type": "boolean"
+    },
+    "checks": {
+     "items": {
+      "$ref": "#/definitions/Check"
+     },
+     "title": "Checks",
+     "type": "array"
+    }
+   },
+   "required": [
+    "checks",
+    "ok"
+   ],
+   "title": "ValidationReport",
+   "type": "object"
+  },
+  "Venue": {
+   "additionalProperties": false,
+   "description": "The single source of truth for a venue; edited only through patches.",
+   "properties": {
+    "schema_version": {
+     "default": 1,
+     "title": "Schema Version",
+     "type": "integer"
+    },
+    "venue_id": {
+     "title": "Venue Id",
+     "type": "string"
+    },
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "description": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Description"
+    },
+    "mode": {
+     "enum": [
+      "indoor",
+      "outdoor"
+     ],
+     "title": "Mode",
+     "type": "string"
+    },
+    "floors": {
+     "items": {
+      "$ref": "#/definitions/Floor"
+     },
+     "minItems": 1,
+     "title": "Floors",
+     "type": "array"
+    },
+    "stairs": {
+     "items": {
+      "$ref": "#/definitions/Stair"
+     },
+     "title": "Stairs",
+     "type": "array"
+    },
+    "stage": {
+     "anyOf": [
+      {
+       "$ref": "#/definitions/StageParams"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "location": {
+     "anyOf": [
+      {
+       "$ref": "#/definitions/Location"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "rules_profile": {
+     "default": "default",
+     "title": "Rules Profile",
+     "type": "string"
+    },
+    "extensions": {
+     "additionalProperties": true,
+     "title": "Extensions",
+     "type": "object"
+    }
+   },
+   "required": [
+    "description",
+    "extensions",
+    "floors",
+    "location",
+    "mode",
+    "name",
+    "rules_profile",
+    "schema_version",
+    "stage",
+    "stairs",
+    "venue_id"
+   ],
+   "title": "Venue",
+   "type": "object"
+  },
+  "VenuePatch": {
+   "additionalProperties": false,
+   "description": "A list of edit operations applied atomically to a venue.",
+   "properties": {
+    "schema_version": {
+     "default": 1,
+     "title": "Schema Version",
+     "type": "integer"
+    },
+    "ops": {
+     "items": {
+      "$ref": "#/definitions/PatchOpIn"
+     },
+     "maxItems": 50,
+     "title": "Ops",
+     "type": "array"
+    }
+   },
+   "title": "VenuePatch",
+   "type": "object",
+   "required": [
+    "ops",
+    "schema_version"
+   ]
+  },
+  "Zone": {
+   "additionalProperties": false,
+   "description": "A starting area with a headcount.",
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "polygon": {
+     "items": {
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "items": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ]
+     },
+     "title": "Polygon",
+     "type": "array"
+    },
+    "people": {
+     "maximum": 100000,
+     "minimum": 0,
+     "title": "People",
+     "type": "integer"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Label"
+    }
+   },
+   "required": [
+    "id",
+    "label",
+    "people",
+    "polygon"
+   ],
+   "title": "Zone",
+   "type": "object"
+  }
+ },
+ "properties": {
+  "Venue": {
+   "$ref": "#/definitions/Venue"
+  },
+  "VenuePatch": {
+   "$ref": "#/definitions/VenuePatch"
+  },
+  "PatchOpIn": {
+   "$ref": "#/definitions/PatchOpIn"
+  },
+  "StageParams": {
+   "$ref": "#/definitions/StageParams"
+  },
+  "Attack": {
+   "$ref": "#/definitions/Attack"
+  },
+  "Fix": {
+   "$ref": "#/definitions/Fix"
+  },
+  "RunRequest": {
+   "$ref": "#/definitions/RunRequest"
+  },
+  "RunResult": {
+   "$ref": "#/definitions/RunResult"
+  },
+  "SessionEvent": {
+   "$ref": "#/definitions/SessionEvent"
+  },
+  "Countdown": {
+   "$ref": "#/definitions/Countdown"
+  },
+  "Usage": {
+   "$ref": "#/definitions/Usage"
+  },
+  "ApiError": {
+   "$ref": "#/definitions/ApiError"
+  },
+  "HazardResult": {
+   "$ref": "#/definitions/HazardResult"
+  },
+  "Check": {
+   "$ref": "#/definitions/Check"
+  },
+  "ValidationReport": {
+   "$ref": "#/definitions/ValidationReport"
+  },
+  "StageCheckResult": {
+   "$ref": "#/definitions/StageCheckResult"
+  },
+  "RuleFinding": {
+   "$ref": "#/definitions/RuleFinding"
+  },
+  "IncidentRecord": {
+   "$ref": "#/definitions/IncidentRecord"
+  },
+  "ReportBundle": {
+   "$ref": "#/definitions/ReportBundle"
+  }
+ },
+ "required": [
+  "ApiError",
+  "Attack",
+  "Check",
+  "Countdown",
+  "Fix",
+  "HazardResult",
+  "IncidentRecord",
+  "PatchOpIn",
+  "ReportBundle",
+  "RuleFinding",
+  "RunRequest",
+  "RunResult",
+  "SessionEvent",
+  "StageCheckResult",
+  "StageParams",
+  "Usage",
+  "ValidationReport",
+  "Venue",
+  "VenuePatch"
+ ]
+}

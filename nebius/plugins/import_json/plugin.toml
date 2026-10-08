@@ -1,0 +1,10 @@
+[plugin]
+id = "import_json"
+name = "Venue import: JSON"
+version = "0.1.0"
+api_version = "1"
+provides = ["VenueImporter"]
+requires = []
+enabled_by_default = true
+
+[config]

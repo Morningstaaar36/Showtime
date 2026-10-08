@@ -1,0 +1,11 @@
+# Source this file to use the project-local toolchain (everything stays inside the repo folder).
+_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
+export PATH="$_ROOT/.tools/bin:$PATH"
+export UV_CACHE_DIR="$_ROOT/.tools/uv-cache"
+export UV_PYTHON_INSTALL_DIR="$_ROOT/.tools/python"
+export UV_TOOL_DIR="$_ROOT/.tools/uv-tools"
+export UV_TOOL_BIN_DIR="$_ROOT/.tools/bin"
+export HF_HOME="$_ROOT/.tools/hf"
+export npm_config_cache="$_ROOT/.tools/npm-cache"
+export PYTHONPATH="$_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+export PLAYWRIGHT_BROWSERS_PATH="$_ROOT/.tools/pw-browsers"

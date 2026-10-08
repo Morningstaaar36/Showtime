@@ -1,0 +1,272 @@
+# Progress log
+
+Newest entries at the bottom. Each entry: what was built, commands run, results, open issues.
+
+---
+
+## 2026-10-08 — M0: environment and probes
+
+**Machine:** Linux 7.0 (Ubuntu), 16 cores, 14 GiB RAM, **no swap**; NVIDIA RTX 5060 Ti 16 GB
+(sm_120), driver 580.178, CUDA toolkit 13.3. Docker 29.7 via **Docker Desktop** (VM with
+3.3 GiB RAM, 16 CPUs, no NVIDIA runtime).
+
+**Decisions**
+
+- Everything stays inside the project folder (owner's instruction). `scripts/env.sh` puts
+  `.tools/bin` on PATH and keeps uv, Python, Hugging Face and npm caches in `.tools/`
+  (gitignored, excluded from VS Code watching). Model weights live in `./models/` instead of
+  `~/models/showtime/`.
+- No GPU in Docker, so `llama-server` runs natively (brief §18 fallback). `git clone` of
+  llama.cpp kept failing on this network (HTTP/2 stream resets), so I used the official
+  prebuilt release `b11476` (`llama-b11476-bin-ubuntu-cuda-13.4-x64.tar.gz`), which links
+  against the local CUDA 13.3 libraries in `/usr/local/cuda/lib64`.
+- Docker Desktop's VM has only 3.3 GiB, below the brief's 4 GB per simulation. Sim containers
+  use `SIM_MEM_LIMIT=2g`; the web container must serve a built bundle, not a dev server.
+
+**Model:** `dominguesm/NVIDIA-Nemotron-Nano-9B-v2-GGUF` → `nemotron-nano-9b-v2-q4_k_m.gguf`
+(6.5 GB), sha256 `62df2498…4f80` verified against the Hub.
+
+**Probe (`scripts/probe_llm.py`)**
+
+| Check | Result |
+| --- | --- |
+| VRAM with model loaded, ctx 8192 | 6,427 MiB (budget ≤ 7 GB) ✅ |
+| llama-server RSS | ~600 MB; system RAM available 9.9 GB ✅ |
+| Plain chat (`/no_think`) | ✅ ~45 tok/s on first call |
+| JSON schema via `response_format: {type: json_schema}` | ✅ valid on first try **[VERIFY resolved]** |
+| Reasoning toggle | ✅ `/think` → `message.reasoning_content`; `/no_think` → none **[VERIFY resolved]** |
+
+---
+
+## 2026-10-08 — M1: plugin core, contracts, templates, patch ops, validation
+
+- `api/models/`: Venue, VenuePatch, Attack, Fix, RunRequest/RunResult, SessionEvent,
+  Countdown (Pydantic v2). Patch ops and scenario events carry an open `op`/`type` string and
+  are validated by the plugin registered for it.
+- `api/core/extensions/`: 12 extension points as `Protocol`s, a registry, pluggy hookspecs and a
+  small geometry SDK for plugins. `api/core/plugins.py`: folder discovery
+  (`plugins/*/plugin.toml`) + entry points, feature flags (`config/features.yaml`,
+  `FEATURE_<ID>` env), per-plugin Pydantic config, failure isolation.
+- Plugins: `ops_core` (12 edit ops, each with validate/apply/invert) and `events_core`
+  (7 events with schema, id checks and Tier 1 effect).
+- Templates (`scripts/build_templates.py` → `api/data/templates/`): festival field (6,000),
+  conference hall with mezzanine (1,200), school wing (400), T-alley (1,700; 3.2 m × 45 m alley
+  from the Wikipedia article on the Seoul Halloween crowd crush).
+- Geometry validation: duplicate ids, exits outside/not on a wall/too narrow, overfull zones,
+  zones that cannot reach an open exit (including across stairs), stairs off the floor.
+
+**Tests:** `uv run pytest` → 31 passed (templates validate, every op applies and undoes exactly,
+every event passes conformance, atomic patches, new geometry errors rejected).
+
+Bug found by the conformance suite: undo of `remove_*` re-appended items at the end of their
+list; fixed with an `index` parameter on `add_*` ops.
+
+---
+
+## 2026-10-08 — M2: simulation image and engine
+
+- `sim/Dockerfile`: python:3.12-slim, JuPedSim 1.4.2 (installed `--no-deps`: its PySide6/VTK
+  deps are only for the desktop visualiser), PedPy 1.5.1, locked with `uv pip compile`.
+  Non-root, `--network=none`. Image 730 MB.
+- Verified JuPedSim API **[VERIFY resolved]**: `switch_agent_journey` (mid-run block/redirect
+  works, no t=0 fallback needed), `agent.model.desired_speed` is writable (mid-run slowdown and
+  holding people with speed 0), `switch_geometry` takes a Shapely polygon and refuses when a
+  new obstacle would cover a person, `agents_in_range` returns an always-truthy iterator.
+- Engine (`sim/plugins/engine_jupedsim.py`): per-floor sims, upper floors first, stair queue
+  (travel = length / STAIR_SPEED, throughput = width × STAIR_FLOW), events (block/unblock exit,
+  surge, slowdown, counterflow, one_way, staggered release, marshal redirect), time travel
+  (`intervention_at_s` with layout switch and late exits), progress file, wall-clock watchdog.
+- Doors are modelled as 1.2 m passages through the wall with the exit area at the far end.
+  Without this, people slipped into exit areas from the side and flow through a 2 m door was
+  5.6 people/s (unphysical); with passages it is 2.6–2.9 people/s.
+- Metrics (`sim/metrics.py`): Gaussian-smoothed 1 m density grid normalised by walkable area,
+  hotspots (connected cells over the warning threshold), RSET p95/max, per-exit flow, PedPy
+  classic density in a 2 m band in front of each exit, compact binary artifacts
+  (`traj.bin` int16 at 2 cm + uint16 ids; `density.bin` uint8 at 0.05 people/m²).
+
+**Calibration**
+
+| Agent radius | Door flow (people/m/s) | Hall peak density |
+| --- | --- | --- |
+| 0.18 m | 1.43 | 6.4 |
+| 0.20 m | 1.25 | 5.6 |
+| **0.22 m (chosen)** | 1.07–1.10 | 4.6 |
+
+0.22 m makes the jam density match Weidmann's 5.4 people/m², so "danger" means real jamming
+rather than any queue. Time step: hall p95 = 199 s (Δt 0.01) / 206 s (0.025) / 215 s (0.05):
+Tier 3 uses 0.025 s up to 2,500 people, otherwise 0.05 s (≈8 % conservative).
+
+**Benchmarks (Tier 3, 4 CPUs)**
+
+| Venue | People | p95 evacuation | Peak density | Wall time |
+| --- | --- | --- | --- | --- |
+| School wing | 400 | 124 s | 4.2 | 5 s |
+| Conference hall (2 floors) | 1,200 | 215 s | 4.6 | 15 s |
+| T-alley baseline | 1,700 | 189 s | 4.4 | 13 s |
+| T-alley + counterflow 300 | 2,000 | gridlock, 890 trapped | 6.0 | 87 s |
+| Festival field | 6,000 | 524 s | 5.5 (gates) | 206 s |
+
+**Tests:** `sim/tests/test_sim.py` → 9 passed (everyone leaves, blocking raises RSET,
+determinism, time travel identical before t, multi-floor conservation, surge/slowdown,
+one-way stops counterflow, Δt calibration, readable error on bad input).
+
+Open issues: CFSM can gridlock in head-on counterflow (intended for the counterflow attack,
+but it is a model property; see BACKLOG: evaluate JuPedSim's AnticipationVelocityModel).
+
+Update (later in M2–M6): doors became 0.6 m passages with the exit stage *inside* the doorway,
+plus three engine fixes for model artefacts, each found by watching replays:
+"doorway capture" (people who reach the doorway of an exit they were not assigned to leave
+through it instead of blocking it), a squeeze rule (radius 0.15 after 4 s without flow at a
+converging junction) and a sidestep waypoint for isolated two-person corner deadlocks.
+AnticipationVelocityModel was tried and gridlocked more often; CFSM stays the default.
+
+---
+
+## 2026-10-08 — M3: Tier 1, countdown, weather, stage check
+
+- Tier 1 (`api/core/tier1.py`): geodesic walking distance on a 0.5 m grid (scipy csgraph
+  Dijkstra), min-cost-flow exit assignment (NetworkX) with binary search on the finish time,
+  fluid queue per exit, stairs as capacity-limited links. 3–20 ms on all templates.
+- Calibration (`make calibrate`, Tier 1 / Tier 3 p95): school 1.10, hall 1.11, alley 0.62,
+  festival 0.63. Stored in `api/data/calibration.json`, printed in every report. Tier 1 is
+  optimistic for open-air crowds that must queue across a wide front (documented).
+- Countdown: `T_latest = T_hazard − (pre-movement + RSET × safety factor)`; tests for no
+  hazard, already too late, and outdoor/indoor hazards.
+- Stage check (Pynite frame, ASCE 7 velocity pressure): uplift, sliding and overturning
+  governors; tests prove more ballast raises the limit and more area lowers it.
+- Open-Meteo forecast and archive endpoints verified (`wind_gusts_10m`, `wind_speed_unit=ms`);
+  disk cache; a weather snapshot can be stored in a project so demos replay offline.
+
+## 2026-10-08 — M4: walking skeleton in the real app
+
+- SQLite (SQLModel + Alembic 0001): projects, venue versions (snapshot + patch + base version
+  for undo/redo), runs, red-team sessions, session events, audit log, user settings.
+- Web: Vite 7 + React 19 + TS strict, Tailwind 4 tokens from §4A.5, Radix controls, Public Sans
+  self-hosted. Projects, Onboarding, Workspace (Plan / Simulate / Red Team / Report), Settings,
+  Help. R3F scene with section-cut walls, exit gates with arrows, stage truss, zones, stairs,
+  exploded floors, N8AO + bloom; instanced agents fed from binary trajectories; density shader
+  (cividis) with danger contour; drag edit with TransformControls; draw barrier/zone/exit;
+  measure; "Break it yourself" with instant estimate then "Confirm with simulation".
+- Verified: projects and versions survive an API restart; undo/redo across drag and text edits.
+
+## 2026-10-08 — M5: LLM adapter, Venue agent, cost meter
+
+- `api/adapters/llm.py`: OpenAI SDK; role → model/price; json_schema response format
+  (llama-server grammar) with prompted-JSON fallback; one repair call; record/replay cache keyed
+  on provider, model, messages, schema *content* and temperature; token and cost meter events.
+- Venue agent eval (`scripts/eval_venue_agent.py`): 6/10 → **10/10** after making the op tag
+  the first, required property of each op schema (the 9B model otherwise picked the wrong op)
+  and fixing a stale cache key.
+- Memory incident: two OOM kills. Cause: llama-server mmap'd the 6 GB model (RSS 4.4 GB) and
+  reserved an 8 GB prompt cache. Fix: `--load-mode dio --cache-ram 512` → RSS 0.88 GB.
+  Added `scripts/memguard.sh` (logs `logs/mem.log`, stops sims/Vite below 1.5 GB free).
+
+## 2026-10-08 — M6: Red Team Night
+
+- Red team: venue features + filtered incidents (388 Feliciani records + seed list); every
+  card cites a URL or the dataset DOI + row; "already tested" list so later rounds escalate.
+- Blue team: AI fixes plus rule-based standard responses (one-way flow, staggered release,
+  marshal redirect, extra exit); `check_fix` validates the patched venue and operational events.
+- Orchestrator: baseline → attacks (Tier 1 ranked, Tier 2 simulated) → fixes → accept when the
+  break disappears or the primary metric improves ≥ 10 % without hurting the baseline → next
+  round on the fixed venue → Tier 3 before/after confirmation → judge (number-checked).
+- Break = sustained danger density ≥ 5 s, trapped people, people not evacuated, or
+  evacuation × safety factor over the target (indoor 300 s, outdoor 480 s).
+- Real session on the hall: worst attack 311 s / peak 5.29 / 38.5 s above danger →
+  after the AI east exit + marshals 169 s / 4.94 / 0 s.
+- SSE stream with replay (`?after=`), branch tree, scoreboard, activity feed, final card.
+
+## 2026-10-08 — M7–M8: P1 features and Nebius adapters
+
+- Time travel (fix from t), split-screen compare on one clock, marshal bubbles, two-floor
+  chaining, rules pack (IBC 2021 example values, labelled), wind panel, Ask the venue,
+  printable report, SVG evacuation map, JSON bundle, project export/import (.showtime.zip).
+- DXF (jps-* layers, ezdxf) and JSON importers.
+- NebiusRunner built from the contree-sdk 0.3.6 source (base image → venue image → attack →
+  fix child images); tested with a fake client; `make smoke-nebius` skips without a key.
+- Tests: 81 passed, 1 skipped (Nebius live) in `api/tests`; 9 passed in `sim/tests`.
+
+## 2026-10-08 — M9 (in progress): demos and handoff
+
+- Demo packs precomputed with real Nemotron sessions (`make demo-precompute`):
+  T-alley (351 s session, scoreboard 1 → 0, one-way kept), conference hall (218 s, kept F1_1
+  and F2_1), Wellington festival (stage wind story with a stored forecast snapshot).
+  Packs are LZMA-compressed and installed as sample projects on first start.
+
+## 2026-10-08 — M9: self-review, fixes found by testing, final verification
+
+**Screenshot self-review** (`make screenshots` → `docs/screenshots/`, 16 screens, light and
+dark, filled, empty and error states). Findings and fixes:
+
+| Found | Fix |
+| --- | --- |
+| Hotspot labels stacked on top of each other in the alley | one label per 10 m cluster; rings stay |
+| Wind chart: two days of hourly ticks ran together; markers could land on the wrong day | axis keyed on full timestamps, event day only |
+| Branch tree zoomed to unreadable in the side panel | indented vertical tree at full size |
+| Final card green with "–" when 1,925 people never got out | amber "still at risk"; "1,925 still inside" |
+| AI text used machine ids ("street_w", "door_e1") | ids replaced by venue names in cards, judge text, tree, report, marshal bubbles; new exits get names ("East door") |
+| Red team titled an attack "Staircase congestion" on an open field (9B model borrowed it from the incident) | titles naming features the venue lacks are rebuilt from the events (audit-logged); festival demo regenerated |
+| Missing project offered "Try again" | explains and links back to projects |
+| Chip and report showed different "start evacuating" times without saying why | both name their evacuation-time basis |
+
+**Bugs found by the smoke test and journeys**
+- "Add a 2 m exit on the east side" failed on the school wing: the model confused x and y and
+  the repair round got an error without a range. `add_exit` now defaults to the middle of the
+  side, errors give the valid range, the venue summary names each wall's coordinate. Venue
+  agent eval 12/12 (two new phrasings).
+- "Stress test finished" toast was never wired (and cached results gave no feedback).
+- During an API restart the browser showed a JSON parse error; now "server isn't reachable",
+  queries retry ~30 s, and the web container waits for a healthy API.
+- Re-importing a `.showtime.zip` lost its run history (content-addressed run ids already
+  existed); deleting a project left session events behind.
+- The API container's view of SQLite was corrupted while a host script wrote the same file
+  (WAL across the Docker Desktop file share). Host scripts now use scratch databases.
+- /tmp is RAM here: pytest's temp dirs held 2.1 GB. Moved to `cache/tmp/pytest`.
+
+**Demo packs**: delta-coded trajectories at 6 cm (lossless coding of a visually lossless
+quantisation), 43 MB → 18 MB; packs tracked by hash so updates replace unedited samples.
+
+**Final verification (compose stack, local Nemotron)**
+
+| Check | Result |
+| --- | --- |
+| `make check` (ruff + format + import-linter, eslint, mypy --strict, tsc, fast tests) | green |
+| `make test` (API + Docker sim tests) | 96 passed, 1 skipped (Nebius live) |
+| `make test-web` (vitest) | 10 passed |
+| `make e2e` (Playwright journeys) | 3 passed |
+| `make smoke` | OK in 40–80 s; lowest free RAM 4.28 GB |
+| `make probe` | all green; Tavily skipped (no key) |
+| Venue agent eval | 12/12 |
+| Peak memory during demo precompute (6,000 people) | ≥ 3.7 GB free; llama-server ≤ 2.2 GB RSS |
+
+## 2026-10-08 — M10: fresh-clone verification
+
+`git clone` into a scratch folder (toolchain, model and dataset symlinked to avoid a 6 GB
+re-download), then `make setup && make check && make test`, `vitest`, `vite build`.
+
+- First run failed: `.gitignore` patterns `models/`, `data/` and `state/` (meant for weights,
+  datasets and the database at the root) also matched `api/models/` (contracts),
+  `api/data/` (templates, calibration) and `web/src/state/` (UI stores), so they had never
+  been committed. Patterns are now anchored to the root and the files are committed.
+- Second run: pytest's temp folder needed a parent that a fresh clone lacks; fixed.
+- Third run: setup OK, `make check` green, `make test` 96 passed / 1 skipped, vitest 10
+  passed, production web build OK.
+
+## 2026-10-08 · Post-0.1: describe-it and real-place venues, hosted models
+
+- **Hosted models:** `LLM_PROVIDER=openai` (any OpenAI-compatible API). Tested live with OpenRouter's
+  free Nemotron 3 Super. Found and fixed: a judge call hung for minutes (gateway keep-alive) → total
+  deadline; Nemotron 3 spent its whole reply length reasoning and returned nothing → `LLM_EXTRA_BODY`
+  `{"reasoning":{"enabled":false}}`; free models were priced at Nebius rates → 0 for `:free`.
+  AgentRouter was evaluated and rejected: it refuses every client except its listed coding tools.
+- **Describe it:** designer agent → `VenueSpec` → solver (`api/core/venue_builder.py`) → geometry checks →
+  one repair round. Live: 4 descriptions (two-floor hall, open-air concert, wedding hall, arena) built
+  valid venues in 2–15 s; one bug found (balcony people counted twice) and fixed in prompt and solver.
+- **Real place:** Nominatim search + Overpass features → `api/core/osm_venue.py`. Simulated on real data:
+  BUET ME building (800 people, 95% out 131 s), BUET area (2,500 people; first 191 then 176 stuck in
+  0.5 m slivers between buildings, fences and the edge → gaps < 1.2 m closed, pockets filled →
+  everyone out, 95% in 171 s), Ramna Park with its lake (5,000 people, 95% out 723 s; the last 32
+  still walking at the 15-minute cap: a real finding, not a stuck crowd).
+- **Checks:** `make check` green; `make test` 114 passed, 1 skipped; `make test-web` 10 passed;
+  `make e2e` 3 passed; `make smoke` OK on OpenRouter (212 s, lowest free RAM 4.9 GB); browser run of
+  both new tabs with no console errors.

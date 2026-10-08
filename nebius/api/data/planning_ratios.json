@@ -1,0 +1,71 @@
+{
+  "_note": "Planning ratios used by the estimates. Example values from published UK guidance as reproduced by local authorities; check what your licensing authority expects.",
+  "planning_density_ppm2": {
+    "standing": 2.0,
+    "seated": 1.4,
+    "mixed": 1.7,
+    "source": "0.5 m² per standing person is the common UK planning figure for event capacity; seated ≈ 0.7 m² per seat including aisles (assumption)",
+    "url": "https://www.thepurpleguide.co.uk/"
+  },
+  "exit_width_mm_per_person": {
+    "value": 5.1,
+    "source": "IBC 2021 §1005.3.2 egress width 0.2 in (5.1 mm) per occupant (example rule)",
+    "url": "https://codes.iccsafe.org/content/IBC2021P1/chapter-10-means-of-egress"
+  },
+  "stewards": {
+    "per_person": 250,
+    "per_person_high_risk": 100,
+    "source": "Green Guide practice: about 1 steward per 250 people, rising to 1 per 100 where alcohol or children raise the risk (as summarised by Lichfield District Council)",
+    "url": "https://www.lichfielddc.gov.uk/street-trading-licences/event-management-plan/8"
+  },
+  "first_aid": {
+    "minimum": 2,
+    "per_extra_thousand": 2,
+    "source": "Purple Guide based guidance: at least 2 first aiders, plus 2 per additional 1,000 attendees (UK Athletics)",
+    "url": "https://www.nationalathleticsleague.org.uk/?p=34465"
+  },
+  "toilets": {
+    "rows": {
+      "under_6h": {
+        "female": 100,
+        "male": 500,
+        "urinal": 150
+      },
+      "over_6h": {
+        "female": 85,
+        "male": 425,
+        "urinal": 125
+      },
+      "over_6h_alcohol": {
+        "female": 75,
+        "male": 400,
+        "urinal": 100
+      }
+    },
+    "female_share": 0.5,
+    "handwash_per_toilets": 5,
+    "accessible_minimum": 1,
+    "source": "Purple Guide sanitation table (50:50 audience) as reproduced by Aberdeen City Council and Dover District Council; 1 hand-wash unit per 5 toilets (Aberdeen)",
+    "url": "https://www.aberdeencity.gov.uk/media/9612"
+  },
+  "front_barrier_wing_m": {
+    "value": 3.0,
+    "source": "Front-of-stage barrier extends past each side of the stage (assumption: 3 m per side)",
+    "url": "https://www.thepurpleguide.co.uk/"
+  },
+  "unit_costs_example": {
+    "currency": "USD",
+    "steward_shift": 120,
+    "first_aider_shift": 150,
+    "toilet_unit_day": 110,
+    "accessible_toilet_day": 180,
+    "handwash_unit_day": 60,
+    "fence_m": 9,
+    "barrier_m": 28,
+    "source": "Example unit prices for budgeting only; replace them with your local quotes in Settings"
+  },
+  "egress_capacity": {
+    "source": "Green Guide method: exit capacity = open exit width × flow rate × egress time (flow 1.3 people per metre per second ≈ 78 per minute, close to the Green Guide's 82 for level routes; stairs 1.0); egress time 8 min open-air, 5 min indoors",
+    "url": "https://sgsa.org.uk/safety-management/"
+  }
+}

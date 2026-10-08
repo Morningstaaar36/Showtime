@@ -1,0 +1,10 @@
+[plugin]
+id = "__ID__"
+name = "__NAME__"
+version = "0.1.0"
+api_version = "1"
+provides = ["__TYPE__"]
+requires = []
+enabled_by_default = true
+
+[config]

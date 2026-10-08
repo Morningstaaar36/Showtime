@@ -1,0 +1,14 @@
+[plugin]
+id = "rules_generic"
+name = "Generic egress rules (example values)"
+version = "0.1.0"
+api_version = "1"
+provides = ["RulesPack"]
+requires = []
+enabled_by_default = true
+
+[config]
+mm_exit_width_per_person = 5.1
+max_travel_m = 61.0
+max_standing_density = 2.15
+two_exits_above = 49

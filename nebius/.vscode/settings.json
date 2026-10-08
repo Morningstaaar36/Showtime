@@ -1,0 +1,14 @@
+{
+  "files.watcherExclude": {
+    "**/node_modules/**": true, "**/.venv/**": true, "**/data/**": true,
+    "**/runs/**": true, "**/models/**": true, "**/cache/**": true, "**/dist/**": true,
+    "**/.tools/**": true, "**/logs/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true, "**/.venv": true, "**/data": true,
+    "**/runs": true, "**/models": true, "**/cache": true, "**/dist": true,
+    "**/.tools": true, "**/logs": true
+  },
+  "files.exclude": { "**/runs/**/*.sqlite": true, "**/runs/**/*.h5": true },
+  "python.analysis.exclude": ["**/.tools", "**/models", "**/runs", "**/data", "**/cache"]
+}

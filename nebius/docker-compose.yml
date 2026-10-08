@@ -1,0 +1,42 @@
+# Showtime stack: api + web. The local LLM (llama-server) runs natively on the GPU: make llm-up.
+# Simulations run in short-lived `showtime-sim` containers started by the API via the Docker socket.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    image: showtime-api:latest
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - LOCAL_LLM_BASE_URL=${COMPOSE_LLM_URL:-http://host.docker.internal:8080/v1}
+      - HOST_RUNS_DIR=${PWD}/runs
+      - RUNS_DIR=/app/runs
+      - CACHE_DIR=/app/cache
+      - DATA_DIR=/app/data
+      - DB_URL=sqlite:////app/state/showtime.sqlite
+      - API_HOST=0.0.0.0
+      - WEB_ORIGIN=http://localhost:5173
+      - SIM_USER=${SIM_USER:-1000:1000}
+    ports: ["127.0.0.1:8000:8000"]
+    volumes:
+      - ./runs:/app/runs
+      - ./cache:/app/cache
+      - ./state:/app/state
+      - ./data:/app/data:ro
+      - /var/run/docker.sock:/var/run/docker.sock   # DockerRunner launches sim containers (local only)
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    mem_limit: 1536m
+    labels: ["com.showtime.project=true"]
+    restart: unless-stopped
+  web:
+    build: ./web
+    image: showtime-web:latest
+    ports: ["127.0.0.1:5173:80"]
+    depends_on:
+      api:
+        condition: service_healthy   # don't serve the app before the API answers
+    mem_limit: 256m
+    labels: ["com.showtime.project=true"]
+    restart: unless-stopped

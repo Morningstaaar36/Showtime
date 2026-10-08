@@ -1,0 +1,10 @@
+[plugin]
+id = "export_json_bundle"
+name = "Data bundle (JSON)"
+version = "0.1.0"
+api_version = "1"
+provides = ["Exporter"]
+requires = []
+enabled_by_default = true
+
+[config]

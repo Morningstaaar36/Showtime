@@ -1,0 +1,169 @@
+"""New venues from a description or from the map (OpenStreetMap)."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import AsyncIterator
+from typing import Any, Literal
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
+
+from api.adapters.llm import BudgetExceeded, LLMError
+from api.adapters.osm import OsmUnavailable
+from api.agents.base import AgentUnavailable
+from api.app.errors import ApiException
+from api.app.routes_core import get_state
+from api.app.state import AppState
+from api.orchestrator import copilot, venue_sources
+
+router = APIRouter(prefix="/api/v1")
+
+
+class DesignIn(BaseModel):
+    """A plain-language description of the venue."""
+
+    text: str = Field(min_length=10, max_length=2000)
+
+
+class FromMapIn(BaseModel):
+    """A selected building or area: outline as [[lat, lon], ...]."""
+
+    outline: list[list[float]] = Field(min_length=4, max_length=2000)
+    mode: Literal["indoor", "outdoor"] = "outdoor"
+    name: str = Field(default="", max_length=120)
+    people: int | None = Field(default=None, ge=0, le=100_000)
+    selected_id: str | None = Field(default=None, max_length=40)
+
+
+def _osm_error(exc: OsmUnavailable) -> ApiException:
+    return ApiException(
+        503, "map_unavailable", str(exc), "Or use “Draw an area”: it works without map details."
+    )
+
+
+@router.post("/venues/design")
+async def design_venue(body: DesignIn, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Designer agent + solver: description → venue preview with checks."""
+    try:
+        return await venue_sources.design(st, body.text)
+    except BudgetExceeded as exc:
+        raise ApiException(429, "budget", str(exc), "Raise the token budget in Settings.") from exc
+    except (LLMError, AgentUnavailable) as exc:
+        raise ApiException(
+            503,
+            "llm_unavailable",
+            "The language model isn't answering.",
+            "Check the provider badge (top right) or start the local model with: make llm-up",
+        ) from exc
+
+
+@router.get("/places/search")
+async def search_places(
+    q: str = Query(min_length=2, max_length=200), st: AppState = Depends(get_state)
+) -> list[dict[str, Any]]:
+    """Places matching a name or address (OpenStreetMap Nominatim)."""
+    try:
+        return await st.osm.search(q)
+    except OsmUnavailable as exc:
+        raise _osm_error(exc) from exc
+
+
+@router.get("/places/features")
+async def place_features(
+    south: float = Query(ge=-90, le=90),
+    west: float = Query(ge=-180, le=180),
+    north: float = Query(ge=-90, le=90),
+    east: float = Query(ge=-180, le=180),
+    st: AppState = Depends(get_state),
+) -> dict[str, Any]:
+    """Buildings, open areas, paths, fences and entrances in a box (OpenStreetMap Overpass)."""
+    if north <= south or east <= west:
+        raise ApiException(422, "bad_box", "The box is empty.", "Drag the map and try again.")
+    try:
+        return await st.osm.features(south, west, north, east)
+    except OsmUnavailable as exc:
+        raise _osm_error(exc) from exc
+
+
+@router.get("/places/at")
+async def place_at(
+    lat: float = Query(ge=-90, le=90),
+    lon: float = Query(ge=-180, le=180),
+    st: AppState = Depends(get_state),
+) -> dict[str, Any]:
+    """The building or open area under a clicked point (and the features around it)."""
+    try:
+        return await st.osm.at_point(lat, lon)
+    except OsmUnavailable as exc:
+        raise _osm_error(exc) from exc
+
+
+@router.post("/venues/from-map")
+async def venue_from_map(body: FromMapIn, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Selected building (indoor) or area (open-air) → venue preview with checks."""
+    try:
+        return await venue_sources.from_map(
+            st,
+            body.outline,
+            mode=body.mode,
+            name=body.name.strip() or "Venue from map",
+            people=body.people,
+            selected_id=body.selected_id,
+        )
+    except OsmUnavailable as exc:
+        raise _osm_error(exc) from exc
+    except ValueError as exc:
+        raise ApiException(
+            422, "bad_selection", str(exc), "Pick another building or area."
+        ) from exc
+
+
+class CopilotIn(BaseModel):
+    """One sentence: what, where, when, how many."""
+
+    text: str = Field(min_length=8, max_length=1500)
+
+
+@router.post("/copilot/plan")
+async def copilot_plan(body: CopilotIn, st: AppState = Depends(get_state)) -> StreamingResponse:
+    """Event Copilot as a stream of JSON lines (one progress update per line)."""
+
+    async def lines() -> AsyncIterator[bytes]:
+        try:
+            async for step in copilot.plan_event(st, body.text):
+                yield (json.dumps(step) + "\n").encode()
+        except BudgetExceeded as exc:
+            yield (
+                json.dumps({"step": "error", "status": "failed", "title": str(exc)}) + "\n"
+            ).encode()
+        except (LLMError, AgentUnavailable):
+            msg = "The language model isn't answering. Check the provider badge (top right)."
+            yield (json.dumps({"step": "error", "status": "failed", "title": msg}) + "\n").encode()
+
+    return StreamingResponse(lines(), media_type="application/x-ndjson")
+
+
+@router.get("/copilot/graph")
+def copilot_graph() -> dict[str, Any]:
+    """The Copilot's LangGraph structure (nodes and edges) for the UI to draw."""
+    from api.orchestrator.copilot_graph import graph_shape
+
+    return graph_shape()
+
+
+@router.get("/projects/{project_id}/review")
+def project_review(project_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The safety officer's actions for this project (empty if none yet)."""
+    from api.orchestrator.copilot_graph import load_review
+
+    return load_review(st, project_id) or {"summary": "", "actions": []}
+
+
+@router.post("/projects/{project_id}/review")
+async def run_review(project_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Ask the safety officer to review the current plan now."""
+    from api.orchestrator.copilot_graph import review_project
+
+    return await review_project(st, project_id)

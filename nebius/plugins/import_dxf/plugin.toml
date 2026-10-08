@@ -1,0 +1,11 @@
+[plugin]
+id = "import_dxf"
+name = "Venue import: DXF (JuPedSim layers)"
+version = "0.1.0"
+api_version = "1"
+provides = ["VenueImporter"]
+requires = []
+enabled_by_default = true
+
+[config]
+people_per_m2 = 1.5

@@ -1,0 +1,44 @@
+/** Orbit camera with smooth fit-to-venue and fly-to-hotspot. */
+import { CameraControls } from "@react-three/drei";
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
+import type { Venue } from "@/api/types";
+import { useUi } from "@/state/ui";
+import { floorY, venueBounds } from "./geom";
+
+export function CameraRig({ venue, resetNonce, exploded }: { venue: Venue; resetNonce: number; exploded: boolean }) {
+  const ref = useRef<CameraControls>(null);
+  const flyTo = useUi((s) => s.flyTo);
+  const shot = useUi((s) => s.shot);
+
+  useEffect(() => {
+    const c = ref.current;
+    if (!c) return;
+    const [x0, y0, x1, y1] = venueBounds(venue);
+    const top = Math.max(...venue.floors.map((f) => floorY(venue, f.floor_id, exploded)));
+    const box = new THREE.Box3(new THREE.Vector3(x0, 0, -y1), new THREE.Vector3(x1, top + 3, -y0));
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+    sphere.radius *= 0.86; // the sphere is loose for flat venues; tighten so the venue fills the view
+    void c.rotateTo(0.5, 0.9, false);
+    void c.fitToSphere(sphere, true);
+  }, [venue.venue_id, resetNonce, exploded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const c = ref.current;
+    if (!c || !flyTo) return;
+    const y = floorY(venue, flyTo.floorId, exploded);
+    void c.setLookAt(flyTo.x + 9, y + 13, -flyTo.y + 13, flyTo.x, y, -flyTo.y, true);
+  }, [flyTo?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const c = ref.current;
+    if (!c || !shot) return;
+    c.smoothTime = 1.1; // slow, cinematic move; restored when the user takes over
+    void c.setLookAt(...shot.pos, ...shot.target, true).then(() => { c.smoothTime = 0.32; });
+  }, [shot?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <CameraControls ref={ref} makeDefault minDistance={4} maxDistance={700} maxPolarAngle={Math.PI * 0.48}
+                    dollyToCursor smoothTime={0.32} />
+  );
+}

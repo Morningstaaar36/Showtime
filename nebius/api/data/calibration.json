@@ -1,0 +1,42 @@
+{
+  "school_wing": {
+    "tier1_p95_s": 104.0,
+    "tier3_p95_s": 94.925,
+    "tier1_peak": 4.29,
+    "tier3_peak": 3.41,
+    "ratio_p95": 1.096,
+    "run_id": "r_6aeafa61f3b1",
+    "specific_flow": 1.3,
+    "agent_radius": 0.22
+  },
+  "conference_hall_2f": {
+    "tier1_p95_s": 180.0,
+    "tier3_p95_s": 161.7,
+    "tier1_peak": 5.3,
+    "tier3_peak": 4.58,
+    "ratio_p95": 1.113,
+    "run_id": "r_94af83ac9501",
+    "specific_flow": 1.3,
+    "agent_radius": 0.22
+  },
+  "t_alley": {
+    "tier1_p95_s": 90.0,
+    "tier3_p95_s": 144.75,
+    "tier1_peak": 4.39,
+    "tier3_peak": 3.67,
+    "ratio_p95": 0.622,
+    "run_id": "r_5919bbc3b7c6",
+    "specific_flow": 1.3,
+    "agent_radius": 0.22
+  },
+  "festival_field": {
+    "tier1_p95_s": 371.0,
+    "tier3_p95_s": 587.7,
+    "tier1_peak": 5.4,
+    "tier3_peak": 5.77,
+    "ratio_p95": 0.631,
+    "run_id": "r_52bcf8c6fb5c",
+    "specific_flow": 1.3,
+    "agent_radius": 0.22
+  }
+}

@@ -1,0 +1,11 @@
+[plugin]
+id = "export_svg_map"
+name = "Evacuation map (SVG)"
+version = "0.1.0"
+api_version = "1"
+provides = ["Exporter"]
+requires = []
+enabled_by_default = true
+
+[config]
+panel_width_px = 760

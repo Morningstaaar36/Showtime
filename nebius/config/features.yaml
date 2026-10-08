@@ -1,0 +1,14 @@
+# Plugin feature flags. Override any of them with an env var, e.g. FEATURE_HAZARD_WIND=false
+plugins:
+  ops_core: true
+  events_core: true
+  engine_jupedsim: true
+  hazard_wind: true
+  hazard_timer: true
+  incidents_feliciani: true
+  rules_generic: true
+  import_json: true
+  import_dxf: true
+  export_html_report: true
+  export_svg_map: true
+  export_json_bundle: true

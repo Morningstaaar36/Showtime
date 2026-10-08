@@ -1,0 +1,40 @@
+[importlinter]
+root_packages =
+    api
+    plugins
+include_external_packages = False
+
+[importlinter:contract:core-never-imports-plugins]
+name = Core never imports plugins
+type = forbidden
+source_modules =
+    api.core
+    api.models
+    api.adapters
+forbidden_modules =
+    plugins
+
+[importlinter:contract:plugins-use-the-sdk-only]
+name = Plugins import only api.core.extensions and api.models
+type = forbidden
+source_modules =
+    plugins
+forbidden_modules =
+    api.app
+    api.orchestrator
+    api.agents
+    api.adapters
+    api.db
+    api.core.tier1
+    api.core.venue_ops
+    api.core.plugins
+    api.core.settings
+
+[importlinter:contract:layers]
+name = App -> orchestrator -> agents -> core layering
+type = layers
+layers =
+    api.app
+    api.orchestrator
+    api.agents
+    api.core

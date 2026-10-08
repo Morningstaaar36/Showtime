@@ -1,0 +1,12 @@
+.git
+.tools
+models
+data
+runs
+cache
+state
+logs
+web
+**/node_modules
+**/.venv
+**/__pycache__

@@ -1,0 +1,8 @@
+# Root config for plugins/, scripts/ and sim/ (api/ uses api/pyproject.toml).
+extend = "api/pyproject.toml"
+
+[lint.per-file-ignores]
+# long user-facing strings and citations; code itself is wrapped by `ruff format`
+"plugins/**" = ["E501"]
+"scripts/**" = ["E501"]
+"sim/**" = ["E501"]
