@@ -1,0 +1,988 @@
+# Showtime: Red Team Night — Revised Project Proposal
+
+**Revised:** 10 October 2026
+
+**Project:** Showtime, for the Nebius x NVIDIA Global AI Hackathon
+
+**Repository:** <https://github.com/Morningstaaar36/Showtime>
+
+**Application directory:** `nebius/`
+**Recommended track:** Best Apps and Agents
+
+This proposal consolidates the complete discussion: the current feature inventory, existing roadmap, collaborative venue editor, scientific and practical weaknesses, structured scene inputs, optional visual or native 3D inspection, planning and event modes, Nemotron orchestration, sandbox experiments, evaluation, development setup, and competition delivery.
+
+It extends `proposal.md`. Sections 1–17 preserve the earlier consolidated product plan; sections 18–26 add and reconcile the subsequent architecture discussions. The newer decisions take precedence where earlier roadmap wording is broader or less precise. This is a proposal and implementation guide, not a record that all features have shipped.
+
+**Core architecture:** human description → iterative AI and user editing → versioned venue and event data → scenario proposals → geometry checks and simulations → evidence-backed explanations and feasible fixes → rerun and compare → selected plan and handover.
+
+**Optional extension:** inspect the same scene through structured data and rendered views or a compatible native 3D model; resolve useful disagreements with tools and measurements. Add this only when evaluation demonstrates value.
+
+### Reading guide
+
+- Sections 1–4: product, audience, competitive position, and responsibilities.
+- Sections 5–7: all current feature areas, existing roadmap, and collaborative editing.
+- Sections 8–12: weaknesses, required corrections, and evidence standards.
+- Sections 13–17: interface, development setup, competition preparation, demo, and completion.
+- Sections 18–20: complete workflow, mode behavior, and the scene-to-AI data contract.
+- Sections 21–23: model options, dual-model inspection, and sandbox architecture.
+- Sections 24–26: consolidated additions, delivery gates, and corrected decisions.
+- Section 27: implementation references and external sources.
+
+The current development preference is **OpenRouter for model calls and local Docker for simulations**. Nebius Token Factory, Nebius Sandboxes, and Tavily integration work are deferred for now. The final submission must still satisfy the competition's platform requirements.
+
+Implementation status below comes from repository documentation and selected code inspection. The application, model calls, and simulation results were not independently run or reproduced during these discussions. Planned features and recommended changes must not be represented as completed capabilities.
+
+## 1. Project proposition
+
+**Showtime helps event organizers create a venue model, identify crowd-flow weaknesses, compare feasible improvements, and hand over the exact plan that was tested.**
+
+An organizer describes an event. AI extracts the requirements, retrieves available site information or drafts a layout, and asks targeted questions. The organizer inspects and corrects the venue in 3D. The system then runs crowd simulations, proposes disruptive scenarios, suggests permitted changes, and compares the resulting plans.
+
+**Tagline:** “Run the disaster before the gates open.”
+
+**Product pitch:** “Describe your event, correct the venue with AI, test what could go wrong, and choose a practical plan backed by inspectable simulation results.”
+
+Claims such as “in minutes” or “for cents” should be added only after representative measurements. Calculated results can depend on assumptions; the phrase “no number is a guess” would overstate certainty when inputs and model parameters are estimated.
+
+The product is a planning aid. It supports conclusions about tested scenarios under stated assumptions. It does not establish comprehensive event safety or replace every aspect of professional engineering judgment.
+
+## 2. Problem, audience, and intended value
+
+Event planning involves geometry, audience locations, gate availability, crowd routing, temporary equipment, staffing, and operational timing. Showtime aims to reduce the effort needed to turn those inputs into a plan that can be examined and stress-tested.
+
+The strongest initial audience is a specific group that can participate in evaluation:
+
+- University event committees.
+- Community festival organizers.
+- Operators of smaller venues.
+
+Venue managers and permit reviewers are possible later audiences. Early evaluation should concentrate on one audience and a small number of accurately represented sites.
+
+Potential value includes faster preparation, discovery of overlooked weaknesses, clearer comparison of alternatives, and a more usable handover. These are hypotheses to measure. The conversation did not establish market size, adoption, willingness to pay, or proven reductions in injuries.
+
+## 3. Competitive assessment and corrections
+
+The project has a credible competitive proposition. Its distinguishing workflow is an agent proposing a failure scenario, a simulator evaluating it, another agent proposing a repair, and simulation checking the result. A clear before/after replay can make that workflow understandable in a short demo.
+
+The idea has not been established as unique through a comprehensive competitor study. No defensible probability of winning can be assigned from the available information. Completing every roadmap item would not guarantee a prize.
+
+| Area | Consolidated assessment |
+| --- | --- |
+| Idea quality | Promising and coherent; the incident-informed attack-and-repair loop gives it an identifiable purpose. |
+| Potential value | Credible, with actual organizer usefulness still to demonstrate. |
+| Feature quantity | Already substantial. A shortage of features is not the main competitive concern. |
+| AI involvement | Substantial across intake, design, edits, scenarios, fixes, and explanations. Calling the project low in AI usage would be inaccurate. |
+| Technical credibility | Depends on accurate result provenance, appropriate model scope, reproducibility, and validation. |
+| Practical usefulness | Depends on whether recommended changes are feasible and change an organizer's decision. |
+| Design | Depends on whether an unfamiliar organizer can complete the central task without mastering all expert panels. |
+| Submission readiness | Requires eventual live platform verification, an accessible demo, accurate documentation, and the submission materials. |
+
+Several earlier recommendations needed correction:
+
+1. Proposing many additions made feature quantity sound like the problem. The main priority is reliable execution of the central workflow.
+2. Autopilot, simpler screens, repeated simulations, cost reporting, validation, and steward packs already appear in the roadmap. They should be extended rather than duplicated.
+3. Organizer confirmation is not independent verification or certification. Information provenance needs precise labels.
+4. The current agent workflow mixes model-generated and standard rule-based fixes. Evaluation must preserve that attribution.
+5. A user study is evaluation work; a new survey dashboard is not necessary to conduct it.
+6. A benchmark against standard fixes is useful for claims of superior optimization. It is not a prerequisite for recognizing the value of conversational venue creation and tool orchestration.
+7. Existing disclosures already acknowledge modeling limits. The issue is consistency across screens, reports, and demonstrations, not a claim that the whole project universally promises safety certification.
+
+## 4. Roles of the organizer, AI, and computation
+
+| Participant | Responsibility |
+| --- | --- |
+| Organizer | Supplies requirements, corrects the reconstruction, records measurements or confirmations, declares constraints, and selects a plan. |
+| AI agents | Interpret requests, identify missing information, draft layouts, propose scenarios and actions, orchestrate tools, and explain results. |
+| Geometry and constraint code | Validates edits, enforces restrictions, checks references and resource availability, and maintains consistent versions. |
+| Simulation and calculation tools | Produce modeled crowd movement, metrics, planning estimates, and other computed outputs. |
+| Evidence and reporting layer | Preserves what was tested, how it was tested, the source of inputs, remaining uncertainty, and the selected actions. |
+
+“AI acts like an engineer” describes the intended interaction pattern: asking questions, proposing a design, checking it, and revising it. It does not itself demonstrate equivalent professional judgment. That must be supported through competent proposals, constraints, tests, and accurate descriptions of the system's limits.
+
+The existing architecture uses a React/React Three Fiber interface, FastAPI, LangGraph, SQLite, provider adapters, and a plugin system. JuPedSim provides crowd simulation; the project uses PedPy-related crowd analysis, Pynite for structural screening, and map and weather services for context. Local and hosted model providers share an adapter interface.
+
+## 5. Existing feature inventory
+
+The following summarizes the 25 existing feature areas documented in `plan.md`. “Existing” means code or repository documentation supports the capability; it is not a claim of independent runtime verification in this review.
+
+| ID | Capability | What it provides |
+| --- | --- | --- |
+| F01 | Projects and versions | Save, restore, undo/redo, duplicate, and import/export projects and history. |
+| F02 | Venue templates | Conference hall with two floors, school wing, festival field, and T-shaped alley. |
+| F03 | Event Copilot | Sentence to brief, venue, layout, estimates, project, simulation, sweep, and prioritized review; workflow visualization. |
+| F04 | Planning estimates and what-if lab | Capacity, exits, staff, first aid, toilets, fencing, budget, explained planning score, and interactive parameter changes. |
+| F05 | Venue from a description | AI-generated specifications built and checked by a layout solver. |
+| F06 | Venue from a real place | Map search and selection using available buildings, areas, paths, water, and entrances. |
+| F07 | 3D editor and presentation | Dragging, drawing barriers/zones/exits, measurement, venue display, lighting, and camera tour. |
+| F08 | Text edits | Natural-language commands converted into validated venue patches. |
+| F09 | Geometry and rule checks | Layout validation and an example rules pack; applicability must be understood. |
+| F10 | Instant estimate | Fast crowd-flow estimates and interactive exit blocking. |
+| F11 | Simulation and replay | Quick/full JuPedSim runs, trajectories, density, hotspots, evacuation metrics, and exit flows. |
+| F12 | Multiple floors | Simplified stair-queue connections between floors. |
+| F13 | Scenario sweep | Six what-if branches and a Safety Officer review of the results. |
+| F14 | Red Team Night | Incident-informed attacks, proposed repairs, simulation branches, iterative rounds, and final comparison. |
+| F15 | Session visibility | Branch tree, scoreboard, activity feed, token usage, and configured inference-cost accounting. |
+| F16 | Comparison and intervention timing | Time-based intervention experiments, split comparison, and marshal annotations. |
+| F17 | Wind and stage screening | Forecast integration, simplified structural checks, and evacuation-start estimates under assumptions. |
+| F18 | Ask the venue | Questions about results or hotspots with numerical consistency checks. |
+| F19 | Reports and exports | Printable HTML/PDF reports, SVG evacuation maps, and JSON bundles. |
+| F20 | Sample projects | Bundled demonstrations with saved sessions. |
+| F21 | Importers | Structured DXF and JSON intake. |
+| F22 | Providers and caching | Local/hosted model adapters, configured fallback, recording/replay, and local Docker simulation. |
+| F23 | Extensibility | Plugins and feature flags for hazards, rules, operations, engines, agents, import/export, and other extension points. |
+| F24 | Supporting interface | Settings, help, onboarding, themes, and translation infrastructure. |
+| F25 | Diagnostics | Health checks and probes. |
+
+The project already has a 3D editing foundation. The proposed collaborative experience primarily connects and strengthens existing capabilities, with additional object provenance, locks, constraints, and result invalidation.
+
+## 6. Existing roadmap and deferred integrations
+
+| ID | Planned work | Position in this proposal |
+| --- | --- | --- |
+| N01 | Live Nemotron on Nebius Token Factory | Deferred during current development; verify before submission claims. |
+| N02 | Tavily Evidence Desk and pre-event brief | Deferred. Current incident records support development. |
+| N03 | Local-rule research with checked quotations | Deferred. Source authenticity alone does not establish applicability. |
+| N04 | Live Nebius sandbox branches | Deferred; local Docker remains the development execution path. |
+| N05 | Multiple random seeds | Retained as bounded robustness evaluation. |
+| N06 | Public demo deployment and controls | Retained for release preparation, including isolation, queues, limits, and cleanup. |
+| N07 | Live Ops console | Later priority; proposed headcounts are manually entered, not automatic sensing. |
+| N08 | Steward packs and Bangla translation | Begin with accurate English handover; expand after preservation checks work. |
+| N09 | Share links and QR codes | Later priority following reliable report generation. |
+| N10 | Validation against experiments | Retained with a narrow, reproducible study. |
+| N11 | Judge landing and guided tour | Retained as part of onboarding and demonstration polish. |
+| N12 | Repository and submission completion | Retained: license placement, CI, documentation, feedback, and submission materials. |
+| N13 | Autopilot | Central workflow; extend the existing graph. |
+| N14 | Three-screen interface and Expert view | Central design priority. |
+| N15 | Unified “Ask or change anything” input | Connect conversation, edits, questions, what-if analysis, and navigation. |
+| N16 | Usage records and model escalation | Retained, with precise cost boundaries and measured results. |
+| N17 | Independent simulation export | Later priority for expert reproduction outside the application. |
+
+These are roadmap items, not all mandatory competition requirements. Features should be prioritized by their contribution to a complete, credible demonstration.
+
+## 7. Collaborative venue creation: conversation plus a focused 3D editor
+
+### 7.1 Interaction model
+
+The organizer and AI jointly build the venue:
+
+1. The organizer describes the event and site.
+2. AI extracts requirements and generates a visible draft.
+3. Assumptions and missing information are highlighted on that draft.
+4. The organizer corrects the model using text, dragging, object controls, and exact numeric inputs.
+5. The system checks geometry, references, and constraints after each change.
+6. The organizer locks confirmed features or marks changes as proposals.
+7. The system evaluates the agreed model and permitted alternatives.
+8. Further edits mark affected evidence stale and offer a rerun.
+
+Example input: “A rectangular hall with the stage at the north end and two doors on the south wall.” The AI drafts that layout, labels assumed dimensions, and asks whether the two doors are available as exits during the event. The organizer adjusts their positions and enters measured widths.
+
+The objective is a focused event-layout editor inspired by direct manipulation in modeling tools. General-purpose mesh modeling is unnecessary for the core task.
+
+### 7.2 Proposed editing controls
+
+| Control | Intended behavior |
+| --- | --- |
+| Drag an exit along a boundary | Correct the location while retaining a valid connection to walkable geometry. |
+| Add/remove a door or gate | Correct an existing-site representation or create an explicitly proposed opening. |
+| Edit width numerically | Record the supplied dimension and its provenance. |
+| Move barriers and equipment | Explore permitted arrangements. |
+| Draw audience zones | Define the modeled starting areas and attendance. |
+| Lock an object | Prevent subsequent agent proposals from altering it without an explicit user change. |
+| Mark fixed/movable | Distinguish structural features from temporary equipment. |
+| Undo and compare versions | Preserve a reviewable history of user and AI edits. |
+| Preview an AI edit | Show its consequences before the user applies it. |
+
+Every visual edit must update the same geometry and properties consumed by the simulator. A decorative change to a 3D mesh is insufficient.
+
+### 7.3 Existing versus proposed features
+
+Adding a door to represent an overlooked existing opening is different from proposing construction of a new opening. Record that distinction explicitly. A proposed structural change cannot silently become an available exit in the current operational plan.
+
+For new venue design, AI can explore layouts within represented constraints. For reconstruction of an existing venue, multiple plausible layouts may fit the description. A plausible model must not be presented as a measured reconstruction.
+
+### 7.4 Asking useful questions
+
+Repeated conversation can clarify requirements and contradictions, but cannot establish physical facts unknown to both parties. Ask the next consequential question rather than continuing indefinitely.
+
+Use bounded sensitivity checks to identify which uncertainty can change the recommendation. For example: “The preferred option depends on the east gate being available; confirm access before choosing it.” Preserve unresolved information when the organizer cannot answer.
+
+Use precise provenance labels: assumed, imported, organizer-confirmed, and measured with a supplied source/date. Even measured inputs retain their measurement limits.
+
+## 8. Meaning of the six original concerns
+
+| Concern | What it means | Effect of the proposed features | What would justify closing the gap |
+| --- | --- | --- | --- |
+| Scientific credibility | The model's results are limited by its physics, inputs, and assumptions. | Better editing improves input quality; it does not add missing physics. | Scoped validation and conclusions consistent with the tested model. |
+| Feasibility of fixes | A simulated change may be physically or operationally unavailable. | Collaborative editing, existing/proposed labels, locks, and constraints directly help. | Both rules and AI obey constraints; selected actions are reviewed and implementable under stated conditions. |
+| Source and explanation quality | A real number or quotation can still be used in the wrong context. | Structured metric references and provenance improve traceability. | Correct scenario, unit, version, comparison, and applicability checks for the claims made. |
+| Agent contribution | Benefits attributed to AI need supporting evidence. | Conversational intake, modeling, edits, and orchestration already provide a credible AI role. | Demonstrated usefulness; fair baselines when claiming superior discovery or optimization. |
+| Product complexity | Users may struggle to complete the central task through many modes and panels. | Guided conversation, focused editing, and a simple result screen can help. | Observed first-time users complete the task successfully. |
+| Impact and cost claims | Specific statements about speed, spending, and usefulness require measurements. | New features create something worth measuring. | Recorded runs, explicit cost boundaries, and observed organizer use. |
+
+Proposing a feature responds to a concern. Implementing and testing the feature can resolve it. Once resolved, it should no longer be described as missing. Permanent modeling limitations should remain documented as scope boundaries rather than treated as an endless feature checklist.
+
+## 9. What “astonishingly better” should mean
+
+A dramatic demonstration is desirable, but improvement must be defined before selection. Otherwise the system can appear to succeed by inventing capacity, assuming perfect compliance, selecting favorable scenarios, or moving crowd demand outside the modeled area.
+
+A useful improvement has:
+
+- Comparable before/after conditions and attendance demand.
+- Changes permitted by the venue and resource constraints.
+- Better results on declared metrics without an unacceptable regression elsewhere.
+- A clear explanation of remaining failures and uncertainties.
+- An actionable handover that preserves the selected plan.
+
+Some venues will have little room for improvement. Others will have no acceptable option under the supplied constraints. The system must be able to report these outcomes. “Improved under completed tests” does not mean “safe under every possible condition.”
+
+## 10. Static implementation findings and required foundation
+
+These findings were identified by reading selected source paths. They are not a complete code audit or a claim of reproduced runtime failures.
+
+| Finding | Source | Required response |
+| --- | --- | --- |
+| Model and standard fixes are mixed in a session. | `nebius/api/orchestrator/session.py::_fixes` | Preserve proposal origin and selected-action attribution. |
+| Baseline protection uses instant estimates. | `session.py::_hurts_baseline` | Treat this as screening; require appropriate completed evidence for final acceptance. |
+| Final confirmation focuses on a selected attack. | `session.py::_finish` | Evaluate combined fixes against a bounded predefined regression suite. |
+| Failed/timed-out simulations can become estimate fallbacks. | `session.py::_sim` | Preserve both records and prevent fallback estimates from satisfying full-simulation confirmation. |
+| Some report/countdown wording implies confirmation unconditionally. | `session.py::_countdown`; `nebius/plugins/export_html_report/__init__.py` | Derive labels from successful completion and evidence provenance. |
+| Conflicting edits may be skipped after fixes were accepted. | `session.py::_apply_ops` | Validate/apply a coherent bundle and make conflicts explicit. |
+| Applying a final plan saves venue geometry; measures remain separately in the session summary. | `session.py::apply_final` | Explicitly persist the complete active plan and verify save/reload/rerun behavior. |
+| Numerical checking uses allowed-value membership and exempts small integers. | `nebius/api/agents/numbers.py` | Add typed references to metrics, units, scenarios, and versions for measured claims. |
+| One-way control can hold incoming people outside the modeled area. | `nebius/sim/plugins/events.py::one_way` | Account for external demand; model the receiving area or identify it as unassessed. |
+| Saved calibration compares estimates with simulations. | `nebius/api/data/calibration.json` | Do not present it as independent comparison with real observations. |
+
+Foundation requirements:
+
+1. Separate execution status from evaluation status. A session can finish while its result remains inconclusive.
+2. Distinguish estimates, partial simulations, completed simulations, failures, and unknown outcomes throughout the UI and exports.
+3. Store geometry, operational measures, constraints, inputs, engine/settings version, and seeds with the evaluated plan.
+4. Include all behavior-affecting inputs in cache identity.
+5. Invalidate relevant evidence after a material edit.
+6. Preserve remaining people and incomplete clearance alongside time for 95% to exit. Do not describe that percentile as everyone evacuated.
+7. Never treat a failed, skipped, or timed-out run as a pass or zero risk.
+
+## 11. Six connected development capabilities
+
+### A. Feasible planning constraints
+
+Declare fixed structures, allowed openings, movable equipment, staff inventory, work restrictions, and relevant approvals. Enforce them in shared code used by AI and standard proposals. Include explicit actions for opening an available existing gate rather than relying on creation of a new exit.
+
+Actions should declare resource requirements, active time intervals, dependencies, response assumptions, and supplied cost/setup information. Prevent simultaneous assignments that exceed staff or equipment availability. Unknown quantities remain marked as unknown.
+
+Distinguish planned dispersal from emergency evacuation. Do not transfer measures such as delayed release into a hazard scenario without an appropriate reviewed policy.
+
+**Acceptance:** neither proposal source alters locked structures; unavailable gates cannot be treated as ready; staff cannot be double-counted; unresolved dependencies remain visible.
+
+### B. Tested plan alternatives
+
+Offer a small number of distinct feasible alternatives with a clear comparison against the original. Use compatible scenario definitions, demand, settings, and paired seeds. Check the combined action bundle, not only individual actions.
+
+Use explicit thresholds per important metric. A weighted ranking score must not hide a trapped group or another unacceptable regression. Include baseline conditions and a bounded regression suite beyond the motivating attack.
+
+**Acceptance:** a fixture that improves one scenario but introduces a disallowed regression is rejected. Unknown runs remain unknown. External crowd demand is accounted for or clearly unassessed.
+
+### C. Consequential assumptions and clarification
+
+Attach provenance to gate dimensions, access, staffing, attendance, intervention timing, and assumed compliance. Run a limited sensitivity screen to prioritize questions. Confirm consequential findings with the appropriate simulation before describing them as measured effects.
+
+**Acceptance:** changing a relevant assumption can change the preferred option, and the interface identifies that dependency without inventing statistical confidence.
+
+### D. A simple collaborative journey
+
+Extend the existing Copilot graph and planned Autopilot. Combine conversational intake, the focused editor, a short input review, progress, and final selection. Preserve expert tools through progressive disclosure.
+
+**Acceptance:** an unfamiliar organizer completes a template-based task, corrects an AI assumption, selects a tested option, and exports the plan without needing expert panels.
+
+### E. Exact handover with inspectable evidence
+
+Export the chosen geometry and operations with gate actions, staff posts, timing, map, dependencies, and assumptions. Numerical claims reference compatible run data and calculations. Separate computed observations from AI interpretations of causes.
+
+Begin with accurate English instructions using the existing report infrastructure. Add Bangla steward cards after numbers, names, actions, and geometry survive translation/export checks. User approval selects a plan; it does not certify safety.
+
+**Acceptance:** save/reload/export/rerun preserve operational measures; every measured comparison has traceable evidence; outdated and incomplete results retain their labels.
+
+### F. Reproducible evaluation and usage records
+
+Keep most evaluation tooling outside the organizer's main flow. Produce narrowly scoped physical validation, robustness results, appropriate agent comparisons, observed user exercises, and measured usage.
+
+**Acceptance:** results are reproducible from recorded inputs; unsuccessful outcomes are included; claims match what was actually measured.
+
+## 12. Validation, agent contribution, and organizer evaluation
+
+### 12.1 Physical validation versus robustness
+
+| Evaluation | Question answered |
+| --- | --- |
+| Published experimental comparison | How closely does this simulator configuration reproduce selected observed pedestrian behavior? |
+| Repeated random seeds | How much do results vary under the modeled randomness? |
+| Sensitivity to assumptions | How do different attendance, access, response, or movement assumptions change the outcome? |
+| Withheld scenario evaluation | Do chosen fixes retain value on cases not used during selection? |
+
+Reproduce a narrow bottleneck experiment using compatible geometry, population, measurement methods, and the actual modified simulator used by Showtime. Separate calibration cases from evaluation cases. Publish error and scope even when results miss an initial target.
+
+A fraction such as “18 of 20 tested scenarios passed” is not a probability that an event will be safe. Report the scenario definitions, completed/failed/skipped counts, and remaining failures.
+
+Two plans over three scenarios and three seeds already require eighteen full runs per venue. Measure runtime before expanding. Limit the initial study transparently rather than replacing incomplete runs with favorable assumptions.
+
+### 12.2 AI value
+
+There is no feature-count or model-call quota that establishes meaningful AI use. The project already uses AI substantially. Demonstrate competence in interpreting messy requirements, building a correctable model, generating useful proposals, and reducing manual effort.
+
+If claiming better failure discovery or optimization, compare rules-only, model-only, and hybrid proposal generation under equal simulation budgets and constraints. Track origin, retries, model usage, feasible proposals, distinct weaknesses found, regressions, and final results. Freeze withheld evaluation cases before running comparisons and keep them out of selection.
+
+If standard rules perform as well, report it. Conversational intake and understandable orchestration may still provide valuable assistance.
+
+### 12.3 Organizer exercises
+
+Observe a few organizers performing concrete planning tasks on real or carefully reconstructed venues. Record assumptions corrected, suggestions accepted/rejected, task completion, time, confusion, and whether the output changed a planning decision.
+
+These exercises can demonstrate usability and usefulness. They do not establish injury prevention or comprehensive real-world safety. A separate survey product is unnecessary.
+
+### 12.4 Cost and performance
+
+Record elapsed time, model requests, tokens, retries, screened/simulated scenario counts, cache hits, and measured simulation usage. Separate fresh and cached runs.
+
+Show API inference charges, search charges where applicable, and the boundary of the displayed total. Local compute time is not automatically a monetary cost measurement. A free model endpoint can support “$0 API inference charge,” not “the whole system costs nothing.”
+
+## 13. Interface and implementation order
+
+The default product uses three screens:
+
+1. **Describe:** event brief, targeted conversation, draft inspection, and critical corrections.
+2. **AI at work:** understandable progress, current simulations, proposals, usage, cancellation, and partial-result states.
+3. **Your plan:** main finding, tested alternatives, before/after replay, unresolved conditions, selection, and report.
+
+Detailed agent graphs, advanced geometry tools, exhaustive metrics, and technical evaluation data remain accessible in Expert view or detail panels. Loading, error, empty, partial, and offline states need coherent behavior. Keyboard access and useful mobile views are part of completion.
+
+| Stage | Work | Completion gate |
+| --- | --- | --- |
+| 1 | Result provenance, complete plan persistence, constraints | Failures cannot become confirmed passes; geometry and operations survive save/reload. |
+| 2 | One collaborative template journey through Autopilot | User corrects an assumption, obtains a feasible alternative, reviews a completed comparison, and exports the exact plan. |
+| 3 | Combined-fix regression checks and bounded sensitivity | Important regressions and consequential assumptions are exposed. |
+| 4 | Validation, appropriate baselines, user exercises, usage | Inspectable evidence supports the claims made. |
+| 5 | Broader intake, interface polish, release preparation | Public experience and submission materials match demonstrated functionality. |
+
+These are dependency gates, not promises about implementation dates. Keep time for eventual live Nebius verification and release reliability.
+
+Later priorities include the full Live Ops console, share links, independent simulation export, broader translation, and live evidence research. New physics engines, automatic sensors, and broad administrative portals were not established as necessary for the core submission.
+
+Use fake-provider fixtures for ordinary development checks where appropriate. Final model-behavior claims require live runs on the provider named in the claim.
+
+## 14. Development now: OpenRouter and local Docker
+
+OpenRouter support already exists through the generic OpenAI-compatible adapter, named `openai` in configuration. The default `.env.example` selects a local model; OpenRouter is not enabled automatically.
+
+The machine inspected during the discussion was an Apple Silicon Mac with Docker installed and its daemon stopped. This is a recorded observation, not a claim about its current state. The API Dockerfile downloads an x86 Docker executable, and the simulation build target uses `linux/amd64`, so the discussed Compose route uses emulation. Startup was not executed during the review.
+
+### 14.1 Configure
+
+Start Docker Desktop and wait for `docker info` to succeed. Then:
+
+```bash
+cd /Users/ridhwanasif/Downloads/Nebius/Showtime/nebius
+cp -n .env.example .env
+```
+
+Edit the existing keys in `.env`, adding missing keys:
+
+```dotenv
+LLM_PROVIDER=openai
+OPENAI_COMPAT_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_COMPAT_API_KEY=YOUR_OPENROUTER_API_KEY
+OPENAI_COMPAT_LABEL=OPENROUTER
+
+MODEL_FAST=nvidia/nemotron-3-super-120b-a12b:free
+MODEL_LONG=nvidia/nemotron-3-super-120b-a12b:free
+MODEL_MAIN=nvidia/nemotron-3-super-120b-a12b:free
+MODEL_JUDGE=nvidia/nemotron-3-super-120b-a12b:free
+
+LLM_SUPPORTS_JSON_SCHEMA=false
+LLM_EXTRA_BODY='{"reasoning":{"enabled":false}}'
+LLM_FALLBACK=none
+LLM_CACHE_MODE=record_replay
+
+SANDBOX_PROVIDER=docker
+SANDBOX_MAX_PARALLEL=1
+TAVILY_API_KEY=
+NEBIUS_API_KEY=
+OFFLINE=false
+```
+
+The model identifier was documented in the repository's OpenRouter testing and checked against OpenRouter during the discussion. Availability and free quotas can change; check the linked provider pages when configuring. Keep credentials in the ignored local `.env`.
+
+`LLM_FALLBACK=none` avoids attempts to contact a local GPU model. `OFFLINE=false` retains map/weather access. Without Tavily, incident-backed scenarios can use the bundled curated records; the complete incident dataset is optional for initial startup.
+
+### 14.2 Build and run
+
+```bash
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+mkdir -p runs cache state data
+make build-sim
+docker compose up -d --build
+```
+
+Open <http://localhost:5173>. API documentation is at <http://localhost:8000/api/docs>.
+
+This route installs application dependencies inside Docker. `make setup` also downloads a local model and Linux CUDA server; those steps are unnecessary for this OpenRouter configuration. Native development scripts also contain Linux assumptions and should be adapted before relying on them on macOS.
+
+Diagnostics:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 api web
+```
+
+After `.env` changes:
+
+```bash
+docker compose up -d --force-recreate api
+```
+
+Stop:
+
+```bash
+docker compose down
+```
+
+Start with a saved sample, then a small template and a short session: one round, two attacks, one fix per attack. A session includes multiple model requests and possible repairs. The discussion found a published free allowance of 50 requests/day for a free account; treat that as a dated observation and verify the account's current limits. Caching reduces repeated work but does not turn cached calls into fresh live evidence.
+
+## 15. Competition fit and submission preparation
+
+Best Apps and Agents is the recommended track because the main product is a practical agent workflow for organizers. A crowd simulation alone is not a reason to force a Physical AI positioning.
+
+| Judging dimension supplied in the hackathon brief | Showtime's evidence |
+| --- | --- |
+| Technological implementation | Working orchestration, constrained edits, reproducible simulation, reliable comparisons, and eventual live Nebius model use. |
+| Design | A coherent collaborative journey from description to a selected plan. |
+| Potential impact | Specific organizer tasks and observed usefulness. |
+| Quality of idea | Incident-informed stress tests and feasible repairs, with demonstrated understanding of the problem. |
+
+The official judging update emphasizes autonomous tool workflows and equally weighted criteria. Increasing technical breadth at the expense of usability or evidence would weaken that balance.
+
+Submission preparation discussed includes the working project, chosen track, description, demo URL, public short YouTube demonstration, public licensed repository, setup instructions, accurate technology description, tool feedback, and an explanation of changes if the project predates the submission period. Record event attendance only if applicable to the city award.
+
+At the reviewed checkout, the license was inside `nebius/`; the repository root needed detectable license placement. Nebius live use, final hosted demo, and final video were not established. These are outstanding items, not completed claims.
+
+The rules reviewed permit a runtime Token Factory inference call to satisfy the Nebius execution requirement; the whole application need not be hosted on Nebius. Tavily bonus eligibility requires functional runtime use. The published schedule reviewed had an October 30, 2026 submission deadline and December judging; plan project access through the required judging period. Recheck the official rules before release.
+
+Development on OpenRouter is consistent with the present preference. It does not by itself complete the final competition platform requirement.
+
+## 16. Demonstration and evidence story
+
+Use a measured single-level venue as the principal case, with fixed infrastructure, existing gates, movable equipment, and a stated staffing limit. This reduces reliance on the current simplified stair and wind models for the central accuracy claim.
+
+Example narrative:
+
+> “The event is tonight. Construction is unavailable, the stage must stay, and we have six stewards. We describe the venue, correct the AI's draft, lock the existing structures, test a blocked-gate scenario, and compare feasible responses. Here is the measured result, one unresolved dependency, and the exact plan we selected.”
+
+Suggested sequence for a video under three minutes:
+
+1. State the organizer's task and constraints.
+2. Show the AI-generated venue and one meaningful user correction.
+3. Show a simulated weakness.
+4. Show a feasible proposed change and completed comparison.
+5. Open the evidence for one result or consequential assumption.
+6. Export the selected actions and show measured usage and actual provider involvement.
+
+The saved red-team screenshot previously discussed displays 95% evacuation changing from 5 min 11 s to 2 min 50 s and time above its configured danger threshold changing from 39 s to zero. Those are recorded demonstration values, not independently reproduced results. Replace or substantiate them with reproducible runs from the submitted version before using them as evidence.
+
+The demonstration should show the actual outcome, including remaining failures or insufficient evidence. Distinguish recorded examples from live operation.
+
+## 17. Definition of completion for the core proposal
+
+- An organizer can describe, inspect, correct, and lock a venue through the simple workflow.
+- Existing, proposed, assumed, imported, and confirmed/measured inputs are distinguishable.
+- Both AI and standard proposals obey shared geometry and resource constraints.
+- The evaluated plan includes its operational measures and survives save/reload/export.
+- Final comparisons use compatible conditions and evaluate the combined changes.
+- Failed, partial, skipped, and fallback results retain accurate status everywhere.
+- Material edits invalidate affected evidence.
+- Important numerical claims link to the correct results, units, and versions.
+- A scoped validation study and declared robustness suite have inspectable results.
+- AI benefit is demonstrated through useful behavior; superiority claims receive appropriate comparisons.
+- Organizer exercises and runtime/cost measurements support the impact and efficiency claims made.
+- The eventual submitted build demonstrates the required platform use and accessible deliverables.
+
+The proposal retains the core idea. Its competitive case rests on feasible decisions, trustworthy evidence, and a clear collaborative experience. Adding features alone does not establish any of those outcomes.
+
+## 18. Complete workflow and responsibility boundaries
+
+### 18.1 Proposed end-to-end experience
+
+1. **Describe the event.** Gather intended activity, attendance, venue, timing, equipment, staff, and known restrictions.
+2. **Draft the venue.** AI produces structured layout requirements; geometry code builds the corresponding editable scene.
+3. **Clarify and correct.** Ask consequential questions, show uncertain features, accept direct manipulation and exact numeric edits, and retain unanswered questions.
+4. **Confirm a version.** Record which facts are assumed, imported, organizer-confirmed, or measured; lock fixed objects and record permitted actions.
+5. **Assemble context.** Combine the venue with population distribution, schedule, environment, operational resources, and the selected mode.
+6. **Inspect and propose scenarios.** Nemotron reviews structured spatial facts. Optional visual or native 3D inspection supplies additional hypotheses. The organizer can also select a scenario directly.
+7. **Calculate outcomes.** Geometry algorithms and supported simulation engines evaluate the scenario. Unsupported hazards receive an explicit scope result.
+8. **Explain the evidence.** AI explains observed metrics, identifies uncertainties, and distinguishes evidence from inferred causes.
+9. **Propose feasible alternatives.** Each candidate specifies exact object edits or operational measures, dependencies, and the expected mechanism of improvement.
+10. **Validate and test.** Reject invalid edits; simulate the exact candidate bundle against comparable scenarios and seeds; check regressions.
+11. **Choose and hand over.** The organizer selects a plan with its evidence, assumptions, unresolved conditions, staff instructions, and exports.
+12. **Update when conditions change.** New geometry or event inputs invalidate affected findings and trigger proportionate re-evaluation.
+
+```mermaid
+flowchart TD
+    A[Organizer description] --> B[Conversation and editable venue]
+    B --> C[Versioned scene and event data]
+    C --> D[Nemotron structured review]
+    C --> E[Optional visual or native 3D review]
+    D --> F[Scenario and candidate findings]
+    E --> F
+    F --> G[Geometry checks and simulations]
+    G --> H[Evidence-backed explanation]
+    H --> I[Feasible candidate changes]
+    I --> J[Validate and rerun comparisons]
+    J --> K[Organizer selects plan and exports]
+    J --> H
+```
+
+This is a proposed architecture, not a claim that all nodes are implemented. Models propose, coordinate, and explain. Numerical geometry and simulated outcomes come from the appropriate tools. A model-generated statement about a disaster is not itself a measured prediction.
+
+### 18.2 Expected user-visible outputs
+
+| Output | Contents and interpretation |
+| --- | --- |
+| Correctable venue | 3D scene, dimensions, object names, assumptions, and locked structures. |
+| Scenario cards | Trigger, affected locations, demand, movement assumptions, and supported simulation scope. |
+| Crowd replay | Simulated trajectories, queue formation, density overlays, and exit use. |
+| Result metrics | Time for 95% to exit, remaining people, queue duration where supported, peak density, and time above configured thresholds. |
+| Finding cards | Specific location/object IDs, evidence, potential mechanism, and unresolved information. |
+| Alternative plans | Exact changes, resources, dependencies, completed comparisons, and regressions. |
+| Evaluation status | Improved under tested conditions, remaining failures, insufficient evidence, or no feasible improvement found. |
+| Handover | Selected layout, gate actions, staff posts, timing, maps, input provenance, and report. |
+| Usage | Measured elapsed time, calls, simulation counts, cache use, and clearly bounded costs. |
+
+No single overall score should conceal a trapped group, incomplete execution, or an unsupported hazard. A conclusion applies to the recorded scene version and input conditions.
+
+## 19. Planning mode and event mode
+
+Planning and event modes share the scene and evidence infrastructure but differ in available actions, freshness requirements, and user expectations. The full event mode remains planned under N07; existing weather and intervention features are partial foundations.
+
+| Dimension | Planning mode | Event mode / Live Ops |
+| --- | --- | --- |
+| Inputs | Proposed layout, expected attendance, schedule, forecast, assumptions. | Confirmed current layout, timestamped counts, staff reports, current observations, and latest forecast. |
+| Main question | What weaknesses appear in tested scenarios, and which feasible changes improve the plan? | Given the reported conditions, what needs attention and which available responses should staff review? |
+| Alternatives | Equipment placement, allocations, scheduling, staffing, and explicitly conditional construction proposals. | Actions available now, under confirmed staffing, access, response time, and physical restrictions. |
+| Output | Compared plans, replay, sensitivity, assumptions, and report. | Timestamped situation summary, reported versus assumed facts, affected areas, proposed responses, and unresolved conditions. |
+| Update source | Organizer edits and configured data services. | Initially manual reports; sensor integrations are a later, separate extension. |
+| Limitation | A planning scenario is conditional. | No observation source means no knowledge of what is actually happening at the venue. |
+
+### 19.1 Event-mode requirements
+
+- Record timestamps, sources, locations, and superseded observations for manual counts and gate reports.
+- Show stale or missing inputs explicitly; do not present an old simulation as a live observation.
+- Maintain the selected operational plan separately from newly proposed changes.
+- Require staff review of actionable operational changes; model text alone must not silently alter real-world operations.
+- Make refresh time and simulation horizon visible. A forecast result is distinct from a measured current condition.
+- Keep external queues and receiving areas in scope or mark them unassessed.
+- Distinguish routine dispersal policies from hazard-driven evacuation responses.
+- Preserve useful existing information when a data provider or simulation is unavailable.
+
+Event mode does not imply automatic sensing, a live digital twin, disaster forecasting accuracy, or authority to certify an event. Those capabilities require separate implementation and validation.
+
+### 19.2 Environmental context
+
+Wind direction, speed, rainfall, and forecast timing need explicit units, timestamps, sources, and uncertainty. They must enter a defined calculation or scenario assumption. A generic weather report cannot automatically predict crowd behavior or structural failure.
+
+For example, the existing rain sweep assumes reduced walking speed. A future shelter-seeking scenario would require explicit shelter locations, destination changes, and behavior assumptions. Wind screening needs represented structural parameters and a documented calculation scope. Neither should become an unsupported claim of comprehensive weather-disaster prediction.
+
+## 20. Canonical scene and AI input contract
+
+### 20.1 One shared scene
+
+The application should maintain a versioned scene that supplies the editor, geometry engine, simulator, and AI context. A drag operation must update the same coordinates used by subsequent calculations. A visually added opening must also have a valid connection in the walkable geometry.
+
+JSON is a convenient representation, not an accuracy guarantee. It can contain geometry directly or reference versioned geometry assets. Preserve full relevant shapes instead of reducing every feature to a bounding box. Large meshes need not be embedded in each model request.
+
+The three layers of AI context are:
+
+1. **Objects and geometry:** IDs, floor, units, positions, polygons, dimensions, elevations, and relevant properties.
+2. **Computed spatial relationships:** connected areas, reachable destinations, minimum clearances, path distances, intersections, and geometry validation results.
+3. **Meaning and evidence:** object purpose, movable/fixed status, provenance, restrictions, event conditions, simulation outputs, and unknowns.
+
+### 20.2 Illustrative input
+
+The following is a proposed contract sketch. Values are fictional; this is not the application's current API schema or a measured venue.
+
+```json
+{
+  "scene_version": 12,
+  "units": "meters",
+  "coordinate_system": "z_up",
+  "mode": "planning",
+  "objects": [
+    {
+      "id": "E2",
+      "type": "exit",
+      "position": [30, 10, 0],
+      "width_m": 2.0,
+      "connects": ["main_hall", "courtyard"],
+      "provenance": "organizer_confirmed",
+      "existing": true,
+      "can_widen": false
+    },
+    {
+      "id": "B4",
+      "type": "barrier",
+      "footprint": [[24, 8], [28, 8], [28, 8.3], [24, 8.3]],
+      "height_m": 1.2,
+      "movable": true
+    }
+  ],
+  "spatial_facts": [
+    {
+      "type": "minimum_approach_clearance",
+      "location_id": "approach_E2",
+      "value_m": 0.9,
+      "limiting_object_id": "B4",
+      "computed_by": "geometry_engine",
+      "scene_version": 12
+    }
+  ],
+  "event": {
+    "expected_people": 800,
+    "attendance_provenance": "organizer_estimate",
+    "available_stewards": 6
+  },
+  "unknowns": ["Confirm onward access from the courtyard to an external dispersal area"]
+}
+```
+
+A door leading to a courtyard is not necessarily a usable final exit. Reachability to a represented destination must be established independently of the word “exit.” In this example the unresolved courtyard access remains consequential.
+
+The full contract must also reference the floor boundaries, walls, zones, stairs where relevant, spatial-fact algorithm version, source records, and simulator inputs. The compact example deliberately does not claim to be simulation-ready.
+
+### 20.3 Additional input to the fix agent
+
+A fix agent receives the scene summary and relevant details plus:
+
+- Scenario definition, event assumptions, run ID, scene version, and settings.
+- Execution status and result basis: estimate, partial, completed, failed, or unknown.
+- Measured metrics with units, location IDs, and compatible comparison references.
+- Available actions and schema, locked objects, resource inventory, and dependencies.
+- Earlier attempted changes, conflicts, results, and remaining budget.
+- Limitations relevant to the question being answered.
+
+Its output is a candidate edit or operational bundle with object IDs, rationale, supporting findings, and required follow-up checks. A hypothetical example is moving B4 by a specified vector to improve an approach clearance. Geometry validation and reruns must establish whether that proposal is valid and useful.
+
+Reject unknown object references, illegal moves, unsupported operations, conflicting bundles, and attempts to violate constraints. Semantic validation is needed in addition to valid JSON syntax.
+
+### 20.4 How well models can understand this representation
+
+Explicit facts and manageable connection graphs are a practical basis for language-model reasoning. Reconstructing complex spaces from thousands of vertices, calculating exact clearance, or predicting crowd dynamics directly is substantially less dependable. No project-specific Nemotron accuracy percentage has been established.
+
+Use geometry algorithms for intersections, connectivity, clearance, and routes. Give the model the calculated facts and access to detailed local geometry when needed. Context should be selected by task, with completeness checks for affected routes; arbitrary truncation can hide important hazards.
+
+Repository inspection found that `api/agents/context.py` currently compresses geometry into a text summary, uses bounding information for several objects, and counts interior wall segments without supplying their full layout. This loses relationships needed for reliable complex spatial reasoning. Enriching this context is a priority before increasing model size.
+
+Evaluate explicit spatial tasks: dead-end courtyards, blocked routes, narrow approaches, irregular boundaries, locked structures, missing dimensions, and infeasible operations. Valid output syntax or successful simple edits do not establish whole-venue understanding.
+
+### 20.5 CAD, mesh, and point-cloud inputs
+
+CAD and PLY are optional import paths. The core text-to-editor workflow can create its own scene without them.
+
+| Input | Proposed handling |
+| --- | --- |
+| Existing structured JSON | Validate schema, units, references, topology, and provenance. |
+| Structured DXF | Extend the existing importer where necessary; confirm semantic interpretation and scale. |
+| Other CAD/building formats | Add format-specific conversion only when a real user case requires it; support is not implied by DXF support. |
+| PLY point cloud or mesh | Check representation, scale, axes, completeness; extract candidate objects and obtain user corrections. |
+| GLB/other visual mesh | Preserve useful geometry, but do not assume it contains door semantics or usable-route information. |
+| Screenshots/video | Use as supplemental visual context or a reconstruction aid, with explicit uncertainty. |
+
+An appealing reconstruction can contain incorrect dimensions and missing openings. Human confirmation improves usability and input quality but is not automatically independent measurement.
+
+## 21. Model roles and candidates
+
+### 21.1 Role allocation
+
+| Role | Intended responsibility | Evidence required |
+| --- | --- | --- |
+| Nemotron text model | Intake, scene reasoning, structured edits, scenario/fix proposals, tool orchestration, and explanations. | Live task evaluations on the exact endpoint and model used. |
+| Optional vision model | Inspect labeled renders or walkthroughs and identify candidate spatial issues. | Additional verified findings versus the structured-only workflow. |
+| Optional native 3D model | Interpret supported point clouds or geometry, primarily for imported venue reconstruction or inspection. | Venue-scale evaluation and demonstrated supported input processing. |
+| Coordinator / judge | Reconcile findings, request tests, compare evidence, and summarize scoped conclusions. | Correct handling of disagreement, missing evidence, and failed runs. |
+| Geometry and simulator tools | Establish spatial facts and modeled numerical outcomes. | Reproducibility, appropriate validation, and declared limits. |
+
+A larger coordinator, including a suitable Nemotron Ultra endpoint if available, is an option to evaluate. It is not a requirement, a verified performance improvement, or a guarantee of correct judgment. Model availability, exact IDs, context limits, pricing, and input modalities must be checked before integration.
+
+### 21.2 Candidates discussed
+
+This table records research candidates from the conversation. It is not a tested compatibility matrix, a claim of current endpoint availability, or a claim that any candidate is free.
+
+| Candidate | Input route discussed | Potential role and caveat |
+| --- | --- | --- |
+| NVIDIA Nemotron 3 Super | Text containing structured facts and tool results. | Existing OpenRouter development route; no native CAD/PLY or image support should be inferred from text reasoning capability. |
+| Qwen3-VL, including the 235B-A22B-Instruct endpoint discussed | Text and rendered images through a compatible endpoint. | Practical candidate for labeled venue views; verify provider modalities, image limits, latency, and cost. |
+| Gemini multimodal API; a Flash variant was discussed | Supported images/video plus text. | Alternative for walkthrough or view inspection; verify the current model ID and supported endpoint inputs. |
+| NVIDIA Cosmos reasoning models | Supported images/video plus text using an appropriate deployment. | Candidate when temporal or physical visual reasoning matters; distinguish reasoning models from video generators. Hosted access and resource requirements need verification. |
+| SpatialLM | Prepared point clouds. | Candidate for reconstructing indoor walls, doors, windows, and objects; deployment and component licenses require review. |
+| PointLLM | Prepared colored point clouds. | Research candidate for 3D-to-text understanding; object-level results do not establish reliable whole-venue analysis. |
+
+No turnkey hosted API accepting arbitrary CAD, GLB, FBX, or Blender files for dependable event engineering was verified in the discussion. Research weights or a self-hostable model are different from a ready hosted endpoint. A compatible import pipeline may still be necessary.
+
+### 21.3 What existing project results establish
+
+Repository notes reported valid venue generation for four descriptions in roughly 2–15 seconds with Super through OpenRouter, and a longer smoke workflow around 212 seconds. A small edit evaluation reported 12/12 on a local model setup. These were repository-reported results, not independently rerun here; they do not establish general scene understanding, physical accuracy, or future latency.
+
+Do not transfer accuracy or speed claims between local models, OpenRouter routing, and Nebius endpoints. Record model ID, provider, prompt/schema version, settings, retries, and representative failures for every performance claim.
+
+## 22. Optional dual-model review and evidence resolution
+
+The user's proposed extension is worth evaluating: structured scene data goes to Nemotron, while a second model inspects a spatial representation; a coordinator combines the findings.
+
+The two branches usually describe the same underlying scene. They are complementary representations, not independent evidence that the venue matches reality. An incorrectly measured doorway can mislead both branches. Agreement does not validate the input or the physics.
+
+### 22.1 Proposed implementation
+
+1. Freeze a scene version and event context.
+2. Generate the structured context and labeled visual views from that version.
+3. Run structured and visual review in parallel where dependencies allow.
+4. Require findings to identify affected objects, observation basis, hypothesis, missing information, and a proposed verification step.
+5. Normalize the findings into shared records; retain the originating model and input version.
+6. Resolve each material issue using geometry checks, supported simulations, source inspection, or a user measurement.
+7. Produce a conclusion referencing completed evidence, with disagreements still visible when unresolved.
+
+Start visual experiments with a top-down view and two cutaway or angled views, clear object labels, orientation, and scale. This is an initial evaluation configuration, not a guarantee of complete visibility. Record which objects are occluded or absent from the supplied views.
+
+Native point-cloud inspection is a separate alternative to rendered-view inspection. Compare it only if the model and deployment support the required venue scale and input representation.
+
+### 22.2 Coordinator behavior
+
+The coordinator should ask “what test distinguishes these hypotheses?” For example, a visual model flags a funnel beside B4 while the text model sees an adequately wide door. Calculate the approach clearance, inspect connectivity, then run a suitable crowd scenario. The final conclusion uses those results.
+
+It must not choose a winner solely on fluent explanations, model size, or majority agreement. Agreement, disagreement, unverified hypothesis, geometry-confirmed fact, and simulation-supported result should remain distinct states. A model's stated confidence is not a calibrated probability of safety.
+
+### 22.3 Latency and cost controls
+
+- Run independent reviews concurrently.
+- Reuse inspection only when scene, context, model, and prompt versions remain applicable.
+- Inspect affected regions after edits, while rechecking routes and downstream effects that cross region boundaries.
+- Trigger expensive review for substantial changes, ambiguous imports, or consequential disagreement.
+- Escalate to a larger coordinator only when a recorded decision rule calls for it.
+- Show progress, cancellation, budgets, and partial outcomes.
+
+Parallel review still adds time after the slower branch through coordination and any additional tests. It also adds cost. Measure the actual tradeoff instead of assuming more models always improve the result.
+
+### 22.4 Acceptance experiment
+
+Compare structured-only, visual-only, and combined inspection on the same venue tasks with controlled budgets. Include deliberately missing data and misleading views. Measure verified findings, false alarms, missed issues, feasibility of proposed edits, downstream simulation improvement, latency, and cost.
+
+Keep the second branch in the core workflow only if it adds a useful measured benefit. It can remain an optional expert review if its value is limited to difficult imports or unusual layouts.
+
+## 23. Nebius sandbox architecture and expansion
+
+### 23.1 Current implementation versus active use
+
+`api/adapters/nebius_sandbox.py` implements a ConTree-based runner built against SDK 0.3.6. Repository tests use a fake client; live Nebius execution has not been established. The checked-in default remains Docker, and no local `.env` was present at the most recent inspection. That does not prove what an external deployment currently uses.
+
+The adapter is designed to:
+
+1. Create or reuse a base environment containing dependencies and simulation code.
+2. Create a venue snapshot containing the initial scene JSON.
+3. Create child snapshots for simulation jobs and candidate branches.
+4. Execute the simulator using venue, event, plan, and request/settings files.
+5. Retrieve results, trajectories, and density artifacts.
+6. Limit concurrency using a semaphore; default concurrency is one.
+
+```text
+Simulation environment
+    └── Confirmed venue snapshot
+          ├── Baseline run
+          ├── Blocked-exit scenario
+          │     ├── Candidate A
+          │     └── Candidate B
+          └── Other scenario branches
+```
+
+This tree represents execution and filesystem ancestry. The current runner launches a new simulation process for each job. It does not resume an in-memory crowd simulation at a selected instant. True mid-simulation checkpoint/resume requires engine support and additional implementation.
+
+### 23.2 What is already useful
+
+Isolation, reusable dependency environments, branching, bounded concurrency, and downloadable artifacts fit Showtime's experiment workflow. The current six-case sweep and red/blue loop provide foundations.
+
+The six-case sweep currently uses a fixed seed of 42. It includes attendance changes, exit closure, and specified speed reductions. It is not an uncertainty ensemble or a physical weather simulation. The provider also currently influences the sweep tier; comparative provider benchmarks must use equivalent settings instead of attributing a tier difference to infrastructure speed.
+
+### 23.3 Highest-value extensions
+
+| Extension | Intended benefit | Completion evidence |
+| --- | --- | --- |
+| Parallel candidate evaluation | Compare multiple feasible responses to the same issue. | Recorded concurrent jobs, valid results, and identical comparison conditions. |
+| Repeated random seeds | Estimate variation under modeled randomness. | Paired seed sets, retained individual runs, and honest summaries. |
+| Cross-scenario regression suite | Detect a fix that helps one case and harms another. | Declared scenario set and explicit metric gates. |
+| Disagreement-driven experiments | Test findings from structured and visual reviewers. | Finding → test request → run → conclusion trace. |
+| Persistent branch registry | Recover experiment ancestry after restart. | Stored provider snapshot IDs and restart/recovery checks. |
+| Complete experiment manifest | Reproduce the selected plan. | Inputs, engine/dependency versions, seeds, hashes, status, and artifacts. |
+| Budgeted scheduling | Allocate effort to promising or uncertain candidates. | Per-session caps, cancellation, retries, queue visibility, and measured use. |
+| Artifact and snapshot lifecycle | Keep experiments manageable and evidence retrievable. | Retention policy, missing-artifact handling, cleanup, and recoverable failures. |
+
+A bounded example is four layouts (original plus three candidates), three scenarios, and three seeds: 36 runs. This is an illustrative budget, not a promise that it fits the available credits or demo time. Benchmark smaller batches first.
+
+### 23.4 Required hardening
+
+- Verify authentication, access, supported images, SDK version, and endpoint behavior with a live smoke run. Current SDK examples use a different client-construction pattern than the adapter; reconcile this with the pinned version.
+- Persist run-to-snapshot references. The current `_nodes` and venue-node maps are in memory.
+- Audit inherited files. Child snapshots must not return stale result or optional artifact files from an ancestor as fresh evidence.
+- Validate returned run identity and scene/configuration provenance before accepting artifacts.
+- Preserve original failures and fallback estimates as distinct records. An estimate cannot satisfy a completed-simulation gate.
+- Confirm timeout, retry, cancellation, progress, and concurrent cold-start behavior; the current adapter does not demonstrate a complete implementation of all these behaviors.
+- Pin dependencies and include all behavior-affecting inputs in environment and result cache identity.
+- Implement and verify resource cleanup rather than assuming the current no-op `close()` provides it.
+
+These are static review findings and proposed checks, not reproduced cloud failures.
+
+### 23.5 Service boundaries and development sequence
+
+Token Factory supplies model inference. Sandboxes execute simulation code and preserve branch artifacts. A visual model may use another endpoint or its own deployment. Do not assume the sandbox is a GPU model-serving endpoint.
+
+Nebius Serverless Jobs were also discussed as a possible future batch-compute path. They are a separate integration to verify, not an interchangeable name for ConTree or a mandatory second execution backend.
+
+Keep OpenRouter plus Docker for present development. Before submission, prove one live Nebius baseline → scenario → candidate → comparison workflow if Sandboxes are included in the submitted claim. Then scale to repeated runs and multiple candidates. Required competition model/platform use must be verified separately; sandbox use alone should not be assumed to satisfy every requirement.
+
+More cloud experiments do not add missing pushing forces or improve a simplified stair model automatically. Their value is better coverage, reproducibility, and comparison within the supported physics.
+
+## 24. Consolidated additions and status map
+
+F01–F25 in section 5 retain the complete existing feature inventory. N01–N17 in section 6 retain the original roadmap. The entries below reconcile new discussion with those foundations; they are proposed work, not a second list of already shipped features.
+
+| ID | Addition or extension | Existing foundation | Priority / status |
+| --- | --- | --- | --- |
+| R01 | Canonical scene contract with full relevant geometry and stable IDs | F01, F05, F07, F08 | Core extension; current summary is lossy. |
+| R02 | Computed connectivity, reachability, clearance, and route facts for AI | F09, F10, F11 | Core spatial-reasoning foundation. |
+| R03 | Focused collaborative editor with provenance, locks, and existing/proposed labels | F07, F08, N14, N15 | Core user workflow extension. |
+| R04 | Targeted questions based on consequential assumptions | F03, N13 | Core; bounded sensitivity after reliable runs. |
+| R05 | Shared physical and operational constraint enforcement | F08, F09, F14 | Core before autonomous candidate acceptance. |
+| R06 | Complete selected-plan persistence and evidence invalidation | F01, F19 | Core correctness work. |
+| R07 | Typed result basis, execution status, and metric references | F11, F18, F19 | Core correctness work. |
+| R08 | Multiple feasible alternatives and combined-bundle evaluation | F14, F16 | Core comparison extension. |
+| R09 | Paired seeds, regression scenarios, and sensitivity | F13, N05 | Bounded evaluation; expand after cost measurement. |
+| R10 | Structured geometry inspection tools for Nemotron | F18, N15 | Core context extension for complex scenes. |
+| R11 | Labeled render generation and visual-review adapter | F07, F22 | Optional experiment; currently unverified. |
+| R12 | Dual-model findings and evidence-resolving coordinator | F14, F18 | Optional; retain when measured benefit justifies it. |
+| R13 | Native point-cloud/mesh reconstruction and inspection | F21 | Later import extension; no generic file support implied. |
+| R14 | Planning/event mode distinction with timestamped observations | F16, F17, N07 | Planning core; full event mode later. |
+| R15 | Environmental data provenance and explicit scenario coupling | F17 | Scope/clarity core; richer behavior later. |
+| R16 | Live sandbox compatibility and branch/artifact hardening | F22, N04 | Deferred integration; required before cloud execution claims. |
+| R17 | Persistent parallel experiment scheduler with budgets | F13, F14, N04, N05, N16 | Incremental expansion after live proof. |
+| R18 | Spatial understanding and model-branch evaluations | N10, N16 | Needed before accuracy or dual-model superiority claims. |
+| R19 | Exact handover and carefully checked multilingual instructions | F19, N08, N17 | English core; translation and standalone exports later. |
+| R20 | Guided three-screen journey and a reproducible demo | F20, N06, N11, N13, N14 | Core product and release work. |
+
+Tavily Evidence Desk, rule research, share links, diagnostics, templates, maps, imports, plugins, themes, and other existing features remain included through sections 5–6. The revised focus does not silently drop them or turn every optional addition into a submission prerequisite.
+
+## 25. Revised implementation gates and demonstration
+
+### 25.1 Dependency order
+
+| Gate | Deliverable | Exit condition |
+| --- | --- | --- |
+| A — Trustworthy state | Full plan version, geometry/operations persistence, typed status, constraints, and cache provenance. | Failure cannot become a pass; stale evidence is identifiable; selected actions survive reload. |
+| B — One complete journey | Text → editable single-level venue → scenario → feasible fix → completed rerun → report. | An unfamiliar user completes it and understands the remaining conditions. |
+| C — Better scene reasoning | Explicit spatial facts and local inspection tools. | Known spatial cases and constraint-preserving edits are evaluated on the chosen model. |
+| D — Credible comparison | Multiple candidates, bounded paired seeds, combined-fix checks, and regression scenarios. | Improvement and uncertainty are supported by inspectable runs. |
+| E — Optional second model | Version-matched visual or native 3D inspection and disagreement resolution. | Incremental verified benefit is measured against cost, false alarms, and latency. |
+| F — Live infrastructure | Required Nebius inference plus live sandbox execution if claimed. | Actual provider runs and artifacts support the demo; configuration is reproducible. |
+| G — Release and evidence | Usability exercise, scoped validation, usage report, public demo, license, README, video, and submission materials. | All public claims match demonstrated functionality and access works. |
+
+Prepare infrastructure access early enough to discover blockers. This table describes dependencies, not a requirement to postpone access checks until every earlier feature is complete. Optional branch E must not block a complete core submission.
+
+### 25.2 Three-minute demonstration
+
+Suggested allocation, adjustable to actual measured runtime:
+
+- **0:00–0:25:** describe a specific organizer's problem and constraints.
+- **0:25–0:55:** AI drafts the venue; user corrects a door or barrier and locks a fixed feature.
+- **0:55–1:25:** show a supported failure scenario and its simulated queue or congestion.
+- **1:25–2:05:** propose feasible alternatives; show completed comparisons and one rejected or inferior option if helpful.
+- **2:05–2:35:** inspect evidence for the selected improvement, including a regression check or remaining assumption.
+- **2:35–3:00:** export the exact plan and show actual model/provider involvement and measured usage.
+
+If dual-model inspection adds verified value, briefly show one disagreement and the check that resolved it. If sandbox branching is implemented live, show parallel experiment progress and the resulting evidence. Use recorded runs transparently when needed; do not imply a long batch completed within an edited video interval in real time.
+
+The strongest story is a clear decision that changed because of the evidence. A dramatic camera tour or model debate can support presentation but cannot substitute for that decision.
+
+### 25.3 Completion checklist for the revised architecture
+
+- [ ] Scene, editor, AI input, and simulator describe the same version and units.
+- [ ] Full relevant geometry and computed relationships support spatial reasoning.
+- [ ] Inputs distinguish assumptions, confirmations, measurements, and unresolved facts.
+- [ ] Candidate changes obey fixed structures, access, resources, and operational constraints.
+- [ ] Evidence status remains correct through failure, fallback, save/reload, and export.
+- [ ] Before/after comparisons include the exact applied bundle and compatible conditions.
+- [ ] Remaining people, external demand, and regressions remain visible.
+- [ ] Claims about Nemotron accuracy and latency use recorded evaluations.
+- [ ] Optional visual review demonstrates additional useful findings before being called an improvement.
+- [ ] Event mode identifies observation freshness and does not imply automatic sensing.
+- [ ] Any claimed live sandbox workflow has verified execution, provenance, and artifact isolation.
+- [ ] Cost reporting includes explicit boundaries and distinguishes cached from fresh work.
+- [ ] The organizer can complete the central journey and use the exported handover.
+- [ ] Submitted provider use, licensing, demo access, and other competition requirements are verified.
+
+Unchecked boxes express proposed acceptance conditions; this document does not mark them completed.
+
+## 26. Final decisions and corrections preserved from the discussion
+
+1. **Keep the core idea.** The central weakness is not lack of features or lack of AI involvement. It is the gap between impressive functionality and dependable, useful, demonstrated decisions.
+2. **Use collaborative creation.** Conversation plus direct editing is a strong fit. Repeated questioning cannot reveal physical facts nobody knows; unknowns must remain explicit.
+3. **Maintain a real spatial model.** CAD and PLY are optional input formats. Removing the need to upload them does not remove the need for accurate geometry and connectivity.
+4. **Improve the representation before assuming a larger model will solve spatial reasoning.** Explicit computed facts are easier to inspect and validate than reasoning from raw coordinates alone.
+5. **Evaluate complementary model review.** Two representations may expose different issues, but they can share the same underlying error. Agreement is not independent validation.
+6. **Use tools to resolve claims.** A coordinator requests measurements and simulations, then explains supported results. It does not establish physical truth by choosing the most persuasive model response.
+7. **Use sandboxes for reproducible experiments.** Branching and parallelism are valuable when they compare real alternatives under controlled conditions. They do not improve simulator physics automatically.
+8. **Distinguish the two operating modes.** Event mode depends on timestamped observations and available actions; planning mode explores future alternatives.
+9. **Scope disaster outcomes.** Crowd walking and queue models, simplified stairs, and wind screening support limited conclusions. Proposed features do not erase those boundaries.
+10. **Measure competitive claims.** Better outcomes, lower cost, faster planning, and greater AI contribution need evidence. No feature bundle or architecture guarantees a win.
+11. **Preserve the development preference.** OpenRouter and Docker remain the immediate route. Nebius and Tavily implementation is deferred until the appropriate integration stage, while eventual competition requirements remain explicit.
+12. **Prioritize a complete experience.** A reliable scenario-to-fix-to-rerun loop is the foundation; optional import formats, extra reviewers, live sensors, and broad physics expansion follow demonstrated need.
+
+## 27. References and related documents
+
+### Repository
+
+- [Earlier consolidated proposal](proposal.md)
+- [Full implementation roadmap](plan.md)
+- [Reviewed product priorities](PRODUCT_PRIORITIES.md)
+- [Application README](nebius/README.md)
+- [Architecture](nebius/docs/ARCHITECTURE.md)
+- [Assumptions and modeling limits](nebius/docs/ASSUMPTIONS.md)
+- [Handoff and reported status](nebius/docs/HANDOFF.md)
+- [Nebius integration status](nebius/docs/NEBIUS_SWITCH.md)
+- [Red-team demonstration screenshot](nebius/docs/screenshots/redteam.png)
+
+### External sources checked during the discussion
+
+- [Hackathon overview](https://nebiusglobalaihackathon.devpost.com/)
+- [Official rules](https://nebiusglobalaihackathon.devpost.com/rules)
+- [Official judging update](https://nebiusglobalaihackathon.devpost.com/updates/46204-here-s-how-judging-works)
+- [OpenRouter key settings](https://openrouter.ai/settings/keys)
+- [OpenRouter Nemotron 3 Super free model](https://openrouter.ai/nvidia/nemotron-3-super-120b-a12b:free)
+- [OpenRouter pricing](https://openrouter.ai/pricing/)
+- [OpenRouter limits](https://openrouter.ai/docs/api_reference/limits)
+
+This file records the discussion and its corrected conclusions. It does not claim that the proposed changes, new evaluations, platform integrations, or final submission have been completed.
+
+### Additional architecture and model references
+
+These references identify sources and code discussed; endpoint availability, licensing, API compatibility, and pricing must be rechecked when implementing.
+
+- [Current scene context construction](nebius/api/agents/context.py)
+- [Nebius sandbox adapter](nebius/api/adapters/nebius_sandbox.py)
+- [Local sandbox contract and job files](nebius/api/adapters/sandbox.py)
+- [Scenario sweep](nebius/api/orchestrator/sweep.py)
+- [Red-team session orchestration](nebius/api/orchestrator/session.py)
+- [Simulation entry point](nebius/sim/run_sim.py)
+- [Nebius adapter fake-client tests](nebius/api/tests/test_nebius.py)
+- [Repository-reported progress and model trials](nebius/docs/PROGRESS.md)
+- [NVIDIA Nemotron 3 Super model card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16)
+- [Qwen3-VL model card](https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Instruct)
+- [Qwen3-VL on OpenRouter](https://openrouter.ai/qwen/qwen3-vl-235b-a22b-instruct)
+- [Gemini model documentation](https://ai.google.dev/gemini-api/docs/models)
+- [NVIDIA Cosmos documentation](https://docs.nvidia.com/cosmos/latest/cosmos3/quickstart_guide.html)
+- [SpatialLM repository](https://github.com/manycore-research/SpatialLM)
+- [PointLLM repository](https://github.com/InternRobotics/PointLLM)
+- [Nebius ConTree SDK](https://github.com/nebius/contree-sdk)
+- [Nebius ConTree CLI and snapshot explanation](https://github.com/nebius/contree-cli)
+- [Nebius Serverless AI](https://dev.nebius.com/serverless)
