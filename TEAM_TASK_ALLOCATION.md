@@ -96,6 +96,85 @@ Person 2 reviews backend correctness; Person 3 reviews workflow and consumer com
 
 These are dependency gates, not promised dates. Confirm required provider access early enough to expose account blockers, without starting the deferred implementation now. A single usable slice comes before expanding the number of scenarios, venue types, or models.
 
+### 7.1 How to read dependencies
+
+**Yes, the work is dependent.** Person 2 supplies scene, constraint, persistence, and experiment interfaces that Person 3 integrates into the product. Person 1's final evaluation and submission depend on their working outputs. However, nobody needs to wait for another person to finish their entire allocation before starting.
+
+- **Can start now:** planning, scaffolding, fixtures, isolated implementation, recruitment, or documentation drafts can proceed against the existing app.
+- **Needs a checkpoint:** integration waits for a specific working interface or artifact, not necessarily completion of the whole upstream task.
+- **Needs completion:** final acceptance, measured claims, and submission wait for actual verified outputs. Mock responses do not satisfy these gates.
+
+The checkpoints below divide the larger tasks into useful handoffs. They are included in the existing points, not additional assignments.
+
+### 7.2 Exact handoff checkpoints
+
+| Checkpoint | Produced by | What must exist first | Ready when / what it unblocks |
+| --- | --- | --- | --- |
+| C0 — Demo brief | Person 1, P1-01 | Existing app walkthrough | One venue, demand, permitted changes, staffing, and target user task are recorded. Unblocks shared acceptance fixtures and the demo-specific implementation. |
+| C1 — Scene contract | Person 2, first part of P2-01 | Existing scene/schema review; C0 for the demo fixture | Schema, stable IDs, units, provenance, version/hash, and representative JSON fixtures are agreed with Person 3. Unblocks scene-aware frontend and backend work in parallel. |
+| C2 — Validated saved plan | Person 2, P2-02 | C1 | Constraint validation, atomic bundle application, complete plan save/reload, and invalidation behavior work. Unblocks real edit application and selected-plan persistence. |
+| C3 — Spatial inspection tools | Person 2, remaining spatial part of P2-01 | C1 | Reachability/clearance/route tools return checked, version-matched results. Unblocks grounded agent inspection. C2 is not required to build these read-only tools. |
+| C4 — Typed run evidence | Person 2, P2-03 | C1; C2 for operational-plan identity and invalidation integration | Status, basis, metric references, cache identity, and failed/fallback records work. Unblocks truthful result displays and comparison consumption. |
+| C5 — Local experiment and export interfaces | Person 2, initial portions of P2-04/05 | C2 + C4 | A baseline and candidate can run under compatible settings; exact bundle IDs, artifacts, results, and plan export are returned. Unblocks an initial real before/after journey. The full multi-seed study and public deployment can follow. |
+| C6 — Complete local journey | Person 3, integrated P3-01/02/03/05/06; Person 2 supplies C2–C5 | C0 + C2 + C3 + C4 + C5; OpenRouter-compatible adapter from P3-04 | A user can correct a template, propose/select a constrained alternative, inspect a completed rerun, and export the saved plan. Recorded/mock AI may support an explicitly labeled development trial; actual model-quality claims require live calls. Unblocks organizer exercises. |
+| C7 — Credible comparison evidence | Person 2, remaining P2-04; Person 3, evaluation part of P3-07 | C3 + C4 + C5; candidate workflow from P3-02/03; live calls on any model whose performance is reported | Paired seeds/regressions, sensitivity, baseline comparisons, validation scope, and usage records are available. Unblocks measured benefit claims and the final demo evidence bundle. |
+| U1 — Initial organizer findings | Person 1, initial observation part of P1-02 | C6 + initial backend failure checks from P2-06 | Task observations and a prioritized issue list are supplied to Persons 2/3. Unblocks their bounded correction round; recruiting participants can happen earlier. |
+| U2 — Correction-round acceptance | Person 1, remaining P1-02 | U1 + relevant fixes verified by Persons 2/3 | One review of corrected workflow issues is recorded. Unblocks final usability claims and final documentation. |
+| C8 — Verified public release | Person 2, P2-05/06; Person 3, live part of P3-04 and release part of P3-07 | C6 + actual required Nebius/NVIDIA inference + backend/frontend deployment controls + U1 fixes and U2 acceptance | Public access, clean setup, job limits/isolation, integration checks, and a current provider-backed demonstration work. C7 additionally supplies evidence for claims of improvement; publishing a test deployment need not wait for the full study. |
+
+C7 and U1/U2 can proceed in parallel after C6. Start release scaffolding early, then verify C8 against the corrected version. These checkpoints avoid making organizer feedback depend on a finished release that itself needs organizer feedback.
+
+### 7.3 Prerequisites for every core task
+
+| Task | Work that can start before prerequisites finish | Required before integration or completion |
+| --- | --- | --- |
+| P1-01 | Start immediately. | Existing code and sample projects available; no new task blocks it. |
+| P1-02 | Recruit users and prepare observation notes after C0. | Initial exercises need C6 and initial P2-06 failure checks. Final acceptance needs U1 findings addressed by the responsible engineers, then U2. |
+| P1-03 | README outline, license placement, existing setup instructions, and change-history draft can start now. | Final feature, evaluation, deployment, and provider claims need C7, U2, and C8 evidence. |
+| P1-04 | Script/storyboard can start after C0; collect footage as features become usable. | Final public video needs C7 evidence, C8's verified version/provider records, and finalized factual claims from P1-03. Re-record any affected segment after a material change. |
+| P1-05 | Check official requirements and prepare submission fields early. | Final submission needs P1-02/03/04 complete, C7/C8, license/public repository/setup, and confirmed demo/video access. |
+| P2-01 | Inspect existing schemas and prototype geometry tools now. | Demo fixtures need C0. Publish C1 before dependent schema integration; complete the task with C3 and compatible simulator/editor adapters. |
+| P2-02 | Prototype validators/storage against C1 fixtures while geometry tools are built. | C1 is required before real plan integration. Finish constraint/persistence/invalidation handoff C2; no need to wait for all of P2-01's spatial tools. |
+| P2-03 | Design status/metric types and failed-run fixtures alongside P2-02 after C1. | C2 is required to finish cache/operational identity and evidence invalidation. Complete C4 before dependent comparison/report acceptance. |
+| P2-04 | Select an independent validation example and define regression cases after C0; freeze evaluation cases before model selection. | Experiment integration needs C2 + C4. Deliver C5 first, then the bounded paired-seed/sensitivity/validation outputs for C7. Agent benchmarking additionally needs Person 3's candidate workflow. |
+| P2-05 | CI, Docker/deployment scaffolding, job controls, and access checks can start now. | Full plan export needs C2 + C4. Experiment cleanup/limits integrate with C5. Public release verification needs the integrated C6 application, frontend release, and actual provider calls from P3-04. |
+| P2-06 | Build failure fixtures and review changes as C2/C4 become available. | Initial checks of the C6 slice precede U1. Final integration checks need the expanded P2-04/05 outputs, Person 3's integrated workflow, and backend corrections from U1. Do not wait for U2 before implementing those corrections. |
+| P3-01 | Screen layout, navigation, and editor UI can start with existing components and C1 fixtures. | Real edits/locks/save require C2; stale/evidence labels require C4. Complete journey acceptance also needs integrated P3-02/03/05/06 at C6. |
+| P3-02 | Intent routing, graph scaffolding, question policy, and mock tools can start after C0/C1. | Grounded inspection requires C3; applied edits require C2; real run interpretation requires C4/C5 and P3-04's local adapter. Full comparison connects to P3-03. |
+| P3-03 | Candidate schemas, comparison layout, and no-feasible-option fixtures can start after C1. | Real constrained candidates require C2 and P3-02; completed comparison requires C4/C5. Final regression-based selection requires the remaining P2-04 evidence in C7. |
+| P3-04 | Local OpenRouter adapter/configuration and mock responses can start immediately. | Tool compatibility needs the C3 interfaces used by P3-02. Live Nebius implementation remains deferred until the integration stage and needs account credentials/access plus the working local flow. Verify actual calls before C8 and any claimed Nemotron measurements. |
+| P3-05 | Environmental provenance labels, planning-mode text, and explanation templates can start now. | Metric-backed explanations require C4; before/after explanations require C5 and P3-03. Validate displayed claims against actual results before C6/C7 acceptance. |
+| P3-06 | Report/replay layouts and English checklist structure can start with fixtures. | Exact handover requires C2 and export from P2-05; metric/replay links require C4/C5; selection must use P3-03's persisted plan. Integration is part of C6. |
+| P3-07 | Instrumentation, benchmark design, accessibility, landing page, and frontend deployment scaffolding can start early. | Actual baseline measurements require P3-02/03, C3/C4/C5, and the declared P2-04 suite. Release needs P2-05's backend, C6, live P3-04 calls, and U1 fixes. Claims about the final model must be rerun on that model, not inferred from OpenRouter results. |
+
+Tasks such as P3-01/02/03/06 are integrated together to deliver C6; their whole-task completion is not a prerequisite for starting each other. Likewise, P2-06 and P3-07 are ongoing verification/release responsibilities, not single tasks that must finish before the first organizer trial.
+
+### 7.4 What each person should do first
+
+1. **Person 1:** deliver C0 through P1-01, then draft documentation and recruit users. Wait for C6 to run the full organizer exercise.
+2. **Person 2:** publish C1 first. Implement C2 and C3, with status schema work in parallel; then finish C4 and deliver C5. Expand experiment evidence and deployment afterward.
+3. **Person 3:** begin screen scaffolding and the local provider adapter immediately. Use C1 fixtures while waiting for C2/C3/C4/C5, replace each mock with its real interface as it arrives, then deliver C6. Expand evaluation and perform the deferred live provider integration before C8.
+
+**Main sequence:** brief → scene contract → validated/persisted plan and spatial tools → typed evidence → real experiment/export interfaces → complete local journey → evaluations and correction round → verified public release → final documentation/video → submission.
+
+The sequence describes integration readiness. It does not require Person 3 to remain idle while Person 2 finishes the backend or Person 1 to wait until the end to write documentation.
+
+### 7.5 Dependencies for optional packages
+
+All optional implementation waits until the core journey and its evidence are complete and capacity is available, as specified in section 8. The prerequisites below explain the technical order within each selected package.
+
+| Package | Needs first | Work order inside the package |
+| --- | --- | --- |
+| O1 — Cloud sandbox branches | C2/C4/C5/C7, the local job controls from P2-05, and cloud credentials/access | Person 2 proves live execution and artifact identity first. Person 3 can scaffold progress/budget screens in parallel; real graph branching waits for the working cloud execution interface. Both then verify parallel comparisons. Token Factory inference alone does not provide sandbox execution. |
+| O2 — Visual/dual-model review | C1/C3/C4/C7, the grounded P3-02 tools, and access to a suitable visual model | Person 2 produces labeled version-matched renders and truth fixtures. Person 3 integrates visual findings, then the coordinator. Run the three-way comparison only after both inputs and evidence-resolving tools work. CAD/PLY import from O5 is not required for render-based review. |
+| O3 — Full event mode | C2/C4/C6/C7 and P3-05's environmental provenance | Person 2 defines timestamped observations and allowed operational actions. Person 3 builds entry/freshness screens against fixtures; real event-mode responses wait for validated observation/action APIs. Test weather-driven scenarios only after their explicit simulator coupling exists. |
+| O4 — Tavily/rules | Core evidence ready, P3-05 provenance conventions, and Tavily credentials/access at the deferred stage | Agree the source contract. Person 2 implements retrieval/cache records; Person 3 integrates the desk against fixtures, then verifies context and applicability with actual records. Citation matching alone does not complete the package. |
+| O5 — Intake/sharing/translation | C1/C2/C4, P2-05 export/access controls, and P3-06's verified English handover | Imports: conversion schema/validation before accepting imported geometry. Sharing: permission/expiry/revocation backend before publishing links/QRs. Translation: accurate English actions and metric references before Bangla review. Standalone export: working complete plan export and reproducible runner before the bundle. These four strands can run independently once their own prerequisites hold. |
+
+### 7.6 Handoff rule to prevent blocking
+
+For each checkpoint, the producer supplies the interface/schema, a representative success example, relevant failure examples, and one reproducible verification command or procedure. The consumer acknowledges compatibility and replaces fixtures with the real implementation. Track blockers by checkpoint ID, producer, missing artifact, and next action; resolve engineering blockers between Persons 2 and 3 rather than automatically assigning them to Person 1.
+
 ## 8. Optional and later work — assigned, but outside the core 100 points
 
 Do not treat every feature discussed as a submission prerequisite. Start a paired optional package only after the core journey and its evidence are complete and there is capacity. Each package gives Persons 2 and 3 equal additional points; Person 1 receives no automatic extra work.
