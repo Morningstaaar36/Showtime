@@ -133,6 +133,7 @@ def build_runner(settings: Settings) -> SandboxRunner:
         max_parallel=settings.sandbox_max_parallel,
         sim_code_dir=sim_code,
         sim_user=settings.sim_user,
+        platform=settings.sim_platform,
     )
 
 

@@ -1,15 +1,16 @@
 # Showtime — Red Team Night. Run `make help` for the list of targets.
 SHELL := /bin/bash
 ENV := source scripts/env.sh &&
+SIM_PLATFORM ?= linux/amd64
 API := cd api &&
 .DEFAULT_GOAL := help
 
 .PHONY: help setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
         types check lint typecheck test test-sim test-web e2e smoke smoke-nebius demo-precompute \
-        clean mem plugins new-plugin calibrate screenshots
+        clean mem plugins new-plugin calibrate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke
 
 help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[1m%-16s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[1m%-20s\033[0m %s\n", $$1, $$2}'
 
 setup: ## Install everything (uv, Python 3.12, deps, web deps, sim image, model, data) inside this folder
 	@test -f .env || cp .env.example .env
@@ -49,8 +50,29 @@ dev: ## Run API + Vite dev server natively (lighter on memory; hot reload)
 dev-down: ## Stop the native dev servers
 	@./scripts/dev_down.sh
 
-build-sim: ## Build the simulation sandbox image
-	@docker build --platform linux/amd64 -t showtime-sim:latest sim/
+build-sim: ## Build the simulation sandbox image (SIM_PLATFORM defaults to linux/amd64)
+	@docker build --platform $(SIM_PLATFORM) -t showtime-sim:latest sim/
+
+m1-test-init: ## Initialize the local M1 test profile; preserve existing .env
+	@python3 scripts/m1_test.py init
+
+m1-test-up: ## Build and start the local M1 test stack
+	@python3 scripts/m1_test.py up
+
+m1-test-start: ## Start built M1 test images without registry downloads
+	@python3 scripts/m1_test.py up --no-build
+
+m1-test-down: ## Stop the M1 test stack, retaining projects and runs
+	@python3 scripts/m1_test.py down
+
+m1-test-status: ## Check M1 test services and model/simulation providers
+	@python3 scripts/m1_test.py status
+
+m1-test-logs: ## Follow M1 test API and web logs
+	@python3 scripts/m1_test.py logs
+
+m1-test-smoke: ## Verify M1 test UI, API, and real simulation without AI calls
+	@python3 scripts/m1_test.py smoke
 
 types: ## Regenerate TypeScript types from the Pydantic contracts
 	@$(ENV) $(API) uv run python ../scripts/export_schemas.py ../web/src/types/contracts.schema.json

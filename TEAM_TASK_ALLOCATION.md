@@ -23,7 +23,7 @@ This allocation follows [the revised proposal](revised_proposal.md) and [reviewe
 
 Existing foundations include project/version management, templates, conversational venue creation, a 3D editor, geometry checks, crowd simulations, replay, scenario sweeps, red/blue agent sessions, weather screening, reports, imports, and sample projects. These should be extended rather than assigned as entirely new builds.
 
-The M1 startup work already provides local launch commands, Docker architecture configuration, and sample projects. The recorded verification includes startup, manual scene editing and persistence, a real 20-person simulation, and 30 selected regression tests. See [Mac setup](nebius/docs/MAC_SETUP.md). This does not establish completion of the proposed planning workflow or live AI/provider integration. Preserve the existing uncommitted startup changes during handoff.
+The M1 startup work already provides local launch commands, Docker architecture configuration, and sample projects. The recorded verification includes startup, manual scene editing and persistence, a real 20-person simulation, and 30 selected regression tests. See [M1 test setup](nebius/docs/M1_TEST_SETUP.md); commands use the `m1-test-*` prefix. This does not establish completion of the proposed planning workflow or live AI/provider integration. Keep this local test profile working during handoff.
 
 The principal remaining work is trustworthy plan state and evidence, feasible recommendations, a simpler complete journey, and demonstrated usefulness. Additional panels or models alone do not resolve those gaps.
 

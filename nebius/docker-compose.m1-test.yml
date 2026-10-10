@@ -1,0 +1,6 @@
+# Local M1 test override: native ARM API/web; SIM_PLATFORM in .env controls simulations.
+services:
+  api:
+    platform: linux/arm64
+  web:
+    platform: linux/arm64

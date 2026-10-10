@@ -92,10 +92,11 @@ class Settings(BaseSettings):
     nebius_sandbox_base_url: str = "https://api.tokenfactory.nebius.com/sandboxes"
     sandbox_max_parallel: int = Field(default=1, ge=1, le=16)
     sim_image: str = "showtime-sim:latest"
+    sim_platform: str = ""  # e.g. linux/amd64 for JuPedSim under Apple Silicon emulation
     sim_mem_limit: str = "2g"
     sim_cpus: float = 4.0
-    sim_dev_mount: bool = False
-    sim_user: str = ""  # "uid:gid" for sim containers; default: this process's user (never root)  # mount ./sim over /app in sim containers (development)
+    sim_dev_mount: bool = False  # mount local sim/ over /app during development
+    sim_user: str = ""  # container "uid:gid"; defaults to this process's user, never root
 
     # --- Search and weather ---
     tavily_api_key: str = ""

@@ -152,9 +152,11 @@ class DockerRunner:
         max_parallel: int = 1,
         sim_code_dir: Path | None = None,
         sim_user: str = "",
+        platform: str = "",
     ) -> None:
         self.runs_dir = runs_dir
         self.image = image
+        self.platform = platform
         self.mem_limit = mem_limit
         self.cpus = cpus
         self.host_runs_dir = host_runs_dir
@@ -235,6 +237,8 @@ class DockerRunner:
             "-v",
             f"{self._host_path(work)}:/work",
         ]
+        if self.platform:
+            cmd += ["--platform", self.platform]
         if self.sim_code_dir is not None:
             cmd += ["-v", f"{self.sim_code_dir.resolve()}:/app:ro"]
         cmd += [self.image, "python", "/app/run_sim.py", "/work"]

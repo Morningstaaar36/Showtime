@@ -11,7 +11,7 @@ services:
         required: false
     environment:
       - LOCAL_LLM_BASE_URL=${COMPOSE_LLM_URL:-http://host.docker.internal:8080/v1}
-      - HOST_RUNS_DIR=${PWD}/runs
+      - HOST_RUNS_DIR=${HOST_RUNS_DIR:-${PWD}/runs}
       - RUNS_DIR=/app/runs
       - CACHE_DIR=/app/cache
       - DATA_DIR=/app/data
