@@ -4,6 +4,7 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useMemo } from "react";
 import * as THREE from "three";
 import type { Exit, Floor, Obstacle, Pt, StageParams, Stair, Venue, Zone } from "@/api/types";
+import { isProposed, lockedIds } from "@/lib/annotations";
 import { fmtInt, fmtNum } from "@/lib/format";
 import { exitName } from "@/lib/venueText";
 import {
@@ -69,6 +70,7 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
   const { floor, y, palette, venue } = props;
   const isUpper = (floor.elevation_m ?? 0) > 0.01;
   const dim = props.dimOtherFloors && props.dimOtherFloors !== floor.floor_id;
+  const locked = useMemo(() => lockedIds(venue), [venue]);
   return (
     <group position={[0, y, 0]}>
       <Slab floor={floor} palette={palette} outdoor={venue.mode === "outdoor"} upper={isUpper}
@@ -85,7 +87,7 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
                       onClick={(e) => props.onObjectClick?.("stage", o.id, floor, e)} />
         ) : (
           <ObstacleMesh key={o.id} obstacle={o} palette={palette} selected={props.selectedId === o.id}
-                        labels={props.labels}
+                        labels={props.labels} proposed={isProposed(venue, o.id)} locked={locked.has(o.id)}
                         onClick={(e) => props.onObjectClick?.("obstacle", o.id, floor, e)} />
         )
       ))}
@@ -98,6 +100,7 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
       {floor.exits.map((e) => (
         <ExitGate key={e.id} exit={e} floor={floor} palette={palette} outdoor={venue.mode === "outdoor"}
                   blocked={!!e.blocked || props.blocked.includes(e.id)} selected={props.selectedId === e.id}
+                  proposed={isProposed(venue, e.id)} locked={locked.has(e.id)}
                   labels={props.labels} onClick={(ev) => props.onExitClick?.(e, floor, ev)} />
       ))}
     </group>
@@ -240,8 +243,10 @@ function FencePosts({ len, h, color }: { len: number; h: number; color: string }
   );
 }
 
-function ObstacleMesh({ obstacle, palette, selected, labels, onClick }: {
+function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, onClick }: {
   obstacle: Obstacle; palette: ScenePalette; selected: boolean; labels: boolean;
+  /** proposed construction: drawn see-through until it is built */
+  proposed: boolean; locked: boolean;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
 }) {
   const h = obstacle.height_m ?? OBSTACLE_HEIGHT[obstacle.kind ?? "other"] ?? 1.4;
@@ -262,14 +267,15 @@ function ObstacleMesh({ obstacle, palette, selected, labels, onClick }: {
   const color = isWater ? "#7fb2e0" : isWall ? palette.wall : isBarrier ? palette.barrier
     : obstacle.kind === "booth" || obstacle.kind === "bar" ? palette.booth : palette.obstacle;
   const [cx, cy] = centroid(obstacle.polygon as Pt[]);
-  const showLabel = labels && !isWall && !isBarrier && !ghost;
+  const showLabel = labels && !ghost && (proposed || (!isWall && !isBarrier));
+  const see = ghost || isWater || proposed;
   return (
     <group>
       <mesh geometry={geo} castShadow receiveShadow onClick={(e) => { e.stopPropagation(); onClick(e); }}
             onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; }}
             onPointerOut={() => { document.body.style.cursor = ""; }}>
         <meshStandardMaterial color={color} roughness={isBarrier ? 0.5 : 0.85} metalness={isBarrier ? 0.35 : 0}
-                              transparent={ghost || isWater} opacity={ghost ? 0.12 : isWater ? 0.85 : 1} depthWrite={!ghost}
+                              transparent={see} opacity={ghost ? 0.12 : isWater ? 0.85 : proposed ? 0.45 : 1} depthWrite={!ghost && !proposed}
                               emissive={selected ? palette.signal : "#000000"} emissiveIntensity={selected ? 0.25 : 0} />
         <Edges color={selected ? palette.signal : palette.edge} threshold={20} />
       </mesh>
@@ -281,7 +287,7 @@ function ObstacleMesh({ obstacle, palette, selected, labels, onClick }: {
       {showLabel && (
         <Html position={[cx, h + 0.4, -cy]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs font-medium text-muted shadow-sm">
-            {obstacle.label ?? obstacle.id}
+            {obstacle.label ?? obstacle.id}{proposed ? " · proposed" : ""}{locked ? " · locked" : ""}
           </div>
         </Html>
       )}
@@ -375,8 +381,10 @@ function StageModel({ obstacle, stage, palette, selected, labels, venue, onClick
   );
 }
 
-function ExitGate({ exit, floor, palette, outdoor, blocked, selected, labels, onClick }: {
+function ExitGate({ exit, floor, palette, outdoor, blocked, selected, proposed, locked, labels, onClick }: {
   exit: Exit; floor: Floor; palette: ScenePalette; outdoor: boolean; blocked: boolean; selected: boolean;
+  /** a proposed new opening, not yet built: drawn see-through */
+  proposed: boolean; locked: boolean;
   labels: boolean; onClick: (e: ThreeEvent<MouseEvent>) => void;
 }) {
   const door = useMemo(() => doorwayOf(floor.walkable as Pt[], exit), [floor.walkable, exit]);
@@ -406,12 +414,14 @@ function ExitGate({ exit, floor, palette, outdoor, blocked, selected, labels, on
       {[-half, half].map((s) => (
         <mesh key={s} position={[s, h / 2, 0]} castShadow>
           <boxGeometry args={[post, h, post]} />
-          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={palette.night ? (blocked ? 1.6 : 2.6) : selected ? 0.7 : 0.35} roughness={0.4} />
+          <meshStandardMaterial color={color} emissive={color} emissiveIntensity={palette.night ? (blocked ? 1.6 : 2.6) : selected ? 0.7 : 0.35} roughness={0.4}
+                                transparent={proposed} opacity={proposed ? 0.4 : 1} />
         </mesh>
       ))}
       <mesh position={[0, h, 0]} castShadow>
         <boxGeometry args={[door.width + post, post, post]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={palette.night ? (blocked ? 1.6 : 2.6) : selected ? 0.7 : 0.35} roughness={0.4} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={palette.night ? (blocked ? 1.6 : 2.6) : selected ? 0.7 : 0.35} roughness={0.4}
+                                transparent={proposed} opacity={proposed ? 0.4 : 1} />
       </mesh>
       {blocked ? (
         <group position={[0, h / 2, 0]}>
@@ -428,7 +438,7 @@ function ExitGate({ exit, floor, palette, outdoor, blocked, selected, labels, on
       {labels && (
         <Html position={[0, h + 0.7, 0]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
           <div className={`whitespace-nowrap rounded-[3px] px-1.5 py-0.5 text-2xs font-semibold shadow-sm tabular ${blocked ? "bg-danger text-white" : "bg-egress text-white"}`}>
-            {exitName(floor, exit)} · {fmtNum(exit.width_m, 1)} m{blocked ? " · blocked" : ""}
+            {exitName(floor, exit)} · {fmtNum(exit.width_m, 1)} m{blocked ? " · blocked" : ""}{proposed ? " · proposed" : ""}{locked ? " · locked" : ""}
           </div>
         </Html>
       )}

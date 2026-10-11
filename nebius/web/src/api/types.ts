@@ -5,8 +5,11 @@ import type {
   Countdown,
   Fix,
   HazardResult,
+  InputProvenance,
   PatchOpIn,
   RunResult,
+  SceneObject,
+  SceneSnapshot,
   SessionEvent,
   StageCheckResult,
   StageParams,
@@ -20,8 +23,11 @@ export type {
   Countdown,
   Fix,
   HazardResult,
+  InputProvenance,
   PatchOpIn,
   RunResult,
+  SceneObject,
+  SceneSnapshot,
   SessionEvent,
   StageCheckResult,
   StageParams,
@@ -39,6 +45,16 @@ export type Pt = [number, number];
 /** Patch as sent by the UI (server fills schema_version). */
 export interface PatchInput {
   ops: PatchOpIn[];
+}
+
+/** POST /projects/{id}/patch/preview: the venue a patch would produce, nothing saved. */
+export interface PatchPreview {
+  ok: boolean;
+  base_version: number;
+  problems: string[];
+  venue: Venue | null;
+  validation?: Validation;
+  warnings?: Check[];
 }
 
 export interface ProjectSummary {

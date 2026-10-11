@@ -47,7 +47,7 @@ export function OnboardingPage() {
         </section>
         <div className="mt-6 flex flex-wrap gap-2">
           <Button variant="primary" size="lg" disabled={!samples.length}
-                  onClick={() => { useUi.getState().resetForProject(); navigate(`/p/${samples[0].id}/redteam`); }}>
+                  onClick={() => { useUi.getState().resetForProject(); navigate(`/p/${samples[0].id}`); }}>
             {t("onboarding.open_sample")}
           </Button>
           <Button asChild size="lg"><Link to="/">{t("onboarding.go_projects")}</Link></Button>

@@ -22,6 +22,7 @@ from api.agents.base import AgentEnv, AgentUnavailable, audit_decision
 from api.agents.blue_team import blue_team
 from api.agents.judge import judge
 from api.agents.red_team import incident_query, red_team, venue_features
+from api.core.annotations import carry_annotations
 from api.core.countdown import compute_countdown
 from api.core.extensions import HazardContext, HazardResult, IncidentRecord
 from api.core.venue_ops import apply_patch
@@ -44,6 +45,10 @@ log = logging.getLogger("showtime.session")
 
 class StopSession(Exception):
     """A budget or the user ended the session."""
+
+
+class StalePlan(ValueError):
+    """A session's fixed plan was computed for an earlier venue geometry."""
 
 
 def severity(r: RunResult) -> float:
@@ -1004,12 +1009,26 @@ class SessionManager:
         )
 
     def apply_final(self, sid: str) -> Any:
-        """Save the session's fixed venue as a new project version."""
+        """Save the session's fixed venue as a new project version.
+
+        Refused when the venue's geometry changed after the session started: replacing it
+        would silently discard those edits. Organizer annotations come from the current
+        version; objects the fixes added are marked as proposed construction.
+        """
         row = self.get(sid)
         if row is None or not row.summary or not row.summary.get("final_venue"):
             raise ValueError("This session has no fixed plan to apply.")
-        v = Venue.model_validate(row.summary["final_venue"])
+        projects = self.st.projects
+        tested = projects.version(row.project_id, row.venue_version)
+        current = projects.version(row.project_id)
+        if current.venue_hash != tested.venue_hash:
+            raise StalePlan(
+                "The venue changed after this test, so its fixes no longer match. "
+                "Test the current venue again before accepting changes."
+            )
+        fixed = Venue.model_validate(row.summary["final_venue"])
+        v = carry_annotations(Venue.model_validate(current.venue), fixed)
         kept = len(row.summary.get("accepted_fixes", []))
-        return self.st.projects.replace_venue(
+        return projects.replace_venue(
             row.project_id, v, f"Applied red-team plan ({kept} fixes)", author="agent"
         )

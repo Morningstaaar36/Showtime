@@ -147,12 +147,19 @@ OP_HINTS: dict[str, str] = {
 }
 
 
+def agent_ops(registry: Registry, allowed: set[str] | None = None) -> list[Any]:
+    """Edit operations an agent may use; organizer-only ops (locks, provenance) never."""
+    return [
+        op
+        for op in registry.all("PatchOp")
+        if not getattr(op, "user_only", False) and (allowed is None or op.name in allowed)
+    ]
+
+
 def ops_doc(registry: Registry, allowed: set[str] | None = None) -> str:
     """One line per edit operation with a JSON example."""
     out = []
-    for op in registry.all("PatchOp"):
-        if allowed is not None and op.name not in allowed:
-            continue
+    for op in agent_ops(registry, allowed):
         example = getattr(op, "example", None) or OP_EXAMPLES.get(op.name)
         hint = OP_HINTS.get(op.name, op.description)
         if example is None:
@@ -204,11 +211,7 @@ def _op_union(op_models: tuple[tuple[str, type[BaseModel]], ...]) -> Any:
 
 def op_union(registry: Registry, allowed: set[str] | None = None) -> Any:
     """Discriminated union of agent-facing edit operations."""
-    items = tuple(
-        (op.name, op.params_model)
-        for op in registry.all("PatchOp")
-        if allowed is None or op.name in allowed
-    )
+    items = tuple((op.name, op.params_model) for op in agent_ops(registry, allowed))
     return _op_union(items)
 
 

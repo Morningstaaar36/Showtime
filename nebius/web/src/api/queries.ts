@@ -11,11 +11,13 @@ import type {
   Fix,
   GlossaryItem,
   PatchInput,
+  PatchPreview,
   Health,
   ProjectDetail,
   ProjectSummary,
   RunOut,
   RunResult,
+  SceneSnapshot,
   SessionOut,
   SettingsOut,
   StageCheckResult,
@@ -39,6 +41,7 @@ export const qk = {
   sessions: (id: string) => ["sessions", id] as const,
   session: (id: string) => ["session", id] as const,
   glossary: ["glossary"] as const,
+  scene: (id: string, version: number | undefined) => ["scene", id, version ?? "current"] as const,
 };
 
 export const useHealth = () =>
@@ -62,6 +65,14 @@ export const useVersions = (id: string | undefined) =>
 export const useRuns = (id: string | undefined) =>
   useQuery({ queryKey: qk.runs(id ?? ""), queryFn: () => api.get<RunOut[]>(`/projects/${id}/runs`),
              enabled: !!id });
+/** The canonical scene snapshot (identity, units, provenance) of one saved version. */
+export const useScene = (id: string | undefined, version: number | undefined) =>
+  useQuery({ queryKey: qk.scene(id ?? "", version), enabled: !!id && version != null, staleTime: Infinity,
+             queryFn: () => api.get<SceneSnapshot>(`/projects/${id}/scene?version=${version}`) });
+/** The venue a run simulated (immutable). */
+export const useRunVenue = (runId: string | null | undefined) =>
+  useQuery({ queryKey: ["run-venue", runId], enabled: !!runId, staleTime: Infinity, retry: false,
+             queryFn: () => api.get<Venue>(`/runs/${runId}/venue`) });
 export const useGlossary = () =>
   useQuery({ queryKey: qk.glossary, queryFn: () => api.get<GlossaryItem[]>("/glossary"),
              staleTime: Infinity });
@@ -180,6 +191,14 @@ export function usePatchProject(id: string) {
         old ? { ...old, ...data.project, version: data.version, validation: data.validation } : old);
       inv(id);
     },
+  });
+}
+
+/** Dry run of a patch: shows a proposal before the organizer accepts it. */
+export function usePreviewPatch(id: string) {
+  return useMutation({
+    mutationFn: (v: { patch: PatchInput; allow_new_errors?: boolean }) =>
+      api.post<PatchPreview>(`/projects/${id}/patch/preview`, v),
   });
 }
 

@@ -175,6 +175,73 @@
    "title": "Check",
    "type": "object"
   },
+  "ComponentFacts": {
+   "additionalProperties": false,
+   "properties": {
+    "component_id": {
+     "title": "Component Id",
+     "type": "string"
+    },
+    "floor_id": {
+     "title": "Floor Id",
+     "type": "string"
+    },
+    "area_m2": {
+     "title": "Area M2",
+     "type": "number"
+    },
+    "geometry": {
+     "$ref": "#/definitions/PolygonSurface"
+    },
+    "representative_point": {
+     "maxItems": 2,
+     "minItems": 2,
+     "title": "Representative Point",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ]
+    },
+    "direct_exit_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Direct Exit Ids",
+     "type": "array"
+    },
+    "reachable_exit_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Reachable Exit Ids",
+     "type": "array"
+    },
+    "downstream_component_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Downstream Component Ids",
+     "type": "array"
+    }
+   },
+   "required": [
+    "area_m2",
+    "component_id",
+    "direct_exit_ids",
+    "downstream_component_ids",
+    "floor_id",
+    "geometry",
+    "reachable_exit_ids",
+    "representative_point"
+   ],
+   "title": "ComponentFacts",
+   "type": "object"
+  },
   "Countdown": {
    "description": "Latest safe time to start evacuating: T_latest = T_hazard - (T_pre + RSET x SF).",
    "properties": {
@@ -360,6 +427,70 @@
    "title": "Exit",
    "type": "object"
   },
+  "ExitFacts": {
+   "additionalProperties": false,
+   "properties": {
+    "exit_id": {
+     "title": "Exit Id",
+     "type": "string"
+    },
+    "floor_id": {
+     "title": "Floor Id",
+     "type": "string"
+    },
+    "blocked": {
+     "title": "Blocked",
+     "type": "boolean"
+    },
+    "available_in_geometry": {
+     "title": "Available In Geometry",
+     "type": "boolean"
+    },
+    "declared_width_m": {
+     "title": "Declared Width M",
+     "type": "number"
+    },
+    "usable_area_m2": {
+     "title": "Usable Area M2",
+     "type": "number"
+    },
+    "usable_area_fraction": {
+     "title": "Usable Area Fraction",
+     "type": "number"
+    },
+    "component_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Component Ids",
+     "type": "array"
+    },
+    "nearest_obstacle_distance_m": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "title": "Nearest Obstacle Distance M"
+    }
+   },
+   "required": [
+    "available_in_geometry",
+    "blocked",
+    "component_ids",
+    "declared_width_m",
+    "exit_id",
+    "floor_id",
+    "nearest_obstacle_distance_m",
+    "usable_area_fraction",
+    "usable_area_m2"
+   ],
+   "title": "ExitFacts",
+   "type": "object"
+  },
   "Fix": {
    "additionalProperties": false,
    "description": "A blue-team fix: a venue patch and/or operational measures.",
@@ -501,6 +632,48 @@
     "zones"
    ],
    "title": "Floor",
+   "type": "object"
+  },
+  "FloorFacts": {
+   "additionalProperties": false,
+   "properties": {
+    "floor_id": {
+     "title": "Floor Id",
+     "type": "string"
+    },
+    "elevation_m": {
+     "title": "Elevation M",
+     "type": "number"
+    },
+    "walkable_area_m2": {
+     "title": "Walkable Area M2",
+     "type": "number"
+    },
+    "obstacle_area_within_floor_m2": {
+     "title": "Obstacle Area Within Floor M2",
+     "type": "number"
+    },
+    "usable_area_m2": {
+     "title": "Usable Area M2",
+     "type": "number"
+    },
+    "component_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Component Ids",
+     "type": "array"
+    }
+   },
+   "required": [
+    "component_ids",
+    "elevation_m",
+    "floor_id",
+    "obstacle_area_within_floor_m2",
+    "usable_area_m2",
+    "walkable_area_m2"
+   ],
+   "title": "FloorFacts",
    "type": "object"
   },
   "HazardResult": {
@@ -764,6 +937,68 @@
    ],
    "title": "IncidentRecord",
    "type": "object"
+  },
+  "InputProvenance": {
+   "additionalProperties": false,
+   "properties": {
+    "basis": {
+     "default": "unknown",
+     "enum": [
+      "unknown",
+      "assumed",
+      "imported",
+      "organizer_confirmed",
+      "measured"
+     ],
+     "title": "Basis",
+     "type": "string"
+    },
+    "source": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Source"
+    },
+    "recorded_at": {
+     "anyOf": [
+      {
+       "format": "date-time",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Recorded At"
+    },
+    "notes": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Notes"
+    }
+   },
+   "title": "InputProvenance",
+   "type": "object",
+   "required": [
+    "basis",
+    "notes",
+    "recorded_at",
+    "source"
+   ]
   },
   "InspiredBy": {
    "additionalProperties": false,
@@ -1030,6 +1265,54 @@
    "title": "PerExit",
    "type": "object"
   },
+  "PolygonSurface": {
+   "additionalProperties": false,
+   "properties": {
+    "exterior": {
+     "items": {
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "items": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ]
+     },
+     "title": "Exterior",
+     "type": "array"
+    },
+    "holes": {
+     "items": {
+      "items": {
+       "maxItems": 2,
+       "minItems": 2,
+       "type": "array",
+       "items": [
+        {
+         "type": "number"
+        },
+        {
+         "type": "number"
+        }
+       ]
+      },
+      "type": "array"
+     },
+     "title": "Holes",
+     "type": "array"
+    }
+   },
+   "required": [
+    "exterior",
+    "holes"
+   ],
+   "title": "PolygonSurface",
+   "type": "object"
+  },
   "ReportBundle": {
    "description": "Everything an exporter needs. Built by core from stored results only.",
    "properties": {
@@ -1211,35 +1494,190 @@
      "default": 0.0,
      "title": "Cost Usd",
      "type": "number"
+    },
+    "scoreboard": {
+     "default": [],
+     "items": {
+      "additionalProperties": true,
+      "type": "object"
+     },
+     "title": "Scoreboard",
+     "type": "array"
+    },
+    "recommendations": {
+     "default": [],
+     "items": {
+      "type": "string"
+     },
+     "title": "Recommendations",
+     "type": "array"
+    },
+    "worst_attack_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Worst Attack Id"
+    },
+    "before": {
+     "additionalProperties": true,
+     "default": {},
+     "title": "Before",
+     "type": "object"
+    },
+    "after": {
+     "additionalProperties": true,
+     "default": {},
+     "title": "After",
+     "type": "object"
+    },
+    "fixed_venue": {
+     "anyOf": [
+      {
+       "$ref": "#/definitions/Venue"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "stair_assignment": {
+     "additionalProperties": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object"
+     },
+     "default": {},
+     "title": "Stair Assignment",
+     "type": "object"
+    },
+    "calibration": {
+     "additionalProperties": true,
+     "default": {},
+     "title": "Calibration",
+     "type": "object"
+    },
+    "extras": {
+     "additionalProperties": true,
+     "default": {},
+     "title": "Extras",
+     "type": "object"
     }
    },
    "required": [
     "accepted_fix_ids",
+    "after",
     "assumptions",
     "attacks",
     "baseline",
+    "before",
+    "calibration",
     "cost_usd",
     "countdown",
     "density_danger_ppm2",
     "density_warn_ppm2",
     "disclaimer",
     "exit_assignment",
+    "extras",
     "final",
+    "fixed_venue",
     "fixes",
     "generated_at",
     "hazard",
     "project_name",
     "provider_label",
+    "recommendations",
     "results",
     "rules",
+    "scoreboard",
     "session_id",
     "sources",
+    "stair_assignment",
     "summary_text",
     "tokens_total",
     "venue",
-    "venue_version"
+    "venue_version",
+    "worst_attack_id"
    ],
    "title": "ReportBundle",
+   "type": "object"
+  },
+  "RouteFacts": {
+   "additionalProperties": false,
+   "properties": {
+    "status": {
+     "enum": [
+      "computed",
+      "unreachable",
+      "not_computed"
+     ],
+     "title": "Status",
+     "type": "string"
+    },
+    "exit_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Exit Id"
+    },
+    "distance_m": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Distance M"
+    },
+    "waypoint_count": {
+     "default": 0,
+     "title": "Waypoint Count",
+     "type": "integer"
+    },
+    "reason": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Reason"
+    },
+    "basis": {
+     "const": "polygon_visibility_graph",
+     "default": "polygon_visibility_graph",
+     "title": "Basis",
+     "type": "string"
+    }
+   },
+   "required": [
+    "basis",
+    "distance_m",
+    "exit_id",
+    "reason",
+    "status",
+    "waypoint_count"
+   ],
+   "title": "RouteFacts",
    "type": "object"
   },
   "RuleFinding": {
@@ -1833,6 +2271,344 @@
    "title": "ScenarioEventIn",
    "type": "object"
   },
+  "SceneFacts": {
+   "additionalProperties": false,
+   "properties": {
+    "schema_version": {
+     "const": 1,
+     "default": 1,
+     "title": "Schema Version",
+     "type": "integer"
+    },
+    "identity": {
+     "$ref": "#/definitions/SceneIdentity"
+    },
+    "units": {
+     "$ref": "#/definitions/SceneUnits"
+    },
+    "basis": {
+     "const": "computed_geometry",
+     "default": "computed_geometry",
+     "title": "Basis",
+     "type": "string"
+    },
+    "floors": {
+     "items": {
+      "$ref": "#/definitions/FloorFacts"
+     },
+     "title": "Floors",
+     "type": "array"
+    },
+    "components": {
+     "items": {
+      "$ref": "#/definitions/ComponentFacts"
+     },
+     "title": "Components",
+     "type": "array"
+    },
+    "exits": {
+     "items": {
+      "$ref": "#/definitions/ExitFacts"
+     },
+     "title": "Exits",
+     "type": "array"
+    },
+    "stairs": {
+     "items": {
+      "$ref": "#/definitions/StairFacts"
+     },
+     "title": "Stairs",
+     "type": "array"
+    },
+    "zones": {
+     "items": {
+      "$ref": "#/definitions/ZoneFacts"
+     },
+     "title": "Zones",
+     "type": "array"
+    },
+    "issues": {
+     "items": {
+      "$ref": "#/definitions/SpatialIssue"
+     },
+     "title": "Issues",
+     "type": "array"
+    },
+    "routes_computed": {
+     "title": "Routes Computed",
+     "type": "boolean"
+    },
+    "route_budget_reason": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Route Budget Reason"
+    },
+    "limitations": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Limitations",
+     "type": "array"
+    }
+   },
+   "required": [
+    "basis",
+    "components",
+    "exits",
+    "floors",
+    "identity",
+    "issues",
+    "limitations",
+    "route_budget_reason",
+    "routes_computed",
+    "schema_version",
+    "stairs",
+    "units",
+    "zones"
+   ],
+   "title": "SceneFacts",
+   "type": "object"
+  },
+  "SceneIdentity": {
+   "additionalProperties": false,
+   "properties": {
+    "project_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Project Id"
+    },
+    "venue_id": {
+     "title": "Venue Id",
+     "type": "string"
+    },
+    "venue_version": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Venue Version"
+    },
+    "venue_schema_version": {
+     "title": "Venue Schema Version",
+     "type": "integer"
+    },
+    "venue_hash": {
+     "title": "Venue Hash",
+     "type": "string"
+    },
+    "scene_hash": {
+     "title": "Scene Hash",
+     "type": "string"
+    }
+   },
+   "required": [
+    "project_id",
+    "scene_hash",
+    "venue_hash",
+    "venue_id",
+    "venue_schema_version",
+    "venue_version"
+   ],
+   "title": "SceneIdentity",
+   "type": "object"
+  },
+  "SceneMetadata": {
+   "additionalProperties": false,
+   "description": "Optional venue.extensions.scene_metadata; missing provenance stays unknown.",
+   "properties": {
+    "schema_version": {
+     "const": 1,
+     "default": 1,
+     "title": "Schema Version",
+     "type": "integer"
+    },
+    "objects": {
+     "additionalProperties": {
+      "$ref": "#/definitions/InputProvenance"
+     },
+     "title": "Objects",
+     "type": "object"
+    },
+    "fields": {
+     "additionalProperties": {
+      "additionalProperties": {
+       "$ref": "#/definitions/InputProvenance"
+      },
+      "type": "object"
+     },
+     "title": "Fields",
+     "type": "object"
+    }
+   },
+   "title": "SceneMetadata",
+   "type": "object",
+   "required": [
+    "fields",
+    "objects",
+    "schema_version"
+   ]
+  },
+  "SceneObject": {
+   "additionalProperties": false,
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "floor",
+      "obstacle",
+      "exit",
+      "zone",
+      "stair"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "floor_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Floor Id"
+    },
+    "provenance": {
+     "$ref": "#/definitions/InputProvenance"
+    },
+    "fields": {
+     "additionalProperties": {
+      "$ref": "#/definitions/InputProvenance"
+     },
+     "title": "Fields",
+     "type": "object"
+    }
+   },
+   "required": [
+    "fields",
+    "floor_id",
+    "id",
+    "kind",
+    "provenance"
+   ],
+   "title": "SceneObject",
+   "type": "object"
+  },
+  "SceneSnapshot": {
+   "additionalProperties": false,
+   "properties": {
+    "schema_version": {
+     "const": 1,
+     "default": 1,
+     "title": "Schema Version",
+     "type": "integer"
+    },
+    "identity": {
+     "$ref": "#/definitions/SceneIdentity"
+    },
+    "units": {
+     "$ref": "#/definitions/SceneUnits"
+    },
+    "venue": {
+     "$ref": "#/definitions/Venue"
+    },
+    "objects": {
+     "items": {
+      "$ref": "#/definitions/SceneObject"
+     },
+     "title": "Objects",
+     "type": "array"
+    },
+    "metadata": {
+     "$ref": "#/definitions/SceneMetadata"
+    }
+   },
+   "required": [
+    "identity",
+    "metadata",
+    "objects",
+    "schema_version",
+    "units",
+    "venue"
+   ],
+   "title": "SceneSnapshot",
+   "type": "object"
+  },
+  "SceneUnits": {
+   "additionalProperties": false,
+   "properties": {
+    "coordinates": {
+     "const": "m",
+     "default": "m",
+     "title": "Coordinates",
+     "type": "string"
+    },
+    "elevation": {
+     "const": "m",
+     "default": "m",
+     "title": "Elevation",
+     "type": "string"
+    },
+    "area": {
+     "const": "m2",
+     "default": "m2",
+     "title": "Area",
+     "type": "string"
+    },
+    "distance": {
+     "const": "m",
+     "default": "m",
+     "title": "Distance",
+     "type": "string"
+    },
+    "time": {
+     "const": "s",
+     "default": "s",
+     "title": "Time",
+     "type": "string"
+    },
+    "coordinate_system": {
+     "const": "local_cartesian",
+     "default": "local_cartesian",
+     "title": "Coordinate System",
+     "type": "string"
+    }
+   },
+   "title": "SceneUnits",
+   "type": "object",
+   "required": [
+    "area",
+    "coordinate_system",
+    "coordinates",
+    "distance",
+    "elevation",
+    "time"
+   ]
+  },
   "SessionEvent": {
    "description": "One event in a red-team session stream.",
    "properties": {
@@ -1877,6 +2653,56 @@
     "type"
    ],
    "title": "SessionEvent",
+   "type": "object"
+  },
+  "SpatialIssue": {
+   "additionalProperties": false,
+   "properties": {
+    "code": {
+     "title": "Code",
+     "type": "string"
+    },
+    "severity": {
+     "enum": [
+      "error",
+      "warning",
+      "info"
+     ],
+     "title": "Severity",
+     "type": "string"
+    },
+    "message": {
+     "title": "Message",
+     "type": "string"
+    },
+    "target_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Target Ids",
+     "type": "array"
+    },
+    "floor_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Floor Id"
+    }
+   },
+   "required": [
+    "code",
+    "floor_id",
+    "message",
+    "severity",
+    "target_ids"
+   ],
+   "title": "SpatialIssue",
    "type": "object"
   },
   "StageCheckResult": {
@@ -2070,6 +2896,68 @@
     "width_m"
    ],
    "title": "Stair",
+   "type": "object"
+  },
+  "StairFacts": {
+   "additionalProperties": false,
+   "properties": {
+    "stair_id": {
+     "title": "Stair Id",
+     "type": "string"
+    },
+    "from_floor": {
+     "title": "From Floor",
+     "type": "string"
+    },
+    "to_floor": {
+     "title": "To Floor",
+     "type": "string"
+    },
+    "from_component_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "From Component Ids",
+     "type": "array"
+    },
+    "to_component_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "To Component Ids",
+     "type": "array"
+    },
+    "connected": {
+     "title": "Connected",
+     "type": "boolean"
+    },
+    "declared_width_m": {
+     "title": "Declared Width M",
+     "type": "number"
+    },
+    "declared_length_m": {
+     "title": "Declared Length M",
+     "type": "number"
+    },
+    "direction": {
+     "const": "from_floor_to_to_floor",
+     "default": "from_floor_to_to_floor",
+     "title": "Direction",
+     "type": "string"
+    }
+   },
+   "required": [
+    "connected",
+    "declared_length_m",
+    "declared_width_m",
+    "direction",
+    "from_component_ids",
+    "from_floor",
+    "stair_id",
+    "to_component_ids",
+    "to_floor"
+   ],
+   "title": "StairFacts",
    "type": "object"
   },
   "Usage": {
@@ -2321,6 +3209,143 @@
    ],
    "title": "Zone",
    "type": "object"
+  },
+  "ZoneFacts": {
+   "additionalProperties": false,
+   "properties": {
+    "zone_id": {
+     "title": "Zone Id",
+     "type": "string"
+    },
+    "floor_id": {
+     "title": "Floor Id",
+     "type": "string"
+    },
+    "people": {
+     "title": "People",
+     "type": "integer"
+    },
+    "usable_area_m2": {
+     "title": "Usable Area M2",
+     "type": "number"
+    },
+    "excluded_area_m2": {
+     "title": "Excluded Area M2",
+     "type": "number"
+    },
+    "reachable_area_m2": {
+     "title": "Reachable Area M2",
+     "type": "number"
+    },
+    "unreachable_area_m2": {
+     "title": "Unreachable Area M2",
+     "type": "number"
+    },
+    "placement": {
+     "enum": [
+      "fully_placed",
+      "partially_placed",
+      "unplaced"
+     ],
+     "title": "Placement",
+     "type": "string"
+    },
+    "reachability": {
+     "enum": [
+      "reachable",
+      "partially_reachable",
+      "unreachable",
+      "unplaced"
+     ],
+     "title": "Reachability",
+     "type": "string"
+    },
+    "reachable_exit_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Reachable Exit Ids",
+     "type": "array"
+    },
+    "parts": {
+     "items": {
+      "$ref": "#/definitions/ZonePartFacts"
+     },
+     "title": "Parts",
+     "type": "array"
+    }
+   },
+   "required": [
+    "excluded_area_m2",
+    "floor_id",
+    "parts",
+    "people",
+    "placement",
+    "reachability",
+    "reachable_area_m2",
+    "reachable_exit_ids",
+    "unreachable_area_m2",
+    "usable_area_m2",
+    "zone_id"
+   ],
+   "title": "ZoneFacts",
+   "type": "object"
+  },
+  "ZonePartFacts": {
+   "additionalProperties": false,
+   "properties": {
+    "component_id": {
+     "title": "Component Id",
+     "type": "string"
+    },
+    "usable_area_m2": {
+     "title": "Usable Area M2",
+     "type": "number"
+    },
+    "fraction_of_usable_zone_area": {
+     "title": "Fraction Of Usable Zone Area",
+     "type": "number"
+    },
+    "representative_point": {
+     "maxItems": 2,
+     "minItems": 2,
+     "title": "Representative Point",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ]
+    },
+    "point_clearance_m": {
+     "title": "Point Clearance M",
+     "type": "number"
+    },
+    "reachable_exit_ids": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Reachable Exit Ids",
+     "type": "array"
+    },
+    "route": {
+     "$ref": "#/definitions/RouteFacts"
+    }
+   },
+   "required": [
+    "component_id",
+    "fraction_of_usable_zone_area",
+    "point_clearance_m",
+    "reachable_exit_ids",
+    "representative_point",
+    "route",
+    "usable_area_m2"
+   ],
+   "title": "ZonePartFacts",
+   "type": "object"
   }
  },
  "properties": {
@@ -2380,6 +3405,12 @@
   },
   "ReportBundle": {
    "$ref": "#/definitions/ReportBundle"
+  },
+  "SceneSnapshot": {
+   "$ref": "#/definitions/SceneSnapshot"
+  },
+  "SceneFacts": {
+   "$ref": "#/definitions/SceneFacts"
   }
  },
  "required": [
@@ -2395,6 +3426,8 @@
   "RuleFinding",
   "RunRequest",
   "RunResult",
+  "SceneFacts",
+  "SceneSnapshot",
   "SessionEvent",
   "StageCheckResult",
   "StageParams",

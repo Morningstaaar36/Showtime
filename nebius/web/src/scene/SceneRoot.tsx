@@ -4,10 +4,11 @@ import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { Bloom, EffectComposer, N8AO, SMAA, Vignette } from "@react-three/postprocessing";
 import { Suspense, useMemo, useState } from "react";
 import type { Exit, Floor, Hotspot, Venue } from "@/api/types";
+import type { ObjectChange } from "@/lib/venueDiff";
 import type { Replay } from "@/replay/useReplay";
 import { useUi } from "@/state/ui";
 import { CameraRig } from "./CameraRig";
-import { DraftPreview, MoveGizmo } from "./EditTools";
+import { ChangeHighlights, DraftPreview, MoveGizmo } from "./EditTools";
 import { venueBounds } from "./geom";
 import { useScenePalette } from "./palette";
 import { Agents, DensityLayer, Hotspots, Marshals, PlaybackClock, type MarshalNote } from "./ReplayLayers";
@@ -32,6 +33,8 @@ export interface SceneProps {
   peopleOverride?: Record<string, number>;
   /** only one canvas drives the replay clock (split-screen compare) */
   clock?: boolean;
+  /** outlines of a proposal's changes (added, changed, removed objects) */
+  highlights?: ObjectChange[];
 }
 
 export function SceneRoot(p: SceneProps) {
@@ -124,6 +127,9 @@ export function SceneRoot(p: SceneProps) {
         {p.marshals.length > 0 && <Marshals notes={p.marshals} venue={p.venue} exploded={layers.exploded} />}
         {p.editable && tool === "select" && (
           <MoveGizmo venue={p.venue} exploded={layers.exploded} palette={palette} onMove={p.onMove} />
+        )}
+        {p.highlights && p.highlights.length > 0 && (
+          <ChangeHighlights venue={p.venue} changes={p.highlights} exploded={layers.exploded} palette={palette} />
         )}
         {p.editable && drawing && (
           <DraftPreview venue={p.venue} exploded={layers.exploded} palette={palette} cursor={cursor} />
