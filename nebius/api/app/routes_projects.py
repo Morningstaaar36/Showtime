@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -17,10 +17,12 @@ from api.core.countdown import compute_countdown
 from api.core.estimates import compute_estimates, scale_people
 from api.core.extensions import HazardContext, HazardResult
 from api.core.geometry import validate_venue
+from api.core.scene import SceneInputError, inspect_scene, scene_snapshot
 from api.core.score import planning_score, score_inputs
 from api.core.templates import get_template
 from api.db.models import Project, VenueVersion
 from api.models import Attack, Fix, RunResult, ScenarioEventIn, Venue, VenuePatch
+from api.models.scene import SceneFacts, SceneSnapshot
 from api.orchestrator.projects import validation_for
 
 router = APIRouter(prefix="/api/v1")
@@ -112,6 +114,49 @@ def get_project(project_id: str, st: AppState = Depends(get_state)) -> dict[str,
     v = st.projects.version(project_id)
     venue = Venue.model_validate(v.venue)
     return {**project_out(st, p), "version": version_out(v), "validation": validation_for(venue)}
+
+
+def _scene_error(exc: SceneInputError) -> ApiException:
+    return ApiException(
+        422,
+        "invalid_scene",
+        str(exc),
+        "Correct the reported geometry, identifiers, or provenance and try again.",
+        {"issues": [issue.model_dump(mode="json") for issue in exc.issues]},
+    )
+
+
+@router.get("/projects/{project_id}/scene", response_model=SceneSnapshot)
+def get_scene(
+    project_id: str,
+    version: int | None = Query(default=None, ge=1),
+    st: AppState = Depends(get_state),
+) -> SceneSnapshot:
+    """Full versioned scene JSON; the same geometry used by the editor and simulator."""
+    row = st.projects.version(project_id, version)
+    venue = Venue.model_validate(row.venue)
+    try:
+        return scene_snapshot(venue, project_id=project_id, version=row.version)
+    except SceneInputError as exc:
+        raise _scene_error(exc) from exc
+
+
+@router.get("/projects/{project_id}/scene-facts", response_model=SceneFacts)
+def get_scene_facts(
+    project_id: str,
+    version: int | None = Query(default=None, ge=1),
+    include_routes: bool = True,
+    st: AppState = Depends(get_state),
+) -> SceneFacts:
+    """Computed area, connectivity, point clearances, and bounded geometric routes."""
+    row = st.projects.version(project_id, version)
+    venue = Venue.model_validate(row.venue)
+    try:
+        return inspect_scene(
+            venue, project_id=project_id, version=row.version, include_routes=include_routes
+        )
+    except SceneInputError as exc:
+        raise _scene_error(exc) from exc
 
 
 class ProjectPatchIn(BaseModel):

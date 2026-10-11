@@ -127,6 +127,13 @@ The profile files and commands are explicitly named for M1 testing. The recorded
 verification was performed on an M1; this is a local development profile.
 See [the M1 test setup guide](docs/M1_TEST_SETUP.md) for configuration and troubleshooting.
 
+### Scene inspection API (P2-01)
+
+`GET /api/v1/projects/{id}/scene` returns the full versioned venue with units and provenance.
+`GET /api/v1/projects/{id}/scene-facts` computes areas, connected components, reachable exits,
+point clearances, and bounded geometric routes without AI or simulation calls.
+See [the interface and prepared test procedure](docs/SCENE_INSPECTION.md).
+
 ## Quickstart (Linux, NVIDIA GPU, Docker)
 
 ```bash

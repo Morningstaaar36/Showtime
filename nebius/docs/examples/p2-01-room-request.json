@@ -1,0 +1,30 @@
+{
+  "name": "P2-01 manual test",
+  "venue": {
+    "venue_id": "manual_room",
+    "name": "P2-01 manual test",
+    "mode": "indoor",
+    "floors": [
+      {
+        "floor_id": "F0",
+        "walkable": [[0, 0], [10, 0], [10, 8], [0, 8]],
+        "obstacles": [],
+        "exits": [
+          {
+            "id": "E1",
+            "polygon": [[9.6, 3], [9.98, 3], [9.98, 5], [9.6, 5]],
+            "width_m": 2
+          }
+        ],
+        "zones": [
+          {
+            "id": "Z1",
+            "polygon": [[1, 2], [3, 2], [3, 6], [1, 6]],
+            "people": 20
+          }
+        ]
+      }
+    ],
+    "stairs": []
+  }
+}

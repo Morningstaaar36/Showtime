@@ -24,6 +24,7 @@ from api.models import (
     Venue,
     VenuePatch,
 )
+from api.models.scene import SceneFacts, SceneSnapshot
 from plugins.hazard_wind.stage_check import StageCheckResult
 
 MODELS = [
@@ -46,6 +47,8 @@ MODELS = [
     RuleFinding,
     IncidentRecord,
     ReportBundle,
+    SceneSnapshot,
+    SceneFacts,
 ]
 
 

@@ -270,3 +270,22 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
 - **Checks:** `make check` green; `make test` 114 passed, 1 skipped; `make test-web` 10 passed;
   `make e2e` 3 passed; `make smoke` OK on OpenRouter (212 s, lowest free RAM 4.9 GB); browser run of
   both new tabs with no console errors.
+
+## 2026-10-11 — P2-01: scene snapshot and spatial facts implementation
+
+- Added typed, lossless scene snapshots over the existing Venue; source version, complete
+  scene hash, existing layout hash, units, stable object references, and optional provenance.
+- Added read-only `/projects/{id}/scene` and `/projects/{id}/scene-facts` endpoints,
+  including historical versions and explicit invalid-input responses.
+- Added computed areas, component geometry with holes, per-part zone reachability,
+  directed stair connectivity, representative-point clearances, and bounded route lengths.
+- Added contract registration for schema export, interface documentation, and prepared
+  analytical/unit/API acceptance tests.
+- Static checks: changed Python files parse successfully; Ruff 0.16.10 lint passes;
+  code formatted with Ruff; `git diff --check` passes. These are not runtime tests.
+- The user reported all 29 scene unit/API cases passing. Live scene endpoints were also
+  checked on the synthetic room: 80 m² usable floor, 20 people, reachable exit, and a
+  7.79 m representative-point route. The sample zone was then enlarged to 8 m² to
+  satisfy the existing placement-density limit, with the unit fixture updated to match.
+- The automated suite has not been rerun after that fixture correction. The existing
+  regression suite and live simulation/source-consistency check remain pending.
