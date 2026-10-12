@@ -24,7 +24,8 @@ from api.agents.judge import judge
 from api.agents.red_team import incident_query, red_team, venue_features
 from api.core.countdown import compute_countdown
 from api.core.extensions import HazardContext, HazardResult, IncidentRecord
-from api.core.venue_ops import apply_patch
+from api.core.plan import PlanError, append_legacy_measures, validate_operational
+from api.core.venue_ops import PatchError, apply_patch
 from api.db.models import RedTeamSession, SessionEventRow
 from api.db.session import db_session
 from api.models import (
@@ -499,14 +500,43 @@ class SessionManager:
                     reason = "no new breaks"
                     break
                 breaks.sort(key=lambda x: -x[0])
-                round_patch_ops: list[dict[str, Any]] = []
+                accepted_before_round = len(accepted)
                 for sev, a, r in breaks[: int(cfg["fix_targets"])]:
                     self._check(live)
+                    if len(accepted) > accepted_before_round:
+                        r = await self._sim(
+                            live,
+                            working,
+                            2,
+                            a.title,
+                            f"atk:{a.attack_id}:current:{len(accepted)}",
+                            None,
+                            "attack",
+                            attack=a,
+                            extra=live.measures,
+                        )
+                        results[r.run_id] = r
+                        sev = severity(r)
                     self._status(live, "blue_team", rnd, f"Blue team is fixing “{a.title}”")
                     fixes = await self._fixes(
                         env, working, a, r, int(cfg["fixes_per_attack"]), f"F{len(fixes_all) + 1}_"
                     )
                     for fx in fixes:
+                        try:
+                            candidate = self._apply_ops(working, fx.patch.model_dump()["ops"], live)
+                            validate_operational(
+                                candidate, [*live.measures, *fx.operational], st.registry
+                            )
+                        except (PlanError, PatchError, ValueError) as exc:
+                            self.emit(
+                                live,
+                                "log",
+                                {
+                                    "level": "warning",
+                                    "message": f"Rejected complete fix bundle: {exc}",
+                                },
+                            )
+                            continue
                         fixes_all.append(fx)
                         self.emit(
                             live,
@@ -558,7 +588,7 @@ class SessionManager:
                         )
                         if ok:
                             accepted.append(fx.fix_id)
-                            round_patch_ops.extend(fx.patch.model_dump()["ops"])
+                            working = candidate
                             live.measures.extend(fx.operational)
                             self.emit(
                                 live,
@@ -572,7 +602,6 @@ class SessionManager:
                                 },
                             )
                             break  # one accepted fix per attack is enough
-                working = self._apply_ops(working, round_patch_ops, live)
             else:
                 reason = "all rounds done"
         except StopSession as exc:
@@ -699,15 +728,9 @@ class SessionManager:
         return severity(after) > severity(before) * 1.05 + 1.0
 
     def _apply_ops(self, venue: Venue, ops: list[dict[str, Any]], live: LiveSession) -> Venue:
-        out = venue
-        for op in ops:
-            try:
-                out = apply_patch(
-                    out, VenuePatch.model_validate({"ops": [op]}), self.st.registry
-                ).venue
-            except Exception as exc:  # conflicting fixes: keep the ones that still apply
-                self.emit(live, "log", {"level": "warning", "message": f"Skipped an edit: {exc}"})
-        return out
+        if not ops:
+            return venue
+        return apply_patch(venue, VenuePatch.model_validate({"ops": ops}), self.st.registry).venue
 
     def _node_done(
         self,
@@ -1009,7 +1032,13 @@ class SessionManager:
         if row is None or not row.summary or not row.summary.get("final_venue"):
             raise ValueError("This session has no fixed plan to apply.")
         v = Venue.model_validate(row.summary["final_venue"])
+        measures = [ScenarioEventIn.model_validate(e) for e in row.summary.get("measures", [])]
+        v = append_legacy_measures(v, measures, self.st.registry)
         kept = len(row.summary.get("accepted_fixes", []))
         return self.st.projects.replace_venue(
-            row.project_id, v, f"Applied red-team plan ({kept} fixes)", author="agent"
+            row.project_id,
+            v,
+            f"Applied red-team plan ({kept} fixes)",
+            author="agent",
+            expected_version=row.venue_version,
         )

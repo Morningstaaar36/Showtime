@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from api.core.extensions import Registry
 from api.core.extensions import geometry as geo
+from api.core.plan import PLAN_KEY, plan_data
 from api.models import Venue, VenuePatch
 
 # Fields that exist for undo or geometry plumbing, not for agents.
@@ -90,6 +91,10 @@ def venue_summary(venue: Venue) -> str:
             f"{_fmt(st.roof_height_m)} m high, {st.legs} legs, ballast "
             f"{_fmt(st.ballast_kg_per_leg)} kg per leg."
         )
+    if PLAN_KEY in venue.extensions:
+        data = plan_data(venue)
+        lines.append("Organizer plan constraints (enforced): " + data.constraints.model_dump_json())
+        lines.append("Saved actions: " + str([a.action_id for a in data.actions]))
     return "\n".join(lines)
 
 

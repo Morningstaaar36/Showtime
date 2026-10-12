@@ -145,7 +145,9 @@ def up(build: bool = True) -> None:
                 timeout=15,
             )
             if result.returncode:
-                raise RuntimeError(f"Image {required} is missing. Build first with make m1-test-up.")
+                raise RuntimeError(
+                    f"Image {required} is missing. Build first with make m1-test-up."
+                )
     compose("up", "-d", "--wait", "--wait-timeout", "180", "--force-recreate", "--pull", "never")
     # Provider readiness is distinct from server readiness. Missing credentials do not
     # prevent exploring the editor, saved examples, or real local simulations.

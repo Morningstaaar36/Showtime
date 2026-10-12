@@ -17,6 +17,7 @@ from api.core.countdown import compute_countdown
 from api.core.estimates import compute_estimates, scale_people
 from api.core.extensions import HazardContext, HazardResult
 from api.core.geometry import validate_venue
+from api.core.plan import plan_hash
 from api.core.scene import SceneInputError, inspect_scene, scene_snapshot
 from api.core.score import planning_score, score_inputs
 from api.core.templates import get_template
@@ -61,6 +62,7 @@ def version_out(v: VenueVersion, include_venue: bool = True) -> dict[str, Any]:
         "author": v.author,
         "created_at": v.created_at.isoformat(),
         "venue_hash": v.venue_hash,
+        "plan_hash": plan_hash(Venue.model_validate(v.venue)),
         "base_version": v.base_version,
         "patch": v.patch,
     }

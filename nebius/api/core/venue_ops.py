@@ -10,6 +10,15 @@ from pydantic import ValidationError
 
 from api.core.extensions import Registry
 from api.core.geometry import Check, validate_venue
+from api.core.plan import (
+    PLAN_KEY,
+    PlanError,
+    edit_issues,
+    plan_data,
+    transition_issues,
+    validate_plan,
+    with_plan,
+)
 from api.models import PatchOpIn, Venue, VenuePatch
 
 HASH_EXCLUDE = {"name", "description", "extensions"}
@@ -63,6 +72,9 @@ def apply_patch(
     current = venue
     inverse_ops: list[PatchOpIn] = []
     for i, raw in enumerate(patch.ops):
+        policy_issues = edit_issues(current, raw.model_dump())
+        if policy_issues:
+            raise PlanError(policy_issues)
         if not registry.has("PatchOp", raw.op):
             known = ", ".join(sorted(registry.keys("PatchOp")))
             raise PatchError([f"Unknown operation '{raw.op}'. Allowed: {known}."], i)
@@ -84,6 +96,18 @@ def apply_patch(
     if new_errors and not allow_new_errors:
         raise PatchError([f"{c.message} {c.hint}".strip() for c in new_errors])
     warnings = [c for c in report.checks if c.severity == "warning"]
+    if PLAN_KEY in current.extensions:
+        data = plan_data(current)
+        data.constraints.objects = {
+            oid: policy
+            for oid, policy in data.constraints.objects.items()
+            if oid in current.all_ids()
+        }
+        current = with_plan(current, data)
+        policy_issues = transition_issues(venue, current)
+        if policy_issues:
+            raise PlanError(policy_issues)
+        validate_plan(current, registry)
     return PatchResult(
         venue=current, inverse=VenuePatch(ops=inverse_ops), new_errors=new_errors, warnings=warnings
     )

@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from api.core.plan import PlanConflict, PlanError
 from api.core.venue_ops import PatchError
 from api.orchestrator.projects import NotFound
 
@@ -59,6 +60,22 @@ def install(app: FastAPI) -> None:
             ),
             422,
         )
+
+    @app.exception_handler(PlanError)
+    async def _plan(_: Request, exc: PlanError) -> JSONResponse:
+        return JSONResponse(
+            _body(
+                "invalid_plan",
+                str(exc),
+                "Correct the reported constraints, actions, or resources and retry.",
+                {"issues": [i.model_dump(mode="json") for i in exc.issues]},
+            ),
+            422,
+        )
+
+    @app.exception_handler(PlanConflict)
+    async def _conflict(_: Request, exc: PlanConflict) -> JSONResponse:
+        return JSONResponse(_body("plan_version_conflict", str(exc)), 409)
 
     @app.exception_handler(RequestValidationError)
     async def _val(_: Request, exc: RequestValidationError) -> JSONResponse:

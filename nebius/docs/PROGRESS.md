@@ -289,3 +289,47 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
   satisfy the existing placement-density limit, with the unit fixture updated to match.
 - The automated suite has not been rerun after that fixture correction. The existing
   regression suite and live simulation/source-consistency check remain pending.
+
+## 2026-10-12 — P2-02: constrained bundles and complete plan persistence
+
+- Added typed organizer plans in `Venue.extensions.organizer_plan`, preserving geometry,
+  constraints, actions, source, approvals, staff/equipment allocations, and dependencies
+  in the existing version history. Undo/redo, duplicate, and ZIP import/export retain them.
+- Added plan read/configuration, bundle preview/application, and evidence-applicability
+  endpoints. Bundles support action additions, replacements, and removals alongside
+  geometry changes. Invalid proposals never create a partial project version.
+- Enforced fixed/locked geometry, locked floors, permitted operations, declared
+  existing/proposed exits, construction permissions, access, action references and
+  dependency order/cycles, resource availability, and overlapping allocation limits.
+  Recorded approvals require source/attribution; their authenticity is not verified.
+- Added transactional expected-version checks and HTTP 409 for stale/concurrent writes.
+  Preview does not reserve a version. Direct geometry patches/full replacements cannot
+  bypass saved constraints; explicit organizer configuration/history commands can change policy.
+- Runs/estimates automatically consume saved events. Complete plan fingerprints affect
+  cache IDs, with evidence labeled current/stale/unknown independently of run status.
+  Candidate-fix and pre-feature evidence remain conservatively unknown.
+- Agent geometry bundles no longer skip conflicting edits individually. Accepted fixes
+  update the working state before later targets are evaluated. Applying a finished
+  session preserves its measures and refuses to overwrite a newer project version.
+  Legacy measures retain an explicit unallocated/unenforced state until organizer migration.
+- Added backend documentation, actual synthetic request JSON files, and the one-command
+  Docker check `make m1-test-p2-02`. UI integration and structured agent proposal generation
+  remain Person 3 work. Administrative action/resource validation does not simulate
+  installation work or establish sufficient staffing; geometry material needs are not inferred.
+- Verification used isolated macOS ARM64 Python 3.12 in the ignored cache because Docker
+  Desktop was manually paused. Dependencies installed with `uv sync --project api --frozen`
+  and an isolated `UV_PROJECT_ENVIRONMENT`; no global packages or local `.env` were changed.
+- **Fast API suite: 185 passed, 1 skipped** via
+  `../cache/m1-plan-native-env/bin/pytest -q -m "not slow" --tb=short
+  --basetemp=/private/tmp/showtime-p2-02-native` from `api/`. This includes P2-01's corrected
+  scene fixture and the previously pending geometry/API/persistence/red-team regressions.
+- **Static checks:** Ruff check and format across API/plugins/scripts/sim passed;
+  strict mypy passed on 41 backend source files; all three import-boundary contracts
+  passed. Schema export generated 61 definitions, and the actual room/setup/bundle
+  example JSON files validated together. `make -n m1-test-p2-02` and `git diff --check` passed.
+- Gate cleanup: resolved existing scene/agent typing errors found against the committed
+  baseline; provider-test settings now ignore the private `.env`; M1 launcher received a
+  formatting-only wrap. These changes were covered by the final fast suite/static checks.
+- **Pending:** Docker-image execution, live browser testing of the new endpoints, and a
+  real selected-plan simulation/source-consistency run after Docker is unpaused. Fake
+  provider/native tests do not establish physics accuracy or live model performance.

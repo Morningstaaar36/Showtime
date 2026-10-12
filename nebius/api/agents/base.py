@@ -218,7 +218,7 @@ def _finish(
             summary = ""
     if not summary:
         summary = note or (res.error or "; ".join(res.problems[:2]) or "ok")[:200]
-    payload = {
+    payload: dict[str, Any] = {
         "agent": spec.name,
         "role": spec.role,
         "model": u.model if u else "",

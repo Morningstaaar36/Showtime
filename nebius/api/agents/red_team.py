@@ -7,7 +7,8 @@ source URL and evidence come from the incident record itself (never from the mod
 from __future__ import annotations
 
 import json
-from typing import Any
+from types import GenericAlias
+from typing import Any, cast
 
 from pydantic import BaseModel, Field, create_model
 
@@ -42,10 +43,15 @@ def _model(registry: Registry, n: int) -> type[BaseModel]:
         "AttackDraft",
         title=(str, Field(max_length=90)),
         incident_row=(int, ...),
-        events=(list[event_union(registry, ATTACK_EVENTS)], Field(min_length=1, max_length=3)),  # type: ignore[valid-type]
+        events=(
+            GenericAlias(list, event_union(registry, ATTACK_EVENTS)),
+            Field(min_length=1, max_length=3),
+        ),
         rationale=(str, Field(default="", max_length=260)),
     )
-    return create_model("RedTeamOut", attacks=(list[draft], Field(min_length=1, max_length=n)))  # type: ignore[valid-type]
+    return create_model(
+        "RedTeamOut", attacks=(GenericAlias(list, draft), Field(min_length=1, max_length=n))
+    )
 
 
 def venue_features(venue: Venue, baseline: RunResult | None) -> dict[str, Any]:
@@ -171,7 +177,8 @@ def grounded_title(title: str, venue: Venue, attack: Attack, registry: Registry)
         d = e.model_dump()
         refs += [r for r in (d.get("exit_id"), d.get("zone_id")) if isinstance(r, str)]
     ref = refs[0] if refs else None
-    names = {x.id: x.label or x.id for f in venue.floors for x in [*f.exits, *f.zones]}
+    names = {e.id: e.label or e.id for f in venue.floors for e in f.exits}
+    names.update({z.id: z.label or z.id for f in venue.floors for z in f.zones})
     where = f" at {names.get(ref, ref)}" if ref else ""
     return f"{' and '.join(labels)}{where}"
 
@@ -239,10 +246,10 @@ async def red_team(
         f"Design {n} different attacks on this plan.",
         output_model=model,
         validate=validate,
-        summarize=lambda o: "; ".join(a.title for a in o.attacks)[:300],
+        summarize=lambda o: "; ".join(a.title for a in cast(Any, o).attacks)[:300],
     )
     attacks: list[Attack] = []
-    for d in call.output.attacks if call.output else []:
+    for d in cast(Any, call.output).attacks if call.output else []:
         if problems_of(d):
             audit_decision(
                 env, "red_team", "discarded attack", {"title": d.title, "problems": problems_of(d)}

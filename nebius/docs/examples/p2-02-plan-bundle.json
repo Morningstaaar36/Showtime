@@ -1,0 +1,18 @@
+{
+  "expected_version": 2,
+  "source": "user",
+  "message": "Hold zone Z1 for 10 seconds with one steward and one radio",
+  "actions": [
+    {
+      "action_id": "hold_Z1",
+      "label": "Steward coordinates a short staggered release",
+      "event": {"type": "staggered_release", "zone_id": "Z1", "at_s": 0, "delay_s": 10},
+      "start_s": 0,
+      "end_s": 20,
+      "resources": [
+        {"resource_id": "stewards", "quantity": 1},
+        {"resource_id": "radios", "quantity": 1}
+      ]
+    }
+  ]
+}

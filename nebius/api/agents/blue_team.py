@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from types import GenericAlias
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, Field, create_model
 
 from api.agents.base import AgentDef, AgentEnv, audit_decision, call_agent
 from api.agents.context import event_union, events_doc, ids_line, op_union, ops_doc, venue_summary
 from api.core.extensions import Registry
+from api.core.plan import PlanError, validate_operational
 from api.core.venue_ops import PatchError, apply_patch
 from api.models import Attack, Fix, RunResult, Venue, VenuePatch
 
@@ -39,15 +41,20 @@ def _model(registry: Registry, n: int) -> type[BaseModel]:
     draft = create_model(
         "FixDraft",
         title=(str, Field(max_length=90)),
-        ops=(list[op_union(registry, FIX_OPS)], Field(default_factory=list, max_length=3)),  # type: ignore[valid-type]
-        operational=(
-            list[event_union(registry, events)],
+        ops=(
+            GenericAlias(list, op_union(registry, FIX_OPS)),
             Field(default_factory=list, max_length=3),
-        ),  # type: ignore[valid-type]
+        ),
+        operational=(
+            GenericAlias(list, event_union(registry, events)),
+            Field(default_factory=list, max_length=3),
+        ),
         cost_label=(Literal["low", "medium", "high"], "medium"),
         rationale=(str, Field(default="", max_length=260)),
     )
-    return create_model("BlueTeamOut", fixes=(list[draft], Field(min_length=1, max_length=n)))  # type: ignore[valid-type]
+    return create_model(
+        "BlueTeamOut", fixes=(GenericAlias(list, draft), Field(min_length=1, max_length=n))
+    )
 
 
 def check_fix(
@@ -73,7 +80,7 @@ def check_fix(
             target = apply_patch(venue, VenuePatch.model_validate({"ops": ops}), registry).venue
             if target.total_people() < venue.total_people():
                 problems.append("a fix must not reduce the number of people")
-        except PatchError as exc:
+        except (PatchError, PlanError) as exc:
             problems.extend(exc.problems)
     # measures may refer to exits the same fix adds, so check them on the patched venue
     for e in operational:
@@ -82,6 +89,14 @@ def check_fix(
             continue
         spec = registry.event(e["type"])
         problems.extend(spec.validate_refs(target, spec.params_model.model_validate(e)))
+    try:
+        from api.models import ScenarioEventIn
+
+        validate_operational(
+            target, [ScenarioEventIn.model_validate(e) for e in operational], registry
+        )
+    except PlanError as exc:
+        problems.extend(exc.problems)
     return problems
 
 
@@ -144,10 +159,10 @@ async def blue_team(
         f"Propose {n} different fixes for this attack.",
         output_model=model,
         validate=validate,
-        summarize=lambda o: "; ".join(f.title for f in o.fixes)[:300],
+        summarize=lambda o: "; ".join(f.title for f in cast(Any, o).fixes)[:300],
     )
     fixes: list[Fix] = []
-    for d in call.output.fixes if call.output else []:
+    for d in cast(Any, call.output).fixes if call.output else []:
         probs = problems_of(d)
         if probs:
             audit_decision(env, "blue_team", "discarded fix", {"title": d.title, "problems": probs})

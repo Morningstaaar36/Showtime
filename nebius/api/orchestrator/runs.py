@@ -18,6 +18,14 @@ from typing import Any
 
 from api.adapters.sandbox import SandboxRunner, SimJob, failed_result
 from api.core.extensions import Registry
+from api.core.plan import (
+    STAFF_MEASURES,
+    plan_hash,
+    saved_events,
+    validate_operational,
+    validate_plan,
+    validate_run_horizon,
+)
 from api.core.settings import Settings
 from api.core.tier1 import run_tier1
 from api.core.venue_ops import apply_patch, venue_hash
@@ -105,9 +113,11 @@ class RunService:
     ) -> RunResult:
         """Tier 1 for a venue (fix patch applied) under attack/fix events."""
         v = self.apply_fix(venue, fix)
-        events = compose_events(attack, fix, None, extra)
-        rid = run_id_for({"t1": venue_hash(v), "ev": [e.model_dump() for e in events]})
-        return run_tier1(
+        events = self._events(v, attack, fix, None, extra)
+        rid = run_id_for(
+            {"t1": venue_hash(v), "plan_hash": plan_hash(v), "ev": [e.model_dump() for e in events]}
+        )
+        result = run_tier1(
             v,
             events,
             self.registry,
@@ -116,9 +126,40 @@ class RunService:
             attack_id=attack.attack_id if attack else None,
             fix_id=fix.fix_id if fix else None,
         )
+        result.extensions["plan_hash"] = plan_hash(v)
+        return result
+
+    def _events(
+        self,
+        venue: Venue,
+        attack: Attack | None,
+        fix: Fix | None,
+        intervention_at_s: float | None,
+        extra: list[ScenarioEventIn] | None,
+    ) -> list[ScenarioEventIn]:
+        validate_operational(
+            venue,
+            [
+                e
+                for e in (attack.events if attack else [])
+                if e.type in STAFF_MEASURES or e.type == "unblock_exit"
+            ],
+            self.registry,
+        )
+        validate_operational(venue, fix.operational if fix else [], self.registry)
+        validate_operational(
+            venue,
+            [e for e in (extra or []) if e.type in STAFF_MEASURES or e.type == "unblock_exit"],
+            self.registry,
+        )
+        return compose_events(attack, fix, intervention_at_s, extra) + saved_events(
+            venue, self.registry
+        )
 
     def apply_fix(self, venue: Venue, fix: Fix | None) -> Venue:
         """Venue with the fix's patch applied (geometry errors are rejected)."""
+        validate_plan(venue, self.registry)
+        validate_operational(venue, fix.operational if fix else [], self.registry)
         if fix is None or not fix.patch.ops:
             return venue
         return apply_patch(venue, fix.patch, self.registry).venue
@@ -139,7 +180,7 @@ class RunService:
         """Everything the sandbox needs; the exit plan comes from Tier 1."""
         st = self.settings
         patched = self.apply_fix(venue, fix)
-        events = compose_events(attack, fix, intervention_at_s, extra)
+        events = self._events(patched, attack, fix, intervention_at_s, extra)
         t1 = run_tier1(
             patched,
             events,
@@ -154,12 +195,14 @@ class RunService:
         plan: dict[str, Any] = t1.extensions.get("plan", {})
         if base_venue is not None:
             # identical start to the parent run: use the parent's exit plan
-            parent_events = compose_events(attack, None)
+            parent_events = self._events(venue, attack, None, None, extra)
             plan = run_tier1(venue, parent_events, self.registry, st).extensions.get("plan", {})
         settings_payload = sim_settings(st, tier)
         max_sim = st.tier2_max_sim_s if tier == 2 else st.max_sim_s
+        validate_run_horizon(patched, max_sim, self.registry)
         payload = {
             "v": venue_hash(patched),
+            "plan_hash": plan_hash(patched),
             "base": venue_hash(base_venue) if base_venue else None,
             "ev": [e.model_dump() for e in events],
             "tier": tier,
@@ -185,6 +228,7 @@ class RunService:
             max_wall_s=st.max_wall_s,
             intervention_at_s=intervention_at_s,
             parent_run_id=parent_run_id,
+            extensions={"plan_hash": plan_hash(patched)},
         )
         return SimJob(
             request=req,
