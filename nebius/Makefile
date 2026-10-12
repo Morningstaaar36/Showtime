@@ -78,6 +78,7 @@ m1-test-p2-02: ## Verify plan constraints and all fast API regressions in the M1
 	@mkdir -p cache/uv-tests
 	@docker run --rm --platform linux/arm64 -w /app/api \
 	  -v "$(CURDIR)/api:/app/api:ro" -v "$(CURDIR)/cache/uv-tests:/root/.cache/uv" \
+	  -v "$(CURDIR)/plugins:/app/plugins:ro" \
 	  showtime-api:latest uv run --frozen pytest -q -m "not slow" --tb=short \
 	  --basetemp=/tmp/showtime-p2-02-tests
 

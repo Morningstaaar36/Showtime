@@ -7,6 +7,8 @@ export interface RunInfo {
   node_id?: string;
   status: string;
   tier: number;
+  provider?: string;
+  engine?: string;
   metrics: Record<string, number | null>;
   is_break: boolean;
   break_reasons: string[];
@@ -44,6 +46,8 @@ export interface SessionView {
   lastSeq: number;
   status: string;
   phase: string;
+  /** every phase entered, with the time it started (for step durations) */
+  phases: { phase: string; ts: string }[];
   round: number;
   message: string;
   attacks: { attack: Attack; round: number; tier1: Record<string, number | null> }[];
@@ -60,7 +64,7 @@ export interface SessionView {
 }
 
 const EMPTY: SessionView = {
-  lastSeq: 0, status: "queued", phase: "", round: 0, message: "", attacks: [], fixes: [], nodes: {},
+  lastSeq: 0, status: "queued", phase: "", phases: [], round: 0, message: "", attacks: [], fixes: [], nodes: {},
   runs: {}, scoreboard: [], fixesAccepted: 0, cost: null, feed: [], countdown: null, connected: false,
   ended: false,
 };
@@ -79,6 +83,7 @@ function reduce(s: SessionView, a: Action): SessionView {
     case "status":
       next.status = String(p.status);
       next.phase = String(p.phase);
+      if (s.phases[s.phases.length - 1]?.phase !== next.phase) next.phases = [...s.phases, { phase: next.phase, ts: ev.ts }];
       next.round = Number(p.round ?? 0);
       next.message = String(p.message ?? "");
       break;

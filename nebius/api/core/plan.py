@@ -10,10 +10,17 @@ import hashlib
 import json
 from typing import Any, Literal
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from api.core.extensions import Registry
-from api.models.plan import EvidenceReference, ObjectConstraint, PlanAction, PlanData, PlanIssue
+from api.models.plan import (
+    EvidenceReference,
+    ObjectConstraint,
+    PlanAction,
+    PlanBundle,
+    PlanData,
+    PlanIssue,
+)
 from api.models.scenario import ScenarioEventIn
 from api.models.venue import Exit, Obstacle, Venue, Zone
 
@@ -38,7 +45,23 @@ def fail(code: str, message: str, *targets: str) -> PlanIssue:
 
 def plan_data(venue: Venue) -> PlanData:
     try:
-        return PlanData.model_validate(venue.extensions.get(PLAN_KEY, {}))
+        data = PlanData.model_validate(venue.extensions.get(PLAN_KEY, {}))
+        if PLAN_KEY not in venue.extensions:
+            # P3's older editor format remains readable. Configured typed plans
+            # are authoritative; stale annotation copies cannot override them.
+            block = TypeAdapter(dict[str, Any]).validate_python(
+                venue.extensions.get("plan_annotations", {})
+            )
+            entries = TypeAdapter(dict[str, dict[str, Any]]).validate_python(
+                block.get("objects", {})
+            )
+            data.constraints.objects = {
+                oid: ObjectConstraint(
+                    locked=entry.get("locked", False), origin=entry.get("change", "existing")
+                )
+                for oid, entry in entries.items()
+            }
+        return data
     except ValidationError as exc:
         raise PlanError([fail("invalid_plan", str(exc))]) from exc
 
@@ -65,6 +88,8 @@ def plan_hash(venue: Venue) -> str:
     No evidence records are stored in this identity; applicability is derived at read time.
     """
     data = venue.model_dump(mode="python", exclude={"venue_id", "name", "description"})
+    data["extensions"].pop("scene_metadata", None)
+    data["extensions"].pop("plan_annotations", None)
     data["plan_configured"] = PLAN_KEY in venue.extensions
     data["extensions"][PLAN_KEY] = plan_data(venue).model_dump(mode="python")
     try:
@@ -169,9 +194,25 @@ def _construction(data: PlanData, policy: ObjectConstraint, target: str) -> list
 
 
 def edit_issues(venue: Venue, op: dict[str, Any]) -> list[PlanIssue]:
-    if PLAN_KEY not in venue.extensions or not plan_data(venue).enforce_constraints:
-        return []
     data = plan_data(venue)
+    if PLAN_KEY not in venue.extensions or not data.enforce_constraints:
+        # Locks from the collaborative editor also protect legacy projects.
+        targets = {
+            str(op[k])
+            for k in ("target", "exit_id", "zone_id", "obstacle_id", "floor_id")
+            if op.get(k) is not None
+        }
+        if op["op"] == "set_stage_param":
+            targets.update(o.id for f in venue.floors for o in f.obstacles if o.kind == "stage")
+        for floor in venue.floors:
+            items: list[Exit | Obstacle | Zone] = [*floor.exits, *floor.obstacles, *floor.zones]
+            if any(i.id in targets for i in items):
+                targets.add(floor.floor_id)
+        return [
+            fail("object_locked", f"Object '{oid}' is locked.", oid)
+            for oid in sorted(targets)
+            if oid in data.constraints.objects and data.constraints.objects[oid].locked
+        ]
     issues: list[PlanIssue] = []
     allowed = data.constraints.allowed_ops
     if allowed is not None and op["op"] not in allowed:
@@ -231,7 +272,18 @@ def edit_issues(venue: Venue, op: dict[str, Any]) -> list[PlanIssue]:
 def transition_issues(before: Venue, after: Venue) -> list[PlanIssue]:
     """Enforce saved policies on full replacements as well as individual operations."""
     if PLAN_KEY not in before.extensions or not plan_data(before).enforce_constraints:
-        return []
+        old, new = plan_data(before), plan_data(after)
+        b, a = _objects(before), _objects(after)
+        issues = []
+        for oid, legacy_policy in old.constraints.objects.items():
+            if not legacy_policy.locked:
+                continue
+            if not new.constraints.objects.get(oid, ObjectConstraint()).locked:
+                issues.append(fail("policy_changed", f"Edit cannot unlock '{oid}'.", oid))
+            protected = {oid} | {i for i, obj in b.items() if obj.get("floor_id") == oid}
+            if any(b.get(i) != a.get(i) for i in protected):
+                issues.append(fail("object_locked", f"Object '{oid}' or its floor is locked.", oid))
+        return issues
     old, new = plan_data(before), plan_data(after)
     policy: ObjectConstraint | None
     issues = []
@@ -458,6 +510,12 @@ def validate_plan(venue: Venue, registry: Registry) -> PlanData:
         issues.extend(fail(i.code, i.message, *i.target_ids) for i in exc.issues)
     plan_hash(venue)  # rejects nonfinite nested event or extension JSON
     ids = venue.all_ids()
+    if data.constraints.allowed_ops is not None:
+        for operation in data.constraints.allowed_ops:
+            if not registry.has("PatchOp", operation):
+                issues.append(
+                    fail("unknown_allowed_operation", f"Unknown permitted operation '{operation}'.")
+                )
     policy: ObjectConstraint | None
     for oid, policy in data.constraints.objects.items():
         if oid not in ids:
@@ -534,6 +592,31 @@ def validate_plan(venue: Venue, registry: Registry) -> PlanData:
                     )
                 )
                 break
+    estimated_cost = sum(a.estimated_cost or 0 for a in data.actions) + sum(
+        p.estimated_cost or 0 for p in data.constraints.objects.values() if p.origin == "proposed"
+    )
+    if data.constraints.budget_limit is not None:
+        unknown = [a.action_id for a in data.actions if a.estimated_cost is None] + [
+            oid
+            for oid, p in data.constraints.objects.items()
+            if p.origin == "proposed" and p.estimated_cost is None
+        ]
+        if unknown:
+            issues.append(
+                fail(
+                    "cost_estimate_required",
+                    "Budgeted proposals need declared costs for every action and proposed object.",
+                    *unknown,
+                )
+            )
+    if data.constraints.budget_limit is not None and estimated_cost > data.constraints.budget_limit:
+        issues.append(
+            fail(
+                "budget_exceeded",
+                f"Declared cost {estimated_cost:g} {data.constraints.currency} "
+                "exceeds the plan budget.",
+            )
+        )
     if issues:
         raise PlanError(issues)
     return data
@@ -607,3 +690,114 @@ def append_legacy_measures(
     out = with_plan(venue, data)
     validate_plan(out, registry)
     return out
+
+
+def apply_plan_bundle(venue: Venue, body: PlanBundle, registry: Registry) -> Venue:
+    """Validate an entire proposal in memory before any version is saved."""
+    from api.core.geometry import validate_venue
+    from api.core.venue_ops import apply_patch
+
+    if PLAN_KEY not in venue.extensions:
+        raise PlanError([fail("plan_not_configured", "Configure the organizer plan first.")])
+    data = plan_data(venue)
+    if body.source != "user":
+        protected = [
+            o.op
+            for o in body.patch.ops
+            if registry.has("PatchOp", o.op)
+            and getattr(registry.patch_op(o.op), "user_only", False)
+        ]
+        if protected:
+            raise PlanError(
+                [fail("organizer_only", "Agents cannot change organizer policy or provenance.")]
+            )
+    if not (body.patch.ops or body.actions or body.replace_actions or body.remove_action_ids):
+        raise PlanError([fail("empty_bundle", "A bundle needs an edit or an action.")])
+    existing_ids = {a.action_id for a in data.actions}
+    replacements = {a.action_id: a for a in body.replace_actions}
+    removed = set(body.remove_action_ids)
+    if (
+        len(replacements) != len(body.replace_actions)
+        or len(removed) != len(body.remove_action_ids)
+        or replacements.keys() & removed
+    ):
+        raise PlanError(
+            [
+                fail(
+                    "conflicting_action_edits",
+                    "Action edits contain duplicates or replace and remove the same action.",
+                )
+            ]
+        )
+    unknown = (replacements.keys() | removed) - existing_ids
+    if unknown:
+        raise PlanError(
+            [
+                fail("unknown_action", f"Cannot replace or remove unknown action '{aid}'.", aid)
+                for aid in sorted(unknown)
+            ]
+        )
+    data.actions = [
+        replacements[a.action_id].model_copy(update={"source": body.source})
+        if a.action_id in replacements
+        else a
+        for a in data.actions
+        if a.action_id not in removed
+    ]
+    data.actions.extend(a.model_copy(update={"source": body.source}) for a in body.actions)
+    for oid, policy in body.new_objects.items():
+        if oid in venue.all_ids() or oid in data.constraints.objects:
+            raise PlanError(
+                [
+                    fail(
+                        "policy_changed",
+                        "new_objects can only describe newly added objects.",
+                        oid,
+                    )
+                ]
+            )
+        data.constraints.objects[oid] = policy
+    # Validate action references on final geometry, allowing object/action additions
+    # and removal of an object with its obsolete action in a single atomic bundle.
+    prepared = with_plan(venue, data)
+    candidate = apply_patch(prepared, body.patch, registry).venue if body.patch.ops else prepared
+    for oid in body.new_objects:
+        if oid not in candidate.all_ids():
+            raise PlanError([fail("unknown_policy_object", f"Bundle did not create '{oid}'.", oid)])
+    problems = transition_issues(venue, candidate)
+    if problems:
+        raise PlanError(problems)
+    validate_plan(candidate, registry)
+    report = validate_venue(candidate)
+    if not report.ok:
+        raise PlanError([fail(c.code, c.message, *c.target_ids) for c in report.errors])
+    return candidate
+
+
+def apply_fix_bundle(venue: Venue, fix: Any, registry: Registry) -> Venue:
+    """Use complete typed bundles for configured plans; retain legacy patch support."""
+    from api.core.venue_ops import apply_patch
+
+    if fix is None:
+        validate_plan(venue, registry)
+        return venue
+    structured = bool(
+        fix.actions or fix.replace_actions or fix.remove_action_ids or fix.new_objects
+    )
+    if structured or (PLAN_KEY in venue.extensions and plan_data(venue).enforce_constraints):
+        validate_operational(venue, fix.operational, registry)
+        return apply_plan_bundle(
+            venue,
+            PlanBundle(
+                expected_version=1,
+                patch=fix.patch,
+                actions=fix.actions,
+                replace_actions=fix.replace_actions,
+                remove_action_ids=fix.remove_action_ids,
+                new_objects=fix.new_objects,
+                source="rules" if fix.extensions.get("generated_by") == "rules" else "agent",
+            ),
+            registry,
+        )
+    validate_operational(venue, fix.operational, registry)
+    return apply_patch(venue, fix.patch, registry).venue if fix.patch.ops else venue

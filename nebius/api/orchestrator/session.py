@@ -22,9 +22,17 @@ from api.agents.base import AgentEnv, AgentUnavailable, audit_decision
 from api.agents.blue_team import blue_team
 from api.agents.judge import judge
 from api.agents.red_team import incident_query, red_team, venue_features
+from api.core.annotations import carry_annotations
 from api.core.countdown import compute_countdown
 from api.core.extensions import HazardContext, HazardResult, IncidentRecord
-from api.core.plan import PlanError, append_legacy_measures, validate_operational
+from api.core.plan import (
+    PlanConflict,
+    PlanError,
+    append_legacy_measures,
+    apply_fix_bundle,
+    plan_hash,
+    validate_operational,
+)
 from api.core.venue_ops import PatchError, apply_patch
 from api.db.models import RedTeamSession, SessionEventRow
 from api.db.session import db_session
@@ -45,6 +53,10 @@ log = logging.getLogger("showtime.session")
 
 class StopSession(Exception):
     """A budget or the user ended the session."""
+
+
+class StalePlan(PlanConflict):
+    """A session's fixed plan was computed for an earlier venue geometry."""
 
 
 def severity(r: RunResult) -> float:
@@ -523,7 +535,7 @@ class SessionManager:
                     )
                     for fx in fixes:
                         try:
-                            candidate = self._apply_ops(working, fx.patch.model_dump()["ops"], live)
+                            candidate = apply_fix_bundle(working, fx, st.registry)
                             validate_operational(
                                 candidate, [*live.measures, *fx.operational], st.registry
                             )
@@ -694,14 +706,20 @@ class SessionManager:
             out = []
         # Standard engineering responses compete with the AI's ideas; the simulation decides.
         rules = rule_fixes(self.st.registry, venue, attack, result, n + 2, prefix + "R")
-        kinds = {e.type for f in out for e in f.operational} | {
-            o.op for f in out for o in f.patch.ops
-        }
+        kinds = {
+            e.type for f in out for e in [*f.operational, *(a.event for a in f.actions if a.event)]
+        } | {o.op for f in out for o in f.patch.ops}
         extra = [
             f
             for f in rules
             if (
-                (any(e.type == "one_way" for e in f.operational) and "one_way" not in kinds)
+                (
+                    any(
+                        e.type == "one_way"
+                        for e in [*f.operational, *(a.event for a in f.actions if a.event)]
+                    )
+                    and "one_way" not in kinds
+                )
                 or (any(o.op == "add_exit" for o in f.patch.ops) and "add_exit" not in kinds)
             )
         ]
@@ -771,6 +789,8 @@ class SessionManager:
                 "status": r.status,
                 "tier": r.tier,
                 "metrics": headline(r),
+                "provider": r.provider,
+                "engine": r.engine,
                 "is_break": bool(reasons),
                 "break_reasons": reasons or [],
                 "accepted": accepted,
@@ -875,11 +895,25 @@ class SessionManager:
             "countdown": countdown.model_dump() if countdown else None,
             "stopped_reason": reason,
         }
+        assessment_run = after or before or baseline
+        if assessment_run is None:
+            basis = "No usable result was available."
+        elif assessment_run.provider == "fake" or assessment_run.engine == "fake":
+            basis = "Preview only: these results use mock simulations."
+        elif assessment_run.tier == 1:
+            basis = "These results are instant estimates."
+        elif assessment_run.status != "ok":
+            basis = "These results include an incomplete simulation."
+        elif not assessment_run.engine:
+            basis = "The simulation engine for these results is unverified."
+        else:
+            basis = "These results describe the tested scenarios under the configured assumptions."
+        facts["evidence_basis"] = basis
         template = self._template(facts)
         facts_for_judge = plain_keys(facts)
         self._status(live, "judging", len(scoreboard), "Judge is checking every number")
         try:
-            text, recs, checked = await judge(env, facts_for_judge, template)
+            text, recs, checked = await judge(env, facts_for_judge, template, computed_summary=True)
         except (AgentUnavailable, BudgetExceeded):
             text, recs, checked = template, [], False
         summary = {
@@ -960,11 +994,13 @@ class SessionManager:
 
     @staticmethod
     def _template(f: dict[str, Any]) -> str:
-        """Summary built only from computed facts (used when the judge's numbers don't check)."""
+        """Outcome summary built only from recorded facts, regardless of model fluency."""
         parts = [
             f"Red team tested {sum(r['attacks'] for r in f['scoreboard'])} attacks on "
             f"{f['venue']} ({f['people']:,} people)."
         ]
+        if f.get("evidence_basis"):
+            parts.insert(0, f["evidence_basis"])
         if f["scoreboard"]:
             parts.append(
                 "Breaks per round: " + ", ".join(str(r["breaks"]) for r in f["scoreboard"]) + "."
@@ -973,8 +1009,10 @@ class SessionManager:
             parts.append(f"The worst scenario was “{f['worst_attack']}”.")
         if f["fixes_kept"]:
             parts.append("Fixes kept: " + "; ".join(f["fixes_kept"]) + ".")
+        else:
+            parts.append("No fixes were accepted.")
         b, a = f["before_fixes"], f["after_fixes"]
-        if b and a:
+        if b and a and f["fixes_kept"]:
             parts.append(
                 f"Under that scenario, peak density went from {b['peak_density_ppm2']} to "
                 f"{a['peak_density_ppm2']} people per m² and time above danger from "
@@ -1017,28 +1055,56 @@ class SessionManager:
             if timed
             else (hazards[0] if hazards else None)
         )
+        source = ""
+        if run:
+            basis = (
+                "preview estimate (no simulation)"
+                if run.provider == "fake" or run.engine == "fake"
+                else "instant estimate"
+                if run.tier == 1
+                else "partial simulation"
+                if run.status == "partial"
+                else "simulation"
+            )
+            source = f"the worst red-team attack, using {basis} (run {run.run_id})"
         return compute_countdown(
             chosen,
             rset,
             s.pre_movement_s,
             s.safety_factor,
-            f"the worst red-team attack, confirmed by simulation (run {run.run_id})" if run else "",
+            source,
             venue.location.event_start if venue.location else None,
         )
 
     def apply_final(self, sid: str) -> Any:
-        """Save the session's fixed venue as a new project version."""
+        """Save the session's fixed venue as a new project version.
+
+        Refused when the complete plan changed after the session started: replacing it
+        would silently discard those edits. Organizer annotations come from the current
+        version; objects the fixes added are marked as proposed construction.
+        """
         row = self.get(sid)
         if row is None or not row.summary or not row.summary.get("final_venue"):
             raise ValueError("This session has no fixed plan to apply.")
-        v = Venue.model_validate(row.summary["final_venue"])
+        projects = self.st.projects
+        tested = projects.version(row.project_id, row.venue_version)
+        current = projects.version(row.project_id)
+        original = Venue.model_validate(tested.venue)
+        present = Venue.model_validate(current.venue)
+        if plan_hash(present) != plan_hash(original):
+            raise StalePlan(
+                "The plan changed after this test, so its fixes no longer match. "
+                "Test the current plan again before accepting changes."
+            )
+        fixed = Venue.model_validate(row.summary["final_venue"])
+        v = carry_annotations(present, fixed)
         measures = [ScenarioEventIn.model_validate(e) for e in row.summary.get("measures", [])]
         v = append_legacy_measures(v, measures, self.st.registry)
         kept = len(row.summary.get("accepted_fixes", []))
-        return self.st.projects.replace_venue(
+        return projects.replace_venue(
             row.project_id,
             v,
             f"Applied red-team plan ({kept} fixes)",
             author="agent",
-            expected_version=row.venue_version,
+            expected_version=current.version,
         )

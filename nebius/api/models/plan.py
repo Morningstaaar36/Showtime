@@ -32,6 +32,7 @@ class ObjectConstraint(PlanModel):
     origin: Literal["existing", "proposed"] = "existing"
     access: Literal["allowed", "restricted", "unavailable"] = "allowed"
     required_approvals: list[str] = Field(default_factory=list)
+    estimated_cost: float | None = Field(default=None, ge=0)
 
 
 class ResourcePool(PlanModel):
@@ -62,6 +63,7 @@ class PlanAction(PlanModel):
     depends_on: list[str] = Field(default_factory=list)
     required_approvals: list[str] = Field(default_factory=list)
     resources: list[ResourceAllocation] = Field(default_factory=list)
+    estimated_cost: float | None = Field(default=None, ge=0)
     source: Literal["user", "agent", "rules", "imported"] = "user"
 
     @model_validator(mode="after")
@@ -74,6 +76,8 @@ class PlanAction(PlanModel):
 
 
 class PlanConstraints(PlanModel):
+    budget_limit: float | None = Field(default=None, ge=0)
+    currency: str = Field(default="USD", pattern=r"^[A-Z]{3}$")
     allow_construction: bool = False
     allowed_ops: list[str] | None = None
     require_staff_for_measures: bool = True

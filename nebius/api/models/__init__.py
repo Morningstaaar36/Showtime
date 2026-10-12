@@ -61,3 +61,8 @@ __all__ = [
     "VenuePatch",
     "Zone",
 ]
+
+# Resolve typed planning fields after both sides of the scene/plan contract load.
+from api.models.plan import ObjectConstraint, PlanAction
+
+Fix.model_rebuild(_types_namespace={"PlanAction": PlanAction, "ObjectConstraint": ObjectConstraint})

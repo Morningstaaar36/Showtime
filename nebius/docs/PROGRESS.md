@@ -333,3 +333,28 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
 - **Pending:** Docker-image execution, live browser testing of the new endpoints, and a
   real selected-plan simulation/source-consistency run after Docker is unpaused. Fake
   provider/native tests do not establish physics accuracy or live model performance.
+
+## 2026-10-12 — P3-01: three-screen journey and collaborative editor
+
+- Guided journey Describe (`/`) → Check your venue (`/p/:id/describe`) → AI at work
+  (`/p/:id/work`) → Your plan (`/p/:id`); the studio is Expert view (`/p/:id/expert`), old
+  workspace URLs redirect. Details: [P3_01_GUIDED_JOURNEY.md](P3_01_GUIDED_JOURNEY.md).
+- Collaborative editor: numeric and drag door/barrier edits, existing vs proposed, provenance
+  through the P2-01 scene contract, locks, AI patch preview (dry run, 3D outlines, lock
+  conflicts), stale-evidence detection by simulation hash.
+- Backend: organizer-only `set_annotation` op hidden from agents; annotations dropped/restored
+  with removed objects; `POST /projects/{id}/patch/preview`; `apply_final` refuses stale plans and
+  keeps current annotations; `/edit` returns 503 instead of 500 when the model is unavailable.
+- Checks: ruff/format/import-linter green; pytest 166 passed, 1 skipped; vitest 22 passed;
+  Playwright 5 passed (fake LLM and fake sandbox); `vite build` OK. mypy's 15 errors are in
+  `api/core/scene.py` and predate this change. No real simulation or live model was run.
+
+## 2026-10-13 — P2/P3 integration work-in-progress snapshot
+
+- Shared bundle validation, typed agent/rules fixes, operational planning forms and new
+  pipeline regressions added in the isolated review checkout.
+- Docker schema generation and cached dependency setup succeeded. The initial focused
+  Docker test command timed out during collection; latest full pipeline verification is
+  incomplete.
+- User requested a snapshot on the new `ridwan` branch before further implementation/tests.
+  See [current branch status](P2_P3_BRANCH_STATUS.md) for exact verification and remaining work.

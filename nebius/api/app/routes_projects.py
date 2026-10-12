@@ -17,10 +17,11 @@ from api.core.countdown import compute_countdown
 from api.core.estimates import compute_estimates, scale_people
 from api.core.extensions import HazardContext, HazardResult
 from api.core.geometry import validate_venue
-from api.core.plan import plan_hash
+from api.core.plan import PlanError, plan_hash
 from api.core.scene import SceneInputError, inspect_scene, scene_snapshot
 from api.core.score import planning_score, score_inputs
 from api.core.templates import get_template
+from api.core.venue_ops import PatchError, apply_patch
 from api.db.models import Project, VenueVersion
 from api.models import Attack, Fix, RunResult, ScenarioEventIn, Venue, VenuePatch
 from api.models.scene import SceneFacts, SceneSnapshot
@@ -224,6 +225,7 @@ class PatchIn(BaseModel):
     patch: VenuePatch
     message: str = ""
     allow_new_errors: bool = False
+    expected_version: int | None = Field(default=None, ge=1)
 
 
 @router.post("/projects/{project_id}/patch")
@@ -232,9 +234,44 @@ def patch_project(
 ) -> dict[str, Any]:
     """Apply a patch and save a new version."""
     row, res = st.projects.apply(
-        project_id, body.patch, body.message, allow_new_errors=body.allow_new_errors
+        project_id,
+        body.patch,
+        body.message,
+        allow_new_errors=body.allow_new_errors,
+        expected_version=body.expected_version,
     )
     return _after_edit(st, project_id, row, {"warnings": [w.model_dump() for w in res.warnings]})
+
+
+@router.post("/projects/{project_id}/patch/preview")
+def preview_patch(
+    project_id: str, body: PatchIn, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """Dry run: the venue a patch would produce, without saving a version.
+
+    Lets the UI show an AI proposal in 3D before the organizer accepts it. A patch that
+    cannot be applied is reported as data (`ok: false`), not as an error response.
+    """
+    row = st.projects.version(project_id)
+    venue = Venue.model_validate(row.venue)
+    try:
+        res = apply_patch(
+            venue,
+            body.patch,
+            st.registry,
+            allow_new_errors=body.allow_new_errors,
+            organizer_edit=True,
+        )
+    except (PatchError, PlanError) as exc:
+        return {"ok": False, "base_version": row.version, "problems": exc.problems, "venue": None}
+    return {
+        "ok": True,
+        "base_version": row.version,
+        "problems": [],
+        "venue": res.venue.model_dump(mode="json"),
+        "validation": validation_for(res.venue),
+        "warnings": [w.model_dump() for w in res.warnings],
+    }
 
 
 @router.post("/projects/{project_id}/undo")

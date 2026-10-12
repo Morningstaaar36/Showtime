@@ -23,6 +23,7 @@ import { WhatIfLab } from "./WhatIfLab";
 import { WindPanel } from "./WindPanel";
 import type { CountdownOut } from "@/api/types";
 
+import { annotationOf } from "@/lib/annotations";
 import { displayNames } from "@/lib/venueText";
 export { textHumanizer } from "@/lib/venueText";
 
@@ -165,7 +166,25 @@ function NumberField({ label, unit, value, step, onCommit }: { label: string; un
   );
 }
 
+/** Locked objects (set on the guided "Check your venue" screen) stay read-only here too. */
 function SelectionEditor({ project }: { project: ProjectDetail }) {
+  const selection = useUi((s) => s.selection)!;
+  const a = annotationOf(project.version.venue, selection.id);
+  return (
+    <>
+      {(a.locked || a.change === "proposed") && (
+        <p className="mb-2 flex flex-wrap gap-1.5">
+          {a.locked && <Badge tone="ink">{t("check.locked")}</Badge>}
+          {a.change === "proposed" && <Badge tone="signal">{t("check.proposed")}</Badge>}
+          {a.locked && <span className="text-xs text-muted">{t("check.locked_note")}</span>}
+        </p>
+      )}
+      <fieldset disabled={a.locked} className="disabled:opacity-60"><SelectionFields project={project} /></fieldset>
+    </>
+  );
+}
+
+function SelectionFields({ project }: { project: ProjectDetail }) {
   const selection = useUi((s) => s.selection)!;
   const select = useUi((s) => s.select);
   const venue = project.version.venue;

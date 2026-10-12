@@ -20,15 +20,17 @@ from api.adapters.sandbox import SandboxRunner, SimJob, failed_result
 from api.core.extensions import Registry
 from api.core.plan import (
     STAFF_MEASURES,
+    PlanError,
+    fail,
+    apply_fix_bundle,
     plan_hash,
     saved_events,
     validate_operational,
-    validate_plan,
     validate_run_horizon,
 )
 from api.core.settings import Settings
 from api.core.tier1 import run_tier1
-from api.core.venue_ops import apply_patch, venue_hash
+from api.core.venue_ops import venue_hash
 from api.db.models import Run
 from api.db.queries import project_runs
 from api.db.session import db_session
@@ -158,11 +160,7 @@ class RunService:
 
     def apply_fix(self, venue: Venue, fix: Fix | None) -> Venue:
         """Venue with the fix's patch applied (geometry errors are rejected)."""
-        validate_plan(venue, self.registry)
-        validate_operational(venue, fix.operational if fix else [], self.registry)
-        if fix is None or not fix.patch.ops:
-            return venue
-        return apply_patch(venue, fix.patch, self.registry).venue
+        return apply_fix_bundle(venue, fix, self.registry)
 
     # -- simulations ------------------------------------------------------------------------
     def build_job(
@@ -180,6 +178,10 @@ class RunService:
         """Everything the sandbox needs; the exit plan comes from Tier 1."""
         st = self.settings
         patched = self.apply_fix(venue, fix)
+        if intervention_at_s is not None and fix is not None:
+            for action in [*fix.actions, *fix.replace_actions]:
+                if action.start_s < intervention_at_s:
+                    raise PlanError([fail("action_before_intervention", "A proposed action starts before the intervention; update its interval and allocation.", action.action_id)])
         events = self._events(patched, attack, fix, intervention_at_s, extra)
         t1 = run_tier1(
             patched,
@@ -211,6 +213,8 @@ class RunService:
             "max_sim_s": max_sim,
             "iv": intervention_at_s,
             "engine": "jupedsim",
+            # Mock and real providers must never reuse each other's cached runs.
+            "sandbox_provider": self.runner.provider,
             "sim": settings_payload,
             "plan": plan,
         }
@@ -228,7 +232,10 @@ class RunService:
             max_wall_s=st.max_wall_s,
             intervention_at_s=intervention_at_s,
             parent_run_id=parent_run_id,
-            extensions={"plan_hash": plan_hash(patched)},
+            extensions={
+                "plan_hash": plan_hash(patched),
+                "sandbox_provider": self.runner.provider,
+            },
         )
         return SimJob(
             request=req,

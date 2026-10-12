@@ -7,6 +7,10 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Guided journey** (P3-01): Describe → Check your venue → AI at work → Your plan, with the
+  studio kept as Expert view. Collaborative editor with existing/proposed openings, provenance,
+  locks, AI patch preview and stale-evidence banners; `set_annotation` op and
+  `POST /projects/{id}/patch/preview`.
 - Event Copilot rebuilt as a **LangGraph** state graph, drawn live in the Copilot window; new
   **scenario sweep** node (six what-ifs in sandbox branches) and **Safety officer** agent.
 - Planning score (A–F, explained), what-if lab, scenario matrix in Simulate, safety officer card
@@ -32,6 +36,9 @@ All notable changes to this project are documented here. The format follows
   badge label, `LLM_EXTRA_BODY` for provider options, and zero cost for `:free` models.
 
 ### Fixed
+- Accepting a red-team plan no longer discards edits or locks made after the test started; a plan
+  for an older geometry is refused (`409 stale_plan`).
+- Text edits return `503 llm_unavailable` instead of a server error when the model is down.
 - New exits never overlap existing ones; a slow map lookup can no longer replace a newer selection.
 - Answers that echo the JSON schema's shape are unwrapped instead of failing.
 - Hosted model calls have a total deadline (a gateway that keeps a slow request alive no longer

@@ -244,7 +244,47 @@ def rule_fixes(
     for _, ops, opn, title, why in candidates:
         if len(out) >= n:
             break
-        if check_fix(registry, venue, ops, opn):
+        actions = []
+        from api.core.plan import PLAN_KEY, plan_data
+
+        data = plan_data(venue)
+        if PLAN_KEY in venue.extensions and data.enforce_constraints and opn:
+            # Standard fixes use the same inventory and validator as model proposals.
+            for j, event in enumerate(opn):
+                start = float(event.get("at_s", 0))
+                end = (
+                    max(start + float(event.get("delay_s", 0)), start + 1)
+                    if event["type"] == "staggered_release"
+                    else 3600
+                )
+                pool = next(
+                    (
+                        rid
+                        for rid, r in data.constraints.resources.items()
+                        if r.kind == "staff"
+                        and r.count >= 1
+                        and r.available_from_s <= start
+                        and r.available_until_s >= end
+                    ),
+                    None,
+                )
+                if pool is None:
+                    break
+                actions.append(
+                    {
+                        "action_id": f"{id_prefix}{len(out) + 1}_measure_{j + 1}",
+                        "label": title,
+                        "event": event,
+                        "start_s": start,
+                        "end_s": end,
+                        "resources": [{"resource_id": pool, "quantity": 1}],
+                        "source": "rules",
+                    }
+                )
+            if len(actions) != len(opn):
+                continue
+            opn = []
+        if check_fix(registry, venue, ops, opn, actions=actions):
             continue
         out.append(
             Fix.model_validate(
@@ -254,6 +294,7 @@ def rule_fixes(
                     "title": title,
                     "patch": {"ops": ops},
                     "operational": opn,
+                    "actions": actions,
                     "rationale": why,
                     "cost_label": "medium" if ops else "low",
                     "extensions": {"generated_by": "rules"},

@@ -8,13 +8,14 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from api.adapters.llm import BudgetExceeded, LLMError
-from api.agents.base import AgentEnv
+from api.agents.base import AgentEnv, AgentUnavailable
 from api.agents.venue import propose_edit
 from api.app.errors import ApiException
 from api.app.routes_core import get_state
 from api.app.routes_projects import _after_edit
 from api.app.state import AppState
 from api.core.venue_ops import PatchError
+from api.orchestrator.session import StalePlan
 
 router = APIRouter(prefix="/api/v1")
 
@@ -37,7 +38,7 @@ async def edit_by_text(
         out = await propose_edit(env, st.registry, venue, body.text)
     except BudgetExceeded as exc:
         raise ApiException(429, "budget", str(exc), "Raise the token budget in Settings.") from exc
-    except LLMError as exc:
+    except (LLMError, AgentUnavailable) as exc:
         raise ApiException(
             503,
             "llm_unavailable",
@@ -175,6 +176,8 @@ def apply_session(session_id: str, st: AppState = Depends(get_state)) -> dict[st
     """Save the session's fixed plan as a new version of the project."""
     try:
         row = st.sessions.apply_final(session_id)
+    except StalePlan as exc:
+        raise ApiException(409, "stale_plan", str(exc)) from exc
     except ValueError as exc:
         raise ApiException(409, "no_plan", str(exc)) from exc
     return _after_edit(st, row.project_id, row)

@@ -6,7 +6,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { to: "/", label: "Projects", end: true },
+  { to: "/", label: "Plan an event", end: true },
+  { to: "/projects", label: "Your plans" },
   { to: "/settings", label: "Settings", icon: Settings },
   { to: "/help", label: "Help", icon: HelpCircle },
 ];

@@ -84,6 +84,10 @@ def describe_op(o: dict[str, Any], name: Callable[[Any], str] = _same) -> str:
 def verdict(r: RunResult | None, danger: float) -> tuple[str, str]:
     if r is None:
         return "Not tested", "neutral"
+    if r.provider == "fake" or r.engine == "fake":
+        return "Preview only — not simulated", "neutral"
+    if r.status not in ("ok", "partial"):
+        return "Simulation did not complete", "neutral"
     m = r.metrics
     trapped = m.extra.get("trapped", 0)
     if (
@@ -94,7 +98,21 @@ def verdict(r: RunResult | None, danger: float) -> tuple[str, str]:
         return "Fails", "danger"
     if m.peak_density_ppm2 >= 3.5:
         return "At risk", "caution"
+    if r.status == "partial":
+        return "Test incomplete", "neutral"
     return "Holds", "egress"
+
+
+def source_label(run: RunResult | None) -> str:
+    if run is None:
+        return "not tested"
+    if run.provider == "fake" or run.engine == "fake":
+        return "preview only (no simulation)"
+    if run.status not in ("ok", "partial"):
+        return "simulation did not complete"
+    if run.status == "partial":
+        return "partial simulation (stopped early)"
+    return {1: "instant estimate", 2: "ranking run", 3: "confirmed by simulation"}[run.tier]
 
 
 CSS = """
@@ -177,13 +195,7 @@ def render(b: ReportBundle) -> str:
     def name(x: Any) -> str:
         return labels.get(str(x), str(x))
 
-    tier = (
-        "confirmed by simulation"
-        if run and run.tier == 3
-        else "ranking run"
-        if run and run.tier == 2
-        else "instant estimate"
-    )
+    tier = source_label(run)
     m = run.metrics if run else None
     tiles = ""
     if m:
@@ -235,6 +247,8 @@ def render(b: ReportBundle) -> str:
         result = (
             "–"
             if r is None
+            else e(source_label(r))
+            if r.provider == "fake" or r.engine == "fake" or r.status != "ok"
             else f'<span class="tag {"danger" if broke else "egress"}">'
             f"{'breaks' if broke else 'holds'}</span><br>{num(r.metrics.peak_density_ppm2)} /m² · "
             f"{dur(r.metrics.time_above_danger_s)} above danger"
@@ -252,6 +266,13 @@ def render(b: ReportBundle) -> str:
         what = "; ".join(
             [describe_op(o.model_dump(), name) for o in f.patch.ops]
             + [describe_event(ev.model_dump(), name) for ev in f.operational]
+            + [
+                f"{a.label or a.action_id}: {a.start_s:g}–{a.end_s:g} s; resources "
+                + ", ".join(f"{r.quantity} {r.resource_id}" for r in a.resources)
+                + ("; after " + ", ".join(a.depends_on) if a.depends_on else "")
+                for a in [*f.actions, *f.replace_actions]
+            ]
+            + ["Remove action " + aid for aid in f.remove_action_ids]
         )
         fix_rows += (
             f"<tr><td><b>{e(f.fix_id)}</b> {e(f.title)}<br><span class='muted'>{e(what)}</span></td>"
@@ -261,7 +282,7 @@ def render(b: ReportBundle) -> str:
     before_after = ""
     if b.before and b.after:
         before_after = (
-            "<h3>Worst attack, before and after the kept fixes (confirmed by simulation)</h3><table>"
+            "<h3>Worst attack, before and after the kept fixes</h3><table>"
             "<tr><th></th><th>Before</th><th>After</th></tr>"
             + "".join(
                 f"<tr><td>{lbl}</td><td>{fmt(b.before.get(k))}</td><td><b>{fmt(b.after.get(k))}</b></td></tr>"

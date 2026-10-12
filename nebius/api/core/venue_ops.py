@@ -59,7 +59,12 @@ def _readable(exc: ValidationError, op: str) -> list[str]:
 
 
 def apply_patch(
-    venue: Venue, patch: VenuePatch, registry: Registry, *, allow_new_errors: bool = False
+    venue: Venue,
+    patch: VenuePatch,
+    registry: Registry,
+    *,
+    allow_new_errors: bool = False,
+    organizer_edit: bool = False,
 ) -> PatchResult:
     """Apply all ops atomically. Raises PatchError on any invalid op.
 
@@ -70,15 +75,20 @@ def apply_patch(
         raise PatchError(["The patch has no operations."])
     before_errors = {(c.code, tuple(c.target_ids)) for c in validate_venue(venue).errors}
     current = venue
+    policy_base = venue.model_copy(deep=True)
     inverse_ops: list[PatchOpIn] = []
     for i, raw in enumerate(patch.ops):
-        policy_issues = edit_issues(current, raw.model_dump())
-        if policy_issues:
-            raise PlanError(policy_issues)
         if not registry.has("PatchOp", raw.op):
             known = ", ".join(sorted(registry.keys("PatchOp")))
             raise PatchError([f"Unknown operation '{raw.op}'. Allowed: {known}."], i)
         op = registry.patch_op(raw.op)
+        organizer_only = getattr(op, "user_only", False)
+        if organizer_only and not organizer_edit:
+            raise PatchError([f"Operation '{raw.op}' is reserved for organizer edits."], i)
+        if not organizer_only:
+            policy_issues = edit_issues(current, raw.model_dump())
+            if policy_issues:
+                raise PlanError(policy_issues)
         try:
             params = op.params_model.model_validate(raw.model_dump())
         except ValidationError as exc:
@@ -91,6 +101,14 @@ def apply_patch(
             current = op.apply(current, params)
         except (ValueError, ValidationError) as exc:
             raise PatchError([f"'{raw.op}' failed: {exc}"], i) from exc
+        if organizer_only:
+            # The explicit organizer command may change policy. Geometry edits
+            # in the same bundle still pass the resulting policy guards.
+            for key in (PLAN_KEY, "plan_annotations"):
+                if key in current.extensions:
+                    policy_base.extensions[key] = current.model_copy(deep=True).extensions[key]
+                else:
+                    policy_base.extensions.pop(key, None)
     report = validate_venue(current)
     new_errors = [c for c in report.errors if (c.code, tuple(c.target_ids)) not in before_errors]
     if new_errors and not allow_new_errors:
@@ -104,10 +122,10 @@ def apply_patch(
             if oid in current.all_ids()
         }
         current = with_plan(current, data)
-        policy_issues = transition_issues(venue, current)
-        if policy_issues:
-            raise PlanError(policy_issues)
         validate_plan(current, registry)
+    policy_issues = transition_issues(policy_base, current)
+    if policy_issues:
+        raise PlanError(policy_issues)
     return PatchResult(
         venue=current, inverse=VenuePatch(ops=inverse_ops), new_errors=new_errors, warnings=warnings
     )

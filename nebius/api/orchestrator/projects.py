@@ -21,6 +21,7 @@ from api.core.plan import (
     PLAN_KEY,
     PlanConflict,
     PlanError,
+    apply_plan_bundle,
     fail,
     plan_data,
     plan_hash,
@@ -305,11 +306,20 @@ class ProjectService:
         message: str = "",
         author: str = "user",
         allow_new_errors: bool = False,
+        expected_version: int | None = None,
     ) -> tuple[VenueVersion, PatchResult]:
         """Apply a patch to the current venue and save a new version (clears redo)."""
         base = self.version(project_id)
+        if expected_version is not None and base.version != expected_version:
+            raise PlanConflict("The proposal is for an older version. Reload and preview again.")
         venue = Venue.model_validate(base.venue)
-        result = apply_patch(venue, patch, self.registry, allow_new_errors=allow_new_errors)
+        result = apply_patch(
+            venue,
+            patch,
+            self.registry,
+            allow_new_errors=allow_new_errors,
+            organizer_edit=author == "user",
+        )
         with db_session(self.db_url) as s:
             p = s.get(Project, project_id)
             assert p is not None
@@ -502,72 +512,7 @@ class ProjectService:
                     )
                 ]
             )
-        data = plan_data(venue)
-        if not (body.patch.ops or body.actions or body.replace_actions or body.remove_action_ids):
-            raise PlanError([fail("empty_bundle", "A bundle needs an edit or an action.")])
-        existing_ids = {a.action_id for a in data.actions}
-        replacements = {a.action_id: a for a in body.replace_actions}
-        removed = set(body.remove_action_ids)
-        if (
-            len(replacements) != len(body.replace_actions)
-            or len(removed) != len(body.remove_action_ids)
-            or replacements.keys() & removed
-        ):
-            raise PlanError(
-                [
-                    fail(
-                        "conflicting_action_edits",
-                        "Action edits contain duplicates or replace and remove the same action.",
-                    )
-                ]
-            )
-        unknown = (replacements.keys() | removed) - existing_ids
-        if unknown:
-            raise PlanError(
-                [
-                    fail("unknown_action", f"Cannot replace or remove unknown action '{aid}'.", aid)
-                    for aid in sorted(unknown)
-                ]
-            )
-        data.actions = [
-            replacements[a.action_id].model_copy(update={"source": body.source})
-            if a.action_id in replacements
-            else a
-            for a in data.actions
-            if a.action_id not in removed
-        ]
-        data.actions.extend(a.model_copy(update={"source": body.source}) for a in body.actions)
-        for oid, policy in body.new_objects.items():
-            if oid in venue.all_ids() or oid in data.constraints.objects:
-                raise PlanError(
-                    [
-                        fail(
-                            "policy_changed",
-                            "new_objects can only describe newly added objects.",
-                            oid,
-                        )
-                    ]
-                )
-            data.constraints.objects[oid] = policy
-        # Validate action references on final geometry, allowing object/action additions
-        # and removal of an object with its obsolete action in a single atomic bundle.
-        prepared = with_plan(venue, data)
-        candidate = (
-            apply_patch(prepared, body.patch, self.registry).venue if body.patch.ops else prepared
-        )
-        for oid in body.new_objects:
-            if oid not in candidate.all_ids():
-                raise PlanError(
-                    [fail("unknown_policy_object", f"Bundle did not create '{oid}'.", oid)]
-                )
-        problems = transition_issues(venue, candidate)
-        if problems:
-            raise PlanError(problems)
-        validate_plan(candidate, self.registry)
-        report = validate_venue(candidate)
-        if not report.ok:
-            raise PlanError([fail(c.code, c.message, *c.target_ids) for c in report.errors])
-        return candidate
+        return apply_plan_bundle(venue, body, self.registry)
 
     def preview_bundle(self, project_id: str, body: PlanBundle) -> BundlePreview:
         try:

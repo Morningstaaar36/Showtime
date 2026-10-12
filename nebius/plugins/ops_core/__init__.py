@@ -9,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from api.core.extensions import Registry
 from api.core.extensions import geometry as geo
 from api.models import Exit, Obstacle, PatchOpIn, Venue, Zone
+from api.models.plan import ObjectConstraint, PlanData
+from api.models.scene import InputProvenance
 
 Pt = tuple[float, float]
 
@@ -57,6 +59,76 @@ def _insert(items: list[Any], index: int | None, item: Any) -> None:
         items.append(item)
     else:
         items.insert(index, item)
+
+
+# --- object annotations (provenance, locks, existing/proposed) ---------------------
+# Provenance goes to `scene_metadata` (the P2-01 scene contract); locks and the
+# existing/proposed distinction go to `plan_annotations`, which the scene contract does
+# not validate. Removing an object drops its entries so no reference dangles.
+
+METADATA_KEY = "scene_metadata"
+ANNOTATIONS_KEY = "plan_annotations"
+PLAN_KEY = "organizer_plan"
+
+
+def _annotation_state(venue: Venue, target: str) -> dict[str, Any]:
+    """Every stored annotation of one object (None where absent), for undo."""
+    meta = venue.extensions.get(METADATA_KEY) or {}
+    ann = venue.extensions.get(ANNOTATIONS_KEY) or {}
+    state = {
+        "provenance": (meta.get("objects") or {}).get(target),
+        "fields": (meta.get("fields") or {}).get(target),
+        "annotation": (ann.get("objects") or {}).get(target),
+    }
+    if PLAN_KEY in venue.extensions:
+        data = PlanData.model_validate(venue.extensions[PLAN_KEY])
+        policy = data.constraints.objects.get(target)
+        state["policy"] = policy.model_dump(mode="json") if policy is not None else None
+    return state
+
+
+def _write_annotation_state(v: Venue, target: str, state: dict[str, Any]) -> None:
+    """Set (or remove, where None) one object's entries in both extension sections."""
+    ext = dict(v.extensions)
+    for key, section, value in (
+        (METADATA_KEY, "objects", state.get("provenance")),
+        (METADATA_KEY, "fields", state.get("fields")),
+        (ANNOTATIONS_KEY, "objects", state.get("annotation")),
+    ):
+        block = dict(ext.get(key) or {})
+        entries = dict(block.get(section) or {})
+        if value is None:
+            entries.pop(target, None)
+        else:
+            entries[target] = value
+        if entries:
+            block[section] = entries
+        else:
+            block.pop(section, None)
+        if any(k != "schema_version" for k in block):
+            ext[key] = {"schema_version": 1, **block}
+        else:
+            ext.pop(key, None)
+    v.extensions = ext
+    if PLAN_KEY in ext and "policy" in state:
+        data = PlanData.model_validate(ext[PLAN_KEY])
+        if state["policy"] is None:
+            data.constraints.objects.pop(target, None)
+        else:
+            data.constraints.objects[target] = ObjectConstraint.model_validate(state["policy"])
+        v.extensions[PLAN_KEY] = data.model_dump(mode="json")
+
+
+def _drop_annotations(v: Venue, target: str) -> None:
+    _write_annotation_state(v, target, {})
+
+
+def _restore_annotations(before: Venue, target: str) -> list[PatchOpIn]:
+    """Inverse op that brings back a removed object's annotations (empty if it had none)."""
+    state = _annotation_state(before, target)
+    if all(value is None for value in state.values()):
+        return []
+    return [_op("set_annotation", target=target, restore=state)]
 
 
 # --- move --------------------------------------------------------------------
@@ -272,6 +344,7 @@ class RemoveExitOp:
         v = venue.model_copy(deep=True)
         for f in v.floors:
             f.exits = [e for e in f.exits if e.id != params.exit_id]
+        _drop_annotations(v, params.exit_id)
         return v
 
     def invert(self, before: Venue, params: RemoveExitParams) -> list[PatchOpIn]:
@@ -292,7 +365,7 @@ class RemoveExitOp:
         ]
         if e.blocked:
             ops.append(_op("block_exit", exit_id=e.id, blocked=True))
-        return ops
+        return ops + _restore_annotations(before, e.id)
 
 
 class BlockExitParams(_P):
@@ -400,6 +473,7 @@ class RemoveObstacleOp:
         v = venue.model_copy(deep=True)
         for f in v.floors:
             f.obstacles = [o for o in f.obstacles if o.id != params.obstacle_id]
+        _drop_annotations(v, params.obstacle_id)
         return v
 
     def invert(self, before: Venue, params: RemoveObstacleParams) -> list[PatchOpIn]:
@@ -418,7 +492,8 @@ class RemoveObstacleOp:
                 label=o.label,
                 line=o.line,
                 index=ii,
-            )
+            ),
+            *_restore_annotations(before, o.id),
         ]
 
 
@@ -555,6 +630,7 @@ class RemoveZoneOp:
         v = venue.model_copy(deep=True)
         for f in v.floors:
             f.zones = [z for z in f.zones if z.id != params.zone_id]
+        _drop_annotations(v, params.zone_id)
         return v
 
     def invert(self, before: Venue, params: RemoveZoneParams) -> list[PatchOpIn]:
@@ -571,7 +647,8 @@ class RemoveZoneOp:
                 people=z.people,
                 label=z.label,
                 index=ii,
-            )
+            ),
+            *_restore_annotations(before, z.id),
         ]
 
 
@@ -680,6 +757,76 @@ class SetEventOp:
         return [_op("set_event", **back)]
 
 
+# --- annotations ----------------------------------------------------------------------
+
+ChangeStatus = Literal["existing", "proposed"]
+
+
+class SetAnnotationParams(_P):
+    op: Literal["set_annotation"] = "set_annotation"
+    target: str
+    provenance: InputProvenance | None = None
+    locked: bool | None = None
+    change: ChangeStatus | None = None
+    restore: dict[str, Any] | None = None  # used by undo: the object's previous entries
+
+
+class SetAnnotationOp:
+    name = "set_annotation"
+    description = (
+        "Record where an object's facts come from (provenance), lock it against changes, or "
+        "mark an exit or obstacle as existing or proposed construction. Organizer-only."
+    )
+    params_model = SetAnnotationParams
+    # agents never see this op: a lock must not be removable by the AI it restrains
+    user_only = True
+
+    def validate(self, venue: Venue, params: SetAnnotationParams) -> list[str]:
+        kind = venue.all_ids().get(params.target)
+        if kind is None:
+            return [f"Unknown object '{params.target}'."]
+        if params.restore is not None:
+            return []
+        if params.provenance is None and params.locked is None and params.change is None:
+            return ["Nothing to record: give a provenance, a lock state or a change status."]
+        if params.change is not None and kind not in ("exit", "obstacle"):
+            return ["Only exits and obstacles can be marked existing or proposed."]
+        return []
+
+    def apply(self, venue: Venue, params: SetAnnotationParams) -> Venue:
+        v = venue.model_copy(deep=True)
+        if params.restore is not None:
+            _write_annotation_state(v, params.target, params.restore)
+            return v
+        state = _annotation_state(v, params.target)
+        if params.provenance is not None:
+            state["provenance"] = params.provenance.model_dump(mode="json", exclude_none=True)
+        entry = dict(state["annotation"] or {})
+        if params.locked is not None:
+            entry["locked"] = params.locked
+        if params.change is not None:
+            entry["change"] = params.change
+        state["annotation"] = entry or None
+        if PLAN_KEY in v.extensions and (params.locked is not None or params.change is not None):
+            policy = ObjectConstraint.model_validate(state.get("policy") or {})
+            if params.locked is not None:
+                policy.locked = params.locked
+            if params.change is not None:
+                policy.origin = params.change
+            state["policy"] = policy.model_dump(mode="json")
+        _write_annotation_state(v, params.target, state)
+        return v
+
+    def invert(self, before: Venue, params: SetAnnotationParams) -> list[PatchOpIn]:
+        return [
+            _op(
+                "set_annotation",
+                target=params.target,
+                restore=_annotation_state(before, params.target),
+            )
+        ]
+
+
 ALL_OPS = [
     MoveOp(),
     ResizeOp(),
@@ -694,6 +841,7 @@ ALL_OPS = [
     RemoveZoneOp(),
     SetStageParamOp(),
     SetEventOp(),
+    SetAnnotationOp(),
 ]
 
 
