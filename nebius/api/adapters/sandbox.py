@@ -4,6 +4,10 @@
 `--network=none`, a non-root user and memory/CPU caps. Branching is logical: the parent
 node id is stored on the result so the UI can draw the tree. `NebiusRunner` lives in
 `api/adapters/nebius_sandbox.py` and implements the same protocol.
+
+Code jobs (`run_code`) run AI- or user-written Python in the same image and the same
+isolation: the inputs and `script.py` go to `/work/<job_id>/` (read-only) and
+`python /app/run_code.py /work/<job_id>` prints the script's JSON result as its last line.
 """
 
 from __future__ import annotations
@@ -12,12 +16,13 @@ import asyncio
 import json
 import logging
 import os
+import re
 import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from api.models import Attack, Fix, RunArtifacts, RunRequest, RunResult, Venue
 
@@ -40,6 +45,94 @@ class SimJob:
     parent_node: str | None = None
     tier1: RunResult | None = None  # used by FakeRunner and as a fallback
     extra: dict[str, Any] = field(default_factory=dict)
+    # run id whose checkpoint.json this run starts from (rewind and branch)
+    resume_from: str | None = None
+
+
+CodeKind = Literal["analysis", "user_script"]
+CodeStatus = Literal["ok", "error", "timeout"]
+JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+INPUT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+TAIL_CHARS = 2000
+CODE_START_GRACE_S = 15.0  # container start and imports, on top of the script's own budget
+TIMEOUT_EXIT = 124  # run_code.py exits with this when the script ran out of time
+
+
+@dataclass
+class CodeJob:
+    """One piece of AI- or user-written Python to run in a sandbox."""
+
+    job_id: str
+    kind: CodeKind
+    script: str
+    inputs: dict[str, bytes] = field(default_factory=dict)  # file name -> bytes, read-only
+    timeout_s: float = 30
+    mem: str = "1g"
+
+
+@dataclass
+class CodeResult:
+    """What a code job printed and how it ended."""
+
+    status: CodeStatus
+    output: Any = None  # the JSON the script printed on its last stdout line
+    stdout_tail: str = ""
+    stderr_tail: str = ""
+    runtime_s: float = 0.0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "output": self.output,
+            "stdout_tail": self.stdout_tail,
+            "stderr_tail": self.stderr_tail,
+            "runtime_s": self.runtime_s,
+        }
+
+
+def check_code_job(job: CodeJob) -> None:
+    """Refuse job ids and input names that could leave the job's own folder."""
+    if not JOB_ID_RE.match(job.job_id):
+        raise ValueError(f"invalid code job id: {job.job_id!r}")
+    for name in job.inputs:
+        if not INPUT_NAME_RE.match(name) or name == "script.py":
+            raise ValueError(f"invalid input file name: {name!r}")
+
+
+def code_files(job: CodeJob) -> dict[str, bytes]:
+    """Paths (relative to /work) and bytes of everything a code job needs."""
+    check_code_job(job)
+    files = {f"{job.job_id}/{name}": data for name, data in job.inputs.items()}
+    files[f"{job.job_id}/script.py"] = job.script.encode()
+    return files
+
+
+def _tail(text: str) -> str:
+    return text[-TAIL_CHARS:]
+
+
+def parse_code_output(
+    exit_code: int | None, stdout: str, stderr: str, runtime_s: float, *, timed_out: bool = False
+) -> CodeResult:
+    """A CodeResult from what `run_code.py` printed (its last stdout line is the JSON)."""
+    runtime = round(runtime_s, 2)
+    if timed_out or exit_code == TIMEOUT_EXIT:
+        msg = stderr.strip() or "The script ran out of time and was stopped."
+        return CodeResult("timeout", None, _tail(stdout), _tail(msg), runtime)
+    lines = [ln for ln in stdout.splitlines() if ln.strip()]
+    output: Any = None
+    if lines:
+        try:
+            output = json.loads(lines[-1])
+            lines = lines[:-1]
+        except ValueError:
+            output = None
+    body = "\n".join(lines)
+    if exit_code != 0:
+        hint = "out of memory" if exit_code == 137 else f"exit {exit_code}"
+        err = stderr.strip() or f"The script stopped with an error ({hint})."
+        return CodeResult("error", None, _tail(body), _tail(err), runtime)
+    return CodeResult("ok", output, _tail(body), _tail(stderr), runtime)
 
 
 class SandboxRunner(Protocol):
@@ -52,6 +145,9 @@ class SandboxRunner(Protocol):
 
     async def run(self, job: SimJob, on_progress: ProgressFn | None = None) -> RunResult:
         """Run the job; artifacts end up under runs/<run_id>/."""
+
+    async def run_code(self, job: CodeJob) -> CodeResult:
+        """Run one code job in a fresh sandbox (no network, non-root, capped, timed)."""
 
     async def health(self) -> dict[str, Any]:
         """{"ok": bool, "detail": str}."""
@@ -132,6 +228,32 @@ def failed_result(
     )
 
 
+CODE_DIR = "_code"  # code job folders under runs/ (removed after each job)
+MEM_RE = re.compile(r"^\d{1,5}[mg]$")
+STDOUT_KEEP = 512_000  # the JSON result is the last line: keep the tail only
+STDERR_KEEP = 16_000
+RUN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+
+
+def copy_checkpoint(runs_dir: Path, resume_from: str, work: Path) -> str | None:
+    """Copy runs/<resume_from>/checkpoint.json into a new run folder; a problem in words."""
+    if not RUN_ID_RE.match(resume_from) or ".." in resume_from:
+        return f"Can't resume from run {resume_from!r}: not a run id."
+    src = runs_dir / resume_from / "checkpoint.json"
+    if not src.is_file():
+        return f"Run {resume_from} has no saved moment (checkpoint.json) to start from."
+    shutil.copyfile(src, work / "checkpoint.json")
+    return None
+
+
+async def _read_tail(stream: asyncio.StreamReader, keep: int) -> str:
+    """Read a stream to its end, keeping only the last `keep` bytes (bounded memory)."""
+    buf = b""
+    while chunk := await stream.read(65536):
+        buf = (buf + chunk)[-keep:]
+    return buf.decode(errors="replace")
+
+
 def _acquire_lock(path: Path) -> Any:
     """Blocking exclusive file lock (fcntl), shared by every Showtime process."""
     import fcntl
@@ -175,6 +297,7 @@ class DockerRunner:
         self.cpus = cpus
         self.host_runs_dir = host_runs_dir
         self.sem = asyncio.Semaphore(max_parallel)
+        self.code_sem = asyncio.Semaphore(1)
         self.sim_code_dir = sim_code_dir  # dev: mount local sim/ over /app
         uid, gid = os.getuid(), os.getgid()
         # sims never run as root, even when the API itself runs as root in a container
@@ -230,6 +353,10 @@ class DockerRunner:
             shutil.rmtree(work)
         job.extra.setdefault("provider", self.provider)
         write_job_files(work, job)
+        if job.resume_from is not None:
+            problem = copy_checkpoint(self.runs_dir, job.resume_from, work)
+            if problem:
+                return failed_result(job, self.provider, problem)
         if os.getuid() == 0:
             hand_over(work, self.sim_user)
         name = f"showtime-sim-{req.run_id}"
@@ -303,6 +430,92 @@ class DockerRunner:
             )
         return read_result(work, job, self.provider, self.runs_dir)
 
+    async def run_code(self, job: CodeJob) -> CodeResult:
+        """One code container at a time per machine (memory budget), separate from sims."""
+        async with self.code_sem:
+            lock = await asyncio.to_thread(_acquire_lock, self.runs_dir / ".code.lock")
+            try:
+                return await self._run_code(job)
+            finally:
+                _release_lock(lock)
+
+    async def _run_code(self, job: CodeJob) -> CodeResult:
+        try:
+            files = code_files(job)
+        except ValueError as exc:
+            return CodeResult("error", stderr_tail=str(exc))
+        if not MEM_RE.match(job.mem):
+            return CodeResult("error", stderr_tail=f"invalid memory limit: {job.mem!r}")
+        root = self.runs_dir / CODE_DIR
+        work = root / job.job_id
+        shutil.rmtree(work, ignore_errors=True)
+        for rel, data in files.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_bytes(data)
+        if os.getuid() == 0:
+            hand_over(work, self.sim_user)
+        name = f"showtime-code-{job.job_id}"
+        cmd = [
+            self._docker,
+            "run",
+            "--rm",
+            "--name",
+            name,
+            "--network=none",
+            f"--memory={job.mem}",
+            f"--memory-swap={job.mem}",
+            f"--cpus={min(self.cpus, 2.0)}",
+            "--pids-limit=64",
+            "--security-opt=no-new-privileges",
+            "--cap-drop=ALL",
+            "--read-only",
+            "--tmpfs",
+            "/tmp:rw,noexec,nosuid,size=64m",
+            "--label",
+            "com.showtime.project=true",
+            "--user",
+            self.sim_user,
+            "-e",
+            "MPLCONFIGDIR=/tmp",
+            "-e",
+            f"SHOWTIME_TIMEOUT_S={job.timeout_s:g}",
+            "-v",
+            f"{self._host_path(work)}:/work/{job.job_id}:ro",
+        ]
+        if self.platform:
+            cmd += ["--platform", self.platform]
+        if self.sim_code_dir is not None:
+            cmd += ["-v", f"{self.sim_code_dir.resolve()}:/app:ro"]
+        cmd += [self.image, "python", "/app/run_code.py", f"/work/{job.job_id}"]
+        t0 = time.monotonic()
+        try:
+            return await self._exec_code(cmd, name, job, t0)
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+
+    async def _exec_code(self, cmd: list[str], name: str, job: CodeJob, t0: float) -> CodeResult:
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+            )
+        except OSError as exc:
+            return CodeResult("error", stderr_tail=f"The sandbox couldn't start: {exc}")
+        assert proc.stdout is not None and proc.stderr is not None
+        readers = asyncio.gather(
+            _read_tail(proc.stdout, STDOUT_KEEP), _read_tail(proc.stderr, STDERR_KEEP)
+        )
+        try:
+            out, err = await asyncio.wait_for(
+                asyncio.shield(readers), timeout=job.timeout_s + CODE_START_GRACE_S
+            )
+            code = await proc.wait()
+        except TimeoutError:
+            await self._kill(name)
+            await proc.wait()
+            out, err = await readers
+            return parse_code_output(None, out, err, time.monotonic() - t0, timed_out=True)
+        return parse_code_output(code, out, err, time.monotonic() - t0)
+
     async def cancel(self, run_id: str) -> None:
         """Stop a running container."""
         await self._kill(f"showtime-sim-{run_id}")
@@ -330,12 +543,31 @@ class FakeRunner:
     provider = "fake"
 
     def __init__(
-        self, runs_dir: Path, delay_s: float = 0.0, fail_ids: set[str] | None = None
+        self,
+        runs_dir: Path,
+        delay_s: float = 0.0,
+        fail_ids: set[str] | None = None,
+        code_results: list[CodeResult | Callable[[CodeJob], CodeResult]] | None = None,
     ) -> None:
         self.runs_dir = runs_dir
         self.delay_s = delay_s
         self.fail_ids = fail_ids or set()
         self.calls: list[str] = []
+        self.code_jobs: list[CodeJob] = []
+        # scripted code results, used in order; when empty, run_code returns an empty "ok"
+        self.code_results = list(code_results or [])
+
+    async def run_code(self, job: CodeJob) -> CodeResult:
+        """Executes nothing: records the job and returns the next scripted result."""
+        try:
+            check_code_job(job)
+        except ValueError as exc:
+            return CodeResult("error", stderr_tail=str(exc))
+        self.code_jobs.append(job)
+        if not self.code_results:
+            return CodeResult("ok", None)
+        item = self.code_results.pop(0)
+        return item(job) if callable(item) else item
 
     async def prepare_base(self, venue: Venue) -> str:
         return "fake:base"
