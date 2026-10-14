@@ -972,6 +972,21 @@ class SessionManager:
             out = rule_attacks(venue, baseline, incidents, n, seen, offset)
             if out and env.emit:
                 env.emit("log", {"level": "info", "message": "Rule-based attacks were added."})
+        elif not any(is_script_attack(a) for a in out):
+            # every test includes a scenario written as code; the built-in example stands in
+            extra = rule_attacks(venue, baseline, incidents, n, set(seen), offset + len(out))
+            example = [a for a in extra if is_script_attack(a)][:1]
+            if example:
+                out.append(example[0])
+                if env.emit:
+                    env.emit(
+                        "log",
+                        {
+                            "level": "info",
+                            "message": "The AI wrote no scenario script this round, so the "
+                            "built-in example script was added.",
+                        },
+                    )
         return out
 
     async def _fixes(
