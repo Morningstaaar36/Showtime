@@ -506,6 +506,13 @@
     "open": "Open the plan",
     "trust": "The AI reads your request but never makes up a measurement: the site comes from OpenStreetMap, the layout from a solver, the numbers from simulation and published planning ratios."
   },
+  "notfound": {
+    "code": "Error 404",
+    "title": "We can't find this page",
+    "body": "The link may be old or mistyped. Start a new plan, or open one you already have.",
+    "home": "Plan an event",
+    "projects": "Open your projects"
+  },
   "errors": {
     "generic": "Something went wrong.",
     "network": "The Showtime server isn't reachable. Start it with: make up",
