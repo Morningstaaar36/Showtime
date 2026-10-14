@@ -300,14 +300,21 @@ class RunService:
         session_id: str | None = None,
         label: str = "",
     ) -> RunResult:
-        """Run (or reuse) and wait for the result."""
-        rid = self.submit(job, project_id, venue_version, session_id, label)
+        """Run (or reuse) and wait for the result.
+
+        A result this call did not compute (a cached run, or one already in flight) comes
+        back as a copy tagged `extensions["cache_hit"]`, so usage records count it as reused.
+        """
+        rid = job.request.run_id
+        prior = self.tasks.get(rid)
+        self.submit(job, project_id, venue_version, session_id, label)
         task = self.tasks.get(rid)
         if task is not None:
-            return await task
+            result = await task
+            return _reused(result) if task is prior else result
         cached = self.cached(rid)
         assert cached is not None
-        return cached
+        return _reused(cached)
 
     async def _execute(self, job: SimJob) -> RunResult:
         rid = job.request.run_id
@@ -431,17 +438,18 @@ class RunService:
             s.commit()
 
     def get(self, run_id: str) -> Run | None:
-        """Run row with live progress merged in."""
+        """Run row with live progress merged in and its evidence basis derived."""
         with db_session(self.db_url) as s:
             row = s.get(Run, run_id)
         if row is not None and run_id in self.progress:
             row.progress = self.progress[run_id]
-        return row
+        return _with_basis(row) if row is not None else None
 
     def list(self, project_id: str, limit: int = 50) -> list[Run]:
         """Recent runs of a project."""
         with db_session(self.db_url) as s:
-            return project_runs(s, project_id, limit)
+            rows = project_runs(s, project_id, limit)
+        return [_with_basis(r) for r in rows]
 
     def artifact_path(self, run_id: str, kind: str) -> Path | None:
         """Absolute path of a run artifact (trajectory, trajectory_index, density_grid...)."""
@@ -471,3 +479,23 @@ class RunService:
             getattr(self.hooks.hook, name)(**kw)
         except Exception:
             log.exception("plugin hook %s failed", name)
+
+
+def _reused(result: RunResult) -> RunResult:
+    """A copy of a result this call did not compute, tagged as a cache hit."""
+    out = result.model_copy(deep=True)
+    out.extensions["cache_hit"] = True
+    return out
+
+
+def _with_basis(row: Run) -> Run:
+    """Results stored before `basis` existed get it on read; stored copies are re-derived.
+
+    Only the returned (detached) row changes; nothing is written back.
+    """
+    if row.result:
+        try:
+            row.result = {**row.result, "basis": RunResult.model_validate(row.result).basis}
+        except ValueError:
+            log.warning("run %s has a result that no longer validates", row.id)
+    return row
