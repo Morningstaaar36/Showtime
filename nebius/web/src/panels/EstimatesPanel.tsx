@@ -57,7 +57,7 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
         </div>
       </div>
 
-      <div className={cn("rounded-[10px] border p-3", over ? "border-caution/50 bg-caution-soft/60" : "border-egress/30 bg-egress-soft/50")}>
+      <div className={cn("rounded-[var(--radius-panel)] border p-3", over ? "border-caution/50 bg-caution-soft/60" : "border-egress/30 bg-egress-soft/50")}>
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-xs text-muted">Safe capacity</p>
@@ -73,7 +73,7 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
         </p>
       </div>
 
-      <ul className="divide-y divide-border rounded-[10px] border border-border">
+      <ul className="divide-y divide-border rounded-[var(--radius-panel)] border border-border">
         {est.lines.filter((l) => l.key !== "capacity").map((l) => (
           <li key={l.key} className="px-3 py-2">
             <div className="flex items-baseline justify-between gap-2">
@@ -89,7 +89,7 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
         ))}
       </ul>
 
-      <details className="rounded-[10px] border border-border px-3 py-2 text-sm">
+      <details className="rounded-[var(--radius-panel)] border border-border px-3 py-2 text-sm">
         <summary className="flex cursor-pointer items-baseline justify-between">
           <span>Budget estimate</span><span className="tabular font-semibold">{money(est.budget_total)}</span>
         </summary>

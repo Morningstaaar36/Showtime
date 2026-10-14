@@ -15,7 +15,7 @@ export function MetricTile({ label, value, unit, tone = "neutral", run, formula,
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" className="group relative overflow-hidden rounded-[8px] border border-border bg-surface p-3 text-left transition hover:border-border-strong">
+        <button type="button" className="group relative overflow-hidden rounded-[var(--radius-control)] border border-border bg-surface p-3 text-left transition hover:border-border-strong">
           <span className={cn("absolute inset-y-0 left-0 w-[3px]", bar)} aria-hidden />
           <span className="flex items-center justify-between gap-1 text-xs text-muted">
             {label}<Info className="size-3.5 opacity-0 transition group-hover:opacity-100" />

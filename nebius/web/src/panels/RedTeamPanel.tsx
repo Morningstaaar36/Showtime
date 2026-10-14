@@ -116,7 +116,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
       {sessionId && (
         <>
           {(running || view.phase) && !finished && (
-            <section aria-live="polite" className="rounded-[10px] border border-border bg-surface-2 p-3">
+            <section aria-live="polite" className="rounded-[var(--radius-panel)] border border-border bg-surface-2 p-3">
               <div className="flex items-center gap-2 text-sm font-medium">
                 {running && <Spinner className="text-signal" />}
                 {t(`redteam.phase_${view.phase || "baseline"}`)}{view.round > 0 && ` · ${t("redteam.round", { n: view.round })}`}
@@ -134,10 +134,10 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
                        })} applying={apply.isPending} onShow={(id) => setActive(id)} />
           )}
           <Tabs.Root defaultValue="cards">
-            <Tabs.List className="flex gap-1 border-b border-border">
+            <Tabs.List className="flex gap-0.5 rounded-full bg-surface-2 p-1">
               {[["cards", <Swords key="s" />, "Attacks and fixes"], ["tree", <GitBranch key="g" />, t("redteam.branch_tree")], ["activity", <Activity key="a" />, t("redteam.activity")]].map(([v, icon, l]) => (
                 <Tabs.Trigger key={v as string} value={v as string}
-                              className="-mb-px flex items-center gap-1.5 border-b-2 border-transparent px-2.5 py-2 text-sm text-muted data-[state=active]:border-signal data-[state=active]:font-medium data-[state=active]:text-ink [&_svg]:size-3.5">
+                              className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm text-muted hover:text-ink data-[state=active]:bg-surface data-[state=active]:font-medium data-[state=active]:text-ink data-[state=active]:shadow-sm [&_svg]:size-3.5">
                   {icon}{l}
                 </Tabs.Trigger>
               ))}
@@ -172,7 +172,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
 function Scoreboard({ view }: { view: SessionView }) {
   if (!view.scoreboard.length) return null;
   return (
-    <section aria-label={t("redteam.scoreboard")} className="rounded-[10px] border border-border p-3">
+    <section aria-label={t("redteam.scoreboard")} className="rounded-[var(--radius-panel)] border border-border p-3">
       <PanelTitle>{t("redteam.scoreboard")}</PanelTitle>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {view.scoreboard.map((r, i) => (
@@ -231,7 +231,7 @@ function AttackCard({ attack, round, view, label, human, index, active, onShow, 
   const status = run ? (run.is_break ? "break" : "holds") : node?.status === "running" ? "running" : "waiting";
   const src = attack.inspired_by;
   return (
-    <article className={cn("animate-deal-in overflow-hidden rounded-[10px] border bg-surface",
+    <article className={cn("animate-deal-in overflow-hidden rounded-[var(--radius-panel)] border bg-surface",
       status === "break" ? "border-danger/40" : "border-border", node && active === node.run_id && "ring-2 ring-signal")}
              style={{ animationDelay: `${(index % 5) * 90}ms` }}>
       <div className={cn("h-1", status === "break" ? "bg-danger" : status === "holds" ? "bg-egress" : "bg-surface-3")} />
@@ -249,7 +249,7 @@ function AttackCard({ attack, round, view, label, human, index, active, onShow, 
           {attack.events.map((e, i) => <li key={i}><Badge tone="outline">{describeEvent(e as Record<string, unknown>, label)}</Badge></li>)}
         </ul>
         <a href={src.source_url} target="_blank" rel="noreferrer"
-           className="group flex items-start gap-2 rounded-[6px] bg-surface-2 p-2 text-xs hover:bg-surface-3">
+           className="group flex items-start gap-2 rounded-[var(--radius-control)] bg-surface-2 p-2 text-xs hover:bg-surface-3">
           <ExternalLink className="mt-0.5 size-3.5 shrink-0 text-signal" />
           <span className="min-w-0">
             <span className="font-medium text-ink group-hover:text-signal">{t("redteam.inspired_by")}: {src.incident}{src.year ? ` (${src.year})` : ""}</span>
@@ -278,7 +278,7 @@ function AttackCard({ attack, round, view, label, human, index, active, onShow, 
               const items = [...(fix.patch?.ops ?? []).map((o) => describeOp(o as Record<string, unknown>, label)),
                              ...(fix.operational ?? []).map((e) => describeEvent(e as Record<string, unknown>, label))];
               return (
-                <div key={fix.fix_id} className={cn("rounded-[8px] border p-2.5", kept ? "border-egress/40 bg-egress-soft/50" : "border-border")}>
+                <div key={fix.fix_id} className={cn("rounded-[var(--radius-control)] border p-2.5", kept ? "border-egress/40 bg-egress-soft/50" : "border-border")}>
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium leading-snug">{human(fix.title)}</p>
                     {kept === true && <Badge tone="egress"><Check />{t("redteam.accepted")}</Badge>}
@@ -328,7 +328,7 @@ function FinalCard({ view, summary, onApply, applying, onShow, human }: {
   const final = after ?? before;
   const stillAtRisk = !!final && ((final.agents_not_evacuated ?? 0) > 0 || (final.time_above_danger_s ?? 0) >= 5);
   return (
-    <section className={`rounded-[10px] border p-4 ${stillAtRisk ? "border-caution/40 bg-caution-soft/40" : "border-egress/35 bg-egress-soft/40"}`}>
+    <section className={`rounded-[var(--radius-panel)] border p-4 ${stillAtRisk ? "border-caution/40 bg-caution-soft/40" : "border-egress/35 bg-egress-soft/40"}`}>
       <p className="flex items-center gap-2 font-semibold">
         {stillAtRisk ? <ShieldAlert className="size-5 text-caution" /> : <ShieldCheck className="size-5 text-egress" />}
         {stillAtRisk ? t("redteam.finished_at_risk") : t("redteam.finished")}
@@ -373,7 +373,7 @@ function ActivityFeed({ view }: { view: SessionView }) {
   return (
     <ol className="max-h-[420px] space-y-1.5 overflow-y-auto pr-1 scrollbar-thin">
       {[...view.feed].reverse().map((l) => (
-        <li key={l.seq} className="flex gap-2 rounded-[6px] border border-border bg-surface px-2.5 py-1.5 text-xs">
+        <li key={l.seq} className="flex gap-2 rounded-[var(--radius-control)] border border-border bg-surface px-2.5 py-1.5 text-xs">
           {l.type === "agent_call" ? <Bot className="mt-0.5 size-3.5 shrink-0 text-signal" /> : l.type === "tool_call" ? <Wrench className="mt-0.5 size-3.5 shrink-0 text-muted" /> : <Activity className={cn("mt-0.5 size-3.5 shrink-0", l.level === "warning" || l.level === "error" ? "text-caution" : "text-muted")} />}
           <div className="min-w-0 flex-1">
             <p className="font-medium">

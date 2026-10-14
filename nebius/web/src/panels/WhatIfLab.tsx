@@ -39,7 +39,7 @@ function useWhatIf(projectId: string, version: number, params: Params, runId?: s
 function Stat({ label, value, unit, worse, digits = 0 }: { label: string; value: number | null; unit: string; worse?: boolean; digits?: number }) {
   const v = useCountTo(value ?? 0);
   return (
-    <div className="rounded-[8px] border border-border px-2.5 py-1.5">
+    <div className="rounded-[var(--radius-control)] border border-border px-2.5 py-1.5">
       <p className="text-2xs text-muted">{label}</p>
       <p className={cn("tabular text-sm font-semibold", worse && "text-danger")}>{value === null ? "—" : digits ? v.toFixed(digits) : fmtInt(Math.round(v))}<span className="ml-0.5 text-2xs font-normal text-muted">{unit}</span></p>
     </div>
@@ -110,7 +110,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
           {SPEEDS.map((s) => (
             <button key={s.key} type="button" onClick={() => setSpeed(s.key)}
-                    className={cn("flex items-center gap-1.5 rounded-[6px] border px-2 py-1 text-xs",
+                    className={cn("flex items-center gap-1.5 rounded-[var(--radius-control)] border px-2 py-1 text-xs",
                       speed === s.key ? "border-signal bg-signal-soft text-ink" : "border-border text-muted hover:text-ink")}>
               <s.icon className="size-3.5" />{s.label}<span className="ml-auto tabular text-2xs">{Math.round(s.factor * 100)}%</span>
             </button>

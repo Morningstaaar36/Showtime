@@ -54,7 +54,7 @@ export function AskDialog({ open, onOpenChange, projectId, runId, hotspot }: {
         {ask.isPending && <p className="flex items-center gap-2 text-sm text-muted"><Spinner />Reading the run data…</p>}
         {ask.isError && <ErrorState message={ask.error.message} hint={(ask.error as { hint?: string }).hint} />}
         {answer && (
-          <div className="space-y-2 rounded-[10px] border border-border bg-surface-2 p-4">
+          <div className="space-y-2 rounded-[var(--radius-panel)] border border-border bg-surface-2 p-4">
             <p className="text-sm leading-relaxed">{answer.answer}</p>
             <p className="flex items-center gap-1.5 text-2xs text-muted">
               <ShieldCheck className="size-3.5 text-egress" />

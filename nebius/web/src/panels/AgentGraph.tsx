@@ -63,7 +63,7 @@ export function AgentGraph({ status }: { status: Record<string, NodeStatus> }) {
     return { nodes, edges };
   }, [shape.data, status]);
   return (
-    <div className="h-[500px] w-[300px] shrink-0 rounded-[10px] border border-border bg-plan/60" aria-label="Agent graph">
+    <div className="h-[500px] w-[300px] shrink-0 rounded-[var(--radius-panel)] border border-border bg-plan/60" aria-label="Agent graph">
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} defaultViewport={{ x: 15, y: 12, zoom: 1 }}
                  nodesConnectable={false} elementsSelectable={false} panOnDrag={false} zoomOnScroll={false}
                  zoomOnPinch={false} zoomOnDoubleClick={false} proOptions={{ hideAttribution: true }}>

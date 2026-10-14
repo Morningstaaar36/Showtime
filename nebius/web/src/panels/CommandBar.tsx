@@ -55,13 +55,13 @@ export function CommandBar({ projectId, onUndo }: { projectId: string; onUndo: (
   return (
     <div className="pointer-events-auto w-[min(720px,calc(100%-32px))]">
       {result?.status === "questions" && (
-        <div className="mb-2 rounded-[10px] border border-signal/30 bg-surface p-3 text-sm shadow-[var(--shadow-float)]">
+        <div className="mb-2 rounded-[var(--radius-panel)] border border-signal/30 bg-surface p-3 text-sm shadow-[var(--shadow-float)]">
           <p className="font-medium">{t("tools.questions")}</p>
           <ul className="mt-1 list-disc pl-5 text-muted">{result.questions.map((q) => <li key={q}>{q}</li>)}</ul>
         </div>
       )}
       <form onSubmit={(e) => { e.preventDefault(); submit(text); }}
-            className="flex items-center gap-2 rounded-[12px] border border-border bg-surface/95 p-1.5 pl-3 shadow-[var(--shadow-float)] backdrop-blur focus-within:border-signal focus-within:ring-2 focus-within:ring-signal/20">
+            className="flex items-center gap-2 rounded-[var(--radius-panel)] border border-border bg-surface/95 p-1.5 pl-3 shadow-[var(--shadow-float)] backdrop-blur focus-within:border-signal focus-within:ring-2 focus-within:ring-signal/20">
         {edit.isPending ? <Spinner /> : <Sparkles className="size-4 shrink-0 text-signal" />}
         <input ref={ref} value={text} onChange={(e) => setText(e.target.value)} aria-label={t("tools.text")}
                onFocus={() => setFocused(true)} onBlur={() => window.setTimeout(() => setFocused(false), 150)}
@@ -69,7 +69,7 @@ export function CommandBar({ projectId, onUndo }: { projectId: string; onUndo: (
                className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-muted/80" />
         {!text && <span className="hidden items-center gap-1 text-2xs text-muted sm:flex"><Kbd>/</Kbd></span>}
         <button type="submit" disabled={!text.trim() || edit.isPending} aria-label="Apply"
-                className="grid size-8 place-items-center rounded-[8px] bg-signal text-signal-ink disabled:opacity-40">
+                className="grid size-8 place-items-center rounded-[var(--radius-control)] bg-signal text-signal-ink disabled:opacity-40">
           <CornerDownLeft className="size-4" />
         </button>
       </form>

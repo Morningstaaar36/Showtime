@@ -45,7 +45,7 @@ export function VerdictCard({ run, th, venue, compact }: { run: RunResult | null
     : v.level === "holds" ? "border-egress/35 bg-egress-soft" : "border-border bg-surface-2";
   const iconTone = v.level === "fails" ? "text-danger" : v.level === "at_risk" ? "text-caution" : v.level === "holds" ? "text-egress" : "text-line";
   return (
-    <section aria-label="Plan verdict" className={cn("rounded-[10px] border p-4", tone)}>
+    <section aria-label="Plan verdict" className={cn("rounded-[var(--radius-panel)] border-2 p-4", tone)}>
       <div className="flex items-start gap-3">
         <span className={cn("mt-0.5 [&_svg]:size-6", iconTone)}>{icon}</span>
         <div className="min-w-0">
@@ -73,7 +73,7 @@ function VenueFacts({ venue }: { venue: Venue }) {
   const area = venue.floors.reduce((a, f) => a + polygonArea(f.walkable), 0);
   const perM = width ? people / width : 0;
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-border bg-border text-sm">
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-control)] border border-border bg-border text-sm">
       {[
         [t("inspector.people_total"), fmtInt(people)],
         ["Exits open", `${venue.floors.reduce((a, f) => a + f.exits.filter((e) => !e.blocked).length, 0)}`],
@@ -102,7 +102,7 @@ function Checks({ checks }: { checks: Check[] }) {
     <ul className="space-y-2">
       {items.map((c, i) => (
         <li key={i}>
-          <button type="button" className="flex w-full gap-2 rounded-[8px] border border-border p-2.5 text-left text-sm hover:bg-surface-2"
+          <button type="button" className="flex w-full gap-2 rounded-[var(--radius-control)] border border-border p-2.5 text-left text-sm hover:bg-surface-2"
                   onClick={() => {
                     if (c.x != null && c.y != null) fly(c.x, c.y, c.floor_id ?? "F0");
                     if (c.target_ids?.[0]) select({ kind: "obstacle", id: c.target_ids[0], floorId: c.floor_id ?? "F0" });
@@ -128,7 +128,7 @@ function StagePanel({ project }: { project: ProjectDetail }) {
   return (
     <section className="space-y-3">
       <PanelTitle>{t("inspector.stage")}</PanelTitle>
-      <div className="rounded-[8px] border border-border bg-surface-2 p-3">
+      <div className="rounded-[var(--radius-control)] border border-border bg-surface-2 p-3">
         <div className="flex items-center gap-2 text-sm text-muted"><Wind className="size-4" />{t("inspector.wind_limit")}</div>
         {check.isLoading ? <Spinner className="mt-2" /> : check.data ? (
           <>

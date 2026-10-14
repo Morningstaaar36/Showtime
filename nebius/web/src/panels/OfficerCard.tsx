@@ -30,9 +30,9 @@ export function OfficerCard({ projectId }: { projectId: string }) {
       {r && r.actions.length > 0 ? (
         <ol className="space-y-2">
           {r.actions.map((a, i) => (
-            <li key={i} className="flex gap-2 rounded-[8px] border border-border p-2">
-              <span className={cn("mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-2xs font-semibold text-white",
-                a.priority === 1 ? "bg-danger" : a.priority === 2 ? "bg-caution" : "bg-line")} title={`Priority ${a.priority}`}>{a.priority}</span>
+            <li key={i} className="flex gap-2 rounded-[var(--radius-control)] border border-border p-2">
+              <span className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold tabular",
+                a.priority === 1 ? "bg-danger-soft text-danger" : a.priority === 2 ? "bg-caution-soft text-caution" : "bg-surface-3 text-muted")} title={`Priority ${a.priority}`}>{a.priority}</span>
               <div className="min-w-0 text-sm"><p className="font-medium">{a.title}</p><p className="text-xs text-muted">{a.why}</p><p className="text-xs">{a.how}</p></div>
             </li>
           ))}
