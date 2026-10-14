@@ -1,6 +1,7 @@
 /** "Your plans" (route `/projects`): every plan as a bright card, a search box and one clear way
  * to start a new plan. Samples and the one-sentence copilot sit below as more ways to start. */
-import { ArrowUpRight, Building2, Clock, Copy, Download, FolderOpen, LayoutTemplate, Map as MapIcon, MoreHorizontal, Plus, Search, Sparkles, Trash2, Trees, Upload, Users, Wand2 } from "lucide-react";
+import { ArrowUpRight, Building2, Check, Clock, Copy, Download, FolderOpen, Loader2, Map as MapIcon, MoreHorizontal, PencilLine, Plus, Search, Sparkles, Trash2, Trees, Upload, Users, Wand2 } from "lucide-react";
+import type * as React from "react";
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -15,14 +16,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input, Label } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/misc";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
 import { fmtInt, fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CopilotBox } from "./Copilot";
 import { DescribeTab } from "./newproject/DescribeTab";
-import { MapTab } from "./newproject/MapTab";
 
 export function ProjectsPage() {
   const projects = useProjects();
@@ -205,69 +204,118 @@ function ProjectCard({ p, template }: { p: ProjectSummary; template?: Template }
   );
 }
 
+type Way = "describe" | "sample";
+
+/** "New plan": the same three ways to start as Home. The map opens the full-page map; describe
+ * and sample happen here, then the plan gets a name. */
 function NewProjectDialog({ state, onClose, templates }: { state: Template | null | "pick"; onClose: () => void; templates: Template[] }) {
+  return (
+    <Dialog open={state !== null} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent wide className="max-h-[92vh] overflow-y-auto">
+        {/* mounted only while open, so every opening starts fresh */}
+        {state !== null && <NewPlanBody initial={state === "pick" ? null : state} templates={templates} onClose={onClose} />}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function NewPlanBody({ initial, templates, onClose }: { initial: Template | null; templates: Template[]; onClose: () => void }) {
   const create = useCreateProject();
   const navigate = useNavigate();
-  const [picked, setPicked] = useState<string | null>(null);
+  const [way, setWay] = useState<Way | null>(initial ? "sample" : null);
+  const [picked, setPicked] = useState<string | null>(initial?.id ?? null);
   const [name, setName] = useState("");
-  const [tab, setTab] = useState<"template" | "describe" | "map">("template");
   const [draft, setDraft] = useState<VenueDraft | null>(null);
-  const open = state !== null;
-  const current = picked ?? (state && state !== "pick" ? state.id : templates[0]?.id ?? null);
-  const close = () => { onClose(); setPicked(null); setName(""); setDraft(null); setTab("template"); };
-  const canCreate = tab === "template" ? !!current : !!draft?.venue;
+  const ready = way === "sample" ? !!picked : way === "describe" ? !!draft?.venue : false;
+  const choose = (w: Way) => { setWay(w); setDraft(null); };
   const submit = () => {
-    const body = tab === "template"
-      ? { name, template_id: current ?? undefined }
-      : { name: name || draft?.venue?.name || "", venue: draft!.venue!,
-          description: tab === "map" ? "Imported from OpenStreetMap" : "Designed from a description" };
+    if (!ready || create.isPending) return;
+    const body = way === "sample"
+      ? { name, template_id: picked ?? undefined }
+      : { name: name || draft?.venue?.name || "", venue: draft!.venue!, description: "Designed from a description" };
     create.mutate(body, {
-      onSuccess: (p) => { toast.success(t("projects.created")); close(); navigate(`/p/${p.id}/describe`); },
+      onSuccess: (p) => { toast.success(t("projects.created")); onClose(); navigate(`/p/${p.id}/describe`); },
       onError: (e) => toast.error(e.message),
     });
   };
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) close(); }}>
-      <DialogContent wide className="max-h-[92vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{t("projects.create_title")}</DialogTitle>
-          <DialogDescription>Start from a template, describe your venue in words, or pick a real place on the map. You can edit everything afterwards, by typing or by dragging in 3D.</DialogDescription>
-        </DialogHeader>
-        <Tabs value={tab} onValueChange={(v) => { setTab(v as typeof tab); setDraft(null); }}>
-          <TabsList className="w-full">
-            <TabsTrigger value="template"><LayoutTemplate className="mr-1.5 inline size-4" />Template</TabsTrigger>
-            <TabsTrigger value="describe"><Sparkles className="mr-1.5 inline size-4" />Describe it</TabsTrigger>
-            <TabsTrigger value="map"><MapIcon className="mr-1.5 inline size-4" />Real place</TabsTrigger>
-          </TabsList>
-          <TabsContent value="template" className="pt-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {templates.map((tpl) => (
-                <button key={tpl.id} type="button" onClick={() => setPicked(tpl.id)}
-                        className={cn("flex gap-3 rounded-[10px] border p-3 text-left transition",
-                          current === tpl.id ? "border-signal bg-signal-soft/50 ring-2 ring-signal/20" : "border-border hover:border-border-strong")}>
-                  <div className="h-20 w-28 shrink-0 rounded-[6px] bg-plan p-1.5"><VenueThumb venue={tpl.venue} className="size-full" /></div>
-                  <div className="min-w-0">
-                    <p className="font-medium">{tpl.name}</p>
-                    <p className="mt-0.5 line-clamp-3 text-xs text-muted">{tpl.description}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </TabsContent>
-          <TabsContent value="describe" className="pt-4"><DescribeTab onDraft={setDraft} /></TabsContent>
-          <TabsContent value="map" className="pt-4" forceMount hidden={tab !== "map"}><MapTab onDraft={setDraft} /></TabsContent>
-        </Tabs>
+    <>
+      <DialogHeader>
+        <DialogTitle className="text-xl">{t("projects.create_title")}</DialogTitle>
+        <DialogDescription className="text-base">{t("projects.create_lead")}</DialogDescription>
+      </DialogHeader>
+      <div role="group" aria-label={t("projects.ways")} className="grid gap-3 sm:grid-cols-3">
+        <Link to="/new/place"
+              className="group relative flex min-h-36 flex-col justify-between gap-3 overflow-hidden rounded-[var(--radius-panel)] bg-[linear-gradient(135deg,var(--sky),var(--signal))] p-4 text-white shadow-[var(--shadow-float)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal dark:bg-[linear-gradient(135deg,color-mix(in_srgb,var(--sky)_60%,black),color-mix(in_srgb,var(--signal)_70%,black))]">
+          <span className="grid size-10 place-items-center rounded-full bg-white/20 [&_svg]:size-5"><MapIcon aria-hidden /></span>
+          <span>
+            <span className="block text-lg font-bold">{t("home.way_map")}</span>
+            <span className="mt-0.5 block text-sm text-white/90">{t("home.way_map_lead")}</span>
+          </span>
+          <span className="absolute right-3 top-3 rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-semibold">{t("home.recommended")}</span>
+        </Link>
+        <WayTile active={way === "describe"} onClick={() => choose("describe")} icon={<PencilLine aria-hidden />} tone="bg-pink-soft text-pink"
+                 title={t("home.way_describe")} lead={t("home.way_describe_lead")} />
+        <WayTile active={way === "sample"} onClick={() => choose("sample")} icon={<Sparkles aria-hidden />} tone="bg-orange-soft text-orange"
+                 title={t("home.way_sample")} lead={t("home.way_sample_lead")} />
+      </div>
+
+      {way === "describe" && (
+        <div className="animate-deal-in rounded-[var(--radius-panel)] border-2 border-pink/30 p-4"><DescribeTab onDraft={setDraft} /></div>
+      )}
+      {way === "sample" && (
+        <fieldset className="animate-deal-in">
+          <legend className="mb-2 font-semibold">{t("projects.pick_sample")}</legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {templates.map((tpl) => (
+              <button key={tpl.id} type="button" aria-pressed={picked === tpl.id} onClick={() => setPicked(tpl.id)}
+                      className={cn("flex min-h-11 gap-3 rounded-[var(--radius-panel)] border-2 p-3 text-left transition focus-visible:outline-2 focus-visible:outline-signal",
+                        picked === tpl.id ? "border-orange bg-orange-soft/40" : "border-border hover:border-border-strong")}>
+                <span className="block h-20 w-28 shrink-0 rounded-[var(--radius-control)] bg-orange-soft/60 p-1.5"><VenueThumb venue={tpl.venue} className="size-full" /></span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5 font-semibold">{tpl.name}{picked === tpl.id && <Check className="size-4 shrink-0 text-orange" aria-hidden />}</span>
+                  <span className="mt-0.5 line-clamp-2 text-sm text-muted">{tpl.description}</span>
+                  <span className="mt-1 flex items-center gap-1 text-xs text-muted tabular"><Users className="size-3.5" aria-hidden />{t("projects.people", { n: fmtInt(tpl.people) })}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {way && (
         <div className="grid gap-1.5">
           <Label htmlFor="pname">{t("projects.create_name")}</Label>
-          <Input id="pname" placeholder={draft?.venue?.name ?? t("projects.create_name_ph")} value={name} onChange={(e) => setName(e.target.value)} />
+          <Input id="pname" className="h-11 text-base" placeholder={draft?.venue?.name ?? t("projects.create_name_ph")} value={name}
+                 onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
+          <p className="text-xs text-muted">{t("projects.create_name_hint")}</p>
         </div>
-        <DialogFooter>
-          <Button onClick={close}>{t("common.cancel")}</Button>
-          <Button variant="primary" disabled={!canCreate || create.isPending} onClick={submit}>
-            {t("projects.create_button")}
+      )}
+      <DialogFooter className="items-center">
+        {way === "describe" && !draft?.venue && <p className="mr-auto text-sm text-muted">{t("projects.describe_first")}</p>}
+        <Button size="lg" onClick={onClose}>{t("common.cancel")}</Button>
+        {way && (
+          <Button size="lg" variant={ready ? "primary" : "secondary"} disabled={!ready || create.isPending} onClick={submit}>
+            {create.isPending && <Loader2 className="animate-spin" />}{t("projects.create_button")}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        )}
+      </DialogFooter>
+    </>
+  );
+}
+
+function WayTile({ active, onClick, icon, tone, title, lead }: {
+  active: boolean; onClick: () => void; icon: React.ReactNode; tone: string; title: string; lead: string;
+}) {
+  return (
+    <button type="button" aria-pressed={active} onClick={onClick}
+            className={cn("group flex min-h-36 flex-col justify-between gap-3 rounded-[var(--radius-panel)] border-2 bg-surface p-4 text-left shadow-sm transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal",
+              active ? "border-signal ring-4 ring-signal-soft" : "border-border hover:border-border-strong")}>
+      <span className={cn("grid size-10 place-items-center rounded-full [&_svg]:size-5", tone)}>{icon}</span>
+      <span>
+        <span className="block text-lg font-bold">{title}</span>
+        <span className="mt-0.5 block text-sm text-muted">{lead}</span>
+      </span>
+    </button>
   );
 }
