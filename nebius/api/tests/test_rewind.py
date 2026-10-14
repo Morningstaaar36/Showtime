@@ -155,3 +155,17 @@ def test_rewind_routes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         assert c.get("/api/v1/sessions/s_missing/rewind").json() is None
         assert c.post("/api/v1/sessions/x/rewind", json={"at_s": -1}).status_code == 422
     reset_engine()
+
+
+async def test_without_a_break_it_rewinds_the_attack_that_came_out_worst(st: Any) -> None:
+    st.base_settings = st.base_settings.model_copy(
+        update={"target_evac_indoor_s": 100_000, "density_danger_ppm2": 99, "fix_min_gain": 9}
+    )
+    row = await _finished_session(st)
+    assert row.summary["worst_attack_id"] is None
+    rec = rewind.start_rewind(st, row.id)
+    await rewind._TASKS[rec["id"]]
+    rec = rewind.get_rewind(st, rec["id"])
+    assert rec["status"] == "done" and rec["hardest_not_breaking"]
+    assert rec["attack"]["attack_id"] in {a["attack_id"] for a in row.summary["attacks"]}
+    assert "No attack broke the plan" in rec["notes"][0]

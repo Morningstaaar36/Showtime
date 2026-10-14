@@ -239,19 +239,43 @@ class RewindError(ValueError):
     """The session can't be rewound (no worst attack, still running...)."""
 
 
-def _source_run(st: Any, session_id: str, worst_id: str) -> tuple[str | None, RunResult | None]:
-    """The run that showed the worst attack: its confirmation before fixes, else its test."""
+def _nodes(st: Any, session_id: str) -> dict[str, str]:
+    """Tree node id -> run id of a session (branches it skipped are left out)."""
     nodes: dict[str, str] = {}
     for ev in st.sessions.stored_events(session_id):
         p = ev.payload
         if ev.type == "branch_node" and p.get("run_id") and not p.get("skipped"):
             nodes[str(p.get("node_id"))] = str(p["run_id"])
+    return nodes
+
+
+def _finished(st: Any, rid: str | None) -> RunResult | None:
+    row = st.runs.get(rid) if rid else None
+    if row is None or not row.result or row.status not in ("ok", "partial"):
+        return None
+    return RunResult.model_validate(row.result)
+
+
+def _source_run(st: Any, session_id: str, worst_id: str) -> tuple[str | None, RunResult | None]:
+    """The run that showed the worst attack: its confirmation before fixes, else its test."""
+    nodes = _nodes(st, session_id)
     for node in ("final:before", f"atk:{worst_id}"):
-        rid = nodes.get(node)
-        row = st.runs.get(rid) if rid else None
-        if row is not None and row.result and row.status in ("ok", "partial"):
-            return node, RunResult.model_validate(row.result)
+        res = _finished(st, nodes.get(node))
+        if res is not None:
+            return node, res
     return None, None
+
+
+def _hardest_attack(st: Any, session_id: str) -> str | None:
+    """When no attack broke the plan: the attack whose test run came out worst."""
+    best: tuple[float, str] | None = None
+    for node, rid in _nodes(st, session_id).items():
+        if not node.startswith("atk:") or node.count(":") != 1:
+            continue
+        res = _finished(st, rid)
+        if res is not None and (best is None or severity(res) > best[0]):
+            best = (severity(res), node.split(":", 1)[1])
+    return best[1] if best else None
 
 
 def start_rewind(
@@ -268,6 +292,9 @@ def start_rewind(
     if row.status not in ("finished", "stopped") or not summary:
         raise RewindError("Rewind needs a finished test.")
     worst_id = summary.get("worst_attack_id")
+    hardest = False
+    if not worst_id:
+        worst_id, hardest = _hardest_attack(st, session_id), True
     attack = next(
         (
             Attack.model_validate(a)
@@ -277,9 +304,7 @@ def start_rewind(
         None,
     )
     if attack is None:
-        raise RewindError(
-            "This test found no attack that broke the plan, so there is no worst moment to rewind."
-        )
+        raise RewindError("This test has no finished attack run, so there is no moment to rewind.")
     venue: Venue = st.projects.venue(row.project_id, row.venue_version)
     rid = f"rw_{uuid.uuid4().hex[:10]}"
     record: dict[str, Any] = {
@@ -301,6 +326,7 @@ def start_rewind(
         "branches": [],
         "best": None,
         "notes": [],
+        "hardest_not_breaking": hardest,
     }
     if len(venue.floors) > 1:
         record.update(
@@ -403,6 +429,8 @@ async def _rewind(
         notes: list[str] = []
     else:
         responses, notes = suggest_responses(venue, attack, kept, source, t)
+    if record.get("hardest_not_breaking"):
+        notes.insert(0, "No attack broke the plan, so this rewinds the attack that came out worst.")
     record["notes"] = notes
     _save(st, record)
 
