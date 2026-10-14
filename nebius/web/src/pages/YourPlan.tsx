@@ -193,7 +193,8 @@ export function YourPlanPage() {
       detail: m ? t("yourplan.n_inside", { n: fmtInt(m.agents_not_evacuated) }) : undefined, basis },
     { label: t("yourplan.n_peak"), value: m ? `${fmtNum(m.peak_density_ppm2, 1)} ${t("yourplan.per_m2")}` : "–", basis },
     { label: t("yourplan.n_start"), value: countdownText(cd),
-      basis: (cd?.status === "ok" || cd?.status === "too_late") && cd.hazard_explanation ? cd.hazard_explanation : t("yourplan.cd_source") },
+      basis: [(cd?.status === "ok" || cd?.status === "too_late") ? cd.hazard_explanation : "",
+        cd?.rset_source ? t("yourplan.cd_from", { source: cd.rset_source }) : t("yourplan.cd_source")].filter(Boolean).join(" · ") },
   ];
   const worst = summary?.attacks?.find((a) => a.attack_id === summary.worst_attack_id);
   const subset = state === "accepted_subset" && hasAfter
