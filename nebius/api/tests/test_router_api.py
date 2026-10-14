@@ -248,7 +248,7 @@ def test_a_question_uses_the_latest_test_of_this_venue(client: TestClient) -> No
     answer = {"answer": "The south doors carry everyone."}
     _script(client).update(router={"intent": "question"}, explainer=answer)
     res = _ask(client, pid, "which exit is the busiest?").json()["result"]
-    assert res["run_id"] == rid and res["basis"] == "Preview only (no simulation)"
+    assert res["run_id"] == rid and res["basis"].startswith("Preview from the mock sandbox")
     assert res["context"]["run"]["kind"] == "simulation"
     # after an edit that test describes an older venue: back to the instant estimate
     edit = {"ops": [{"op": "resize", "target": "door_s1", "width_m": 3}]}

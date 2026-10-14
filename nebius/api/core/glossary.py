@@ -32,9 +32,10 @@ GLOSSARY: list[dict[str, str]] = [
         "walking distances and headcounts. Takes milliseconds; good for comparing options.",
     },
     {
-        "term": "Confirmed by simulation",
-        "definition": "Tier 3: every person is simulated "
-        "with JuPedSim in an isolated sandbox. Takes seconds to minutes.",
+        "term": "Full simulation",
+        "definition": "Tier 3: every person is simulated with JuPedSim in an isolated "
+        "sandbox. Takes seconds to minutes. A plan counts as confirmed only when its full "
+        "simulations ran to the end.",
     },
     {
         "term": "Ranking run",

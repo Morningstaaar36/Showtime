@@ -15,6 +15,7 @@ from api.app.routes_core import get_state
 from api.app.state import AppState
 from api.core.countdown import compute_countdown
 from api.core.estimates import compute_estimates, scale_people
+from api.core.evidence import describe_run
 from api.core.extensions import HazardContext, HazardResult
 from api.core.geometry import validate_venue
 from api.core.plan import PlanError, plan_hash
@@ -467,8 +468,9 @@ def what_if(project_id: str, body: WhatIfIn, st: AppState = Depends(get_state)) 
     if body.run_id and unchanged:
         row = st.runs.get(body.run_id)
         if row is not None and row.result and row.status in ("ok", "partial"):
-            metrics = RunResult.model_validate(row.result).metrics
-            basis = f"Confirmed by simulation (run {body.run_id[-6:]})"
+            run = RunResult.model_validate(row.result)
+            metrics = run.metrics
+            basis = describe_run(run).capitalize()
     checks = validate_venue(venue).checks
     target = s.target_evac_indoor_s if venue.mode == "indoor" else s.target_evac_outdoor_s
     score = planning_score(
@@ -507,12 +509,7 @@ async def countdown(
         if row is not None and row.result:
             res = RunResult.model_validate(row.result)
             rset = res.metrics.evac_time_p95_s or res.metrics.extra.get("rset_extrapolated_s")
-            label = (
-                "Confirmed by simulation"
-                if res.tier == 3
-                else ("Ranking run (partial)" if res.tier == 2 else "Instant estimate")
-            )
-            rset_source = f"{label} (run {res.run_id})"
+            rset_source = describe_run(res).capitalize()
     if rset is None:
         est = st.runs.estimate(venue, body.attack)
         rset = est.metrics.evac_time_p95_s

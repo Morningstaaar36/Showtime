@@ -29,6 +29,7 @@ from api.app.routes_agents import EditIn, ask_context, edit_by_text, explain_or_
 from api.app.routes_core import get_state
 from api.app.routes_projects import WhatIfIn, what_if
 from api.app.state import AppState
+from api.core.evidence import describe_run, fallback_for
 from api.core.plan import PlanError, saved_events
 from api.db.models import Run
 from api.models import RunResult, Venue
@@ -121,17 +122,10 @@ def _tested_venue(st: AppState, row: Run, current: Venue) -> Venue:
 
 
 def basis_of(res: RunResult) -> str:
-    """Where the numbers of an answer come from, in plain words."""
-    if res.provider == "fake" or res.engine == "fake":
-        return "Preview only (no simulation)"
-    rid = res.run_id[-6:]
-    if res.tier == 3:
-        if res.status == "partial":
-            return f"Simulation stopped early (run {rid})"
-        return f"Confirmed by simulation (run {rid})"
-    if res.tier == 2:
-        return f"Quick simulation (run {rid})"
-    return "Instant estimate (formula)"
+    """Where the numbers of an answer come from, in plain words (from the result basis)."""
+    if res.tier == 1 and not fallback_for(res):
+        return "Instant estimate (formula)"
+    return describe_run(res).capitalize()
 
 
 async def _question(
