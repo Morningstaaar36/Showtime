@@ -1076,7 +1076,7 @@
     "waiting": "Waiting",
     "failures": "Runs that failed",
     "seed": "#{n}",
-    "parallel": "Up to {n} sandboxes run at once.",
+    "parallel": "Sandboxes allowed at once: {n}.",
     "interrupted": "The stress test was cut off. Start it again.",
     "summary": "{variant}: breaks in {breaks} of {runs} runs",
     "none": "No stress test yet."

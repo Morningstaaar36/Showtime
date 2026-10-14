@@ -28,7 +28,7 @@ export function RewindPanel({ sessionId, worstTitle, canRewind }: { sessionId: s
   const shown = rec && (rec.status === "done" || rec.status === "running") && rows.length > 0;
 
   return (
-    <section aria-labelledby="rewind-h" className="space-y-3 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
+    <section aria-labelledby="rewind-h" className="min-w-0 space-y-3 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
           <h2 id="rewind-h" className="flex items-center gap-2 font-semibold"><History className="size-4 text-signal" />{t("rewind.title")}</h2>

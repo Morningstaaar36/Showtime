@@ -31,7 +31,7 @@ export function StressPanel({ projectId, hasTest }: { projectId: string; hasTest
   const failed = rec ? failures(rec) : [];
 
   return (
-    <section aria-labelledby="stress-h" className="space-y-3 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
+    <section aria-labelledby="stress-h" className="min-w-0 space-y-3 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
       <div className="space-y-1">
         <h2 id="stress-h" className="flex items-center gap-2 font-semibold"><Layers className="size-4 text-signal" />{t("stress.title")}</h2>
         <p className="text-sm text-muted">{t("stress.body")}</p>
