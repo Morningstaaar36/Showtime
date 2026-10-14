@@ -1,5 +1,5 @@
-"""The HTML report's wording follows the evidence basis (P2-03). Sessions run with FakeLLM and
-fake runners only."""
+"""The HTML report's wording follows the evidence basis (P2-03) and it says how the plan was
+made (N16). Sessions run with FakeLLM and fake runners only."""
 
 from __future__ import annotations
 
@@ -81,6 +81,14 @@ async def test_report_of_a_confirmed_plan(make_state: Callable[..., Any]) -> Non
     assert "for 95% of people to get out, not everyone" in html
     assert not NEVER.search(html)
     assert "Planning aid, not a safety certification." in html
+    # how the plan was made: measured cost, models, simulations by kind and times
+    cost = row.summary["cost"]
+    assert "<h2>How this plan was made</h2>" in html
+    assert f"${cost['usd_total']:.4f}" in html
+    assert all(model in html for model in cost["by_model"])
+    assert f"<td>Full simulations</td><td>{cost['sims']['full_sims']}</td>" in html
+    assert "<td>Wall time</td>" in html and "<td>Simulation compute time</td>" in html
+    assert "consultant" not in html.lower()
 
 
 async def test_report_of_a_timed_out_confirmation(make_state: Callable[..., Any]) -> None:
@@ -94,6 +102,7 @@ async def test_report_of_a_timed_out_confirmation(make_state: Callable[..., Any]
     assert "Instant estimate only — not simulated" in html
     assert "This plan holds" not in html and "<b>Holds</b>" not in html
     assert not NEVER.search(html)
+    assert "$0 (free or local models)" in html  # FakeLLM is free
 
 
 async def test_report_of_an_old_session_without_evidence_fields(
@@ -117,3 +126,4 @@ async def test_report_of_an_old_session_without_evidence_fields(
     assert f"the worst red-team attack (full simulation, run {rid})" in html
     assert not NEVER.search(html)
     assert 'class="evaluation' not in html  # nothing is invented for sessions that lack it
+    assert "Simulation counts were not recorded for this session." in html
