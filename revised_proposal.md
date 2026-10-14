@@ -142,6 +142,8 @@ The project already has a 3D editing foundation. The proposed collaborative expe
 | N01 | Live Nemotron on Nebius Token Factory | Deferred during current development; verify before submission claims. |
 | N02 | Tavily Evidence Desk and pre-event brief | Deferred. Current incident records support development. |
 | N03 | Local-rule research with checked quotations | Deferred. Source authenticity alone does not establish applicability. |
+| N18 | Event research with cited, organizer-confirmed inputs | Deferred with N02; extends the pre-event brief into accept/edit/reject suggestions for attendance, capacity, and gates. A web figure is an input, not a measurement. |
+| N19 | Fix guidance citations from trusted sources | Later priority; only verified quotations are shown, and guidance never ranks or blocks a fix. |
 | N04 | Live Nebius sandbox branches | Deferred; local Docker remains the development execution path. |
 | N05 | Multiple random seeds | Retained as bounded robustness evaluation. |
 | N06 | Public demo deployment and controls | Retained for release preparation, including isolation, queues, limits, and cleanup. |

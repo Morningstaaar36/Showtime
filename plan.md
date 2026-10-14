@@ -404,6 +404,8 @@ Priority: **P0** = required to submit or to be credible; **P1** = what makes us 
 | N14 | Simple UI: three screens (Describe → AI at work → Your plan) + Expert view | P0 (design) | M13 |
 | N02 | Evidence Desk: live Tavily evidence for the red team + pre-event web brief | P0 (Tavily prize) | M14 |
 | N03 | Local rules research with verified quotes | P1 | M14 |
+| N18 | Event research: web-sourced, cited input suggestions (attendance, capacity, gates) | P1 (Tavily prize, story) | M14 |
+| N19 | Fix guidance: blue team fixes cite trusted safety guidance | P2 | M14 if time |
 | N15 | "Ask or change anything": one box with an intent router | P1 | M14 |
 | N04 | Nebius Sandboxes live, parallel branches | P0 attempt (fallback allowed) | M15 |
 | N05 | Ranges across seeds (multi-seed ensembles) | P1 | M15 |
@@ -490,7 +492,8 @@ cards more credible ("this happened last month at a similar venue").
    incidents at that venue (`topic="news"` and a recency window **[VERIFY parameter names in tavily-python
    0.8.5: `topic`, `days` or `time_range`]**). The `fast` role summarises hits into at most 6 "Things to check"
    items, each with `{text, source_url, published}`; `source_url` must come from the hits. Label in UI:
-   "From the web, not verified".
+   "From the web, not verified". N18 extends this node from "things to check" to input suggestions the
+   organizer can accept.
 3. **Evidence panel** (Red Team tab and Report): every source used, grouped by "Live web (Tavily)" vs "Incident
    dataset", with domain, date, title, which attack/rule used it; budget line "Live searches: 7 of 20".
 4. **Report:** a "Sources" section listing every cited URL with what it supports.
@@ -1089,6 +1092,76 @@ scenario with JuPedSim (the same code path as `sim/jps_build.py`, vendored into 
 
 **Tests:** `T-N17-1` exported script runs inside the sim image and reproduces the original run's evacuation time (95%)
 within 1 % (same seed); `T-N17-2` zip contains the licence notices for JuPedSim (LGPL) and our code.
+
+---
+
+### N18 — Event research: web-sourced, cited input suggestions (P1)
+
+**Why:** organizers rarely know their own numbers (last year's attendance, venue capacity, which gates exist). A
+guessed input makes every simulation wrong. Tavily finds the numbers; the organizer decides. Central Tavily use for
+the prize and the first moment of the demo ("Last year's attendance ≈ 40,000 (source). Use this?").
+
+**Behaviour**
+
+1. Runs inside the N02 `evidence_desk` Copilot node, after the event brief: place, event name and date come from
+   the brief.
+2. Backend runs 2–4 Tavily searches (e.g. `"<event> <place> attendance"`, `"<venue> capacity"`, `"<venue> gates
+   entrances"`, `"<venue> crowd crush OR stampede"`), then `extract` on the top 3 distinct URLs.
+3. The `fast` role proposes suggestions, each
+   `{field, value, unit, source_url, quote, published?}` where `field` is from a fixed enum the venue/event model
+   understands: `expected_attendance`, `venue_capacity`, `gate_count`, `peak_arrival_window_min`.
+4. **Verification in code (same as N03):** `source_url` ∈ extracted URLs; `quote` appears in the extracted text
+   after whitespace/case normalisation; `value` appears inside the quote; units converted by code. Failures are
+   dropped and counted ("2 suggestions dropped: quote not found on the page").
+5. UI (Describe screen and Copilot result card): each suggestion is labelled "Found on the web, not verified" with
+   the quote, link and date, and **Accept / Edit / Reject**. Accepted values enter the event/venue with provenance
+   `web` (alongside imported, assumed, organizer-confirmed and measured), plus source URL and acceptance date.
+   Edited values become organizer-confirmed and keep the link.
+6. **Offline / no key / budget exhausted:** step skipped, empty state "Live search is off. Enter numbers
+   yourself." The Copilot never fails because of this step.
+
+**Contracts**
+
+- `api/models/evidence.py`: `InputSuggestion{field, value, unit, source_url, quote, published?, status:
+  "suggested"|"accepted"|"edited"|"rejected"}`; `WebBrief` gains `suggestions: list[InputSuggestion]` and
+  `dropped: int`.
+- Accepted suggestions are added to the session summary `sources` (N02) with `used_by` set to the field name.
+
+**Code**
+
+- `api/orchestrator/evidence.py`: `research_event(st, brief, budget) -> list[InputSuggestion]`; reuses `st.search`,
+  the disk cache and the per-run `SearchBudget`.
+- `api/agents/event_research.py` + `prompts/event_research.md` (new, role `fast`); quote verification shared with
+  N03 (one helper, e.g. `api/core/quotes.py`).
+- Web: suggestion list in the Describe screen / Copilot card; strings in `en.json`.
+
+**Tests**
+
+- `T-N18-1` (unit, fake Tavily) suggestion with a quote not on the page, or a value not in the quote, is dropped
+  and counted.
+- `T-N18-2` (unit) unknown `field` or unit → dropped.
+- `T-N18-3` (unit) budget exhausted / no key / `OFFLINE=true` → empty suggestions, Copilot completes.
+- `T-N18-4` (unit) accepted suggestion sets provenance `web` with URL and date; edited → organizer-confirmed.
+- `T-N18-5` (e2e, recorded session) accept a suggestion; the value appears in the venue inputs and in the report
+  Sources section.
+
+**Done when:** on the Ramna Park sample at least one accepted web-sourced input reaches the simulation and is
+listed in the report Sources (or the empty state explains honestly why none were found).
+
+---
+
+### N19 — Fix guidance: blue team fixes cite trusted safety guidance (P2)
+
+**Why:** "add a second exit lane" is more credible with "recommended by (official guidance)" next to it.
+
+**Behaviour:** for each blue-team fix type in a round (not each fix), one Tavily search with `include_domains`
+limited to a configured list of trusted guidance sources (e.g. the UK Green Guide publisher, HSE, national fire
+codes; list in settings, never chosen by the model). `extract` the top hit; attach `{source_url, quote}` to the fix
+only when the quote verifies (shared N03 helper). The fix card shows "Guidance: (source)". Guidance never blocks or
+ranks a fix; it is context only. Offline / no key → no guidance line.
+
+**Tests:** `T-N19-1` unverified quote dropped; `T-N19-2` a hit outside the domain list is rejected; `T-N19-3` offline
+→ fixes unchanged, no guidance line; `T-N19-4` at most one search per fix type per round (cached on repeat).
 
 ---
 

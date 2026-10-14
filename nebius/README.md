@@ -93,7 +93,7 @@ simulation*.
 | **Nebius Token Factory** | OpenAI-compatible endpoint behind `LLM_PROVIDER=nebius`; per-role model ids and prices in `.env`; tokens and cost are metered per agent call and shown live. |
 | **Nebius Sandboxes** (contree-sdk) | `SANDBOX_PROVIDER=nebius`: every scenario is a child snapshot of the venue image (attack → fix branches; the Copilot's six-scenario sweep branches from the plan's run), run in parallel. Locally the same interface runs Docker containers with `--network=none`, one at a time. |
 | **LangGraph** | The Event Copilot is a compiled `StateGraph` with conditional routes, checkpointing and custom streaming; `GET /api/v1/copilot/graph` serves its structure, which the UI draws live. |
-| **Tavily** | Search adapter built (cached, per-session cap) and shown in health. It is not yet wired into the agents; live evidence for attack cards and local rules is planned (see `../plan.md`, N02/N03). Today the red team cites the incident dataset. |
+| **Tavily** | Search adapter built (cached, per-session cap) and shown in health. It is not yet wired into the agents; live evidence for attack cards, cited event research inputs (attendance, capacity, gates), local rules and fix guidance is planned (see `../plan.md`, N02/N03/N18/N19). Today the red team cites the incident dataset. |
 | **JuPedSim, PedPy, Pynite, Open-Meteo** | Crowd simulation, crowd metrics, stage frame model, gust forecasts. |
 | **OpenStreetMap, OpenFreeMap, MapLibre** | Real sites: place search (Nominatim), buildings, water, paths and entrances (Overpass, with OpenFreeMap vector tiles as fallback), the 3D picking map and the street-map ground in the 3D view. |
 
