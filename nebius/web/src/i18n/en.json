@@ -554,7 +554,7 @@
   },
   "home": {
     "title": "Plan a safe event in minutes",
-    "lead": "Show us where your event is. The AI tests what could go wrong and gives you a plan you can hand to your team.",
+    "lead": "Will everyone get out safely? Show us where your event is: AI agents write what could go wrong, a real crowd simulator tests it in sealed sandboxes, and you get a tested plan you can hand to your team.",
     "how": "How it works",
     "step_n": "Step {n}:",
     "how_1": "show us your venue",
