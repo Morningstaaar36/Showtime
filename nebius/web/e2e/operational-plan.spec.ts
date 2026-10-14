@@ -27,7 +27,7 @@ test("guided organizer settings and atomic action preview, replacement and remov
     await panel.getByLabel("venue_permission recorded by", { exact: true }).fill("Browser test");
     await panel.getByLabel("Declared cost budget", { exact: true }).fill("100");
     await panel.getByRole("button", { name: "Save organizer settings", exact: true }).click();
-    await expect(panel.getByText(/Saved version 2/)).toBeVisible();
+    await expect(panel.getByText(/Saved version 2/)).toBeVisible({ timeout: 15_000 }); // software-rendered 3D can stall the page
     await panel.getByLabel("Action ID", { exact: true }).fill("hold");
     await panel.getByLabel("Action description", { exact: true }).fill("Staffed release of the audience");
     await panel.getByLabel("Action end (s)", { exact: true }).fill("30");
@@ -45,7 +45,7 @@ test("guided organizer settings and atomic action preview, replacement and remov
     await expect(panel.getByRole("status")).toContainText("Valid proposal — not saved");
     expect((await (await request.get(`/api/v1/projects/${id}/plan`)).json()).plan.actions).toHaveLength(0);
     await panel.getByRole("button", { name: "Apply operational proposal", exact: true }).click();
-    await expect(panel.getByText(/Saved version 3/)).toBeVisible();
+    await expect(panel.getByText(/Saved version 3/)).toBeVisible({ timeout: 15_000 }); // software-rendered 3D can stall the page
     await page.reload();
     await page.getByText("Resources and operational plan", { exact: true }).click();
     await expect(panel.getByText("Staffed release of the audience", { exact: true })).toBeVisible();
@@ -53,14 +53,14 @@ test("guided organizer settings and atomic action preview, replacement and remov
     await panel.getByLabel("Release delay (s)", { exact: true }).fill("25");
     await panel.getByRole("button", { name: "Preview action", exact: true }).click();
     await panel.getByRole("button", { name: "Apply operational proposal", exact: true }).click();
-    await expect(panel.getByText(/Saved version 4/)).toBeVisible();
+    await expect(panel.getByText(/Saved version 4/)).toBeVisible({ timeout: 15_000 }); // software-rendered 3D can stall the page
     const plan = await (await request.get(`/api/v1/projects/${id}/plan`)).json();
     expect(plan.plan.actions).toHaveLength(1);
     expect(plan.plan.actions[0].event.delay_s).toBe(25);
     expect(plan.plan.actions[0].resources).toEqual([{ resource_id: "stewards", quantity: 1 }, { resource_id: "radios", quantity: 1 }]);
     await panel.getByRole("button", { name: "Preview removal", exact: true }).click();
     await panel.getByRole("button", { name: "Apply operational proposal", exact: true }).click();
-    await expect(panel.getByText(/Saved version 5/)).toBeVisible();
+    await expect(panel.getByText(/Saved version 5/)).toBeVisible({ timeout: 15_000 }); // software-rendered 3D can stall the page
     expect((await (await request.get(`/api/v1/projects/${id}/plan`)).json()).plan.actions).toHaveLength(0);
   } finally { await request.delete(`/api/v1/projects/${id}`); }
 });
