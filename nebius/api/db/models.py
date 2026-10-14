@@ -117,3 +117,34 @@ class UserSetting(SQLModel, table=True):
     key: str = Field(primary_key=True)
     value: Any = Field(default=None, sa_column=Column(JSON))
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+class AutopilotRunRow(SQLModel, table=True):
+    """One Autopilot run (N13): a request taken to a tested plan, never applied on its own."""
+
+    __tablename__ = "autopilot_run"
+
+    id: str = Field(primary_key=True)
+    project_id: str | None = Field(default=None, index=True)
+    session_id: str | None = None
+    status: str = "queued"  # queued | running | finished | stopped | failed
+    depth: str = "quick"  # quick | thorough
+    text: str | None = Field(default=None, sa_column=Column(Text))
+    steps: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+    result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    error: str | None = Field(default=None, sa_column=Column(Text))
+    created_at: datetime = Field(default_factory=utcnow)
+    finished_at: datetime | None = None
+
+
+class AutopilotEventRow(SQLModel, table=True):
+    """One streamed Autopilot event (replayable)."""
+
+    __tablename__ = "autopilot_event"
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: str = Field(index=True)
+    seq: int
+    type: str
+    ts: str
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))

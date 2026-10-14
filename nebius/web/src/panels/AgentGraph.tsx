@@ -12,11 +12,13 @@ interface Shape { nodes: string[]; edges: { source: string; target: string; cond
 const LABELS: Record<string, string> = {
   __start__: "Your request", understand: "Brief agent", locate: "Map lookup", design: "Designer agent",
   layout: "Layout solver", estimate: "Planning ratios", create: "Project", simulate: "Simulation sandbox",
-  sweep: "Scenario sandboxes", review: "Safety officer", __end__: "Plan ready",
+  sweep: "Scenario sandboxes", review: "Safety officer", red_team: "Red team session", deliver: "Your plan",
+  __end__: "Plan ready",
 };
 const POS: Record<string, [number, number]> = {
   __start__: [70, 0], understand: [70, 52], locate: [0, 104], design: [140, 156], layout: [0, 156],
-  estimate: [70, 208], create: [70, 260], simulate: [70, 312], sweep: [70, 364], review: [70, 416], __end__: [70, 468],
+  estimate: [70, 208], create: [70, 260], simulate: [70, 312], sweep: [0, 364], review: [0, 416], red_team: [140, 416],
+  deliver: [140, 468], __end__: [70, 520],
 };
 
 function GraphNode({ data }: NodeProps<Node<{ label: string; status: NodeStatus }>>) {
@@ -49,7 +51,7 @@ export function AgentGraph({ status }: { status: Record<string, NodeStatus> }) {
     const any = Object.keys(status).length > 0;
     const nodes: Node[] = s.nodes.map((id) => {
       const st: NodeStatus = id === "__start__" ? (any ? "done" : "idle")
-        : id === "__end__" ? (status.review === "done" ? "done" : "idle") : status[id] ?? "idle";
+        : id === "__end__" ? (status.review === "done" || status.deliver === "done" ? "done" : "idle") : status[id] ?? "idle";
       return { id, type: "agent", position: { x: POS[id]?.[0] ?? 70, y: POS[id]?.[1] ?? 0 }, data: { label: LABELS[id] ?? id, status: st }, draggable: false };
     });
     const edges: Edge[] = s.edges.map((e) => {
@@ -64,7 +66,7 @@ export function AgentGraph({ status }: { status: Record<string, NodeStatus> }) {
   }, [shape.data, status]);
   return (
     <div className="h-[500px] w-[300px] shrink-0 rounded-[10px] border border-border bg-plan/60" aria-label="Agent graph">
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} defaultViewport={{ x: 15, y: 12, zoom: 1 }}
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.04 }}
                  nodesConnectable={false} elementsSelectable={false} panOnDrag={false} zoomOnScroll={false}
                  zoomOnPinch={false} zoomOnDoubleClick={false} proOptions={{ hideAttribution: true }}>
         <Background gap={16} size={1} color="var(--border)" />
