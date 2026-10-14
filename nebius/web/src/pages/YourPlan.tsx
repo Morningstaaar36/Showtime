@@ -196,7 +196,9 @@ export function YourPlanPage() {
       basis: (cd?.status === "ok" || cd?.status === "too_late") && cd.hazard_explanation ? cd.hazard_explanation : t("yourplan.cd_source") },
   ];
   const worst = summary?.attacks?.find((a) => a.attack_id === summary.worst_attack_id);
-  const under = `${worst ? t("yourplan.under", { attack: human(worst.title) }) : t("yourplan.under_baseline")}${hasAfter ? ` ${t("yourplan.with_changes")}` : ""}`;
+  const subset = state === "accepted_subset" && hasAfter
+    ? ` ${t("yourplan.under_subset", { n: kept.length, k: record?.fix_ids.length ?? 0 })}` : "";
+  const under = `${worst ? t("yourplan.under", { attack: human(worst.title) }) : t("yourplan.under_baseline")}${hasAfter ? ` ${t("yourplan.with_changes")}` : ""}${subset}`;
   const judge = summary?.judge_text ? `${human(summary.judge_text)}${summary.numbers_checked ? ` ${t("yourplan.numbers_checked")}` : ""}` : null;
   const attackTitle = (id: string) => summary?.attacks?.find((a) => a.attack_id === id)?.title ?? id;
   const risks = (summary?.attacks ?? []).slice(0, 3);
@@ -276,9 +278,10 @@ export function YourPlanPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid items-start gap-4 lg:grid-cols-2">
           <CostCard cost={summary?.cost} tokens={session.data?.tokens ?? 0} costUsd={session.data?.cost_usd ?? 0} />
-          <section aria-label={t("ask.label")} className="rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
+          <section aria-labelledby="ask-h" className="space-y-2 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
+            <h2 id="ask-h" className="font-semibold">{t("ask.label")}</h2>
             <AskAnything project={p} context="plan" sessionId={sessionId} onPreview={setProposal} className="max-w-none" />
           </section>
         </div>

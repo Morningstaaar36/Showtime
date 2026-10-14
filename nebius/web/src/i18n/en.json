@@ -853,6 +853,7 @@
     "under": "Under the worst case found: {attack}.",
     "under_baseline": "With everyone leaving normally.",
     "with_changes": "Includes the AI's changes.",
+    "under_subset": "These numbers are for all {n} changes; your plan has {k} of them.",
     "numbers_checked": "Numbers matched the supplied run data.",
     "tests_show": "What the tests show",
     "report": "Download report",
