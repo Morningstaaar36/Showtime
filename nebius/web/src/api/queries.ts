@@ -322,3 +322,40 @@ export function useVenueFromMap() {
       api.post<VenueDraft>("/venues/from-map", body),
   });
 }
+
+// --- Ask or change anything (N15) -----------------------------------------------------------
+
+export type AskIntent = "edit" | "question" | "what_if" | "navigate" | "other";
+export type AskTarget = "report" | "expert" | "plan" | "check" | "work";
+export type AskScreen = "check" | "plan";
+type WhatIfOut = import("./types").WhatIfOut;
+
+/** What-if inputs after the server checked them (scale clamped, exit names matched). */
+export interface WhatIfParams {
+  crowd_scale: number;
+  crowd_scale_asked: number | null;
+  capped: boolean;
+  weather: "rain" | "smoke" | "none";
+  speed_factor: number;
+  closed_exits: { id: string; name: string }[];
+  changed: boolean;
+}
+/** The what-if (the /whatif shape) next to the plan as it is: both instant estimates. */
+export interface AskWhatIf extends WhatIfOut { before: WhatIfOut; params: WhatIfParams }
+/** The explainer's answer (the /ask shape) and the run its numbers come from. */
+export interface AskAnswer extends AskOut { run_id: string | null; basis: string }
+export type AskAnythingOut = { routed_by: "model" | "keywords" } & (
+  | { intent: "edit"; result: EditOut }
+  | { intent: "question"; result: AskAnswer }
+  | { intent: "what_if"; result: AskWhatIf }
+  | { intent: "navigate"; result: { target: AskTarget } }
+  | { intent: "other"; result: { message: string; examples: string[] } }
+);
+
+/** One box for everything. An edit comes back as a proposal: only /patch saves it. */
+export function useAskAnything(projectId: string) {
+  return useMutation({
+    mutationFn: (v: { text: string; context: AskScreen; session_id?: string | null }) =>
+      api.post<AskAnythingOut>(`/projects/${projectId}/ask-anything`, v),
+  });
+}
