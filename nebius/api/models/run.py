@@ -38,6 +38,10 @@ class RunRequest(BaseModel):
     engine: str = "jupedsim"
     metrics: list[str] = Field(default_factory=lambda: ["rset", "peak_density", "per_exit_flow"])
     parent_run_id: str | None = None
+    # Rewind (SANDBOX_SCOPE idea 3): write checkpoint.json at this simulated time, or, with
+    # `resume`, start from the checkpoint.json in the run's work folder. Single-floor only.
+    checkpoint_at_s: float | None = Field(default=None, ge=0)
+    resume: bool = False
     extensions: dict[str, Any] = Field(default_factory=dict)
 
 
