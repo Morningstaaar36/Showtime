@@ -3,7 +3,8 @@
 The router agent sorts the organizer's sentence; the existing agents and formulas answer it.
 An edit is only proposed (the organizer applies it with POST /projects/{id}/patch), a question
 goes to the number-checked explainer, and what-if numbers are instant estimates computed in
-code, never written by a model.
+code, never written by a model. An "analyse" question is answered by the analyst: code it
+writes runs in a sandbox on the run's artifacts (also POST /projects/{id}/analyse).
 """
 
 from __future__ import annotations
@@ -15,7 +16,9 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from api.agents.base import AgentEnv
+from api.adapters.llm import LLMError, LLMReplayMiss
+from api.agents.analyst import analyse, run_facts, run_inputs
+from api.agents.base import AgentEnv, AgentUnavailable
 from api.agents.router import (
     WEATHER_SPEED,
     Route,
@@ -54,6 +57,8 @@ async def ask_anything(
     venue = st.projects.venue(project_id)
     env = AgentEnv(llm=st.llm, project_id=project_id)
     route = await route_message(env, venue, body.text, body.context)
+    if route.intent == "analyse" and not analysis_run(st, project_id, venue, None, body.session_id):
+        route.intent = "question"  # nothing simulated to analyse yet: answer from the numbers
     try:
         result = await _answer(st, project_id, venue, route, body)
     except ApiException as exc:  # say how the text was understood, also when it fails
@@ -72,6 +77,10 @@ async def _answer(
         return await _question(st, project_id, venue, body.text, body.session_id)
     if route.intent == "what_if":
         return await _what_if(st, project_id, venue, route)
+    if route.intent == "analyse":
+        row = analysis_run(st, project_id, venue, None, body.session_id)
+        assert row is not None  # checked before answering
+        return await analyse_or_503(st, project_id, venue, row, body.text)
     if route.intent == "navigate" and route.target is not None:
         return {"target": route.target}
     return _help(venue, body.context)
@@ -151,6 +160,86 @@ async def _question(
         "run_id": row.id if row is not None else None,
         "basis": basis_of(res),
     }
+
+
+# --- analyse (the analyst writes code that runs in a sandbox) ---------------------------------
+
+
+class AnalyseIn(BaseModel):
+    """A question for the analyst about one run (default: the run a question would use)."""
+
+    question: str = Field(min_length=2, max_length=500)
+    run_id: str | None = None
+    session_id: str | None = None
+
+
+def _has_artifacts(st: AppState, row: Run | None) -> bool:
+    if row is None or not _usable(row):
+        return False
+    return (st.settings.runs_dir / row.id / "result.json").is_file()
+
+
+def analysis_run(
+    st: AppState, project_id: str, venue: Venue, run_id: str | None, session_id: str | None
+) -> Run | None:
+    """The simulated run to analyse: the one asked for, else the run a question would use,
+    else the newest simulated run of the project. Only runs with artifacts on disk qualify."""
+    if run_id is not None:
+        row = st.runs.get(run_id)
+        ok = row is not None and row.project_id == project_id and _has_artifacts(st, row)
+        return row if ok else None
+    version = st.projects.get(project_id).current_version
+    row = question_run(st, project_id, session_id, venue, version)
+    if _has_artifacts(st, row):
+        return row
+    for candidate in st.runs.list(project_id, limit=30):
+        if _has_artifacts(st, candidate):
+            return candidate
+    return None
+
+
+async def analyse_or_503(
+    st: AppState, project_id: str, venue: Venue, row: Run, question: str
+) -> dict[str, Any]:
+    """Run the analyst on a run; a designed 503 when the model isn't answering."""
+    res = RunResult.model_validate(row.result)
+    run_dir = st.settings.runs_dir / row.id
+    inputs = await run_in_threadpool(run_inputs, run_dir)
+    tested = _tested_venue(st, row, venue)
+    facts = run_facts(res.model_dump(mode="json"), exit_names(tested), sorted(inputs))
+    env = AgentEnv(llm=st.llm, project_id=project_id)
+    try:
+        out = await analyse(env, st.runner, question, facts, inputs)
+    except (AgentUnavailable, LLMError, LLMReplayMiss) as exc:
+        raise ApiException(
+            503,
+            "llm_unavailable",
+            "The AI isn't answering, so I can't write an analysis right now.",
+            "Start the local model with: make llm-up",
+        ) from exc
+    return {
+        **out.to_dict(),
+        "run_id": row.id,
+        "basis": basis_of(res),
+        "sandbox": st.runner.provider,
+    }
+
+
+@router.post("/projects/{project_id}/analyse")
+async def analyse_question(
+    project_id: str, body: AnalyseIn, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """The analyst's answer: code it wrote, run in a sandbox, and a number-checked summary."""
+    venue = st.projects.venue(project_id)
+    row = analysis_run(st, project_id, venue, body.run_id, body.session_id)
+    if row is None:
+        raise ApiException(
+            409,
+            "no_run",
+            "There is no simulated run to analyse yet.",
+            "Run a stress test first; the analysis reads its crowd movements.",
+        )
+    return await analyse_or_503(st, project_id, venue, row, body.question)
 
 
 # --- what-if ---------------------------------------------------------------------------------
