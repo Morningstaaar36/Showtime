@@ -358,3 +358,26 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
   incomplete.
 - User requested a snapshot on the new `ridwan` branch before further implementation/tests.
   See [current branch status](P2_P3_BRANCH_STATUS.md) for exact verification and remaining work.
+
+## 2026-10-14 — Integration branch `integration/p2-p3` verified (Linux x86_64)
+
+- Branch merges `main` (P2-01), `ridwan` (P2-02 + P3-01 combined review) and
+  `feat/p3-01-guided-journey` (already contained in `ridwan`; recorded as merged).
+- Fixed: fix measures were validated before the fix's own edits, so a fix adding an exit
+  and redirecting people to it was rejected (`apply_fix_bundle`); long project names widened
+  the home page on phones; ruff lint/format. Browser test fixes: dropdowns selected by role;
+  15 s waits for save confirmations because software-rendered WebGL can stall the page.
+- Checks: `make lint` and `make typecheck` green; fast pytest 239 passed, 1 skipped
+  (includes the 50 ms instant-estimate gate); Docker simulator tests 9 passed (24 s);
+  vitest 33 passed; `vite build` OK; Playwright 6 passed (fake LLM, fake sandbox; the
+  operational-plan journey passed 8/8 repeats).
+- Real Docker/JuPedSim, fake LLM (rule-based fallbacks): every step of
+  [P2_02_TESTING.md](P2_02_TESTING.md) passed — preview/apply, stale 409, construction and
+  over-allocation refusals, saved action exactly once in a real run, evidence current →
+  stale → current with undo, export/import with identical plan hash and actions. A
+  conference_hall_2f session found 1 break, accepted fix F1_R1 (new north exit; peak
+  5.32 → 4.27 people/m², p95 292 → 192 s), applied as proposed construction; re-applying
+  or applying after an edit returns 409 `stale_plan`.
+- Not verified: live OpenRouter. The configured key returns 401 "API key expired".
+- Observed, pre-existing on `main`: applying a session with 0 accepted fixes saves an
+  identical new version, and can be repeated.
