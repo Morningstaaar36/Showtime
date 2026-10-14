@@ -38,7 +38,11 @@
     "seconds": "s",
     "apply": "Apply",
     "discard": "Discard",
-    "more": "More"
+    "more": "More",
+    "home_label": "Showtime home",
+    "main_nav": "Main",
+    "plan_event": "Plan an event",
+    "your_plans": "Your plans"
   },
   "onboarding": {
     "title": "Welcome to Showtime",
