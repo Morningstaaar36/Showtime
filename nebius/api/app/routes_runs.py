@@ -211,3 +211,50 @@ def start_sweep(project_id: str, st: AppState = Depends(get_state)) -> dict[str,
 def get_sweep(project_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
     """The latest scenario sweep and its runs (empty when none was started)."""
     return sweep.sweep_status(st, project_id) or {"items": [], "version": None}
+
+
+# --- Stress test at scale (SANDBOX_SCOPE idea 4) -----------------------------------------------
+
+
+class StressIn(BaseModel):
+    """Attacks from the latest test (or the standard rules) × the plan and each kept change
+    × `seeds` random seeds, all as quick simulations."""
+
+    attacks: Literal["session", "rules"] = "session"
+    seeds: int = Field(default=2, ge=1, le=5)
+    include_fixes: bool = True
+
+
+@router.post("/projects/{project_id}/stress", status_code=202)
+async def start_stress(
+    project_id: str, body: StressIn | None = None, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """Fan the runs out over parallel sandboxes; poll `GET /stress/{id}` for the counter."""
+    from api.orchestrator.stress import StressError
+    from api.orchestrator.stress import start_stress as start
+
+    body = body or StressIn()
+    st.projects.get(project_id)  # 404 when missing
+    try:
+        return start(st, project_id, body.attacks, body.seeds, body.include_fixes)
+    except StressError as exc:
+        raise ApiException(422, "stress_too_big", str(exc)) from exc
+
+
+@router.get("/stress/{stress_id}")
+def get_stress(stress_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Live counter (done / total / failed) and one row per run; failures stay listed."""
+    from api.orchestrator.stress import get_stress as load
+
+    rec = load(st, stress_id)
+    if rec is None:
+        raise ApiException(404, "not_found", f"Stress test {stress_id} does not exist.")
+    return rec
+
+
+@router.get("/projects/{project_id}/stress")
+def latest_project_stress(project_id: str, st: AppState = Depends(get_state)) -> Any:
+    """The project's latest stress test at scale, or null."""
+    from api.orchestrator.stress import latest_stress
+
+    return latest_stress(st, project_id)
