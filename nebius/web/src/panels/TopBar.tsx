@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, Clock, Coins, History, Redo2, RotateCcw, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, Clock, History, Redo2, RotateCcw, Undo2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useRedo, useRestoreVersion, useUndo, useVersions } from "@/api/queries";
@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tip } from "@/components/ui/tooltip";
 import { Kbd, ScrollArea } from "@/components/ui/misc";
 import { t } from "@/i18n";
-import { fmtClock, fmtDuration, fmtHM, fmtMoney, fmtRelative, fmtTokens } from "@/lib/format";
+import { fmtClock, fmtDuration, fmtHM, fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Mode } from "@/state/ui";
 
@@ -69,14 +69,8 @@ export function TopBar({ project, mode, countdown, cost }: {
         {t("journey.simple_view")}
       </Link>
       <CountdownChip data={countdown} />
-      {cost && (
-        <Tip content={`${cost.tokens.toLocaleString()} tokens used by AI agents in this project's red-team sessions`}>
-          <span className="hidden h-7 items-center gap-1.5 rounded-[var(--radius-control)] border border-border px-2 text-xs tabular text-muted md:inline-flex">
-            <Coins className="size-3.5" />{fmtTokens(cost.tokens)} · {fmtMoney(cost.usd)}
-          </span>
-        </Tip>
-      )}
-      <ProviderBadge />
+      {/* the project's AI cost lives in the provider badge popover */}
+      <ProviderBadge cost={cost} />
       <ThemeToggle />
     </header>
   );
