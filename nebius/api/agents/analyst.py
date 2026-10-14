@@ -150,6 +150,7 @@ async def _write(env: AgentEnv, values: dict[str, str], user: str) -> AnalystCod
         ANALYST_AGENT,
         values,
         user,
+        output_model=AnalystCode,
         validate=lambda o: check_analysis(o.code),
         summarize=lambda o: o.plan[:200] or "analysis script",
     )
@@ -223,6 +224,7 @@ async def _explain(env: AgentEnv, question: str, plan: str, output: Any) -> tupl
         ANALYST_ANSWER_AGENT,
         values,
         f"Question: {question}",
+        output_model=AnalystAnswer,
         validate=validate,
         summarize=lambda o: o.answer[:200],
     )
