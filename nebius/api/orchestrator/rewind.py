@@ -393,9 +393,8 @@ async def _rewind(
     at_s: float | None,
     chosen: list[dict[str, Any]] | None,
 ) -> None:
-    s = st.settings
     sid, pid, version = record["session_id"], record["project_id"], record["venue_version"]
-    node, source = _source_run(st, sid, attack.attack_id)
+    _node, source = _source_run(st, sid, attack.attack_id)
     moment: dict[str, Any]
     if at_s is not None:
         moment = {"at_s": round(float(at_s), 1), "why": "the moment you chose", "source": "user"}
@@ -406,7 +405,8 @@ async def _rewind(
     t = float(moment["at_s"])
     if source is not None:
         moment["run_id"] = source.run_id
-    tier = 3 if (node == "final:before" or t >= s.tier2_max_sim_s - 10) else 2
+    # full simulations, so every branch reports evacuation time and people still inside
+    tier = 3
     record.update(moment=moment, source_run_id=source.run_id if source else None, tier=tier)
 
     fixes = {f["fix_id"]: Fix.model_validate(f) for f in summary.get("fixes") or []}
