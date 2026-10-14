@@ -122,7 +122,7 @@ export function HomePage() {
             : projects.isLoading ? <div className="grid gap-3 sm:grid-cols-3"><Skeleton className="h-20" /><Skeleton className="h-20" /><Skeleton className="h-20" /></div>
             : recent.length === 0 ? <EmptyState title={t("home.no_plans")} body={t("home.no_plans_body")} />
             : (
-              <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {recent.map((p) => (
                   <li key={p.id}>
                     <Link to={`/p/${p.id}`} className={cn("flex min-h-11 items-center gap-3 rounded-[10px] border border-border bg-surface p-2.5 hover:border-border-strong")}>
