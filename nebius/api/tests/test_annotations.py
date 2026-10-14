@@ -244,7 +244,9 @@ def test_carry_annotations_keeps_organizer_data_and_marks_additions(
     )
 
 
-def _fake_session(state: Any, project_id: str, version: int, final: Venue) -> str:
+def _fake_session(
+    state: Any, project_id: str, version: int, final: Venue, accepted: tuple[str, ...] = ("F1",)
+) -> str:
     from api.db.models import RedTeamSession
     from api.db.session import db_session
 
@@ -256,7 +258,10 @@ def _fake_session(state: Any, project_id: str, version: int, final: Venue) -> st
                 venue_version=version,
                 status="finished",
                 config={},
-                summary={"final_venue": final.model_dump(mode="json"), "accepted_fixes": ["F1"]},
+                summary={
+                    "final_venue": final.model_dump(mode="json"),
+                    "accepted_fixes": list(accepted),
+                },
             )
         )
         db.commit()
@@ -296,6 +301,14 @@ def test_apply_final_refuses_a_plan_for_an_older_geometry(state: Any, registry: 
     with pytest.raises(StalePlan):
         state.sessions.apply_final(sid)
     assert state.projects.get(p.id).current_version == 2
+
+
+def test_apply_final_refuses_a_session_without_kept_fixes(state: Any) -> None:
+    p = state.projects.create("Hall", template_id="conference_hall_2f")
+    sid = _fake_session(state, p.id, 1, state.projects.venue(p.id), accepted=())
+    with pytest.raises(ValueError, match="nothing to apply"):
+        state.sessions.apply_final(sid)
+    assert state.projects.get(p.id).current_version == 1  # no identical version is saved
 
 
 def test_text_edit_reports_an_unavailable_model_as_503(client: TestClient) -> None:

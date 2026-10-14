@@ -1086,6 +1086,9 @@ class SessionManager:
         row = self.get(sid)
         if row is None or not row.summary or not row.summary.get("final_venue"):
             raise ValueError("This session has no fixed plan to apply.")
+        if not row.summary.get("accepted_fixes"):
+            # saving would only add a version identical to the current one
+            raise ValueError("This session kept no fixes, so there is nothing to apply.")
         projects = self.st.projects
         tested = projects.version(row.project_id, row.venue_version)
         current = projects.version(row.project_id)
