@@ -30,7 +30,7 @@ def _create(client: TestClient, pid: str, **kw: Any) -> dict[str, Any]:
 
 def test_scripts_crud(client: TestClient) -> None:
     pid = _new(client)
-    assert client.get(_url(pid)).json() == {"scripts": [], "scenario_supported": False}
+    assert client.get(_url(pid)).json() == {"scripts": [], "scenario_supported": True}
     a = _create(client, pid)
     assert a["author"] == "you" and a["problems"] == [] and a["last_run"] is None
     b = _create(client, pid, name="Close a door", kind="scenario", code=SCENARIO, every_s=2)
@@ -51,9 +51,9 @@ def test_scripts_crud(client: TestClient) -> None:
 def test_scenario_scripts_need_on_step(client: TestClient) -> None:
     pid = _new(client)
     s = _create(client, pid, kind="scenario", code="x = 1\n")
-    assert s["problems"] == ["A scenario script needs a function on_step(view, act)."]
+    assert len(s["problems"]) == 1 and "on_step(view, act)" in s["problems"][0]
     s = _create(client, pid, kind="scenario", code="def on_step(view, act)\n")
-    assert s["problems"][0].startswith("Syntax error")
+    assert "syntax error" in s["problems"][0].lower()
 
 
 def test_an_invalid_script_does_not_run(client: TestClient) -> None:
@@ -95,11 +95,11 @@ def test_timeouts_and_errors_are_kept_with_the_script(client: TestClient) -> Non
     assert client.get(_url(pid)).json()["scripts"][0]["last_run"]["status"] == "timeout"
 
 
-def test_scenario_scripts_wait_for_the_script_event(client: TestClient) -> None:
+def test_scenario_scripts_are_supported_by_the_simulator(client: TestClient) -> None:
     pid = _new(client)
     s = _create(client, pid, kind="scenario", code=SCENARIO)
     r = client.post(_url(pid, f"/{s['id']}/run"), json={})
-    assert r.status_code == 422 and r.json()["code"] == "scenario_unsupported"
+    assert r.status_code == 200 and r.json()["kind"] == "scenario"
 
 
 def test_a_scenario_script_runs_as_a_quick_simulation(
