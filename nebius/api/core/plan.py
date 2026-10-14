@@ -784,9 +784,11 @@ def apply_fix_bundle(venue: Venue, fix: Any, registry: Registry) -> Venue:
     structured = bool(
         fix.actions or fix.replace_actions or fix.remove_action_ids or fix.new_objects
     )
-    if structured or (PLAN_KEY in venue.extensions and plan_data(venue).enforce_constraints):
-        validate_operational(venue, fix.operational, registry)
-        return apply_plan_bundle(
+    enforced = PLAN_KEY in venue.extensions and plan_data(venue).enforce_constraints
+    if enforced and fix.operational:
+        validate_operational(venue, fix.operational, registry)  # unallocated measures are refused
+    if structured or enforced:
+        patched = apply_plan_bundle(
             venue,
             PlanBundle(
                 expected_version=1,
@@ -799,5 +801,10 @@ def apply_fix_bundle(venue: Venue, fix: Any, registry: Registry) -> Venue:
             ),
             registry,
         )
-    validate_operational(venue, fix.operational, registry)
-    return apply_patch(venue, fix.patch, registry).venue if fix.patch.ops else venue
+    else:
+        patched = apply_patch(venue, fix.patch, registry).venue if fix.patch.ops else venue
+    # measures may refer to exits the same fix adds, so check them on the patched venue
+    issues = [p for event in fix.operational for p in event_issues(patched, event, registry)]
+    if issues:
+        raise PlanError(issues)
+    return patched
