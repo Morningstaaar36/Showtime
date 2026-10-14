@@ -159,6 +159,18 @@ def load_density() -> tuple[np.ndarray, dict[str, Any]]:
     return arr, index
 
 
+def leaving_times(every_s: float | None = 1.0) -> pd.DataFrame:
+    """When each person was last seen: [id, t_left] in seconds (sorted by time).
+
+    Someone still inside when the run ended is last seen at the end of the run.
+    """
+    traj = load_trajectories(every_s)
+    if traj.empty:
+        return pd.DataFrame(columns=["id", "t_left"])
+    last = traj.groupby("id", as_index=False)["t"].max().rename(columns={"t": "t_left"})
+    return last.sort_values("t_left", ignore_index=True)
+
+
 def people_near(exit_id: str, radius_m: float = 3.0, every_s: float | None = 1.0) -> pd.DataFrame:
     """How many people are within `radius_m` of an exit's centre at each time: [t, people]."""
     ex = exits()
