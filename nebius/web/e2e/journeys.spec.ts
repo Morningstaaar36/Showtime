@@ -61,7 +61,7 @@ test("plan a new event: create, edit by text, undo, stress test, block an exit",
   await page.getByRole("button", { name: "Run stress test" }).first().click();
   await expect(page.getByText("Stress test finished").first()).toBeVisible({ timeout: 150_000 });
   const health = await (await request.get("/api/v1/health")).json();
-  await expect(page.getByText(health.providers.sandbox.provider === "fake" ? /Preview only/ : /Confirmed by simulation/).first()).toBeVisible();
+  await expect(page.getByText(health.providers.sandbox.provider === "fake" ? /Preview only/ : /Full simulation|Quick simulation/).first()).toBeVisible();
 
   // instant estimate through the API used by "Break it yourself"
   const id = created[created.length - 1];

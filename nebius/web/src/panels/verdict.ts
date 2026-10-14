@@ -1,5 +1,6 @@
 /** Plain-language verdict on a run, from computed numbers only. */
 import type { RunResult } from "@/api/types";
+import { runBasisLabel } from "@/lib/evidence";
 import { fmtDuration, fmtNum } from "@/lib/format";
 
 export type VerdictLevel = "holds" | "at_risk" | "fails" | "unknown";
@@ -17,14 +18,18 @@ export interface Thresholds {
   dangerMinS: number;
 }
 
+/** What a result is, from the backend's evidence basis (older results: from tier and status).
+ * Never says "confirmed": a plan is confirmed by its evaluation, not by one run. */
 export function tierLabel(r: RunResult | null | undefined): string {
   if (!r) return "";
   if (r.provider === "fake" || r.engine === "fake") return "Preview only (no simulation)";
+  const run = ` (run ${r.run_id.slice(2, 8)})`;
+  if (r.basis) return r.tier === 1 ? runBasisLabel(r) : `${runBasisLabel(r)}${run}`;
   if (r.status !== "ok" && r.status !== "partial") return "Simulation did not complete";
   if (r.status === "partial") return "Partial simulation (stopped early)";
   if (r.tier === 1) return "Instant estimate (formula)";
-  if (r.tier === 2) return "Ranking run (first 3 minutes)";
-  return `Confirmed by simulation (run ${r.run_id.slice(2, 8)})`;
+  if (r.tier === 2) return `Quick simulation (first minutes only)${run}`;
+  return `Full simulation${run}`;
 }
 
 export function verdictOf(r: RunResult | null | undefined, th: Thresholds, exitLabel: (id: string) => string): Verdict {

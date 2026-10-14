@@ -19,6 +19,12 @@ describe("evidence labels", () => {
     expect(verdictOf(run({ status }), thresholds, (id) => id).level).toBe("unknown");
     expect(tierLabel(run({ status }))).not.toContain("Confirmed");
   });
+  it("labels runs by the backend basis and never as confirmed", () => {
+    expect(tierLabel(run({ basis: "completed_simulation" }))).toMatch(/^Full simulation \(run /);
+    expect(tierLabel(run({ tier: 2, basis: "partial_simulation" }))).toMatch(/^Quick simulation/);
+    expect(tierLabel(run({ basis: "unknown", status: "failed" }))).not.toContain("Confirmed");
+    expect(tierLabel(run())).toMatch(/^Full simulation/); // older results without a basis
+  });
   it("does not pass a partial result with no recorded failure", () => {
     expect(verdictOf(run({ status: "partial" }), thresholds, (id) => id).level).toBe("unknown");
   });
