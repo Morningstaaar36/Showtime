@@ -65,6 +65,13 @@ the installed SDK source (not against the live service):
 | Each run | `await parent.run(shell="cd /app && python run_sim.py /work", files=..., disposable=False)` |
 | Results | `await image.read("/work/result.json")`, `traj.bin`, `density.bin` |
 
+What the sandboxes run: every crowd simulation, every AI-written scenario script (inside the
+simulation), every analysis script the AI or a user writes (`run_code` jobs), and rewind
+branches. Each run works in its own folder `/work/<run_id>/`, so a branch never sees its parent's
+results; a rewind branch is a snapshot child of the checkpoint run and starts from its
+`checkpoint.json`. Attacks and fixes of a round run in parallel up to `SANDBOX_MAX_PARALLEL`.
+Not possible through the SDK: per-job network and memory limits (local Docker sets both).
+
 The base image id is cached in `cache/nebius/base_image.json` (keyed by a hash of `sim/`).
 Each run is a child snapshot of the venue node, so branches are real sandbox snapshots.
 
