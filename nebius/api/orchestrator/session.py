@@ -24,6 +24,16 @@ from api.agents.judge import judge
 from api.agents.red_team import incident_query, red_team, venue_features
 from api.core.annotations import carry_annotations
 from api.core.countdown import compute_countdown
+from api.core.evidence import (
+    CostMeter,
+    attempt_id,
+    comparable,
+    describe_run,
+    evaluate,
+    evaluation_sentence,
+    evidence_sentence,
+    fallback_for,
+)
 from api.core.extensions import HazardContext, HazardResult, IncidentRecord
 from api.core.plan import (
     PlanConflict,
@@ -178,6 +188,7 @@ class LiveSession:
     final_venue: Venue | None = None
     measures: list[ScenarioEventIn] = field(default_factory=list)
     tested: list[str] = field(default_factory=list)
+    cost: CostMeter = field(default_factory=CostMeter)
 
 
 class SessionManager:
@@ -376,29 +387,60 @@ class SessionManager:
             },
         )
         live.runs += 1
-        res = await st.runs.run(
+        res: RunResult = await st.runs.run(
             job,
             project_id=live.project_id,
             venue_version=live.venue_version,
             session_id=live.id,
             label=label,
         )
-        if res.status in ("failed", "timeout") and job.tier1 is not None:
-            # never stall the session: fall back to the instant estimate for this branch
-            fb = job.tier1.model_copy(deep=True)
-            fb.run_id = rid
-            fb.notes = [*fb.notes, f"Simulation {res.status}: showing the instant estimate."]
-            self.emit(
-                live,
-                "log",
-                {
-                    "level": "warning",
-                    "message": f"{label}: simulation {res.status}; used the instant estimate",
-                },
-            )
-            res = fb
-        result: RunResult = res
-        return result
+        live.cost.add_run(res)
+        if res.status not in ("failed", "timeout", "cancelled"):
+            return res
+        # Never stall the session: show the instant estimate for this branch. The failed
+        # simulation stays on record as it is (basis unknown); the estimate is a separate,
+        # linked run that may rank attacks but can never confirm anything.
+        fb: RunResult | None = st.runs.record_fallback(
+            job,
+            res,
+            project_id=live.project_id,
+            venue_version=live.venue_version,
+            session_id=live.id,
+            label=label,
+        )
+        if fb is None:
+            return res
+        live.cost.add_estimates()
+        self.emit(
+            live,
+            "run_finished",
+            {
+                "run_id": res.run_id,
+                "node_id": node_id,
+                "status": res.status,
+                "tier": res.tier,
+                "metrics": headline(res),
+                "provider": res.provider,
+                "engine": res.engine,
+                "basis": res.basis,
+                "error": res.error,
+                "fallback_run_id": fb.run_id,
+                "cache_hit": bool(res.extensions.get("cache_hit")),
+                "is_break": False,
+                "break_reasons": [],
+                "accepted": None,
+            },
+        )
+        self.emit(
+            live,
+            "log",
+            {
+                "level": "warning",
+                "message": f"{label}: simulation {res.status}; showing the instant estimate "
+                f"(run {fb.run_id}) in its place",
+            },
+        )
+        return fb
 
     async def _run(self, live: LiveSession) -> None:
         st = self.st
@@ -457,7 +499,7 @@ class SessionManager:
                 self._status(live, "screening", rnd, "Ranking attacks with the instant estimate")
                 ranked: list[tuple[float, Attack]] = []
                 for a in attacks:
-                    est = st.runs.estimate(working, a, extra=live.measures)
+                    est = self._estimate(live, working, a, extra=live.measures)
                     ranked.append((severity(est), a))
                     self.emit(
                         live,
@@ -516,18 +558,31 @@ class SessionManager:
                 for sev, a, r in breaks[: int(cfg["fix_targets"])]:
                     self._check(live)
                     if len(accepted) > accepted_before_round:
+                        current = f"atk:{a.attack_id}:current:{len(accepted)}"
                         r = await self._sim(
                             live,
                             working,
                             2,
                             a.title,
-                            f"atk:{a.attack_id}:current:{len(accepted)}",
+                            current,
                             None,
                             "attack",
                             attack=a,
                             extra=live.measures,
                         )
                         results[r.run_id] = r
+                        self._node_done(
+                            live,
+                            current,
+                            r,
+                            break_reasons(
+                                r,
+                                s.density_danger_ppm2,
+                                s.danger_min_duration_s,
+                                self._target(working),
+                                s.safety_factor,
+                            ),
+                        )
                         sev = severity(r)
                     self._status(live, "blue_team", rnd, f"Blue team is fixing “{a.title}”")
                     fixes = await self._fixes(
@@ -581,9 +636,26 @@ class SessionManager:
                             s.safety_factor,
                         )
                         # kept when it removes the break, or improves the result by FIX_MIN_GAIN,
-                        # and never when it makes the plan worse without the attack
+                        # and never when it makes the plan worse without the attack. Both sides
+                        # must be simulations (or both previews): an instant estimate shown in
+                        # place of a failed simulation is never enough to keep a change.
                         helps = (not fr_reasons and gain > 0) or gain >= float(s.fix_min_gain)
-                        ok = helps and not self._hurts_baseline(working, fx, baseline, live)
+                        evidence_ok = comparable(r, fr)
+                        ok = (
+                            helps
+                            and evidence_ok
+                            and not self._hurts_baseline(working, fx, baseline, live)
+                        )
+                        if helps and not evidence_ok:
+                            self.emit(
+                                live,
+                                "log",
+                                {
+                                    "level": "warning",
+                                    "message": f"{fx.title}: not kept, because there is no "
+                                    "finished simulation to compare (only an instant estimate)",
+                                },
+                            )
                         self._node_done(
                             live,
                             f"fix:{fx.fix_id}",
@@ -596,7 +668,11 @@ class SessionManager:
                             env,
                             "orchestrator",
                             "fix accepted" if ok else "fix rejected",
-                            {"fix_id": fx.fix_id, "gain": round(gain, 3)},
+                            {
+                                "fix_id": fx.fix_id,
+                                "gain": round(gain, 3),
+                                "comparable_evidence": evidence_ok,
+                            },
                         )
                         if ok:
                             accepted.append(fx.fix_id)
@@ -644,8 +720,22 @@ class SessionManager:
         s = self.st.settings
         return float(s.target_evac_indoor_s if venue.mode == "indoor" else s.target_evac_outdoor_s)
 
+    def _estimate(
+        self,
+        live: LiveSession,
+        venue: Venue,
+        attack: Attack | None = None,
+        fix: Fix | None = None,
+        extra: list[ScenarioEventIn] | None = None,
+    ) -> RunResult:
+        """An instant estimate the session uses as evidence (counted in its cost record)."""
+        live.cost.add_estimates()
+        est: RunResult = self.st.runs.estimate(venue, attack, fix, extra=extra)
+        return est
+
     def _cost(self, live: LiveSession, u: Any) -> None:
         self.st.usage.add(u)
+        live.cost.add_usage(u)
         b = live.budget
         if b is not None:
             self.emit(
@@ -741,8 +831,8 @@ class SessionManager:
         """A fix must not make the plan worse without the attack (instant estimate)."""
         if baseline is None:
             return False
-        before = self.st.runs.estimate(venue, None, extra=live.measures)
-        after = self.st.runs.estimate(venue, None, fix, extra=live.measures)
+        before = self._estimate(live, venue, None, extra=live.measures)
+        after = self._estimate(live, venue, None, fix, extra=live.measures)
         return severity(after) > severity(before) * 1.05 + 1.0
 
     def _apply_ops(self, venue: Venue, ops: list[dict[str, Any]], live: LiveSession) -> Venue:
@@ -761,19 +851,24 @@ class SessionManager:
     ) -> None:
         status = (
             "failed"
-            if r.status == "failed"
+            if r.status in ("failed", "timeout", "cancelled")
             else "rejected"
             if accepted is False
             else "break"
             if reasons
             else "ok"
         )
+        # what the node's numbers are based on; a fallback names the failed run it replaces
+        evidence: dict[str, Any] = {"basis": r.basis}
+        if fallback_for(r):
+            evidence["fallback_for"] = fallback_for(r)
         payload: dict[str, Any] = {
             "node_id": node_id,
             "run_id": r.run_id,
             "status": status,
             "metrics": headline(r),
             "tier": r.tier,
+            **evidence,
         }
         if accepted is not None:
             payload["accepted"] = accepted
@@ -791,6 +886,8 @@ class SessionManager:
                 "metrics": headline(r),
                 "provider": r.provider,
                 "engine": r.engine,
+                **evidence,
+                "cache_hit": bool(r.extensions.get("cache_hit")),
                 "is_break": bool(reasons),
                 "break_reasons": reasons or [],
                 "accepted": accepted,
@@ -817,6 +914,12 @@ class SessionManager:
         after: RunResult | None = None
         final_run_id: str | None = None
         stopped = reason.startswith("stopped") or reason.startswith("budget")
+        # Session status (did it finish?) and evaluation status (what do the results show?)
+        # are separate; only the confirmation runs under the worst attack can confirm a plan.
+        confirming = False
+        confirm_before: RunResult | None = None
+        confirm_after: RunResult | None = None
+        confirm_error: str | None = None
         try:
             if worst and accepted and live.config.get("confirm_tier3") and not stopped:
                 self._status(live, "confirming", len(scoreboard), "Confirming the best plan")
@@ -824,7 +927,9 @@ class SessionManager:
                 kept = [f for f in fixes if f.fix_id in accepted]
                 live.stop_requested = False
                 live.config["max_runs"] = int(live.config["max_runs"]) + 2
-                before = await self._sim(
+                self._check(live)  # the wall clock may already be spent
+                confirming = True
+                confirm_before = before = await self._sim(
                     live,
                     venue,
                     3,
@@ -847,7 +952,7 @@ class SessionManager:
                         s.safety_factor,
                     ),
                 )
-                after = await self._sim(
+                confirm_after = after = await self._sim(
                     live,
                     working,
                     3,
@@ -860,7 +965,8 @@ class SessionManager:
                     meta={"fixes": [f.fix_id for f in kept]},
                 )
                 results[after.run_id] = after
-                final_run_id = after.run_id
+                # the simulation attempted, even when an estimate is shown in its place
+                final_run_id = attempt_id(after)
                 self._node_done(
                     live,
                     "final:after",
@@ -874,10 +980,26 @@ class SessionManager:
                     ),
                 )
         except Exception as exc:
+            confirm_error = str(exc) or type(exc).__name__
             self.emit(live, "log", {"level": "warning", "message": f"Confirmation skipped: {exc}"})
+        evaluation = evaluate(
+            confirm_before if confirming else before,
+            confirm_after,
+            confirmation_ran=confirming,
+            kept=len(accepted),
+            had_breaks=worst is not None,
+            stopped_reason=reason,
+            baseline=baseline,
+            error=confirm_error,
+        )
         # external hazards only (wind, or a time the user set); attack events are scenario
         # details, not the event's hazard deadline
-        countdown = await self._countdown(live, working, None, after or before)
+        scenario = (
+            "the worst red-team attack" + (" with the kept fixes" if after else "")
+            if worst
+            else "the baseline"
+        )
+        countdown = await self._countdown(live, working, None, after or before, scenario)
         if countdown is not None:
             self.emit(live, "countdown", {"countdown": countdown.model_dump()})
         facts = {
@@ -894,21 +1016,12 @@ class SessionManager:
             "after_fixes": headline(after),
             "countdown": countdown.model_dump() if countdown else None,
             "stopped_reason": reason,
+            # wording follows the evidence: what the results are, whether before and after
+            # may be compared, and the evaluation status with its reasons
+            "evidence_basis": evidence_sentence(after or before or baseline),
+            "comparable": comparable(before, after),
+            "evaluation": evaluation_sentence(evaluation),
         }
-        assessment_run = after or before or baseline
-        if assessment_run is None:
-            basis = "No usable result was available."
-        elif assessment_run.provider == "fake" or assessment_run.engine == "fake":
-            basis = "Preview only: these results use mock simulations."
-        elif assessment_run.tier == 1:
-            basis = "These results are instant estimates."
-        elif assessment_run.status != "ok":
-            basis = "These results include an incomplete simulation."
-        elif not assessment_run.engine:
-            basis = "The simulation engine for these results is unverified."
-        else:
-            basis = "These results describe the tested scenarios under the configured assumptions."
-        facts["evidence_basis"] = basis
         template = self._template(facts)
         facts_for_judge = plain_keys(facts)
         self._status(live, "judging", len(scoreboard), "Judge is checking every number")
@@ -933,6 +1046,9 @@ class SessionManager:
             "stopped_reason": reason,
             "final_venue": working.model_dump(mode="json"),
             "measures": [m.model_dump() for m in live.measures],
+            "evaluation": evaluation,
+            # measured after the judge, so every model call of the session is included
+            "cost": live.cost.record(wall_s=time.monotonic() - live.started),
         }
         status = "stopped" if reason == "stopped by user" else "finished"
         b = live.budget
@@ -1012,17 +1128,25 @@ class SessionManager:
         else:
             parts.append("No fixes were accepted.")
         b, a = f["before_fixes"], f["after_fixes"]
-        if b and a and f["fixes_kept"]:
+        # an estimate standing in for a failed simulation is not compared with a simulation
+        if b and a and f["fixes_kept"] and f.get("comparable", True):
             parts.append(
                 f"Under that scenario, peak density went from {b['peak_density_ppm2']} to "
                 f"{a['peak_density_ppm2']} people per m² and time above danger from "
                 f"{b['time_above_danger_s']:.0f} s to {a['time_above_danger_s']:.0f} s."
             )
+        if f.get("evaluation"):
+            parts.append(f["evaluation"])
         parts.append("Planning aid, not a safety certification.")
         return " ".join(parts)
 
     async def _countdown(
-        self, live: LiveSession, venue: Venue, attack: Attack | None, run: RunResult | None
+        self,
+        live: LiveSession,
+        venue: Venue,
+        attack: Attack | None,
+        run: RunResult | None,
+        scenario: str = "the worst red-team attack",
     ) -> Countdown | None:
         st = self.st
         s = st.settings
@@ -1055,18 +1179,8 @@ class SessionManager:
             if timed
             else (hazards[0] if hazards else None)
         )
-        source = ""
-        if run:
-            basis = (
-                "preview estimate (no simulation)"
-                if run.provider == "fake" or run.engine == "fake"
-                else "instant estimate"
-                if run.tier == 1
-                else "partial simulation"
-                if run.status == "partial"
-                else "simulation"
-            )
-            source = f"the worst red-team attack, using {basis} (run {run.run_id})"
+        # the wording follows the run's basis; it never claims more than that run shows
+        source = f"{scenario} ({describe_run(run)})" if run else ""
         return compute_countdown(
             chosen,
             rset,

@@ -694,5 +694,23 @@
     "not_found_body": "It may have been deleted. Start a new one from Home.",
     "go_home": "Go to Home",
     "notes": "Good to know"
+  },
+  "evidence": {
+    "basis": {
+      "instant_estimate": "Instant estimate",
+      "partial_simulation": "Quick simulation (first minutes only)",
+      "partial_simulation_full": "Full simulation, stopped before everyone was out",
+      "completed_simulation": "Full simulation",
+      "completed_simulation_quick": "Quick simulation (ran to the end)",
+      "preview": "Preview (no simulator)",
+      "unknown": "Unknown: the simulation didn't finish",
+      "fallback": "Instant estimate (the simulation didn't finish)"
+    },
+    "evaluation": {
+      "confirmed": "Confirmed by full simulations",
+      "partially_confirmed": "Partly confirmed: the simulations stopped before everyone was out",
+      "unconfirmed": "Not confirmed",
+      "failed": "Confirmation failed: the simulations didn't finish"
+    }
   }
 }

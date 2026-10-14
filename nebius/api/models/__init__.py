@@ -3,11 +3,13 @@
 from api.models.run import (
     Hotspot,
     PerExit,
+    ResultBasis,
     RunArtifacts,
     RunMetrics,
     RunRequest,
     RunResult,
     RunStatus,
+    result_basis,
 )
 from api.models.scenario import (
     Attack,
@@ -46,6 +48,7 @@ __all__ = [
     "PerExit",
     "Point",
     "Polygon",
+    "ResultBasis",
     "RunArtifacts",
     "RunMetrics",
     "RunRequest",
@@ -60,6 +63,7 @@ __all__ = [
     "Venue",
     "VenuePatch",
     "Zone",
+    "result_basis",
 ]
 
 # Resolve typed planning fields after both sides of the scene/plan contract load.

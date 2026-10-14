@@ -3357,11 +3357,25 @@
      "additionalProperties": true,
      "title": "Extensions",
      "type": "object"
+    },
+    "basis": {
+     "description": "Evidence basis, always derived (see `result_basis`), so it can never go stale.",
+     "enum": [
+      "instant_estimate",
+      "partial_simulation",
+      "completed_simulation",
+      "preview",
+      "unknown"
+     ],
+     "readOnly": true,
+     "title": "ResultBasis",
+     "type": "string"
     }
    },
    "required": [
     "artifacts",
     "attack_id",
+    "basis",
     "engine",
     "error",
     "extensions",
