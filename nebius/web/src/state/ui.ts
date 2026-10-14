@@ -92,7 +92,7 @@ const DEFAULT_LAYERS: Layers = {
 const prefs = loadPrefs();
 
 export const useUi = create<UiState>((set, get) => ({
-  theme: prefs.theme ?? "system",
+  theme: prefs.theme ?? "light", // bright by default; dark only when the organizer picks it
   units: prefs.units ?? "metric",
   tool: "select",
   selection: null,

@@ -10,7 +10,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-signal text-signal-ink hover:brightness-110 active:brightness-95 shadow-sm",
+        primary: "bg-signal bg-[linear-gradient(135deg,var(--signal),color-mix(in_srgb,var(--signal)_70%,var(--pink)))] text-signal-ink shadow-[0_6px_16px_-6px_color-mix(in_srgb,var(--signal)_60%,transparent)] hover:brightness-110 active:brightness-95",
         secondary: "bg-surface text-ink border border-border hover:bg-surface-2 hover:border-border-strong",
         ghost: "text-ink hover:bg-surface-3/70",
         subtle: "bg-surface-2 text-ink hover:bg-surface-3",
@@ -21,7 +21,7 @@ const buttonVariants = cva(
       size: {
         sm: "h-8 px-3 text-sm",
         md: "h-9 px-4 text-sm",
-        lg: "h-11 px-5 text-base",
+        lg: "h-12 px-6 text-base",
         icon: "size-9",
         "icon-sm": "size-8",
       },
