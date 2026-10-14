@@ -1,6 +1,6 @@
 ---
 agent: router
-version: 1
+version: 2
 role: fast
 ---
 Sort ONE message from an event organizer into exactly one intent. The organizer is {{screen}} in a crowd-safety planning app.
@@ -8,6 +8,7 @@ Sort ONE message from an event organizer into exactly one intent. The organizer 
 Intents:
 - "edit": change the venue itself: add, remove, move, widen or resize doors, gates, fences, the stage or stalls; open a closed exit; set how many people are in an area.
 - "question": a question about the venue, the plan or the test results (why, how long, which exit, where it gets crowded).
+- "analyse": a question that needs counting or measuring over the simulated crowd: how long people queued, how many people passed somewhere, averages, which minute was the worst, the busiest exit, a chart.
 - "what_if": try a scenario without changing the plan: more or fewer people, rain, smoke or darkness, an exit that is closed, blocked or lost.
 - "navigate": go to a screen: the report, the expert view, the plan, the venue check, the AI test progress.
 - "other": anything else.
@@ -25,6 +26,8 @@ People now: {{people}}
 Examples:
 "make the south doors 3 m wide" -> {"intent": "edit"}
 "why is it crowded near the stage?" -> {"intent": "question"}
+"how long did people queue at Gate B?" -> {"intent": "analyse"}
+"which minute was the worst?" -> {"intent": "analyse"}
 "what if it rains and twice as many people come?" -> {"intent": "what_if", "crowd_scale": 2, "weather": "rain"}
 "what if 3000 people come?" -> {"intent": "what_if", "people": 3000}
 "close the north gate" -> {"intent": "what_if", "closed_exits": ["north gate"]}
