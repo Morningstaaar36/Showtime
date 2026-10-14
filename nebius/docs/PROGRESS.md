@@ -401,3 +401,38 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
 - Checks: lint, types, fast pytest 243 passed / 1 skipped, vitest 39, Playwright 6/6 (fake
   providers). `make up` stack with live OpenRouter: map flow and a conference-hall session
   (2 breaks, 2 fixes kept, peak 6.95 → 4.6 people/m², p95 279 → 168 s, 9 Docker runs).
+
+## 2026-10-14 (evening) — Remaining core work, merged on `ui/simple-organizer`
+
+Built in parallel git worktrees, each feature on its own branch, merged with `--no-ff`:
+
+- **Typed evidence (P2-03):** every run has a `basis` (instant estimate, partial or completed
+  simulation, preview, unknown); a failed simulation stays visible next to a separate linked
+  estimate; fixes are kept only on simulation evidence; sessions carry an `evaluation`
+  (confirmed only when the before/after full simulations ran to the end) and a `cost` record.
+  All "confirmed by simulation" wording now comes from the basis (report, Expert view, score,
+  countdown, ask answers, glossary).
+- **Autopilot (N13):** `POST /autopilot` from a sentence or a project through the LangGraph
+  graph and a red-team session to a tested plan, eight plain steps with SSE replay, stop,
+  outage notes; never applies fixes. Home → Describe it → **Plan it for me**; `/autopilot/:id`.
+- **Ask or change anything (N15):** `POST /projects/{id}/ask-anything` routes edit / question /
+  what-if / navigate with the fast model, keyword fallback (20/20 on the fixture set with the
+  model down); edits are previews until confirmed. Fast-model answers that stay invalid are
+  escalated once to the main model.
+- **Your plan (P3-03/05/06, N16):** choose which kept fixes to accept (`{fix_ids}`; subsets
+  are labelled "tested one by one"), cost card, printable handover checklist exporter
+  (`/sessions/{id}/checklist`), ask box, one next step per state.
+- **UI polish:** Projects, Settings, Help, Onboarding, NotFound, Copilot and Expert view
+  (View menu, cost in the provider badge, "Plan for the day"), dark mode and phone widths.
+- **Nebius readiness:** self-healing requests (no JSON mode, rejected extras, reasoning that
+  used every token), `make use-nebius|use-openrouter|use-local`, `make smoke-nebius` per role;
+  Token Factory endpoint and auth verified. CI workflow and root licence restored.
+- Checks: lint, mypy, import contracts; pytest 425 passed / 1 skipped; vitest 94; Playwright
+  6/6 (fake providers).
+- **Live on the rebuilt `make up` stack** (OpenRouter Nemotron 3 Super, real JuPedSim):
+  Autopilot from a sentence → designed school hall, 4 model calls, plan held up, evaluation
+  "unconfirmed: nothing to fix", nothing applied; ask box: what-if, question and edit routed
+  by the model, edit saved only on confirm; Autopilot on the conference hall → 2 of 3 attacks
+  broke it, 2 fixes kept, evaluation **confirmed** (peak 6.95 → 4.6 people per m², 95%
+  evacuation 4 min 39 s → 2 min 48 s, 0 inside), subset accepted with the "tested one by one"
+  note, checklist and report generated; no browser page errors.
