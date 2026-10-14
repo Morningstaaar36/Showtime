@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, Clock, History, Redo2, RotateCcw, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, Clock, FileCode2, History, Redo2, RotateCcw, Undo2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useRedo, useRestoreVersion, useUndo, useVersions } from "@/api/queries";
@@ -67,6 +67,10 @@ export function TopBar({ project, mode, countdown, cost }: {
         ))}
       </nav>
 
+      <Link to={`/p/${project.id}/scripts`}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted hover:bg-surface-2 hover:text-ink">
+        <FileCode2 className="size-4" aria-hidden />{t("userscripts.open")}
+      </Link>
       <CountdownChip data={countdown} />
       {/* the project's AI cost lives in the provider badge popover */}
       <ProviderBadge cost={cost} />
