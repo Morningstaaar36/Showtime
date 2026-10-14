@@ -1,8 +1,8 @@
 """Typed evidence in Red Team Night sessions (P2-03).
 
 A failed or timed-out simulation stays on record with basis `unknown`; the instant estimate
-shown in its place is a separate, linked run. FakeLLM and fake runners only: no Docker, no
-live model calls.
+shown in its place is a separate, linked run that is never enough to keep a fix. FakeLLM and
+fake runners only: no Docker, no live model calls.
 """
 
 from __future__ import annotations
@@ -87,3 +87,20 @@ async def test_a_failed_simulation_keeps_its_record_next_to_a_linked_estimate(
     assert node_ev[-1]["run_id"] == fallback_id and node_ev[-1]["fallback_for"] == failed_id
     if node == "final:after":
         assert row.summary["final_run_id"] == failed_id  # the attempt, never the estimate
+
+
+async def test_fallback_estimate_never_keeps_a_fix(make_state: Callable[..., Any]) -> None:
+    st = make_state(outcome=lambda job: "timeout" if job.request.fix_id else None)
+    p = st.projects.create("Hall", template_id="conference_hall_2f")
+    row = await _session(st, p.id)
+    s = row.summary
+    assert s["fixes"], "the blue team proposed fixes"
+    assert s["accepted_fixes"] == []
+    fix_nodes = [
+        e.payload
+        for e in _events(st, row.id, "run_finished")
+        if str(e.payload.get("node_id", "")).startswith("fix:") and e.payload.get("fallback_for")
+    ]
+    assert fix_nodes and all(n["accepted"] is False for n in fix_nodes)
+    logs = [e.payload["message"] for e in _events(st, row.id, "log")]
+    assert any("not kept, because there is no finished simulation" in m for m in logs)

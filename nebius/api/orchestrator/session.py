@@ -26,6 +26,7 @@ from api.core.annotations import carry_annotations
 from api.core.countdown import compute_countdown
 from api.core.evidence import (
     attempt_id,
+    comparable,
     fallback_for,
 )
 from api.core.extensions import HazardContext, HazardResult, IncidentRecord
@@ -626,9 +627,26 @@ class SessionManager:
                             s.safety_factor,
                         )
                         # kept when it removes the break, or improves the result by FIX_MIN_GAIN,
-                        # and never when it makes the plan worse without the attack
+                        # and never when it makes the plan worse without the attack. Both sides
+                        # must be simulations (or both previews): an instant estimate shown in
+                        # place of a failed simulation is never enough to keep a change.
                         helps = (not fr_reasons and gain > 0) or gain >= float(s.fix_min_gain)
-                        ok = helps and not self._hurts_baseline(working, fx, baseline, live)
+                        evidence_ok = comparable(r, fr)
+                        ok = (
+                            helps
+                            and evidence_ok
+                            and not self._hurts_baseline(working, fx, baseline, live)
+                        )
+                        if helps and not evidence_ok:
+                            self.emit(
+                                live,
+                                "log",
+                                {
+                                    "level": "warning",
+                                    "message": f"{fx.title}: not kept, because there is no "
+                                    "finished simulation to compare (only an instant estimate)",
+                                },
+                            )
                         self._node_done(
                             live,
                             f"fix:{fx.fix_id}",
@@ -641,7 +659,11 @@ class SessionManager:
                             env,
                             "orchestrator",
                             "fix accepted" if ok else "fix rejected",
-                            {"fix_id": fx.fix_id, "gain": round(gain, 3)},
+                            {
+                                "fix_id": fx.fix_id,
+                                "gain": round(gain, 3),
+                                "comparable_evidence": evidence_ok,
+                            },
                         )
                         if ok:
                             accepted.append(fx.fix_id)
