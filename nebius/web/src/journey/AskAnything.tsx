@@ -1,7 +1,8 @@
 /** "Ask or change anything" (N15): one box for the whole journey. The server sorts the sentence
  * (the AI, else keywords): an edit is previewed in 3D and saved only with Apply, a question is
- * answered from the run's numbers, a what-if shows instant estimates computed in code, and a
- * request for a screen goes there. Reusable: pass the screen, the session and the preview. */
+ * answered from the run's numbers, a what-if shows instant estimates computed in code, an
+ * analysis shows what code run in a sandbox computed (and the code), and a request for a screen
+ * goes there. Reusable: pass the screen, the session and the preview. */
 import { AlertTriangle, Calculator, ExternalLink, ShieldCheck, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
@@ -11,6 +12,7 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { textHumanizer } from "@/lib/venueText";
 import { useUi } from "@/state/ui";
+import { AnalysisCard } from "./AnalysisCard";
 import { AskInput, EditProposal, type ProposalPreview, useEditPreview } from "./AskChange";
 import { type AskError, askError, cappedNote, intentMeta, navAction, retryWithExit, whatIfChips, whatIfRows } from "./askAnything";
 
@@ -86,6 +88,12 @@ export function AskAnything({ project, context, sessionId = null, onPreview, cla
           )}
           {out?.intent === "question" && <AnswerCard answer={out.result} project={project} />}
           {out?.intent === "what_if" && <WhatIfCard result={out.result} onPick={send} />}
+          {out?.intent === "analyse" && (
+            <AnalysisCard status={out.result.status} output={out.result.output} code={out.result.code}
+                          answer={out.result.answer} numbersChecked={out.result.numbers_checked} plan={out.result.plan}
+                          runtimeS={out.result.runtime_s} sandbox={out.result.sandbox} basis={out.result.basis}
+                          stderrTail={out.result.stderr_tail} problems={out.result.problems} />
+          )}
           {nav?.kind === "open" && (
             <div className="space-y-1">
               <p>{t("ask.report_opened")}</p>

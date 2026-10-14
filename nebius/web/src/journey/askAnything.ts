@@ -1,5 +1,5 @@
 /** Pure helpers of the "Ask or change anything" box: labels, where to go, what-if rows. */
-import { CircleHelp, Compass, FlaskConical, type LucideIcon, MessageCircleQuestion, PencilRuler } from "lucide-react";
+import { BarChart3, CircleHelp, Compass, FlaskConical, type LucideIcon, MessageCircleQuestion, PencilRuler } from "lucide-react";
 import { api, ApiError } from "@/api/client";
 import type { AskIntent, AskTarget, AskWhatIf, WhatIfParams } from "@/api/queries";
 import type { WhatIfOut } from "@/api/types";
@@ -12,6 +12,7 @@ const META: Record<AskIntent, { key: string; icon: LucideIcon; tone: string }> =
   edit: { key: "ask.intent_edit", icon: PencilRuler, tone: "bg-signal-soft text-signal" },
   question: { key: "ask.intent_question", icon: MessageCircleQuestion, tone: "bg-sky-soft text-sky" },
   what_if: { key: "ask.intent_what_if", icon: FlaskConical, tone: "bg-orange-soft text-orange" },
+  analyse: { key: "analyst.intent", icon: BarChart3, tone: "bg-egress-soft text-egress" },
   navigate: { key: "ask.intent_navigate", icon: Compass, tone: "bg-teal-soft text-teal" },
   other: { key: "ask.intent_other", icon: CircleHelp, tone: "bg-pink-soft text-pink" },
 };
@@ -91,7 +92,8 @@ export function askError(e: unknown): AskError {
   const intent = (typeof e.details.intent === "string" ? e.details.intent : null) as AskIntent | null;
   const list = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
   if (e.code === "llm_unavailable" || e.status === 503) {
-    const text = intent === "edit" ? t("ask.ai_down_edit") : intent === "question" ? t("ask.ai_down_question") : t("ask.ai_down");
+    const text = intent === "edit" ? t("ask.ai_down_edit") : intent === "question" ? t("ask.ai_down_question")
+      : intent === "analyse" ? t("analyst.ai_down") : t("ask.ai_down");
     return { ...base, text, intent };
   }
   if (e.code === "unknown_exit") {

@@ -4,7 +4,7 @@ import type { AskIntent, AskWhatIf, WhatIfParams } from "@/api/queries";
 import type { WhatIfOut } from "@/api/types";
 import { askError, cappedNote, intentMeta, navAction, retryWithExit, whatIfChips, whatIfRows } from "@/journey/askAnything";
 
-const INTENTS: AskIntent[] = ["edit", "question", "what_if", "navigate", "other"];
+const INTENTS: AskIntent[] = ["edit", "question", "what_if", "analyse", "navigate", "other"];
 
 function estimate(people: number, evac: number | null, peak: number, safe: number, score: number, stuck = 0): WhatIfOut {
   return {
