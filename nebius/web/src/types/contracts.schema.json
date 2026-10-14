@@ -3169,6 +3169,25 @@
      "default": null,
      "title": "Intervention At S"
     },
+    "checkpoint_at_s": {
+     "anyOf": [
+      {
+       "maximum": 3600,
+       "minimum": 0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Checkpoint At S"
+    },
+    "resume": {
+     "default": false,
+     "title": "Resume",
+     "type": "boolean"
+    },
     "engine": {
      "default": "jupedsim",
      "title": "Engine",
@@ -3201,6 +3220,7 @@
    },
    "required": [
     "attack_id",
+    "checkpoint_at_s",
     "engine",
     "extensions",
     "fix_id",
@@ -3210,6 +3230,7 @@
     "max_wall_s",
     "metrics",
     "parent_run_id",
+    "resume",
     "run_id",
     "schema_version",
     "seed",
