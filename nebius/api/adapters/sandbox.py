@@ -82,6 +82,20 @@ def write_job_files(work: Path, job: SimJob) -> None:
         (work / name).write_text(json.dumps(data))
 
 
+def hand_over(work: Path, sim_user: str) -> None:
+    """Give a run folder to the simulation user so it can write its results.
+
+    Needed when the API runs as root (in Docker on Linux): the folder it creates would be
+    root-owned and the non-root simulation container could not write `result.json`.
+    """
+    uid, _, gid = sim_user.partition(":")
+    if not uid.isdigit():
+        return
+    owner, group = int(uid), int(gid) if gid.isdigit() else -1
+    for path in [work, *work.rglob("*")]:
+        os.chown(path, owner, group)
+
+
 def read_result(work: Path, job: SimJob, provider: str, runs_root: Path) -> RunResult:
     """Parse result.json and make artifact paths relative to the project root."""
     raw = json.loads((work / "result.json").read_text())
@@ -216,6 +230,8 @@ class DockerRunner:
             shutil.rmtree(work)
         job.extra.setdefault("provider", self.provider)
         write_job_files(work, job)
+        if os.getuid() == 0:
+            hand_over(work, self.sim_user)
         name = f"showtime-sim-{req.run_id}"
         cmd = [
             self._docker,
