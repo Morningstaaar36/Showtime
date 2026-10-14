@@ -22,8 +22,10 @@ import { CostCard } from "@/journey/plan/CostCard";
 import { FixChooser } from "@/journey/plan/FixChooser";
 import { acceptBody, evacValue, fixDependencies, toggleFix } from "@/journey/plan/fixes";
 import { NextActions } from "@/journey/plan/NextActions";
+import { RewindPanel } from "@/journey/plan/RewindPanel";
 import { SavedActions } from "@/journey/plan/SavedActions";
 import { planState } from "@/journey/plan/state";
+import { StressPanel } from "@/journey/plan/StressPanel";
 import { type KeyNumber, VerdictBanner } from "@/journey/plan/VerdictBanner";
 import { runBasisLabel, runOutcome } from "@/lib/evidence";
 import { fmtDuration, fmtHM, fmtInt, fmtNum } from "@/lib/format";
@@ -286,6 +288,8 @@ export function YourPlanPage() {
             <AskAnything project={p} context="plan" sessionId={sessionId} onPreview={setProposal} className="max-w-none" />
           </section>
         </div>
+
+        <div className="grid items-start gap-4 lg:grid-cols-2"><RewindPanel sessionId={sessionId} worstTitle={worst ? human(worst.title) : null} /><StressPanel projectId={p.id} hasTest /></div>
 
         <NextActions reportUrl={api.url(`/sessions/${sessionId}/report`)} checklistUrl={api.url(`/sessions/${sessionId}/checklist`)}
                      projectId={p.id} onTestAgain={testAgain} testing={start.isPending} primary={primary} />
