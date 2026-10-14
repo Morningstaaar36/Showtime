@@ -44,14 +44,12 @@ It is work in progress, not a completed or fully verified P2/P3 release. Main wa
 
 ## Required next work
 
-1. Run the new plan-pipeline tests and affected backend regressions in the prepared Docker
-   environment; fix any failures and finish lint/type/import checks on the final source.
-2. Verify the guided settings/action workflow in the browser, then rerun existing journeys.
-3. Run the saved operational action through actual Docker/JuPedSim, checking event identity,
-   execution outcome, artifacts, evidence freshness and save/reload/export/import.
-4. Verify accepted agent bundles through the complete session and real execution path.
-5. Resolve the observed 50 ms estimate performance failure without weakening the test.
-6. Complete P2-03 and the remaining separately allocated P2/P3 milestones afterward.
+Items 1–5 were completed on `integration/p2-p3` on 14 October 2026; see
+[PROGRESS.md](PROGRESS.md). Remaining:
+
+1. Live OpenRouter session (the configured key has expired) and a combined
+   live-model/real-simulation run.
+2. Complete P2-03 and the remaining separately allocated P2/P3 milestones afterward.
 
 Nebius inference, cloud sandbox execution and Tavily remain deferred. Local simulation
 execution uses Docker. Successful software tests do not establish real-world safety.
