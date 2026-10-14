@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -21,7 +22,7 @@ from api.adapters.llm import Budget, BudgetExceeded
 from api.agents.base import AgentEnv, AgentUnavailable, audit_decision
 from api.agents.blue_team import blue_team
 from api.agents.judge import judge
-from api.agents.red_team import incident_query, red_team, venue_features
+from api.agents.red_team import incident_query, is_script_attack, red_team, venue_features
 from api.core.annotations import carry_annotations
 from api.core.countdown import compute_countdown
 from api.core.evidence import (
@@ -135,6 +136,11 @@ def break_reasons(
         if frac is not None and frac < 0.5:
             out.append(f"only {frac * 100:.0f}% out after {r.sim_time_s:.0f} s")
     return out
+
+
+# attack_card `screening` label for AI-written scenarios: the instant estimate cannot run
+# code, so they skip tier-1 ranking and go straight to a quick simulation
+SCRIPT_SCREENING = "quick_simulation"
 
 
 def headline(r: RunResult | None) -> dict[str, Any]:
@@ -511,7 +517,32 @@ class SessionManager:
                     break
                 self._status(live, "screening", rnd, "Ranking attacks with the instant estimate")
                 ranked: list[tuple[float, Attack]] = []
+                scripted: list[Attack] = []
                 for a in attacks:
+                    if is_script_attack(a):
+                        # the instant estimate cannot run code: straight to a quick simulation
+                        scripted.append(a)
+                        self.emit(
+                            live,
+                            "attack_card",
+                            {
+                                "round": rnd,
+                                "attack": a.model_dump(mode="json"),
+                                "tier1": {},
+                                "screening": SCRIPT_SCREENING,
+                            },
+                        )
+                        self.emit(
+                            live,
+                            "log",
+                            {
+                                "level": "info",
+                                "message": f"“{a.title}” is an AI-written scenario; the instant "
+                                "estimate cannot run its code, so it goes straight to a quick "
+                                "simulation.",
+                            },
+                        )
+                        continue
                     est = self._estimate(live, working, a, extra=live.measures)
                     ranked.append((severity(est), a))
                     self.emit(
@@ -520,6 +551,7 @@ class SessionManager:
                         {"round": rnd, "attack": a.model_dump(mode="json"), "tier1": headline(est)},
                     )
                 ranked.sort(key=lambda x: -x[0])
+                ranked = [(math.inf, a) for a in scripted] + ranked
                 attacks_all.extend(a for _, a in ranked)
                 live.tested = [
                     f"{a.title} ({', '.join(e.type for e in a.events)})" for a in attacks_all
