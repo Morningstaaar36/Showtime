@@ -153,7 +153,8 @@ make up           # Docker Compose → http://localhost:5173
 
 Three sample projects (Itaewon-style alley, two-floor hall, Wellington festival in a storm)
 install automatically with their finished red-team sessions, so you can explore immediately.
-A guided tour for organizers is in [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md).
+A guided tour for organizers is in [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md); a short
+presenter script is in [docs/DEMO.md](docs/DEMO.md).
 
 Lighter, without Docker for the app: `make dev` (API + Vite natively). Other targets:
 `make test`, `make smoke`, `make calibrate`, `make plugins`, `make mem`, `make help`.
@@ -180,7 +181,7 @@ template (`make calibrate`) and the ratio is printed in reports.
 
 ## Docs
 
-[Testing guide](docs/TESTING_GUIDE.md) · [User guide](docs/USER_GUIDE.md) ·
+[Demo script](docs/DEMO.md) · [Testing guide](docs/TESTING_GUIDE.md) · [User guide](docs/USER_GUIDE.md) ·
 [Architecture](docs/ARCHITECTURE.md) · [Extending](docs/EXTENDING.md) ·
 [Assumptions](docs/ASSUMPTIONS.md) · [Nebius switch](docs/NEBIUS_SWITCH.md) ·
 [Progress log](docs/PROGRESS.md) · [Handoff](docs/HANDOFF.md) · [Security](SECURITY.md) ·
