@@ -17,7 +17,7 @@ from api.core.plan import evidence_reference, plan_hash
 from api.core.venue_ops import PatchError
 from api.db.models import Run
 from api.models import Attack, Fix, ScenarioEventIn
-from api.orchestrator import sweep
+from api.orchestrator import seeds, sweep
 
 router = APIRouter(prefix="/api/v1")
 
@@ -211,3 +211,41 @@ def start_sweep(project_id: str, st: AppState = Depends(get_state)) -> dict[str,
 def get_sweep(project_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
     """The latest scenario sweep and its runs (empty when none was started)."""
     return sweep.sweep_status(st, project_id) or {"items": [], "version": None}
+
+
+# --- Ranges across seeds (N05) ----------------------------------------------------------------
+
+
+class SeedCheckIn(BaseModel):
+    """How many more seeds to run (default: 3 locally, 5 with parallel sandboxes)."""
+
+    n: int | None = Field(default=None, ge=1, le=5)
+
+
+def _tested_session(st: AppState, session_id: str) -> Any:
+    row = st.sessions.get(session_id)
+    if row is None:
+        raise ApiException(404, "not_found", f"Session {session_id} does not exist.")
+    return row
+
+
+@router.post("/sessions/{session_id}/seeds", status_code=202)
+async def start_seed_check(
+    session_id: str, body: SeedCheckIn | None = None, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """Repeat the plan's key run (after the kept fixes, else the baseline) with more seeds:
+    same venue, events and tier. Repeating a check reuses the runs it already has.
+
+    Async on purpose: runs start as tasks on the server's event loop."""
+    row = _tested_session(st, session_id)
+    try:
+        return seeds.start_seed_check(st, row, body.n if body else None)
+    except seeds.SeedCheckError as exc:
+        raise ApiException(409, "seed_check_unavailable", str(exc)) from exc
+
+
+@router.get("/sessions/{session_id}/seeds")
+def get_seed_check(session_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The latest seed check: status, each run with its basis, and the range over the runs
+    that finished (`status` is "none" before the first check)."""
+    return seeds.seed_check_status(st, _tested_session(st, session_id))
