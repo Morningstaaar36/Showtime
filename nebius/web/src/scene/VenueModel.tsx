@@ -26,6 +26,8 @@ export interface ModelHandlers {
   onFloorClick?: (floor: Floor, x: number, y: number, e: ThreeEvent<MouseEvent>) => void;
   onFloorMove?: (floor: Floor, x: number, y: number) => void;
   onFloorDoubleClick?: (floor: Floor, x: number, y: number) => void;
+  /** grab an object to drag it (doors, stage, features, crowd areas) */
+  onObjectPointerDown?: (kind: "exit" | "obstacle" | "zone" | "stage", id: string, floor: Floor, e: ThreeEvent<PointerEvent>) => void;
 }
 
 interface Props extends ModelHandlers {
@@ -84,24 +86,28 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
         o.kind === "stage" ? (
           <StageModel key={o.id} obstacle={o} stage={venue.stage ?? null} palette={palette}
                       selected={props.selectedId === o.id} labels={props.labels} venue={venue}
-                      onClick={(e) => props.onObjectClick?.("stage", o.id, floor, e)} />
+                      onClick={(e) => props.onObjectClick?.("stage", o.id, floor, e)}
+                      onGrab={props.onObjectPointerDown && ((e) => props.onObjectPointerDown?.("stage", o.id, floor, e))} />
         ) : (
           <ObstacleMesh key={o.id} obstacle={o} palette={palette} selected={props.selectedId === o.id}
                         labels={props.labels} proposed={isProposed(venue, o.id)} locked={locked.has(o.id)}
-                        onClick={(e) => props.onObjectClick?.("obstacle", o.id, floor, e)} />
+                        onClick={(e) => props.onObjectClick?.("obstacle", o.id, floor, e)}
+                        onGrab={props.onObjectPointerDown && ((e) => props.onObjectPointerDown?.("obstacle", o.id, floor, e))} />
         )
       ))}
       {floor.zones.map((z) => (
         <ZonePatch key={z.id} zone={z} palette={palette} selected={props.selectedId === z.id} labels={props.labels}
                    visible={props.showZones}
                    people={props.peopleOverride?.[z.id] ?? z.people}
-                   onClick={(e) => props.onObjectClick?.("zone", z.id, floor, e)} />
+                   onClick={(e) => props.onObjectClick?.("zone", z.id, floor, e)}
+                   onGrab={props.onObjectPointerDown && ((e) => props.onObjectPointerDown?.("zone", z.id, floor, e))} />
       ))}
       {floor.exits.map((e) => (
         <ExitGate key={e.id} exit={e} floor={floor} palette={palette} outdoor={venue.mode === "outdoor"}
                   blocked={!!e.blocked || props.blocked.includes(e.id)} selected={props.selectedId === e.id}
                   proposed={isProposed(venue, e.id)} locked={locked.has(e.id)}
-                  labels={props.labels} onClick={(ev) => props.onExitClick?.(e, floor, ev)} />
+                  labels={props.labels} onClick={(ev) => props.onExitClick?.(e, floor, ev)}
+                  onGrab={props.onObjectPointerDown && ((ev) => props.onObjectPointerDown?.("exit", e.id, floor, ev))} />
       ))}
     </group>
   );
@@ -243,11 +249,12 @@ function FencePosts({ len, h, color }: { len: number; h: number; color: string }
   );
 }
 
-function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, onClick }: {
+function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, onClick, onGrab }: {
   obstacle: Obstacle; palette: ScenePalette; selected: boolean; labels: boolean;
   /** proposed construction: drawn see-through until it is built */
   proposed: boolean; locked: boolean;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
+  onGrab?: (e: ThreeEvent<PointerEvent>) => void;
 }) {
   const h = obstacle.height_m ?? OBSTACLE_HEIGHT[obstacle.kind ?? "other"] ?? 1.4;
   const geo = useMemo(() => {
@@ -272,6 +279,7 @@ function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, o
   return (
     <group>
       <mesh geometry={geo} castShadow receiveShadow onClick={(e) => { e.stopPropagation(); onClick(e); }}
+            onPointerDown={onGrab && ((e) => { e.stopPropagation(); onGrab(e); })}
             onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; }}
             onPointerOut={() => { document.body.style.cursor = ""; }}>
         <meshStandardMaterial color={color} roughness={isBarrier ? 0.5 : 0.85} metalness={isBarrier ? 0.35 : 0}
@@ -295,9 +303,9 @@ function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, o
   );
 }
 
-function StageModel({ obstacle, stage, palette, selected, labels, venue, onClick }: {
+function StageModel({ obstacle, stage, palette, selected, labels, venue, onClick, onGrab }: {
   obstacle: Obstacle; stage: StageParams | null; palette: ScenePalette; selected: boolean; labels: boolean;
-  venue: Venue; onClick: (e: ThreeEvent<MouseEvent>) => void;
+  venue: Venue; onClick: (e: ThreeEvent<MouseEvent>) => void; onGrab?: (e: ThreeEvent<PointerEvent>) => void;
 }) {
   const poly = obstacle.polygon as Pt[];
   const [x0, y0, x1, y1] = bbox(poly);
@@ -320,6 +328,7 @@ function StageModel({ obstacle, stage, palette, selected, labels, venue, onClick
   void vx0; void vx1;
   return (
     <group onClick={(e) => { e.stopPropagation(); onClick(e); }}
+           onPointerDown={onGrab && ((e) => { e.stopPropagation(); onGrab(e); })}
            onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; }}
            onPointerOut={() => { document.body.style.cursor = ""; }}>
       <mesh geometry={deckGeo} castShadow receiveShadow>
@@ -381,11 +390,11 @@ function StageModel({ obstacle, stage, palette, selected, labels, venue, onClick
   );
 }
 
-function ExitGate({ exit, floor, palette, outdoor, blocked, selected, proposed, locked, labels, onClick }: {
+function ExitGate({ exit, floor, palette, outdoor, blocked, selected, proposed, locked, labels, onClick, onGrab }: {
   exit: Exit; floor: Floor; palette: ScenePalette; outdoor: boolean; blocked: boolean; selected: boolean;
   /** a proposed new opening, not yet built: drawn see-through */
   proposed: boolean; locked: boolean;
-  labels: boolean; onClick: (e: ThreeEvent<MouseEvent>) => void;
+  labels: boolean; onClick: (e: ThreeEvent<MouseEvent>) => void; onGrab?: (e: ThreeEvent<PointerEvent>) => void;
 }) {
   const door = useMemo(() => doorwayOf(floor.walkable as Pt[], exit), [floor.walkable, exit]);
   const color = blocked ? palette.danger : palette.egress;
@@ -393,7 +402,8 @@ function ExitGate({ exit, floor, palette, outdoor, blocked, selected, proposed, 
   if (!door) {
     const [cx, cy] = centroid(exit.polygon as Pt[]);
     return (
-      <mesh position={[cx, 1, -cy]} onClick={(e) => { e.stopPropagation(); onClick(e); }}>
+      <mesh position={[cx, 1, -cy]} onClick={(e) => { e.stopPropagation(); onClick(e); }}
+            onPointerDown={onGrab && ((e) => { e.stopPropagation(); onGrab(e); })}>
         <cylinderGeometry args={[0.25, 0.25, 2, 12]} />
         <meshStandardMaterial color={color} emissive={color} emissiveIntensity={palette.night ? 2.4 : 0.4} />
       </mesh>
@@ -406,6 +416,7 @@ function ExitGate({ exit, floor, palette, outdoor, blocked, selected, proposed, 
     <group position={[door.cx, 0, -door.cy]} rotation={[0, rot, 0]}>
       {/* hit area: generous box over the opening */}
       <mesh position={[0, h / 2, 0]} onClick={(e) => { e.stopPropagation(); onClick(e); }}
+            onPointerDown={onGrab && ((e) => { e.stopPropagation(); onGrab(e); })}
             onPointerOver={(e) => { e.stopPropagation(); document.body.style.cursor = "pointer"; }}
             onPointerOut={() => { document.body.style.cursor = ""; }}>
         <boxGeometry args={[door.width + 0.6, h + 0.4, 1.4]} />
@@ -469,9 +480,9 @@ function ExitArrow({ width, color, outward, rot }: { width: number; color: strin
   );
 }
 
-function ZonePatch({ zone, palette, selected, labels, people, onClick, visible }: {
+function ZonePatch({ zone, palette, selected, labels, people, onClick, onGrab, visible }: {
   zone: Zone; palette: ScenePalette; selected: boolean; labels: boolean; people: number; visible: boolean;
-  onClick: (e: ThreeEvent<MouseEvent>) => void;
+  onClick: (e: ThreeEvent<MouseEvent>) => void; onGrab?: (e: ThreeEvent<PointerEvent>) => void;
 }) {
   const geo = useMemo(() => {
     const g = new THREE.ShapeGeometry(shapeOf(zone.polygon as Pt[]));
@@ -483,7 +494,8 @@ function ZonePatch({ zone, palette, selected, labels, people, onClick, visible }
   const [cx, cy] = centroid(zone.polygon as Pt[]);
   return (
     <group visible={visible}>
-      <mesh geometry={geo} position={[0, 0.02, 0]} onClick={(e) => { e.stopPropagation(); onClick(e); }}>
+      <mesh geometry={geo} position={[0, 0.02, 0]} onClick={(e) => { e.stopPropagation(); onClick(e); }}
+            onPointerDown={onGrab && ((e) => { e.stopPropagation(); onGrab(e); })}>
         <meshBasicMaterial color={palette.zone} transparent opacity={selected ? 0.16 : 0.07} depthWrite={false} />
       </mesh>
       <Line points={pts} color={palette.zone} lineWidth={selected ? 2 : 1.2} dashed dashSize={0.8} gapSize={0.5}

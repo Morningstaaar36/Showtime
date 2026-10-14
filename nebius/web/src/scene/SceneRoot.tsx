@@ -2,7 +2,7 @@
 import { Grid } from "@react-three/drei";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { Bloom, EffectComposer, N8AO, SMAA, Vignette } from "@react-three/postprocessing";
-import { Suspense, useMemo, useState } from "react";
+import { type ReactNode, Suspense, useMemo, useState } from "react";
 import type { Exit, Floor, Hotspot, Venue } from "@/api/types";
 import type { ObjectChange } from "@/lib/venueDiff";
 import type { Replay } from "@/replay/useReplay";
@@ -35,6 +35,10 @@ export interface SceneProps {
   clock?: boolean;
   /** outlines of a proposal's changes (added, changed, removed objects) */
   highlights?: ObjectChange[];
+  /** direct drag: grab an object to move it (replaces the arrow gizmo) */
+  onObjectPointerDown?: (kind: "exit" | "obstacle" | "zone" | "stage", id: string, floor: Floor, e: ThreeEvent<PointerEvent>) => void;
+  /** extra scene content (drag previews) rendered inside the canvas */
+  children?: ReactNode;
 }
 
 export function SceneRoot(p: SceneProps) {
@@ -110,6 +114,7 @@ export function SceneRoot(p: SceneProps) {
           onFloorClick={(f, x, y) => p.onFloorClick(f, x, y)}
           onFloorDoubleClick={(f, x, y) => p.onFloorDoubleClick(f, x, y)}
           onFloorMove={drawing ? (f, x, y) => setCursor({ floorId: f.floor_id, x, y }) : undefined}
+          onObjectPointerDown={p.editable && tool === "select" ? p.onObjectPointerDown : undefined}
         />
         {p.replay && p.clock !== false && <PlaybackClock />}
         {showAgents && p.replay && (
@@ -125,7 +130,7 @@ export function SceneRoot(p: SceneProps) {
                     showAll={!p.replay} onSelect={(h) => p.onHotspot(h)} />
         )}
         {p.marshals.length > 0 && <Marshals notes={p.marshals} venue={p.venue} exploded={layers.exploded} />}
-        {p.editable && tool === "select" && (
+        {p.editable && tool === "select" && !p.onObjectPointerDown && (
           <MoveGizmo venue={p.venue} exploded={layers.exploded} palette={palette} onMove={p.onMove} />
         )}
         {p.highlights && p.highlights.length > 0 && (
@@ -134,6 +139,7 @@ export function SceneRoot(p: SceneProps) {
         {p.editable && drawing && (
           <DraftPreview venue={p.venue} exploded={layers.exploded} palette={palette} cursor={cursor} />
         )}
+        {p.children}
       </Suspense>
 
       <CameraRig venue={p.venue} resetNonce={p.resetNonce} exploded={layers.exploded} />
