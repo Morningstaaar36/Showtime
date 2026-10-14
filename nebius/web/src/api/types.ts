@@ -17,6 +17,7 @@ import type {
   Venue,
   VenuePatch,
 } from "@/types/generated";
+import type { CostRecord, Evaluation } from "@/lib/evidence";
 
 export type {
   Attack,
@@ -270,8 +271,32 @@ export interface SessionSummary {
   before?: Record<string, number | null>;
   after?: Record<string, number | null>;
   judge_text?: string;
+  recommendations?: string[];
+  numbers_checked?: boolean;
   countdown?: Countdown | null;
   stopped_reason?: string;
+  /** what the results show (absent in sessions saved before evaluations existed) */
+  evaluation?: Evaluation | null;
+  /** measured model and compute usage of the session */
+  cost?: CostRecord | null;
+  /** one record per version saved from this session's kept fixes */
+  applied?: AppliedRecord[];
+}
+
+/** A version saved by POST /sessions/{id}/apply: which kept fixes it holds and whether they
+ * were tested together (every kept fix) or one by one (a subset). */
+export interface AppliedRecord {
+  version: number;
+  plan_hash: string;
+  fix_ids: string[];
+  tested_together: boolean;
+  note: string | null;
+  at: string;
+}
+
+/** POST /sessions/{id}/apply */
+export interface ApplyOut extends EditResult {
+  applied: AppliedRecord | null;
 }
 
 export interface AskOut {

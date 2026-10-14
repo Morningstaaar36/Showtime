@@ -16,7 +16,7 @@ from api.app.routes_projects import _after_edit
 from api.app.state import AppState
 from api.core.venue_ops import PatchError
 from api.models import RunResult, Venue
-from api.orchestrator.session import StalePlan
+from api.orchestrator.session import FixConflict, FixSelectionError, StalePlan
 
 router = APIRouter(prefix="/api/v1")
 
@@ -172,16 +172,36 @@ def stop_session(session_id: str, st: AppState = Depends(get_state)) -> dict[str
     return get_session(session_id, st)
 
 
+class ApplyIn(BaseModel):
+    """Which kept fixes to accept; every kept fix when `fix_ids` is left out."""
+
+    fix_ids: list[str] | None = Field(default=None, max_length=100)
+
+
 @router.post("/sessions/{session_id}/apply")
-def apply_session(session_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
-    """Save the session's fixed plan as a new version of the project."""
+def apply_session(
+    session_id: str, body: ApplyIn | None = None, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """Save the session's fixed plan, or only the chosen kept fixes, as a new version.
+
+    The response's `applied` says which fixes the new version contains and whether they
+    were tested together (a subset was not: test it again before relying on it).
+    """
     try:
-        row = st.sessions.apply_final(session_id)
+        row = st.sessions.apply_final(session_id, body.fix_ids if body else None)
     except StalePlan as exc:
         raise ApiException(409, "stale_plan", str(exc)) from exc
+    except FixConflict as exc:
+        raise ApiException(
+            409, "fixes_conflict", str(exc), "Choose the changes together, or accept all of them."
+        ) from exc
+    except FixSelectionError as exc:
+        raise ApiException(422, "invalid_fix_selection", str(exc)) from exc
     except ValueError as exc:
         raise ApiException(409, "no_plan", str(exc)) from exc
-    return _after_edit(st, row.project_id, row)
+    srow = st.sessions.get(session_id)
+    records = ((srow.summary or {}) if srow else {}).get("applied") or [None]
+    return _after_edit(st, row.project_id, row, {"applied": records[-1]})
 
 
 # --- Reports and exports -----------------------------------------------------------------
@@ -201,6 +221,8 @@ def _export(st: AppState, project_id: str, exporter_id: str, session_id: str | N
         bundle.extras["map_svg"] = (
             st.registry.get("Exporter", "export_svg_map").render(bundle).decode()
         )
+    if exporter_id == "export_checklist" and st.registry.has("Exporter", "export_svg_map"):
+        bundle.extras["map_svg"] = _selected_map(st, bundle)
     exp = st.registry.get("Exporter", exporter_id)
     data = exp.render(bundle)
     name = "".join(c if c.isalnum() else "-" for c in bundle.project_name)[:50]
@@ -212,6 +234,45 @@ def _export(st: AppState, project_id: str, exporter_id: str, session_id: str | N
             "Content-Disposition": f'{disposition}; filename="{name}-{exporter_id}.{exp.file_ext}"'
         },
     )
+
+
+def _selected_map(st: AppState, bundle: Any) -> str:
+    """Map of the plan selected for handover (the current version), without session hotspots."""
+    h = bundle.extras.get("handover") or {}
+    if not h.get("venue"):
+        return ""
+    selected = bundle.model_copy(
+        update={
+            "venue": Venue.model_validate(h["venue"]),
+            "venue_version": h.get("version", bundle.venue_version),
+            "fixed_venue": None,
+            "final": None,
+            "baseline": None,
+            "exit_assignment": h.get("exit_assignment") or {},
+            "stair_assignment": h.get("stair_assignment") or {},
+        }
+    )
+    try:
+        return str(st.registry.get("Exporter", "export_svg_map").render(selected).decode())
+    except Exception:  # the checklist is still useful without its map
+        return ""
+
+
+@router.get("/projects/{project_id}/checklist")
+def project_checklist(
+    project_id: str, session: str | None = None, st: AppState = Depends(get_state)
+) -> Any:
+    """Printable handover checklist of the selected plan (the current version), in English."""
+    return _export(st, project_id, "export_checklist", session)
+
+
+@router.get("/sessions/{session_id}/checklist")
+def session_checklist(session_id: str, st: AppState = Depends(get_state)) -> Any:
+    """Handover checklist of the selected plan, with this session's evidence."""
+    row = st.sessions.get(session_id)
+    if row is None:
+        raise ApiException(404, "not_found", f"Session {session_id} does not exist.")
+    return _export(st, row.project_id, "export_checklist", session_id)
 
 
 @router.get("/projects/{project_id}/report")

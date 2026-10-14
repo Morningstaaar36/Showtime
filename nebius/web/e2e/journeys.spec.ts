@@ -101,20 +101,40 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
   await expect(page.getByText("Simulating the crowd")).toBeVisible();
   // a test the organizer just started moves on to the plan by itself
   await expect(page).toHaveURL(/\/p\/p_[^/]+\?session=/, { timeout: 170_000 });
-  await expect(page.getByRole("region", { name: "Verdict" })).toBeVisible();
-  await expect(page.getByText("Evacuation time (95%)")).toBeVisible();
+  const verdict = page.getByRole("region", { name: "Verdict" });
+  await expect(verdict).toBeVisible();
+  await expect(verdict.getByText("Evacuation time (95%)")).toBeVisible();
+  // what the tests show is the evaluation's own label: never "confirmed" unless it is
+  await expect(verdict).toContainText(/Not confirmed|Partly confirmed|Confirmation failed|Confirmed by full simulations/);
+  await expect(page.getByRole("heading", { name: "How this plan was made" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Download report" })).toBeVisible();
+  const checklist = page.getByRole("link", { name: "Download checklist" });
+  await expect(checklist).toBeVisible();
+  const handover = await page.request.get((await checklist.getAttribute("href")) ?? "");
+  expect(handover.ok()).toBeTruthy();
+  expect(await handover.text()).toContain("Planning aid, not a safety certification.");
   const accept = page.getByRole("button", { name: "Accept these changes" });
+  // the choice of tested changes is ready once the tested version is known
+  await expect(accept.or(page.getByText("The AI found no change worth making."))).toBeVisible();
   if (await accept.isVisible()) {
+    // leaving a change out is allowed, and says it was not tested together
+    const choices = page.getByRole("checkbox", { name: /^Use “/ });
+    if ((await choices.count()) > 1) {
+      await choices.last().uncheck();
+      await expect(page.getByText("These changes were tested one by one, not together: test again before relying on them.")).toBeVisible();
+      await choices.last().check();
+    }
     const saved = page.waitForResponse((r) => /\/sessions\/[^/]+\/apply$/.test(r.url()) && r.request().method() === "POST");
     await accept.click();
     const response = await saved;
     expect(response.ok()).toBeTruthy();
     const result = await response.json();
+    expect(result.applied.tested_together).toBe(true);
     await expect(page.getByText(`Version ${result.version.version}`, { exact: true })).toBeVisible();
     // Saving provenance/proposed construction or operations can change the full
     // identity. Saving successfully must not imply that older evidence is current.
     await expect(accept).not.toBeVisible();
+    await expect(page.getByText("These changes are part of the current venue.")).toBeVisible();
   }
   // nothing on the simple screens shows machine ids or tier jargon
   await expect(page.locator("main")).not.toContainText(/\bTier\b|run_id|door_s1/);

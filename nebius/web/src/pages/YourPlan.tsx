@@ -1,44 +1,40 @@
-/** Step 3 of the guided journey (route `/p/:projectId`): is it safe, what did the AI change,
- * and what to do next. Every number comes from a simulation run of a known venue version. */
-import { Check, Download, ExternalLink, Hammer, Lock, Pencil, RotateCcw, ShieldAlert, ShieldCheck, ShieldQuestion, Swords, Workflow } from "lucide-react";
+/** Step 3 of the guided journey (route `/p/:projectId`), top to bottom: the verdict and what the
+ * tests show, the AI's tested changes to choose from, the before/after replay, how the plan was
+ * made, a box to ask or change anything, and the next steps. Every number comes from a run of a
+ * known venue version and says what it is based on. */
+import { ExternalLink, RotateCcw, ShieldQuestion } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { api } from "@/api/client";
-import { useApplySession, usePlan, useProject, useRun, useRunVenue, useSession, useSessions, useSettings, useStartSession, useUndo, useVersions } from "@/api/queries";
-import type { Countdown, Fix, PatchOpIn, RunOut, RunResult } from "@/api/types";
+import { useApplyFixes, usePlan, useProject, useRun, useRunVenue, useSession, useSessions, useSettings, useStartSession, useUndo, useVersions } from "@/api/queries";
+import type { Countdown, Fix, RunOut } from "@/api/types";
 import { useSessionStream } from "@/api/useSessionStream";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton, Spinner } from "@/components/ui/misc";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
-import { ActionDetails } from "@/journey/PlanEditor";
+import { AskAnything } from "@/journey/AskAnything";
+import type { ProposalPreview } from "@/journey/AskChange";
 import { JourneyShell } from "@/journey/JourneyShell";
-import { lockConflicts } from "@/lib/annotations";
-import { planFreshness, runOutcome } from "@/lib/evidence";
+import { CostCard } from "@/journey/plan/CostCard";
+import { FixChooser } from "@/journey/plan/FixChooser";
+import { acceptBody, evacValue, fixDependencies, toggleFix } from "@/journey/plan/fixes";
+import { NextActions } from "@/journey/plan/NextActions";
+import { SavedActions } from "@/journey/plan/SavedActions";
+import { planState } from "@/journey/plan/state";
+import { type KeyNumber, VerdictBanner } from "@/journey/plan/VerdictBanner";
+import { runBasisLabel, runOutcome } from "@/lib/evidence";
 import { fmtDuration, fmtHM, fmtInt, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { displayNames, textHumanizer } from "@/lib/venueText";
-import { describeEvent, describeOp } from "@/panels/describe";
 import { type Thresholds, verdictOf } from "@/panels/verdict";
 import { useReplay } from "@/replay/useReplay";
 import { SceneRoot } from "@/scene/SceneRoot";
 import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import { QUICK_TEST } from "./CheckVenue";
-
-const CONSTRUCTION = new Set(["add_exit", "add_obstacle", "add_barrier_line"]);
-
-/** Where a number comes from, in plain words (never "Tier"). */
-export function sourceTag(run: RunOut | undefined | null): string {
-  if (!run) return t("yourplan.src_none");
-  if (run.result?.provider === "fake" || run.result?.engine === "fake") return t("yourplan.src_preview");
-  if (run.status === "failed" || run.status === "timeout" || run.status === "cancelled") return t("yourplan.src_failed");
-  if (run.tier === 3) return run.status === "partial" ? t("yourplan.src_partial") : t("yourplan.src_full");
-  if (run.tier === 2) return t("yourplan.src_quick");
-  return t("yourplan.src_estimate");
-}
 
 export function countdownText(c: Countdown | null | undefined): string {
   if (!c) return t("yourplan.cd_unknown");
@@ -48,15 +44,8 @@ export function countdownText(c: Countdown | null | undefined): string {
   return t("yourplan.cd_unknown");
 }
 
-function evacText(r: RunResult | null | undefined): string {
-  const m = r?.metrics;
-  if (!m) return "–";
-  if (m.evac_time_p95_s != null) return fmtDuration(m.evac_time_p95_s);
-  if ((m.agents_not_evacuated ?? 0) > 0) return t("yourplan.still_inside", { n: fmtInt(m.agents_not_evacuated) });
-  return "–";
-}
-
 const usable = (r: RunOut | undefined) => !!r && (r.status === "ok" || r.status === "partial");
+const noop = () => {};
 
 export function YourPlanPage() {
   const { projectId = "" } = useParams();
@@ -72,10 +61,13 @@ export function YourPlanPage() {
   const summary = session.data?.summary ?? null;
   const ended = session.data?.status === "finished" || session.data?.status === "stopped";
   const view = useSessionStream(ended ? sessionId : null);
-  const apply = useApplySession(projectId);
+  const apply = useApplyFixes(projectId);
   const undo = useUndo(projectId);
   const start = useStartSession();
   const [side, setSide] = useState<"before" | "after">("after");
+  const [proposal, setProposal] = useState<ProposalPreview | null>(null);
+  // the organizer's choice of kept fixes, per session (default: all of them)
+  const [choice, setChoice] = useState<{ sid: string | null; ids: Set<string> } | null>(null);
 
   useEffect(() => { useUi.getState().resetForProject(); usePlayback.getState().reset(); }, [projectId]);
 
@@ -108,6 +100,11 @@ export function YourPlanPage() {
     const tested = shownVenue.data ? textHumanizer(shownVenue.data) : (s: string) => s;
     return (s: string) => current(tested(s));
   }, [venue, shownVenue.data]);
+  const kept = useMemo<Fix[]>(() => {
+    const fixes = summary?.fixes ?? [];
+    return (summary?.accepted_fixes ?? []).map((id) => fixes.find((f) => f.fix_id === id)).filter((f): f is Fix => !!f);
+  }, [summary]);
+  const deps = useMemo(() => fixDependencies(kept), [kept]);
 
   if (project.isError) {
     const missing = (project.error as { status?: number }).status === 404;
@@ -129,26 +126,13 @@ export function YourPlanPage() {
     );
   }
 
-  const eff = settings.data?.effective ?? {};
-  const th: Thresholds = { warn: Number(eff.density_warn_ppm2 ?? 3.5), danger: Number(eff.density_danger_ppm2 ?? 5), dangerMinS: 5 };
-  const testedHash = versions.data?.find((v) => v.version === session.data?.venue_version)?.plan_hash;
-  const freshness = planFreshness({ currentHash: p.version.plan_hash, testedHash, fixedHash: after.data?.evidence?.plan_hash });
-  const kept: Fix[] = (summary?.fixes ?? []).filter((f) => summary?.accepted_fixes?.includes(f.fix_id));
-  const conflicts = lockConflicts(venue, kept.flatMap((f) => (f.patch?.ops ?? []) as PatchOpIn[]));
-  const verdictRun = (hasAfter ? after.data : usable(before.data) ? before.data : null)?.result ?? null;
-  const verdict = verdictOf(verdictRun, th, (id) => names.get(id) ?? id);
+  const label = (id: string) => names.get(id) ?? id;
   const testAgain = () => start.mutate({ project_id: p.id, config: QUICK_TEST }, {
     onSuccess: (s) => navigate(`/p/${p.id}/work?session=${s.id}&live=1`),
     onError: (e) => toast.error(e.message),
   });
-  const accept = () => sessionId && apply.mutate(sessionId, {
-    onSuccess: (r) => toast.success(t("yourplan.accepted", { n: r.version.version }), { action: { label: t("common.undo"), onClick: () => undo.mutate() } }),
-    onError: (e) => toast.error(e.message),
-  });
-  const canAccept = freshness === "current_before" && kept.length > 0 && conflicts.length === 0 && !!summary;
-  const acceptFirst = freshness === "current_before" && kept.length > 0;
 
-  // --- untested, running or failed ---------------------------------------------------
+  // --- untested, running or failed: one obvious next step each ------------------------------
   const status = session.data?.status;
   if (!sessionId || !status || status === "running" || status === "queued" || status === "failed") {
     return (
@@ -173,26 +157,55 @@ export function YourPlanPage() {
           )}
           <div className="relative h-[50vh] overflow-hidden rounded-[10px] border border-border">
             <SceneRoot venue={venue} replay={null} hotspots={[]} marshals={[]} editable={false} resetNonce={0} quality="low"
-                       onExitClick={() => {}} onObjectClick={() => {}} onFloorClick={() => {}} onFloorDoubleClick={() => {}} onMove={() => {}} onHotspot={() => {}} />
+                       onExitClick={noop} onObjectClick={noop} onFloorClick={noop} onFloorDoubleClick={noop} onMove={noop} onHotspot={noop} />
           </div>
         </main>
       </JourneyShell>
     );
   }
 
-  // --- tested ------------------------------------------------------------------------
-  const tone = verdict.level === "fails" ? "border-danger/35 bg-danger-soft" : verdict.level === "at_risk" ? "border-caution/35 bg-caution-soft"
-    : verdict.level === "holds" ? "border-egress/35 bg-egress-soft" : "border-border bg-surface-2";
-  const icon = verdict.level === "fails" ? <ShieldAlert className="text-danger" /> : verdict.level === "holds" ? <ShieldCheck className="text-egress" /> : <ShieldQuestion className="text-caution" />;
-  const reportUrl = api.url(`/sessions/${sessionId}/report`);
-  const worst = summary?.attacks?.find((a) => a.attack_id === summary.worst_attack_id);
-  const risks = (summary?.attacks ?? []).slice(0, 3);
-  const numbers: { label: string; value: string; source: string }[] = [
-    { label: t("yourplan.n_evac"), value: evacText(verdictRun), source: sourceTag(hasAfter ? after.data : before.data) },
-    { label: t("yourplan.n_peak"), value: verdictRun?.metrics ? `${fmtNum(verdictRun.metrics.peak_density_ppm2, 1)} ${t("yourplan.per_m2")}` : "–", source: sourceTag(hasAfter ? after.data : before.data) },
-    { label: t("yourplan.n_start"), value: countdownText(summary?.countdown), source: (summary?.countdown?.status === "ok" || summary?.countdown?.status === "too_late") && summary.countdown.hazard_explanation
-      ? summary.countdown.hazard_explanation : t("yourplan.cd_source") },
+  // --- tested ------------------------------------------------------------------------------
+  const eff = settings.data?.effective ?? {};
+  const th: Thresholds = { warn: Number(eff.density_warn_ppm2 ?? 3.5), danger: Number(eff.density_danger_ppm2 ?? 5), dangerMinS: 5 };
+  const testedHash = versions.data?.find((v) => v.version === session.data?.venue_version)?.plan_hash;
+  const { state, record } = planState({ currentHash: p.version.plan_hash, testedHash, kept: kept.length,
+    applied: summary?.applied, fixedHash: after.data?.evidence?.plan_hash });
+  const keptIds = kept.map((f) => f.fix_id);
+  const selected = choice && choice.sid === sessionId ? choice.ids : new Set(keptIds);
+  const toggle = (id: string) => setChoice({ sid: sessionId, ids: toggleFix(selected, id, deps) });
+  const accept = () => sessionId && apply.mutate({ sessionId, ...acceptBody(selected, keptIds) }, {
+    onSuccess: (r) => toast.success(t("yourplan.accepted", { n: r.version.version }), {
+      description: r.applied && !r.applied.tested_together ? t("yourplan.subset_note") : undefined,
+      action: { label: t("common.undo"), onClick: () => undo.mutate() },
+    }),
+    onError: (e) => toast.error(e.message, { description: (e as { hint?: string | null }).hint ?? undefined }),
+  });
+
+  const verdictOut = hasAfter ? after.data : usable(before.data) ? before.data : undefined;
+  const verdictRun = verdictOut?.result ?? null;
+  const verdict = verdictOf(verdictRun, th, label);
+  const basis = runBasisLabel(verdictRun);
+  const m = verdictRun?.metrics;
+  const extra = (m?.extra ?? {}) as Record<string, number | null | undefined>;
+  const cd = summary?.countdown;
+  const numbers: KeyNumber[] = [
+    { label: t("yourplan.n_evac"), value: m ? evacValue({ evac_time_p95_s: m.evac_time_p95_s, evac_time_estimate_s: extra.rset_extrapolated_s }) : "–",
+      detail: m ? t("yourplan.n_inside", { n: fmtInt(m.agents_not_evacuated) }) : undefined, basis },
+    { label: t("yourplan.n_peak"), value: m ? `${fmtNum(m.peak_density_ppm2, 1)} ${t("yourplan.per_m2")}` : "–", basis },
+    { label: t("yourplan.n_start"), value: countdownText(cd),
+      basis: [(cd?.status === "ok" || cd?.status === "too_late") ? cd.hazard_explanation : "",
+        cd?.rset_source ? t("yourplan.cd_from", { source: cd.rset_source }) : t("yourplan.cd_source")].filter(Boolean).join(" · ") },
   ];
+  const worst = summary?.attacks?.find((a) => a.attack_id === summary.worst_attack_id);
+  const subset = state === "accepted_subset" && hasAfter
+    ? ` ${t("yourplan.under_subset", { n: kept.length, k: record?.fix_ids.length ?? 0 })}` : "";
+  const under = `${worst ? t("yourplan.under", { attack: human(worst.title) }) : t("yourplan.under_baseline")}${hasAfter ? ` ${t("yourplan.with_changes")}` : ""}${subset}`;
+  const judge = summary?.judge_text ? `${human(summary.judge_text)}${summary.numbers_checked ? ` ${t("yourplan.numbers_checked")}` : ""}` : null;
+  const attackTitle = (id: string) => summary?.attacks?.find((a) => a.attack_id === id)?.title ?? id;
+  const risks = (summary?.attacks ?? []).slice(0, 3);
+  const deciding = state === "pending" && kept.length > 0;
+  const primary = deciding || state === "accepted_subset" ? null : state === "stale" ? "test" : "report";
+  const previewing = !!proposal;
 
   return (
     <JourneyShell step="plan" projectId={p.id} title={p.name} back={{ to: "/", label: t("journey.home") }}>
@@ -202,7 +215,7 @@ export function YourPlanPage() {
           <span className="text-sm text-muted tabular">{t("yourplan.version", { n: p.current_version })}</span>
         </div>
 
-        {freshness === "stale" && (
+        {state === "stale" && (
           <div role="status" className="flex flex-wrap items-center gap-3 rounded-[10px] border border-caution/40 bg-caution-soft p-3 text-sm">
             <ShieldQuestion className="size-5 shrink-0 text-caution" />
             <span className="min-w-0 flex-1">{t("yourplan.stale")}</span>
@@ -211,37 +224,19 @@ export function YourPlanPage() {
         )}
         {status === "stopped" && <p role="status" className="rounded-[10px] border border-caution/40 bg-caution-soft p-3 text-sm">{t("yourplan.partial", { reason: summary?.stopped_reason ?? "" })}</p>}
 
-        <section aria-label={t("yourplan.verdict")} className={cn("flex flex-wrap items-start gap-3 rounded-[var(--radius-panel)] border-2 p-5 shadow-sm", tone)}>
-          <span className="mt-0.5 [&_svg]:size-7">{icon}</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-xl font-semibold leading-tight">{verdictRun ? verdict.headline : t("yourplan.no_result")}</p>
-            <p className="mt-1 max-w-prose text-base">
-              {worst ? t("yourplan.under", { attack: human(worst.title) }) : t("yourplan.under_baseline")}
-              {hasAfter ? ` ${t("yourplan.with_changes")}` : ""}
-            </p>
-            {verdict.reasons.length > 0 && <ul className="mt-1 list-disc pl-5 text-sm">{verdict.reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
-            {summary?.judge_text && <p className="mt-2 max-w-prose text-sm text-muted">{human(summary.judge_text)}{(summary as { numbers_checked?: boolean }).numbers_checked ? ` ${t("yourplan.numbers_checked")}` : ""}</p>}
-          </div>
-          <Button asChild variant={acceptFirst ? "secondary" : "primary"} size="lg">
-            <a href={reportUrl} target="_blank" rel="noreferrer"><Download />{t("yourplan.report")}</a>
-          </Button>
-        </section>
+        <VerdictBanner level={verdictRun ? verdict.level : "unknown"} headline={verdictRun ? verdict.headline : t("yourplan.no_result")}
+                       under={under} reasons={verdict.reasons} evaluation={summary?.evaluation} judge={judge} numbers={numbers} />
 
-        <ul className="grid gap-3 sm:grid-cols-3">
-          {numbers.map((n, i) => (
-            <li key={n.label} className={cn("rounded-[var(--radius-panel)] border border-t-4 border-border bg-surface p-4 shadow-sm", ["border-t-sky", "border-t-pink", "border-t-orange"][i % 3])}>
-              <p className="text-sm text-muted">{n.label}</p>
-              <p className="mt-0.5 text-2xl font-bold tabular">{n.value}</p>
-              <p className="mt-0.5 text-xs text-muted">{n.source}</p>
-            </li>
-          ))}
-        </ul>
+        <FixChooser kept={kept} selected={selected} deps={deps} onToggle={toggle} nodes={view.nodes} loading={!view.ended}
+                    venue={venue} state={state} record={record} attackTitle={attackTitle} name={label} human={human}
+                    onAccept={accept} accepting={apply.isPending} onTestAgain={testAgain} testing={start.isPending} />
 
         <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
           <section aria-label={t("yourplan.replay")} className="relative h-[50vh] min-h-80 overflow-hidden rounded-[10px] border border-border">
-            <SceneRoot venue={shownVenue.data ?? venue} replay={replay.data ?? null} hotspots={[]} marshals={[]} editable={false} resetNonce={0} quality="low"
-                       onExitClick={() => {}} onObjectClick={() => {}} onFloorClick={() => {}} onFloorDoubleClick={() => {}} onMove={() => {}} onHotspot={() => {}} />
-            {hasAfter && usable(before.data) && (
+            <SceneRoot venue={previewing ? proposal.venue : shownVenue.data ?? venue} replay={previewing ? null : replay.data ?? null} hotspots={[]} marshals={[]}
+                       editable={false} resetNonce={0} quality="low" highlights={previewing ? proposal.changes : undefined}
+                       onExitClick={noop} onObjectClick={noop} onFloorClick={noop} onFloorDoubleClick={noop} onMove={noop} onHotspot={noop} />
+            {!previewing && hasAfter && usable(before.data) && (
               <div role="group" aria-label={t("yourplan.before_after")} className="absolute left-1/2 top-3 flex -translate-x-1/2 rounded-[8px] bg-surface p-0.5 shadow-[var(--shadow-float)]">
                 {(["before", "after"] as const).map((s) => (
                   <button key={s} type="button" aria-pressed={shownSide === s} onClick={() => setSide(s)}
@@ -251,53 +246,10 @@ export function YourPlanPage() {
                 ))}
               </div>
             )}
-            <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-surface/95 px-3 py-1 text-xs shadow-sm">{sourceTag(shown)}</span>
+            {!previewing && <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-surface/95 px-3 py-1 text-xs shadow-sm">{shown ? runBasisLabel(shown.result) : t("evidence.basis.unknown")}</span>}
           </section>
 
           <div className="space-y-4">
-            {selectedPlan.data?.plan.actions.length ? <section className="space-y-2 rounded-[10px] border border-border bg-surface p-4" aria-label="Saved operational plan">
-              <h2 className="font-semibold">Saved operational plan</h2>
-              <p className="text-xs text-muted">Version {selectedPlan.data.version}. These are the saved actions; test this version before relying on its results.</p>
-              {selectedPlan.data.plan.actions.map((a) => <ActionDetails key={a.action_id} action={a} />)}
-              <Link className="text-sm underline" to={`/p/${projectId}/describe`}>Edit resources and actions</Link>
-            </section> : null}
-            <section aria-labelledby="changes-h" className="space-y-2 rounded-[10px] border border-border bg-surface p-4">
-              <h2 id="changes-h" className="font-semibold">{t("yourplan.changes")}</h2>
-              {kept.length === 0 ? <p className="text-sm text-muted">{t("yourplan.no_changes")}</p> : (
-                <ul className="space-y-2">
-                  {kept.map((f) => {
-                    const ops = (f.patch?.ops ?? []) as PatchOpIn[];
-                    const build = ops.some((o) => CONSTRUCTION.has(o.op));
-                    const label = (id: string) => names.get(id) ?? id;
-                    const fixConflicts = lockConflicts(venue, ops);
-                    return (
-                      <li key={f.fix_id} className="rounded-[8px] border border-border p-2.5 text-sm">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-medium">{human(f.title)}</p>
-                          {build ? <Badge tone="signal"><Hammer />{t("yourplan.construction")}</Badge> : <Badge tone="outline"><Workflow />{t("yourplan.operational")}</Badge>}
-                        </div>
-                        <p className="mt-1 text-muted">{[...ops.map((o) => describeOp(o as Record<string, unknown>, label)), ...(f.operational ?? []).map((e) => describeEvent(e as Record<string, unknown>, label))].join(" · ")}</p>
-                        {[...(f.actions ?? []), ...(f.replace_actions ?? [])].map((a) => <ActionDetails key={a.action_id} action={a} />)}
-                        {(f.remove_action_ids ?? []).length > 0 && <p>Remove actions: {f.remove_action_ids.join(", ")}</p>}
-                        {fixConflicts.map((c) => <p key={`${c.id}:${c.op}`} className="mt-1 flex gap-1.5 text-danger"><Lock className="mt-0.5 size-3.5 shrink-0" />{t("check.conflict", { name: label(c.id) })}</p>)}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              {kept.length > 0 && freshness === "current_after" && <p className="flex gap-1.5 text-sm text-egress"><Check className="mt-0.5 size-4 shrink-0" />{t("yourplan.already_accepted")}</p>}
-              {kept.length > 0 && freshness === "current_before" && (
-                <div className="space-y-1.5 pt-1">
-                  <Button variant="primary" className="w-full" size="lg" disabled={!canAccept || apply.isPending} onClick={accept}>
-                    {apply.isPending ? <Spinner /> : <Check />}{t("yourplan.accept")}
-                  </Button>
-                  {conflicts.length > 0 ? <p className="text-sm text-danger">{t("yourplan.accept_conflicts")}</p>
-                    : <p className="text-xs text-muted">{t("yourplan.accept_hint")}</p>}
-                </div>
-              )}
-              {kept.length > 0 && freshness === "stale" && <p className="text-sm text-muted">{t("yourplan.accept_stale")}</p>}
-            </section>
-
             <section aria-labelledby="risks-h" className="space-y-2 rounded-[10px] border border-border bg-surface p-4">
               <h2 id="risks-h" className="font-semibold">{t("yourplan.risks")}</h2>
               {risks.length === 0 ? <p className="text-sm text-muted">{t("yourplan.no_risks")}</p> : (
@@ -305,11 +257,12 @@ export function YourPlanPage() {
                   {risks.map((a) => {
                     const node = view.nodes[`atk:${a.attack_id}`];
                     const r = node ? view.runs[node.run_id] : undefined;
+                    const outcome = r ? runOutcome(r) : null;
                     return (
                       <li key={a.attack_id} className="rounded-[8px] border border-border p-2.5 text-sm">
                         <div className="flex items-start justify-between gap-2">
                           <p className="font-medium">{human(a.title)}</p>
-                          {r && (runOutcome(r) === "break" ? <Badge tone="danger">{t("work.breaks")}</Badge> : runOutcome(r) === "holds" ? <Badge tone="egress">{t("work.holds")}</Badge> : <Badge tone="neutral">{t(runOutcome(r) === "preview" ? "work.preview" : "work.unknown")}</Badge>)}
+                          {outcome && (outcome === "break" ? <Badge tone="danger">{t("work.breaks")}</Badge> : outcome === "holds" ? <Badge tone="egress">{t("work.holds")}</Badge> : <Badge tone="neutral">{t(outcome === "preview" ? "work.preview" : "work.unknown")}</Badge>)}
                         </div>
                         {a.inspired_by?.source_url && (
                           <a href={a.inspired_by.source_url} target="_blank" rel="noreferrer" className="mt-1 flex min-h-11 items-center gap-1 text-xs text-signal hover:underline">
@@ -322,14 +275,21 @@ export function YourPlanPage() {
                 </ul>
               )}
             </section>
-
-            <div className="flex flex-wrap gap-2">
-              <Button asChild><Link to={`/p/${p.id}/describe`}><Pencil />{t("yourplan.change_venue")}</Link></Button>
-              <Button onClick={testAgain} disabled={start.isPending}><Swords />{t("yourplan.test_again")}</Button>
-              <Button asChild variant="link" className="hidden xl:inline-flex"><Link to={`/p/${p.id}/expert`}>{t("journey.expert")}</Link></Button>
-            </div>
+            {selectedPlan.data && <SavedActions actions={selectedPlan.data.plan.actions} version={selectedPlan.data.version} projectId={p.id} name={label} />}
           </div>
         </div>
+
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          <CostCard cost={summary?.cost} tokens={session.data?.tokens ?? 0} costUsd={session.data?.cost_usd ?? 0} />
+          <section aria-labelledby="ask-h" className="space-y-2 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
+            <h2 id="ask-h" className="font-semibold">{t("ask.label")}</h2>
+            <AskAnything project={p} context="plan" sessionId={sessionId} onPreview={setProposal} className="max-w-none" />
+          </section>
+        </div>
+
+        <NextActions reportUrl={api.url(`/sessions/${sessionId}/report`)} checklistUrl={api.url(`/sessions/${sessionId}/checklist`)}
+                     projectId={p.id} onTestAgain={testAgain} testing={start.isPending} primary={primary} />
+        <Button asChild variant="link" className="hidden xl:inline-flex"><Link to={`/p/${p.id}/expert`}>{t("journey.expert")}</Link></Button>
       </main>
     </JourneyShell>
   );

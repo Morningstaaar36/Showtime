@@ -402,3 +402,31 @@ export function useStopAutopilot() {
     onSuccess: (run) => qc.setQueryData(autopilotKey(run.id), run),
   });
 }
+
+// --- Your plan: accept the chosen kept fixes (P3-03) ----------------------------------------
+
+import type { ApplyOut } from "./types";
+
+/** Accept a session's kept fixes: all of them (tested together) when `fix_ids` is left out,
+ * else only the chosen ones. Updates the project and the session's `applied` record at once,
+ * so Your plan never shows the new version as an unexplained change. */
+export function useApplyFixes(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { sessionId: string; fix_ids?: string[] }) =>
+      api.post<ApplyOut>(`/sessions/${v.sessionId}/apply`, v.fix_ids ? { fix_ids: v.fix_ids } : {}),
+    onSuccess: (data, v) => {
+      qc.setQueryData<ProjectDetail>(qk.project(projectId), (old) =>
+        old ? { ...old, ...data.project, version: data.version, validation: data.validation } : old);
+      const record = data.applied;
+      if (record) {
+        qc.setQueryData<SessionOut>(qk.session(v.sessionId), (old) =>
+          old?.summary ? { ...old, summary: { ...old.summary, applied: [...(old.summary.applied ?? []), record] } } : old);
+      }
+      for (const key of [["plan", projectId], qk.project(projectId), qk.versions(projectId), qk.projects,
+        ["countdown", projectId], qk.session(v.sessionId), qk.sessions(projectId)]) {
+        void qc.invalidateQueries({ queryKey: key });
+      }
+    },
+  });
+}

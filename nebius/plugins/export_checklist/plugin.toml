@@ -1,0 +1,12 @@
+[plugin]
+id = "export_checklist"
+name = "Handover checklist (HTML)"
+version = "0.1.0"
+api_version = "1"
+provides = ["Exporter"]
+requires = []
+enabled_by_default = true
+
+[config]
+title = "Handover checklist"
+show_map = true
