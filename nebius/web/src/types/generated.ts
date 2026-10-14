@@ -181,6 +181,8 @@ export type InterventionAtS = number | null;
 export type Engine = string;
 export type Metrics = string[];
 export type ParentRunId = string | null;
+export type CheckpointAtS = number | null;
+export type Resume = boolean;
 export type SchemaVersion5 = number;
 export type RunId1 = string;
 export type Tier1 = 1 | 2 | 3;
@@ -834,6 +836,8 @@ export interface RunRequest {
   engine: Engine;
   metrics: Metrics;
   parent_run_id: ParentRunId;
+  checkpoint_at_s: CheckpointAtS;
+  resume: Resume;
   extensions: Extensions3;
 }
 export interface Extensions3 {

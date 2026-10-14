@@ -3193,6 +3193,24 @@
      "default": null,
      "title": "Parent Run Id"
     },
+    "checkpoint_at_s": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Checkpoint At S"
+    },
+    "resume": {
+     "default": false,
+     "title": "Resume",
+     "type": "boolean"
+    },
     "extensions": {
      "additionalProperties": true,
      "title": "Extensions",
@@ -3201,6 +3219,7 @@
    },
    "required": [
     "attack_id",
+    "checkpoint_at_s",
     "engine",
     "extensions",
     "fix_id",
@@ -3210,6 +3229,7 @@
     "max_wall_s",
     "metrics",
     "parent_run_id",
+    "resume",
     "run_id",
     "schema_version",
     "seed",
