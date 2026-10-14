@@ -147,6 +147,9 @@ class LLMClient:
         self._local_lock = asyncio.Lock()
         self._paused_until = 0.0
         self.fallback_reason: str | None = None
+        # request features a hosted model rejected once ("schema", "extra"), per model:
+        # later calls leave them out instead of failing again
+        self._unsupported: set[tuple[str, str]] = set()
 
     @property
     def base_url(self) -> str:
@@ -402,17 +405,64 @@ class LLMClient:
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
-        if self.extra_body:
+        if self.extra_body and ("extra", model) not in self._unsupported:
             kwargs["extra_body"] = self.extra_body
-        if schema is not None and self.settings.llm_supports_json_schema:
+        if (
+            schema is not None
+            and self.settings.llm_supports_json_schema
+            and ("schema", model) not in self._unsupported
+        ):
             kwargs["response_format"] = _response_format(schema)
+        elif schema is not None and self.settings.llm_supports_json_schema:
+            kwargs["messages"] = _with_json_instruction(msgs, schema)
         try:
-            return await self._complete(self._get_client(), kwargs, role, self.provider, self.lock)
+            return await self._adaptive(kwargs, role, model, schema)
         except LLMError as exc:
             if self.provider == "local" or self.settings.llm_fallback != "local":
                 raise
             self._pause_primary(str(exc))
             return await self._fallback(role, msgs, schema, temperature, max_tokens)
+
+    async def _adaptive(
+        self, kwargs: dict[str, Any], role: LlmRole, model: str, schema: type[BaseModel] | None
+    ) -> tuple[str, str, Usage]:
+        """One completion that adapts to what the hosted model accepts.
+
+        Hosted models differ: some reject `response_format` (no JSON mode) or extra request
+        fields such as `chat_template_kwargs`. Such a rejection is retried once without the
+        feature (JSON then asked for in the prompt) and remembered for this model. A reply
+        whose reasoning used up every token and left no answer is retried once with more room.
+        """
+        spent: Usage | None = None  # tokens of a reply that was all reasoning still count
+        for _ in range(4):  # at most: drop the schema, drop the extra fields, give more room
+            try:
+                text, reasoning, usage = await self._complete(
+                    self._get_client(), kwargs, role, self.provider, self.lock
+                )
+            except LLMError as exc:
+                feature = _rejected_feature(exc, kwargs)
+                if feature is None:
+                    raise
+                self._unsupported.add((feature, model))
+                log.warning("%s rejected %s; retrying without it", model, feature)
+                if feature == "schema":
+                    kwargs.pop("response_format", None)
+                    if schema is not None:
+                        kwargs["messages"] = _with_json_instruction(kwargs["messages"], schema)
+                else:
+                    kwargs.pop("extra_body", None)
+                continue
+            if spent is not None:
+                usage.prompt_tokens += spent.prompt_tokens
+                usage.completion_tokens += spent.completion_tokens
+                usage.cost_usd = round(usage.cost_usd + spent.cost_usd, 6)
+            if not text and reasoning and int(kwargs["max_tokens"]) < REASONING_RETRY_TOKENS:
+                log.warning("%s spent its reply on reasoning; retrying with more room", model)
+                kwargs["max_tokens"] = REASONING_RETRY_TOKENS
+                spent = usage
+                continue
+            return text, reasoning, usage
+        raise LLMError("The language model did not give an answer.")
 
     async def _complete(
         self,
@@ -511,6 +561,46 @@ class LLMClient:
             budget.add(usage)
         if self.on_usage is not None:
             self.on_usage(usage)
+
+
+REASONING_RETRY_TOKENS = 4096
+
+
+def _with_json_instruction(
+    msgs: list[dict[str, str]], schema: type[BaseModel]
+) -> list[dict[str, str]]:
+    """The prompt-only way to ask for JSON, for models without a JSON mode."""
+    extra = (
+        "\nReturn only the JSON object with your answer, no prose. Its fields are described "
+        "by this JSON schema (fill in values; do not repeat the schema):\n"
+        + json.dumps(_schema_for(schema))
+    )
+    out = [dict(m) for m in msgs]
+    if out and out[0]["role"] == "system":
+        if extra not in out[0]["content"]:
+            out[0]["content"] = out[0]["content"] + extra
+    else:
+        out.insert(0, {"role": "system", "content": extra.strip()})
+    return out
+
+
+def _rejected_feature(exc: LLMError, kwargs: dict[str, Any]) -> str | None:
+    """'schema' or 'extra' when a 400/422 reply blames that request feature, else None."""
+    cause = exc.__cause__
+    status = getattr(cause, "status_code", None)
+    if status not in (400, 422):
+        return None
+    msg = str(cause).lower()
+    if "response_format" in kwargs and any(
+        w in msg for w in ("response_format", "json_schema", "json schema", "structured", "guided")
+    ):
+        return "schema"
+    if "extra_body" in kwargs and any(
+        w in msg
+        for w in ("chat_template_kwargs", "enable_thinking", "reasoning", "extra", "unrecognized")
+    ):
+        return "extra"
+    return None
 
 
 def _response_format(schema: type[BaseModel]) -> dict[str, Any]:
