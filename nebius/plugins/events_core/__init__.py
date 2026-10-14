@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from api.core.extensions import Registry, T1Group, Tier1State
+from api.core.scripts import MAX_SCRIPT_CHARS, check_script
 from api.models import Venue
 
 COUNTERFLOW_CAPACITY_FACTOR = 0.5  # usable width halves when a group pushes the other way
@@ -243,6 +244,42 @@ class OneWay:
             state.notes.append(f"One-way flow at {p.exit_id} restores its capacity.")
 
 
+class ScriptEventModel(_E):
+    type: Literal["script"] = "script"
+    title: str = Field(min_length=1, max_length=90)
+    code: str = Field(min_length=1, max_length=MAX_SCRIPT_CHARS)
+    every_s: float = Field(default=1.0, ge=0.25, le=600)
+
+    @field_validator("code")
+    @classmethod
+    def _static_check(cls, code: str) -> str:
+        # static only: the API never runs script code (it runs inside the sim sandbox)
+        problems = check_script(code)
+        if problems:
+            raise ValueError("; ".join(problems))
+        return code
+
+
+class Script:
+    type = "script"
+    label = "AI-written scenario"
+    description = (
+        "Python code with on_step(view, act), called every every_s seconds of simulated "
+        "time from at_s inside the simulation sandbox."
+    )
+    params_model = ScriptEventModel
+
+    def validate_refs(self, venue: Venue, p: ScriptEventModel) -> list[str]:
+        # ids are read at run time; unknown ones become run notes, never errors
+        return []
+
+    def tier1_effect(self, state: Tier1State, p: ScriptEventModel) -> None:
+        state.notes.append(
+            f"The instant estimate cannot run the scenario script “{p.title}”; "
+            "only a simulation shows its effect."
+        )
+
+
 ALL_EVENTS = [
     BlockExit(),
     UnblockExit(),
@@ -252,6 +289,7 @@ ALL_EVENTS = [
     StaggeredRelease(),
     MarshalRedirect(),
     OneWay(),
+    Script(),
 ]
 
 
