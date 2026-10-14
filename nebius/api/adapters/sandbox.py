@@ -40,6 +40,8 @@ class SimJob:
     parent_node: str | None = None
     tier1: RunResult | None = None  # used by FakeRunner and as a fallback
     extra: dict[str, Any] = field(default_factory=dict)
+    # rewind: the run whose checkpoint.json this run starts from (a snapshot child on Nebius)
+    resume_from: str | None = None
 
 
 class SandboxRunner(Protocol):
@@ -325,17 +327,28 @@ class FakeRunner:
     """Deterministic stand-in for tests and when no sandbox is available.
 
     It does not simulate: it scales the Tier 1 estimate and labels the result clearly.
+    Concurrency is bounded like the real runners (`max_parallel`); `max_active` records the
+    most runs it ever had in flight. A checkpoint run writes a small `checkpoint.json`, and a
+    run with `resume_from` copies that file into its own folder (or fails without it).
     """
 
     provider = "fake"
 
     def __init__(
-        self, runs_dir: Path, delay_s: float = 0.0, fail_ids: set[str] | None = None
+        self,
+        runs_dir: Path,
+        delay_s: float = 0.0,
+        fail_ids: set[str] | None = None,
+        max_parallel: int = 4,
     ) -> None:
         self.runs_dir = runs_dir
         self.delay_s = delay_s
         self.fail_ids = fail_ids or set()
         self.calls: list[str] = []
+        self.sem = asyncio.Semaphore(max(1, max_parallel))
+        self.active = 0
+        self.max_active = 0
+        self.resumed: dict[str, str] = {}
 
     async def prepare_base(self, venue: Venue) -> str:
         return "fake:base"
@@ -344,9 +357,39 @@ class FakeRunner:
         return {"ok": True, "detail": "Fake sandbox (no simulation)"}
 
     async def run(self, job: SimJob, on_progress: ProgressFn | None = None) -> RunResult:
+        async with self.sem:
+            self.active += 1
+            self.max_active = max(self.max_active, self.active)
+            try:
+                return await self._run(job)
+            finally:
+                self.active -= 1
+
+    def _checkpoint(self, job: SimJob) -> str | None:
+        """Write or inherit checkpoint.json; returns an error message when it can't."""
+        req = job.request
+        work = self.runs_dir / req.run_id
+        if job.resume_from:
+            src = self.runs_dir / job.resume_from / "checkpoint.json"
+            if not src.exists():
+                return f"No checkpoint to resume from (run {job.resume_from})."
+            work.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, work / "checkpoint.json")
+            self.resumed[req.run_id] = job.resume_from
+        elif req.checkpoint_at_s is not None:
+            work.mkdir(parents=True, exist_ok=True)
+            (work / "checkpoint.json").write_text(
+                json.dumps({"t_s": req.checkpoint_at_s, "run_id": req.run_id, "fake": True})
+            )
+        return None
+
+    async def _run(self, job: SimJob) -> RunResult:
         self.calls.append(job.request.run_id)
         if self.delay_s:
             await asyncio.sleep(self.delay_s)
+        problem = self._checkpoint(job)
+        if problem:
+            return failed_result(job, self.provider, problem)
         if job.request.run_id in self.fail_ids or any(
             part in job.request.run_id for part in self.fail_ids
         ):
@@ -369,6 +412,8 @@ class FakeRunner:
         if m.evac_time_max_s is not None:
             m.evac_time_max_s = round(m.evac_time_max_s * 1.2, 1)
         res.notes = [*res.notes, "Fake sandbox: scaled instant estimate, not a simulation."]
+        if job.resume_from:
+            res.notes.append(f"Started from the checkpoint of run {job.resume_from}.")
         return res
 
     async def close(self) -> None:
