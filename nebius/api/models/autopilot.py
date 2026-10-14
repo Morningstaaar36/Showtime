@@ -17,7 +17,10 @@ AutopilotStepKey = Literal[
     "understand", "venue", "capacity", "simulate", "attack", "fix", "confirm", "deliver"
 ]
 AutopilotStepStatus = Literal["pending", "running", "done", "skipped", "failed"]
-AutopilotEventType = Literal["step", "project", "session", "log", "done"]
+AutopilotEventType = Literal["step", "project", "session", "cost", "log", "done"]
+# why a delivered plan is partial: a session budget ran out, the organizer stopped it, the
+# red-team session hit an error, or the server restarted mid-run
+AutopilotPartialReason = Literal["budget", "stopped", "error", "restart"]
 
 # the steps an organizer sees, in order, with plain labels
 STEP_LABELS: dict[AutopilotStepKey, str] = {
@@ -31,6 +34,26 @@ STEP_LABELS: dict[AutopilotStepKey, str] = {
     "deliver": "Writing your plan",
 }
 STEP_ORDER: tuple[AutopilotStepKey, ...] = tuple(STEP_LABELS)
+
+# where each step happens: graph nodes (orchestrator/copilot_graph.py) and, inside the
+# `red_team` node, the phases of the red-team session (orchestrator/session.py)
+STEP_NODES: dict[AutopilotStepKey, tuple[str, ...]] = {
+    "understand": ("understand",),
+    "venue": ("locate", "design", "layout"),
+    "capacity": ("estimate", "create"),
+    "simulate": ("simulate", "sweep"),
+    "attack": ("red_team",),
+    "fix": ("red_team",),
+    "confirm": ("red_team",),
+    "deliver": ("red_team", "deliver"),
+}
+STEP_PHASES: dict[AutopilotStepKey, tuple[str, ...]] = {
+    "simulate": ("baseline",),
+    "attack": ("red_team", "screening", "simulating"),
+    "fix": ("blue_team",),
+    "confirm": ("confirming",),
+    "deliver": ("judging",),
+}
 
 
 def _now() -> str:
@@ -64,16 +87,18 @@ class AutopilotStep(BaseModel):
 
 
 class AutopilotCost(BaseModel):
-    """What the run used. Intake is measured on the app's usage meter while the request was
-    read and the venue built; the red-team part comes from the session's own meter."""
+    """What the run used. Intake (reading the request, building the venue) is metered on the
+    run's own agent calls; the red-team part comes from the session's meter."""
 
     usd_total: float = 0.0
     tokens_total: int = 0
     llm_calls: int = 0
     simulations: int = 0
-    intake: dict[str, float] = Field(default_factory=dict)
-    red_team: dict[str, float] = Field(default_factory=dict)
-    detail: dict[str, Any] | None = None  # the session's richer cost record, when it has one
+    intake_usd: float = 0.0
+    intake_tokens: int = 0
+    red_team_usd: float = 0.0
+    red_team_tokens: int = 0
+    detail: dict[str, Any] | None = None  # the session's own cost record, when it has one
 
 
 class AutopilotRun(BaseModel):
@@ -84,13 +109,15 @@ class AutopilotRun(BaseModel):
     depth: AutopilotDepth
     text: str | None = None
     project_id: str | None = None
+    project_name: str | None = None
     session_id: str | None = None
     steps: list[AutopilotStep]
     report_url: str | None = None
     headline: str | None = None
     cost: AutopilotCost | None = None
     notes: list[str] = Field(default_factory=list)
-    partial_reason: str | None = None
+    ai_outage: bool = False  # the AI model was unreachable; standard methods were used
+    partial_reason: AutopilotPartialReason | None = None
     error: str | None = None
     created_at: str
     finished_at: str | None = None
