@@ -325,7 +325,7 @@ export function useVenueFromMap() {
 
 // --- Ask or change anything (N15) -----------------------------------------------------------
 
-export type AskIntent = "edit" | "question" | "what_if" | "navigate" | "other";
+export type AskIntent = "edit" | "question" | "what_if" | "analyse" | "navigate" | "other";
 export type AskTarget = "report" | "expert" | "plan" | "check" | "work";
 export type AskScreen = "check" | "plan";
 type WhatIfOut = import("./types").WhatIfOut;
@@ -348,6 +348,7 @@ export type AskAnythingOut = { routed_by: "model" | "keywords" } & (
   | { intent: "edit"; result: EditOut }
   | { intent: "question"; result: AskAnswer }
   | { intent: "what_if"; result: AskWhatIf }
+  | { intent: "analyse"; result: AnalyseOut }
   | { intent: "navigate"; result: { target: AskTarget } }
   | { intent: "other"; result: { message: string; examples: string[] } }
 );
@@ -427,6 +428,108 @@ export function useApplyFixes(projectId: string) {
         ["countdown", projectId], qk.session(v.sessionId), qk.sessions(projectId)]) {
         void qc.invalidateQueries({ queryKey: key });
       }
+    },
+  });
+}
+
+// --- Crowd analyst and user scripts: code that runs in a sandbox ---------------------------
+
+/** What a code job printed and how it ended (CodeResult on the server). */
+export interface CodeRunOut {
+  status: "ok" | "error" | "timeout";
+  output: unknown;
+  stdout_tail: string;
+  stderr_tail: string;
+  runtime_s: number;
+}
+
+/** The analyst's answer: the code it wrote, what it computed, and a number-checked summary. */
+export interface AnalyseOut {
+  answer: string;
+  numbers_checked: boolean;
+  status: "ok" | "error" | "timeout" | "rejected";
+  code: string;
+  plan: string;
+  output: unknown;
+  runtime_s: number;
+  stderr_tail: string;
+  problems: string[];
+  run_id: string;
+  basis: string;
+  sandbox: string;
+}
+
+/** Ask the analyst about a run (default: the run a question would use). */
+export function useAnalyse(projectId: string) {
+  return useMutation({
+    mutationFn: (v: { question: string; run_id?: string | null; session_id?: string | null }) =>
+      api.post<AnalyseOut>(`/projects/${projectId}/analyse`, v),
+  });
+}
+
+export type UserScriptKind = "analysis" | "scenario";
+
+/** The last run of a saved script: a code job (analysis) or a started simulation (scenario). */
+export type UserScriptRun =
+  | (CodeRunOut & { run_id: string; sandbox: string; at: string })
+  | { status: "started"; run_id: string; at: string };
+
+export interface UserScript {
+  id: string;
+  name: string;
+  kind: UserScriptKind;
+  code: string;
+  every_s: number;
+  author: string;
+  created_at: string;
+  updated_at: string;
+  problems: string[];
+  last_run: UserScriptRun | null;
+}
+
+export interface UserScriptIn { name: string; kind: UserScriptKind; code: string; every_s: number }
+
+export type RunScriptOut =
+  | ({ kind: "analysis" } & CodeRunOut & { run_id: string; sandbox: string; at: string })
+  | { kind: "scenario"; status: "started"; run_id: string; at: string; run: RunOut };
+
+const scriptsKey = (projectId: string) => ["scripts", projectId] as const;
+
+export const useScripts = (projectId: string | undefined) =>
+  useQuery({
+    queryKey: scriptsKey(projectId ?? ""),
+    queryFn: () => api.get<{ scripts: UserScript[]; scenario_supported: boolean }>(`/projects/${projectId}/scripts`),
+    enabled: !!projectId,
+  });
+
+/** Save a new script (no id) or change a saved one. */
+export function useSaveScript(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: UserScriptIn & { id?: string | null }) =>
+      id ? api.put<UserScript>(`/projects/${projectId}/scripts/${id}`, body)
+        : api.post<UserScript>(`/projects/${projectId}/scripts`, body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: scriptsKey(projectId) }),
+  });
+}
+
+export function useDeleteScript(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del<void>(`/projects/${projectId}/scripts/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: scriptsKey(projectId) }),
+  });
+}
+
+/** Run a saved script in a sandbox. */
+export function useRunScript(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; run_id?: string | null; tier?: 2 | 3; seed?: number | null }) =>
+      api.post<RunScriptOut>(`/projects/${projectId}/scripts/${id}/run`, body),
+    onSuccess: (data) => {
+      if (data.kind === "scenario") qc.setQueryData(qk.run(data.run.id), data.run);
+      return qc.invalidateQueries({ queryKey: scriptsKey(projectId) });
     },
   });
 }
