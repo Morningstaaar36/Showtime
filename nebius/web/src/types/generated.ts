@@ -178,6 +178,8 @@ export type MaxPeople = number;
 export type MaxSimS = number;
 export type MaxWallS = number;
 export type InterventionAtS = number | null;
+export type CheckpointAtS = number | null;
+export type Resume = boolean;
 export type Engine = string;
 export type Metrics = string[];
 export type ParentRunId = string | null;
@@ -831,6 +833,8 @@ export interface RunRequest {
   max_sim_s: MaxSimS;
   max_wall_s: MaxWallS;
   intervention_at_s: InterventionAtS;
+  checkpoint_at_s: CheckpointAtS;
+  resume: Resume;
   engine: Engine;
   metrics: Metrics;
   parent_run_id: ParentRunId;
