@@ -223,6 +223,10 @@ export type FixId2 = string | null;
 export type SimTimeS = number;
 export type Notes = string[];
 export type Error = string | null;
+/**
+ * Evidence basis, always derived (see `result_basis`), so it can never go stale.
+ */
+export type ResultBasis = "instant_estimate" | "partial_simulation" | "completed_simulation" | "preview" | "unknown";
 export type Seq = number;
 export type Type1 =
   | "agent_call"
@@ -819,6 +823,7 @@ export interface RunResult {
   notes: Notes;
   error: Error;
   extensions: Extensions4;
+  basis: ResultBasis;
 }
 /**
  * Headline metrics. Every number is computed by a formula or the simulator.
