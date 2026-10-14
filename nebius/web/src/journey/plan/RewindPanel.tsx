@@ -16,7 +16,9 @@ const COL: Record<MetricKey, string> = { evac_time_95_s: "evac", people_inside: 
 
 const TONE = { better: "text-[color-mix(in_srgb,var(--egress)_68%,black)] dark:text-egress", worse: "text-[color-mix(in_srgb,var(--danger)_80%,black)] dark:text-danger", same: "text-muted" };
 
-export function RewindPanel({ sessionId, worstTitle }: { sessionId: string; worstTitle: string | null }) {
+/** `worstTitle` names the attack that broke the plan worst (none when nothing broke: the
+ * rewind then uses the attack that came out worst); `canRewind` is false without attacks. */
+export function RewindPanel({ sessionId, worstTitle, canRewind }: { sessionId: string; worstTitle: string | null; canRewind: boolean }) {
   const rewind = useRewind(sessionId);
   const start = useStartRewind(sessionId);
   const rec = rewind.data ?? null;
@@ -31,9 +33,9 @@ export function RewindPanel({ sessionId, worstTitle }: { sessionId: string; wors
         <div className="min-w-0 space-y-1">
           <h2 id="rewind-h" className="flex items-center gap-2 font-semibold"><History className="size-4 text-signal" />{t("rewind.title")}</h2>
           <p className="text-sm text-muted">{t("rewind.body")}</p>
-          {worstTitle && <p className="text-sm">{t("rewind.under", { attack: worstTitle })}</p>}
+          {(rec?.attack?.title ?? worstTitle) && <p className="text-sm">{t("rewind.under", { attack: rec?.attack?.title ?? worstTitle ?? "" })}</p>}
         </div>
-        <Button variant={rec ? "secondary" : "primary"} className="min-h-11" onClick={run} disabled={running || !worstTitle}>
+        <Button variant={rec ? "secondary" : "primary"} className="min-h-11" onClick={run} disabled={running || !canRewind}>
           {running ? <Spinner /> : <History />}{start.isPending ? t("rewind.starting") : rec?.status === "done" ? t("rewind.again") : t("rewind.start")}
         </Button>
       </div>
