@@ -1013,5 +1013,13 @@
       "unconfirmed": "Not confirmed",
       "failed": "Confirmation failed: the simulations didn't finish"
     }
+  },
+  "scripts": {
+    "badge": "AI-written scenario",
+    "badge_example": "Scenario written as code (built-in example)",
+    "show_code": "Show the code",
+    "explain": "The AI wrote this scenario as a small program. It ran only inside the sealed simulation sandbox, checking the crowd every {every} s and closing doors, adding people or slowing them down.",
+    "explain_example": "A built-in example of a scenario written as a small program. It ran only inside the sealed simulation sandbox, checking the crowd every {every} s.",
+    "screening": "The quick estimate cannot run code, so this scenario went straight to a simulation. Every number comes from that simulation."
   }
 }
