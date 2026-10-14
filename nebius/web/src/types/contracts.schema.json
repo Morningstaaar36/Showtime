@@ -125,6 +125,441 @@
    "title": "Attack",
    "type": "object"
   },
+  "AutopilotCost": {
+   "description": "What the run used. Intake (reading the request, building the venue) is metered on the\nrun's own agent calls; the red-team part comes from the session's meter.",
+   "properties": {
+    "usd_total": {
+     "default": 0.0,
+     "title": "Usd Total",
+     "type": "number"
+    },
+    "tokens_total": {
+     "default": 0,
+     "title": "Tokens Total",
+     "type": "integer"
+    },
+    "llm_calls": {
+     "default": 0,
+     "title": "Llm Calls",
+     "type": "integer"
+    },
+    "simulations": {
+     "default": 0,
+     "title": "Simulations",
+     "type": "integer"
+    },
+    "intake_usd": {
+     "default": 0.0,
+     "title": "Intake Usd",
+     "type": "number"
+    },
+    "intake_tokens": {
+     "default": 0,
+     "title": "Intake Tokens",
+     "type": "integer"
+    },
+    "red_team_usd": {
+     "default": 0.0,
+     "title": "Red Team Usd",
+     "type": "number"
+    },
+    "red_team_tokens": {
+     "default": 0,
+     "title": "Red Team Tokens",
+     "type": "integer"
+    },
+    "detail": {
+     "anyOf": [
+      {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Detail"
+    }
+   },
+   "title": "AutopilotCost",
+   "type": "object",
+   "required": [
+    "detail",
+    "intake_tokens",
+    "intake_usd",
+    "llm_calls",
+    "red_team_tokens",
+    "red_team_usd",
+    "simulations",
+    "tokens_total",
+    "usd_total"
+   ]
+  },
+  "AutopilotEvent": {
+   "description": "One event in an Autopilot stream (same framing as session events).",
+   "properties": {
+    "seq": {
+     "default": 0,
+     "title": "Seq",
+     "type": "integer"
+    },
+    "type": {
+     "enum": [
+      "step",
+      "project",
+      "session",
+      "cost",
+      "log",
+      "done"
+     ],
+     "title": "Type",
+     "type": "string"
+    },
+    "ts": {
+     "title": "Ts",
+     "type": "string"
+    },
+    "payload": {
+     "additionalProperties": true,
+     "title": "Payload",
+     "type": "object"
+    }
+   },
+   "required": [
+    "payload",
+    "seq",
+    "ts",
+    "type"
+   ],
+   "title": "AutopilotEvent",
+   "type": "object"
+  },
+  "AutopilotRequest": {
+   "description": "A sentence about the event, or an existing project, and how deep to test.",
+   "properties": {
+    "text": {
+     "anyOf": [
+      {
+       "maxLength": 1500,
+       "minLength": 8,
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Text"
+    },
+    "project_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Project Id"
+    },
+    "depth": {
+     "default": "quick",
+     "enum": [
+      "quick",
+      "thorough"
+     ],
+     "title": "Depth",
+     "type": "string"
+    }
+   },
+   "title": "AutopilotRequest",
+   "type": "object",
+   "required": [
+    "depth",
+    "project_id",
+    "text"
+   ]
+  },
+  "AutopilotRun": {
+   "description": "An Autopilot run as the API returns it.",
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "status": {
+     "enum": [
+      "queued",
+      "running",
+      "finished",
+      "stopped",
+      "failed"
+     ],
+     "title": "Status",
+     "type": "string"
+    },
+    "depth": {
+     "enum": [
+      "quick",
+      "thorough"
+     ],
+     "title": "Depth",
+     "type": "string"
+    },
+    "text": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Text"
+    },
+    "project_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Project Id"
+    },
+    "project_name": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Project Name"
+    },
+    "session_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Session Id"
+    },
+    "steps": {
+     "items": {
+      "$ref": "#/definitions/AutopilotStep"
+     },
+     "title": "Steps",
+     "type": "array"
+    },
+    "report_url": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Report Url"
+    },
+    "headline": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Headline"
+    },
+    "cost": {
+     "anyOf": [
+      {
+       "$ref": "#/definitions/AutopilotCost"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "notes": {
+     "items": {
+      "type": "string"
+     },
+     "title": "Notes",
+     "type": "array"
+    },
+    "ai_outage": {
+     "default": false,
+     "title": "Ai Outage",
+     "type": "boolean"
+    },
+    "partial_reason": {
+     "anyOf": [
+      {
+       "enum": [
+        "budget",
+        "stopped",
+        "error",
+        "restart"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Partial Reason"
+    },
+    "error": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Error"
+    },
+    "created_at": {
+     "title": "Created At",
+     "type": "string"
+    },
+    "finished_at": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Finished At"
+    }
+   },
+   "required": [
+    "ai_outage",
+    "cost",
+    "created_at",
+    "depth",
+    "error",
+    "finished_at",
+    "headline",
+    "id",
+    "notes",
+    "partial_reason",
+    "project_id",
+    "project_name",
+    "report_url",
+    "session_id",
+    "status",
+    "steps",
+    "text"
+   ],
+   "title": "AutopilotRun",
+   "type": "object"
+  },
+  "AutopilotStep": {
+   "description": "One plain-language step and where it is.",
+   "properties": {
+    "key": {
+     "enum": [
+      "understand",
+      "venue",
+      "capacity",
+      "simulate",
+      "attack",
+      "fix",
+      "confirm",
+      "deliver"
+     ],
+     "title": "Key",
+     "type": "string"
+    },
+    "label": {
+     "title": "Label",
+     "type": "string"
+    },
+    "status": {
+     "default": "pending",
+     "enum": [
+      "pending",
+      "running",
+      "done",
+      "skipped",
+      "failed"
+     ],
+     "title": "Status",
+     "type": "string"
+    },
+    "started_at": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Started At"
+    },
+    "finished_at": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Finished At"
+    },
+    "detail": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Detail"
+    }
+   },
+   "required": [
+    "detail",
+    "finished_at",
+    "key",
+    "label",
+    "started_at",
+    "status"
+   ],
+   "title": "AutopilotStep",
+   "type": "object"
+  },
   "BundlePreview": {
    "additionalProperties": false,
    "properties": {
@@ -4125,11 +4560,23 @@
   },
   "PlanEvidence": {
    "$ref": "#/definitions/PlanEvidence"
+  },
+  "AutopilotRequest": {
+   "$ref": "#/definitions/AutopilotRequest"
+  },
+  "AutopilotRun": {
+   "$ref": "#/definitions/AutopilotRun"
+  },
+  "AutopilotEvent": {
+   "$ref": "#/definitions/AutopilotEvent"
   }
  },
  "required": [
   "ApiError",
   "Attack",
+  "AutopilotEvent",
+  "AutopilotRequest",
+  "AutopilotRun",
   "BundlePreview",
   "Check",
   "Countdown",

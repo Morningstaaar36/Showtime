@@ -490,6 +490,45 @@ export type PlanHash2 = string | null;
 export type Applicability = "current" | "stale" | "unknown";
 export type Reason1 = string;
 export type Runs = EvidenceReference[];
+export type Text = string | null;
+export type ProjectId3 = string | null;
+export type Depth = "quick" | "thorough";
+export type Id5 = string;
+export type Status5 = "queued" | "running" | "finished" | "stopped" | "failed";
+export type Depth1 = "quick" | "thorough";
+export type Text1 = string | null;
+export type ProjectId4 = string | null;
+export type ProjectName1 = string | null;
+export type SessionId1 = string | null;
+export type Key = "understand" | "venue" | "capacity" | "simulate" | "attack" | "fix" | "confirm" | "deliver";
+export type Label6 = string;
+export type Status6 = "pending" | "running" | "done" | "skipped" | "failed";
+export type StartedAt = string | null;
+export type FinishedAt = string | null;
+export type Detail = string | null;
+export type Steps = AutopilotStep[];
+export type ReportUrl = string | null;
+export type Headline = string | null;
+export type UsdTotal = number;
+export type TokensTotal1 = number;
+export type LlmCalls = number;
+export type Simulations = number;
+export type IntakeUsd = number;
+export type IntakeTokens = number;
+export type RedTeamUsd = number;
+export type RedTeamTokens = number;
+export type Detail1 = {
+  [k: string]: unknown;
+} | null;
+export type Notes2 = string[];
+export type AiOutage = boolean;
+export type PartialReason = ("budget" | "stopped" | "error" | "restart") | null;
+export type Error1 = string | null;
+export type CreatedAt = string;
+export type FinishedAt1 = string | null;
+export type Seq1 = number;
+export type Type2 = "step" | "project" | "session" | "cost" | "log" | "done";
+export type Ts1 = string;
 
 export interface ShowtimeContracts {
   Venue: Venue;
@@ -518,6 +557,9 @@ export interface ShowtimeContracts {
   PlanUpdate: PlanUpdate;
   BundlePreview: BundlePreview;
   PlanEvidence: PlanEvidence;
+  AutopilotRequest: AutopilotRequest;
+  AutopilotRun: AutopilotRun;
+  AutopilotEvent: AutopilotEvent;
   [k: string]: unknown;
 }
 /**
@@ -1478,4 +1520,92 @@ export interface EvidenceReference {
   plan_hash: PlanHash2;
   applicability: Applicability;
   reason: Reason1;
+}
+/**
+ * A sentence about the event, or an existing project, and how deep to test.
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "AutopilotRequest".
+ */
+export interface AutopilotRequest {
+  text: Text;
+  project_id: ProjectId3;
+  depth: Depth;
+  [k: string]: unknown;
+}
+/**
+ * An Autopilot run as the API returns it.
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "AutopilotRun".
+ */
+export interface AutopilotRun {
+  id: Id5;
+  status: Status5;
+  depth: Depth1;
+  text: Text1;
+  project_id: ProjectId4;
+  project_name: ProjectName1;
+  session_id: SessionId1;
+  steps: Steps;
+  report_url: ReportUrl;
+  headline: Headline;
+  cost: AutopilotCost | null;
+  notes: Notes2;
+  ai_outage: AiOutage;
+  partial_reason: PartialReason;
+  error: Error1;
+  created_at: CreatedAt;
+  finished_at: FinishedAt1;
+  [k: string]: unknown;
+}
+/**
+ * One plain-language step and where it is.
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "AutopilotStep".
+ */
+export interface AutopilotStep {
+  key: Key;
+  label: Label6;
+  status: Status6;
+  started_at: StartedAt;
+  finished_at: FinishedAt;
+  detail: Detail;
+  [k: string]: unknown;
+}
+/**
+ * What the run used. Intake (reading the request, building the venue) is metered on the
+ * run's own agent calls; the red-team part comes from the session's meter.
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "AutopilotCost".
+ */
+export interface AutopilotCost {
+  usd_total: UsdTotal;
+  tokens_total: TokensTotal1;
+  llm_calls: LlmCalls;
+  simulations: Simulations;
+  intake_usd: IntakeUsd;
+  intake_tokens: IntakeTokens;
+  red_team_usd: RedTeamUsd;
+  red_team_tokens: RedTeamTokens;
+  detail: Detail1;
+  [k: string]: unknown;
+}
+/**
+ * One event in an Autopilot stream (same framing as session events).
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "AutopilotEvent".
+ */
+export interface AutopilotEvent {
+  seq: Seq1;
+  type: Type2;
+  ts: Ts1;
+  payload: Payload1;
+  [k: string]: unknown;
+}
+export interface Payload1 {
+  [k: string]: unknown;
 }
