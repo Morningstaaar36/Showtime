@@ -1,0 +1,73 @@
+# Showtime CI: the app lives in nebius/ (api, sim, web).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: nebius/api
+    env:
+      PYTHONPATH: ${{ github.workspace }}/nebius
+      LLM_PROVIDER: fake
+      SANDBOX_PROVIDER: fake
+      LLM_CACHE_MODE: replay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check . ../plugins ../scripts ../sim && uv run ruff format --check . ../plugins ../scripts ../sim && uv run lint-imports --config ../.importlinter
+      - name: Typecheck
+        run: cd .. && uv run --project api mypy --config-file api/pyproject.toml api/core api/adapters api/orchestrator
+      - name: Unit and integration tests
+        run: uv run pytest -q -m "not slow" tests
+      - name: Dependency audit
+        run: uvx pip-audit --strict -r <(uv export --frozen --no-hashes --no-dev) || true
+
+  sim:
+    runs-on: ubuntu-24.04
+    env:
+      PYTHONPATH: ${{ github.workspace }}/nebius
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sim image
+        run: docker build --platform linux/amd64 -t showtime-sim:latest nebius/sim/
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+        working-directory: nebius/api
+      - name: Small-crowd simulation tests
+        working-directory: nebius/api
+        run: uv run pytest -q ../sim/tests
+
+  web:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: nebius/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: nebius/web/package-lock.json
+      - run: npm ci
+      - run: npx eslint src --max-warnings=0
+      - run: npx tsc -b --noEmit
+      - run: npx vitest run --passWithNoTests
+      - run: npm run build
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high || true
