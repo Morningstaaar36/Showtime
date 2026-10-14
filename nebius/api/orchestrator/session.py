@@ -69,6 +69,19 @@ class StalePlan(PlanConflict):
     """A session's fixed plan was computed for an earlier venue geometry."""
 
 
+class FixSelectionError(ValueError):
+    """The organizer's choice of kept fixes is empty or names fixes the session did not keep."""
+
+
+class FixConflict(PlanConflict):
+    """The chosen fixes cannot be rebuilt without fixes that were left out."""
+
+
+NOT_TESTED_TOGETHER = (
+    "These changes were tested one by one, not together: test again before relying on them."
+)
+
+
 def severity(r: RunResult) -> float:
     """One number to compare runs (lower is better). Danger time dominates, then density,
     then people left inside, then evacuation time."""
@@ -1190,19 +1203,26 @@ class SessionManager:
             venue.location.event_start if venue.location else None,
         )
 
-    def apply_final(self, sid: str) -> Any:
-        """Save the session's fixed venue as a new project version.
+    def apply_final(self, sid: str, fix_ids: list[str] | None = None) -> Any:
+        """Save the session's fixed venue, or the chosen kept fixes, as a new project version.
 
-        Refused when the complete plan changed after the session started: replacing it
-        would silently discard those edits. Organizer annotations come from the current
-        version; objects the fixes added are marked as proposed construction.
+        `fix_ids` (default: every kept fix) must be a non-empty subset of the kept fixes. All
+        of them use the venue the session tested together; a subset is rebuilt from the
+        tested venue with only those fix bundles, validated as the session validated them,
+        and is recorded as not tested together. Refused when the complete plan changed after
+        the session started: replacing it would silently discard those edits. Organizer
+        annotations come from the current version; objects the fixes added are marked as
+        proposed construction. The session summary keeps an `applied` record per version.
         """
         row = self.get(sid)
         if row is None or not row.summary or not row.summary.get("final_venue"):
             raise ValueError("This session has no fixed plan to apply.")
-        if not row.summary.get("accepted_fixes"):
+        summary: dict[str, Any] = dict(row.summary)
+        accepted = [str(f) for f in summary.get("accepted_fixes") or []]
+        if not accepted:
             # saving would only add a version identical to the current one
             raise ValueError("This session kept no fixes, so there is nothing to apply.")
+        chosen = self._chosen(accepted, fix_ids)
         projects = self.st.projects
         tested = projects.version(row.project_id, row.venue_version)
         current = projects.version(row.project_id)
@@ -1213,15 +1233,106 @@ class SessionManager:
                 "The plan changed after this test, so its fixes no longer match. "
                 "Test the current plan again before accepting changes."
             )
-        fixed = Venue.model_validate(row.summary["final_venue"])
+        together = chosen == accepted
+        if together:
+            fixed = Venue.model_validate(summary["final_venue"])
+            measures = [ScenarioEventIn.model_validate(e) for e in summary.get("measures", [])]
+        else:
+            fixed, measures = self._rebuild(original, summary, chosen)
         v = carry_annotations(present, fixed)
-        measures = [ScenarioEventIn.model_validate(e) for e in row.summary.get("measures", [])]
         v = append_legacy_measures(v, measures, self.st.registry)
-        kept = len(row.summary.get("accepted_fixes", []))
-        return projects.replace_venue(
+        titles = {
+            str(f.get("fix_id")): str(f.get("title") or "")
+            for f in summary.get("fixes") or []
+            if isinstance(f, dict)
+        }
+        named = "; ".join(f"{f} ({titles[f]})" if titles.get(f) else f for f in chosen)
+        message = (
+            f"Applied red-team plan ({len(chosen)} fixes): {named}"
+            if together
+            else f"Applied {len(chosen)} of {len(accepted)} red-team fixes: {named}. "
+            + NOT_TESTED_TOGETHER
+        )
+        saved = projects.replace_venue(
             row.project_id,
             v,
-            f"Applied red-team plan ({kept} fixes)",
+            message[:1000],
             author="agent",
             expected_version=current.version,
         )
+        self._record_applied(
+            sid,
+            {
+                "version": saved.version,
+                "plan_hash": plan_hash(Venue.model_validate(saved.venue)),
+                "fix_ids": chosen,
+                "tested_together": together,
+                "note": None if together else NOT_TESTED_TOGETHER,
+                "at": datetime.now(UTC).isoformat(timespec="seconds"),
+            },
+        )
+        return saved
+
+    @staticmethod
+    def _chosen(accepted: list[str], fix_ids: list[str] | None) -> list[str]:
+        """The chosen kept fixes in the order the session kept them (all when not given)."""
+        if fix_ids is None:
+            return list(accepted)
+        wanted = list(dict.fromkeys(str(f).strip() for f in fix_ids if str(f).strip()))
+        if not wanted:
+            raise FixSelectionError("Choose at least one change to accept.")
+        unknown = [f for f in wanted if f not in accepted]
+        if unknown:
+            what = "This change is" if len(unknown) == 1 else "These changes are"
+            raise FixSelectionError(
+                f"{what} not among the changes this test kept: {', '.join(unknown)}. "
+                "Reload the page and choose again."
+            )
+        return [f for f in accepted if f in wanted]
+
+    def _rebuild(
+        self, venue: Venue, summary: dict[str, Any], chosen: list[str]
+    ) -> tuple[Venue, list[ScenarioEventIn]]:
+        """The tested venue with only the chosen fix bundles, applied as the session did."""
+        fixes: dict[str, Fix] = {}
+        for raw in summary.get("fixes") or []:
+            try:
+                fx = Fix.model_validate(raw)
+            except ValueError:
+                continue
+            fixes[fx.fix_id] = fx
+        missing = [f for f in chosen if f not in fixes]
+        if missing:
+            raise FixSelectionError(
+                "This test did not record the details of "
+                + ", ".join(missing)
+                + ", so the changes can't be applied one by one. Accept all of them, "
+                "or test again."
+            )
+        measures: list[ScenarioEventIn] = []
+        for fid in chosen:
+            fx = fixes[fid]
+            try:
+                venue = apply_fix_bundle(venue, fx, self.st.registry)
+                validate_operational(venue, [*measures, *fx.operational], self.st.registry)
+            except (PlanError, PatchError, ValueError) as exc:
+                problems = getattr(exc, "problems", None) or [str(exc)]
+                raise FixConflict(
+                    f"“{fx.title}” can't be applied without the changes you left out "
+                    f"({problems[0]}). Also choose the change it builds on, or accept all "
+                    "changes."
+                ) from exc
+            measures.extend(fx.operational)
+        return venue, measures
+
+    def _record_applied(self, sid: str, record: dict[str, Any]) -> None:
+        """Remember which fixes went into which version (read by Your plan and exports)."""
+        with db_session() as db:
+            row = db.get(RedTeamSession, sid)
+            if row is None:
+                return
+            summary = dict(row.summary or {})
+            summary["applied"] = [*(summary.get("applied") or []), record]
+            row.summary = summary
+            db.add(row)
+            db.commit()
