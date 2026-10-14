@@ -42,7 +42,22 @@
     "home_label": "Showtime home",
     "main_nav": "Main",
     "plan_event": "Plan an event",
-    "your_plans": "Your plans"
+    "your_plans": "Your plans",
+    "provider_aria": "AI: {label}. Show details",
+    "provider_local": "AI runs on this computer",
+    "provider_nebius": "AI runs on Nebius Token Factory",
+    "provider_cloud": "AI runs on a cloud service ({label})",
+    "provider_ai": "AI model",
+    "provider_sim": "Simulator",
+    "provider_ready": "Ready",
+    "provider_not_ready": "Not ready",
+    "provider_backup": "Backup model in use",
+    "provider_checking": "Checking…",
+    "provider_dots": "A green dot means the AI is answering. Amber means it isn't ready, or a backup model is standing in.",
+    "provider_more": "About the AI settings",
+    "cost_title": "AI use in this project",
+    "cost_value": "{tokens} tokens · {usd}",
+    "cost_hint": "Counted across this project's red-team sessions."
   },
   "onboarding": {
     "title": "Welcome to Showtime",
