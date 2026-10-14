@@ -24,6 +24,10 @@ from api.agents.judge import judge
 from api.agents.red_team import incident_query, red_team, venue_features
 from api.core.annotations import carry_annotations
 from api.core.countdown import compute_countdown
+from api.core.evidence import (
+    attempt_id,
+    fallback_for,
+)
 from api.core.extensions import HazardContext, HazardResult, IncidentRecord
 from api.core.plan import (
     PlanConflict,
@@ -376,29 +380,57 @@ class SessionManager:
             },
         )
         live.runs += 1
-        res = await st.runs.run(
+        res: RunResult = await st.runs.run(
             job,
             project_id=live.project_id,
             venue_version=live.venue_version,
             session_id=live.id,
             label=label,
         )
-        if res.status in ("failed", "timeout") and job.tier1 is not None:
-            # never stall the session: fall back to the instant estimate for this branch
-            fb = job.tier1.model_copy(deep=True)
-            fb.run_id = rid
-            fb.notes = [*fb.notes, f"Simulation {res.status}: showing the instant estimate."]
-            self.emit(
-                live,
-                "log",
-                {
-                    "level": "warning",
-                    "message": f"{label}: simulation {res.status}; used the instant estimate",
-                },
-            )
-            res = fb
-        result: RunResult = res
-        return result
+        if res.status not in ("failed", "timeout", "cancelled"):
+            return res
+        # Never stall the session: show the instant estimate for this branch. The failed
+        # simulation stays on record as it is (basis unknown); the estimate is a separate,
+        # linked run that may rank attacks but can never confirm anything.
+        fb: RunResult | None = st.runs.record_fallback(
+            job,
+            res,
+            project_id=live.project_id,
+            venue_version=live.venue_version,
+            session_id=live.id,
+            label=label,
+        )
+        if fb is None:
+            return res
+        self.emit(
+            live,
+            "run_finished",
+            {
+                "run_id": res.run_id,
+                "node_id": node_id,
+                "status": res.status,
+                "tier": res.tier,
+                "metrics": headline(res),
+                "provider": res.provider,
+                "engine": res.engine,
+                "basis": res.basis,
+                "error": res.error,
+                "fallback_run_id": fb.run_id,
+                "is_break": False,
+                "break_reasons": [],
+                "accepted": None,
+            },
+        )
+        self.emit(
+            live,
+            "log",
+            {
+                "level": "warning",
+                "message": f"{label}: simulation {res.status}; showing the instant estimate "
+                f"(run {fb.run_id}) in its place",
+            },
+        )
+        return fb
 
     async def _run(self, live: LiveSession) -> None:
         st = self.st
@@ -516,18 +548,31 @@ class SessionManager:
                 for sev, a, r in breaks[: int(cfg["fix_targets"])]:
                     self._check(live)
                     if len(accepted) > accepted_before_round:
+                        current = f"atk:{a.attack_id}:current:{len(accepted)}"
                         r = await self._sim(
                             live,
                             working,
                             2,
                             a.title,
-                            f"atk:{a.attack_id}:current:{len(accepted)}",
+                            current,
                             None,
                             "attack",
                             attack=a,
                             extra=live.measures,
                         )
                         results[r.run_id] = r
+                        self._node_done(
+                            live,
+                            current,
+                            r,
+                            break_reasons(
+                                r,
+                                s.density_danger_ppm2,
+                                s.danger_min_duration_s,
+                                self._target(working),
+                                s.safety_factor,
+                            ),
+                        )
                         sev = severity(r)
                     self._status(live, "blue_team", rnd, f"Blue team is fixing “{a.title}”")
                     fixes = await self._fixes(
@@ -761,19 +806,24 @@ class SessionManager:
     ) -> None:
         status = (
             "failed"
-            if r.status == "failed"
+            if r.status in ("failed", "timeout", "cancelled")
             else "rejected"
             if accepted is False
             else "break"
             if reasons
             else "ok"
         )
+        # what the node's numbers are based on; a fallback names the failed run it replaces
+        evidence: dict[str, Any] = {"basis": r.basis}
+        if fallback_for(r):
+            evidence["fallback_for"] = fallback_for(r)
         payload: dict[str, Any] = {
             "node_id": node_id,
             "run_id": r.run_id,
             "status": status,
             "metrics": headline(r),
             "tier": r.tier,
+            **evidence,
         }
         if accepted is not None:
             payload["accepted"] = accepted
@@ -791,6 +841,7 @@ class SessionManager:
                 "metrics": headline(r),
                 "provider": r.provider,
                 "engine": r.engine,
+                **evidence,
                 "is_break": bool(reasons),
                 "break_reasons": reasons or [],
                 "accepted": accepted,
@@ -860,7 +911,8 @@ class SessionManager:
                     meta={"fixes": [f.fix_id for f in kept]},
                 )
                 results[after.run_id] = after
-                final_run_id = after.run_id
+                # the simulation attempted, even when an estimate is shown in its place
+                final_run_id = attempt_id(after)
                 self._node_done(
                     live,
                     "final:after",
