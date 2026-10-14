@@ -22,13 +22,19 @@ interface Selection { id: string | null; name: string; outline: LatLon[]; kind: 
 /** OpenFreeMap: free vector tiles with 3D buildings, no key (https://openfreemap.org). */
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const START: [number, number] = [90.3925, 23.7265]; // BUET, Dhaka (lon, lat)
-const SIGNAL = "#1F5FBF";
+const SIGNAL = "#5B4FF5";
 
 const toGeo = (ring: LatLon[]) => ring.map(([la, lo]) => [lo, la]);
 const emptyFC = { type: "FeatureCollection" as const, features: [] };
 
 /** "Real place": search, click a building or an open area, or draw a box; build a venue from it. */
-export function MapTab({ onDraft }: { onDraft: (d: VenueDraft | null) => void }) {
+export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: {
+  onDraft: (d: VenueDraft | null) => void;
+  /** Height of the map; the full-page place picker makes it much taller. */
+  mapClassName?: string;
+  /** Show numbered steps (find, click, build) highlighting the one to do now. */
+  guided?: boolean;
+}) {
   const holder = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const corner = useRef<maplibregl.LngLat | null>(null);
@@ -43,6 +49,7 @@ export function MapTab({ onDraft }: { onDraft: (d: VenueDraft | null) => void })
   const [mode, setMode] = useState<"indoor" | "outdoor">("outdoor");
   const [people, setPeople] = useState("");
   const [mapError, setMapError] = useState<string | null>(null);
+  const [found, setFound] = useState(false); // the map shows the searched place
   const build = useVenueFromMap();
 
   const select = (s: Selection) => {
@@ -84,9 +91,11 @@ export function MapTab({ onDraft }: { onDraft: (d: VenueDraft | null) => void })
     m.on("load", () => {
       m.addSource("selection", { type: "geojson", data: emptyFC });
       m.addSource("draft-box", { type: "geojson", data: emptyFC });
-      m.addLayer({ id: "selection-fill", type: "fill", source: "selection", paint: { "fill-color": SIGNAL, "fill-opacity": 0.22 } });
-      m.addLayer({ id: "selection-line", type: "line", source: "selection", paint: { "line-color": SIGNAL, "line-width": 3 } });
-      m.addLayer({ id: "draft-box-line", type: "line", source: "draft-box", paint: { "line-color": SIGNAL, "line-width": 2, "line-dasharray": [2, 2] } });
+      // under the labels (the usual place for highlights), above roads, parks and buildings
+      const beforeLabels = m.getStyle().layers.find((l) => l.type === "symbol")?.id;
+      m.addLayer({ id: "selection-fill", type: "fill", source: "selection", paint: { "fill-color": SIGNAL, "fill-opacity": 0.3 } }, beforeLabels);
+      m.addLayer({ id: "selection-line", type: "line", source: "selection", paint: { "line-color": SIGNAL, "line-width": 4 } }, beforeLabels);
+      m.addLayer({ id: "draft-box-line", type: "line", source: "draft-box", paint: { "line-color": SIGNAL, "line-width": 3, "line-dasharray": [2, 2] } }, beforeLabels);
     });
     m.on("mousemove", (e) => {
       if (!drawingRef.current || !corner.current) return;
@@ -151,6 +160,7 @@ export function MapTab({ onDraft }: { onDraft: (d: VenueDraft | null) => void })
 
   const goTo = (p: Place) => {
     setResults([]);
+    setFound(true);
     const [s, w, n, e] = p.bbox;
     map.current?.fitBounds([[w, s], [e, n]], { maxZoom: 17.5, padding: 40, pitch: 45, duration: 1200 });
     if (p.outline && p.outline.length >= 4) select({ id: null, name: p.name, kind: "area", outline: p.outline });
@@ -167,16 +177,31 @@ export function MapTab({ onDraft }: { onDraft: (d: VenueDraft | null) => void })
     );
   };
 
+  // 1 find, 2 click it, 3 build; 4 means everything is done
+  const stage = build.data?.venue ? 4 : sel ? 3 : found ? 2 : 1;
   return (
     <div className="space-y-3">
+      {guided && (
+        <ol className="grid gap-2 sm:grid-cols-3" aria-label="Steps">
+          {["Find your place", "Click the building or park", "Build your venue"].map((label, i) => (
+            <li key={label} aria-current={stage === i + 1 ? "step" : undefined}
+                className={cn("flex items-center gap-2 rounded-[var(--radius-control)] border px-3 py-2 text-sm transition",
+                  stage === i + 1 ? "border-signal bg-signal-soft font-semibold text-ink" : stage > i + 1 ? "border-egress/40 bg-egress-soft text-ink" : "border-border bg-surface text-muted")}>
+              <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold",
+                stage === i + 1 ? "bg-signal text-signal-ink" : stage > i + 1 ? "bg-egress text-white" : "bg-surface-3")}>{stage > i + 1 ? "✓" : i + 1}</span>
+              {label}
+            </li>
+          ))}
+        </ol>
+      )}
       <div className="relative">
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void search(); }}>
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
             <Input aria-label="Search for a place" placeholder="Search a place: “Ramna Park Dhaka”, “BUET”, an address…" value={q}
-                   onChange={(e) => setQ(e.target.value)} className="pl-9" />
+                   onChange={(e) => setQ(e.target.value)} className="h-11 pl-9 text-base" />
           </div>
-          <Button type="submit" disabled={searching || q.trim().length < 2}>{searching ? <Loader2 className="animate-spin" /> : <MapPin />}Find</Button>
+          <Button type="submit" variant="primary" disabled={searching || q.trim().length < 2}>{searching ? <Loader2 className="animate-spin" /> : <MapPin />}Find</Button>
         </form>
         {results.length > 0 && (
           <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-[10px] border border-border bg-surface p-1 shadow-[var(--shadow-float)]">
@@ -192,8 +217,8 @@ export function MapTab({ onDraft }: { onDraft: (d: VenueDraft | null) => void })
         )}
       </div>
 
-      <div className="relative overflow-hidden rounded-[10px] border border-border">
-        <div ref={holder} className="h-[380px] w-full bg-plan" />
+      <div className="relative overflow-hidden rounded-[var(--radius-panel)] border border-border shadow-sm">
+        <div ref={holder} className={cn(mapClassName, "w-full bg-plan")} />
         {mapError && (
           <div className="absolute inset-0 grid place-items-center bg-surface/90 p-6 text-center text-sm">
             <p>{mapError} <br /><span className="text-muted">Search still works, and you can describe the venue in words instead.</span></p>
@@ -212,7 +237,7 @@ export function MapTab({ onDraft }: { onDraft: (d: VenueDraft | null) => void })
       </div>
 
       {sel ? (
-        <div className="grid gap-3 rounded-[10px] border border-border bg-surface p-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+        <div className="grid gap-3 rounded-[var(--radius-panel)] border-2 border-signal/40 bg-surface p-3 shadow-sm sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
           <div className="min-w-0">
             <p className="text-xs text-muted">Selected</p>
             <p className="truncate font-medium">{sel.name}</p>
@@ -233,7 +258,7 @@ export function MapTab({ onDraft }: { onDraft: (d: VenueDraft | null) => void })
             <Label htmlFor="mpeople">People (optional)</Label>
             <Input id="mpeople" inputMode="numeric" placeholder="auto" value={people} onChange={(e) => setPeople(e.target.value)} className="w-28" />
           </div>
-          <Button variant="primary" disabled={build.isPending} onClick={make}>
+          <Button variant="primary" size="lg" disabled={build.isPending} onClick={make}>
             {build.isPending ? <Loader2 className="animate-spin" /> : null}{build.isPending ? "Building…" : "Build venue"}
           </Button>
         </div>

@@ -342,6 +342,13 @@
     "more_ways": "Need a real place on the map or a file import?",
     "more_ways_link": "More ways to start"
   },
+  "place": {
+    "title": "Pick your place on the map",
+    "lead": "Search for the place, click the building (indoor event) or the park, square or field (open-air event), then build it.",
+    "ready": "{name} is ready.",
+    "ready_lead": "Next you check the doors and how many people are coming.",
+    "use": "Use this venue"
+  },
   "provenance": {
     "unknown": "Not stated",
     "assumed": "Assumed",

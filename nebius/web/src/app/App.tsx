@@ -6,6 +6,7 @@ import { CheckVenuePage } from "@/pages/CheckVenue";
 import { HelpPage } from "@/pages/Help";
 import { HomePage } from "@/pages/Home";
 import { NotFound } from "@/pages/NotFound";
+import { PlacePage } from "@/pages/newproject/PlacePage";
 import { OnboardingPage } from "@/pages/Onboarding";
 import { ProjectsPage } from "@/pages/Projects";
 import { SettingsPage } from "@/pages/Settings";
@@ -32,6 +33,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/new/place" element={<PlacePage />} />
         <Route path="/welcome" element={<OnboardingPage />} />
         <Route path="/p/:projectId" element={<YourPlanPage />} />
         <Route path="/p/:projectId/describe" element={<CheckVenuePage />} />
