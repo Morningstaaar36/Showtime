@@ -436,3 +436,22 @@ Built in parallel git worktrees, each feature on its own branch, merged with `--
   broke it, 2 fixes kept, evaluation **confirmed** (peak 6.95 → 4.6 people per m², 95%
   evacuation 4 min 39 s → 2 min 48 s, 0 inside), subset accepted with the "tested one by one"
   note, checklist and report generated; no browser page errors.
+
+## 2026-10-15 — Sandboxes made essential (`SANDBOX_SCOPE.md`)
+
+- AI-written scenario scripts run inside the simulation sandbox (`script` event, `view`/`act`
+  API, static pre-check plus an in-sandbox re-check and per-call budgets); every test includes
+  one (the model's, or the built-in example). AI crowd analyst and user scripts run as sandboxed
+  code jobs (`run_code`: no network, read-only inputs, caps, timeout). Rewind saves the crowd at
+  the worst second and branches responses from it (single-floor venues); attacks/fixes and
+  stress tests fan out over parallel sandboxes. Nebius runner: per-run folders (fixes a branch
+  reading its parent's result), resume-from-snapshot, code jobs.
+- Checks: lint, mypy, import contracts; pytest 524 passed; real-Docker tests 21 passed (scripts,
+  checkpoint/resume, no network, read-only, endless loop stopped); vitest 108; Playwright 7/7.
+- Live (OpenRouter Nemotron 3 Super + real JuPedSim, school wing): the model wrote "Dynamic exit
+  blockage based on real-time queue", which closed the West stairwell at 25 s (168 people
+  rerouted); analyst answers with checked numbers ("longest queue 13 people at 62 s", "203 via
+  stair_w, 197 via stair_e"); rewind at 101 s compared do nothing (2 min 37 s) with two
+  responses; stress test 8/8; `import socket` refused before running.
+- Known: rewind's "best" weighs overall risk, so a response can win on lower density while
+  emptying a few seconds slower; multi-floor venues can't be rewound yet.
