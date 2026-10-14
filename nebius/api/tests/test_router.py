@@ -133,6 +133,13 @@ async def test_unusable_model_answers_fall_back_to_keywords(hall: Venue) -> None
     assert [agent for agent, _ in llm.calls] == ["router", "router"]
 
 
+async def test_absurd_numbers_never_break_the_router(hall: Venue) -> None:
+    env, _ = _env({"router": {"intent": "what_if", "crowd_scale": math.inf}})
+    route = await route_message(env, hall, "what if " + "9" * 400 + " people come?")
+    assert (route.intent, route.routed_by, route.crowd_scale) == ("what_if", "keywords", None)
+    assert keyword_what_if("what if 12345% more people come", hall)[0] is None
+
+
 @pytest.mark.parametrize(
     ("text", "scale", "weather", "closed"),
     [

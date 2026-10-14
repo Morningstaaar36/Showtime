@@ -88,8 +88,8 @@ class RouteOut(BaseModel):
     """What the router model returns."""
 
     intent: Intent
-    crowd_scale: float | None = None
-    people: int | None = None
+    crowd_scale: float | None = Field(default=None, allow_inf_nan=False)
+    people: int | None = Field(default=None, ge=0, le=10_000_000)
     weather: Weather | None = None
     closed_exits: list[str] = Field(default_factory=list, max_length=12)
     target: Target | None = None
@@ -279,20 +279,20 @@ def keyword_intent(text: str) -> Intent:
     return "other"
 
 
+# bounded digit runs: a 400-digit number must not overflow a float
 _PCT = re.compile(
-    r"(\d+(?:\.\d+)?)\s*(?:%|percent)\s*(more|bigger|larger|extra|fewer|less|smaller)"
+    r"\b(\d{1,4}(?:\.\d{1,3})?)\s*(?:%|percent)\s*(more|bigger|larger|extra|fewer|less|smaller)"
 )
-_TIMES = re.compile(r"\b(\d+(?:\.\d+)?)\s*(?:x|times)\b")
+_TIMES = re.compile(r"\b(\d{1,3}(?:\.\d{1,3})?)\s*(?:x|times)\b")
 _SCALE_WORDS: list[tuple[re.Pattern[str], float]] = [
     (re.compile(r"\b(double|doubled|twice|two times)\b"), 2.0),
     (re.compile(r"\b(triple|tripled|three times)\b"), 3.0),
     (re.compile(r"\b(half|halve|halved)\b"), 0.5),
 ]
 _PEOPLE = r"(?:people|persons|visitors|guests|fans|attendees|spectators)"
-_DELTA = re.compile(
-    rf"\b(\d{{1,3}}(?:,\d{{3}})+|\d+)\s*(more|extra|additional|fewer|less)\s*{_PEOPLE}\b"
-)
-_COUNT = re.compile(rf"\b(\d{{1,3}}(?:,\d{{3}})+|\d+)\s*{_PEOPLE}\b")
+_NUM = r"(\d{1,3}(?:,\d{3}){1,3}|\d{1,9})"
+_DELTA = re.compile(rf"\b{_NUM}\s*(more|extra|additional|fewer|less)\s*{_PEOPLE}\b")
+_COUNT = re.compile(rf"\b{_NUM}\s*{_PEOPLE}\b")
 _RAIN = re.compile(r"\b(rain|rains|raining|rainy|wet|storm|stormy|downpour)\b")
 _SMOKE = re.compile(
     r"\b(smoke|smoky|fire|dark|darkness|blackout|fog|power (?:cut|out|failure|fails))\b"
