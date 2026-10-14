@@ -16,10 +16,10 @@ test("guided organizer settings and atomic action preview, replacement and remov
     await panel.getByLabel("stewards count", { exact: true }).fill("2");
     await panel.getByLabel("New resource ID").fill("radios");
     await panel.getByRole("button", { name: "Add resource", exact: true }).click();
-    await panel.getByLabel("radios kind", { exact: true }).selectOption("equipment");
+    await panel.getByRole("combobox", { name: "radios kind", exact: true }).selectOption("equipment");
     await panel.getByLabel("New permission ID").fill("venue_permission");
     await panel.getByRole("button", { name: "Add permission", exact: true }).click();
-    await panel.getByLabel("venue_permission status", { exact: true }).selectOption("approved");
+    await panel.getByRole("combobox", { name: "venue_permission status", exact: true }).selectOption("approved");
     await panel.getByRole("button", { name: "Save organizer settings", exact: true }).click();
     await expect(panel.getByRole("alert")).toContainText("source");
     expect((await (await request.get(`/api/v1/projects/${id}/plan`)).json()).version).toBe(1);
