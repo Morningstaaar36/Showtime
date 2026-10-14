@@ -15,6 +15,7 @@ from api.app.routes_core import get_state
 from api.app.routes_projects import _after_edit
 from api.app.state import AppState
 from api.core.venue_ops import PatchError
+from api.models import RunResult, Venue
 from api.orchestrator.session import StalePlan
 
 router = APIRouter(prefix="/api/v1")
@@ -278,21 +279,24 @@ class AskIn(BaseModel):
     hotspot: HotspotIn | None = None
 
 
-@router.post("/ask")
-async def ask_venue(body: AskIn, st: AppState = Depends(get_state)) -> dict[str, Any]:
-    """Explainer agent: answers about a hotspot using only the run's data."""
+def ask_context(
+    st: AppState,
+    venue: Venue,
+    res: RunResult,
+    events: list[Any],
+    hs: HotspotIn | None = None,
+    *,
+    every_exit: bool = False,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Explainer data about one hotspot of a run, and where to point the camera.
+
+    `every_exit` adds each exit's totals, so general questions ("which exit is the busiest?")
+    are answered from the same run.
+    """
     import math
 
-    from api.agents.judge import explain
     from api.core.extensions import geometry as geo
-    from api.models import RunResult
 
-    venue = st.projects.venue(body.project_id)
-    row = st.runs.get(body.run_id) if body.run_id else None
-    if row is None or not row.result:
-        raise ApiException(409, "no_run", "Run a stress test first, then ask about a hotspot.")
-    res = RunResult.model_validate(row.result)
-    hs = body.hotspot
     spot = None
     if hs is not None:
         spot = min(
@@ -328,8 +332,7 @@ async def ask_venue(body: AskIn, st: AppState = Depends(get_state)) -> dict[str,
                         "last_person_at_s": p.last_s if p else None,
                     }
                 )
-    events = (row.request or {}).get("extensions", {}).get("events", [])
-    context = {
+    context: dict[str, Any] = {
         "hotspot": {
             "floor": fid,
             "peak_density_people_per_m2": spot.peak_density_ppm2 if spot else None,
@@ -351,12 +354,32 @@ async def ask_venue(body: AskIn, st: AppState = Depends(get_state)) -> dict[str,
             "danger": st.settings.density_danger_ppm2,
         },
     }
-    from api.agents.base import AgentEnv
+    if every_exit:
+        context["exits"] = [
+            {
+                "exit": ex.label or ex.id,
+                "floor": f.floor_id,
+                "width_m": ex.width_m,
+                "blocked": ex.blocked,
+                "people_used_it": per_exit[ex.id].people if ex.id in per_exit else 0,
+                "last_person_at_s": per_exit[ex.id].last_s if ex.id in per_exit else None,
+            }
+            for f in venue.floors
+            for ex in f.exits
+        ][:16]
+    return context, {"floor_id": fid, "x": fx, "y": fy}
+
+
+async def explain_or_503(
+    st: AppState, project_id: str, question: str, context: dict[str, Any]
+) -> tuple[str, bool]:
+    """The explainer's number-checked answer; a designed 503 when the model isn't answering."""
+    from api.agents.judge import explain
 
     try:
-        answer, checked = await explain(
-            AgentEnv(llm=st.llm, project_id=body.project_id, on_usage=st.usage.add),
-            body.question,
+        return await explain(
+            AgentEnv(llm=st.llm, project_id=project_id, on_usage=st.usage.add),
+            question,
             context,
         )
     except LLMError as exc:
@@ -370,6 +393,10 @@ async def ask_venue(body: AskIn, st: AppState = Depends(get_state)) -> dict[str,
         raise ApiException(
             503, "llm_unavailable", str(exc)[:200], "Start the local model with: make llm-up"
         ) from exc
+
+
+def run_sources(st: AppState, row: Any) -> list[dict[str, str]]:
+    """The real incident behind the attack a run tested, cited under an answer about it."""
     sources = []
     if row.attack_id and row.session_id:
         srow = st.sessions.get(row.session_id)
@@ -378,10 +405,24 @@ async def ask_venue(body: AskIn, st: AppState = Depends(get_state)) -> dict[str,
                 sources.append(
                     {"title": a["inspired_by"]["incident"], "url": a["inspired_by"]["source_url"]}
                 )
+    return sources
+
+
+@router.post("/ask")
+async def ask_venue(body: AskIn, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Explainer agent: answers about a hotspot using only the run's data."""
+    venue = st.projects.venue(body.project_id)
+    row = st.runs.get(body.run_id) if body.run_id else None
+    if row is None or not row.result:
+        raise ApiException(409, "no_run", "Run a stress test first, then ask about a hotspot.")
+    res = RunResult.model_validate(row.result)
+    events = (row.request or {}).get("extensions", {}).get("events", [])
+    context, camera = ask_context(st, venue, res, events, body.hotspot)
+    answer, checked = await explain_or_503(st, body.project_id, body.question, context)
     return {
         "answer": answer,
-        "camera_target": {"floor_id": fid, "x": fx, "y": fy},
-        "sources": sources,
+        "camera_target": camera,
+        "sources": run_sources(st, row),
         "numbers_checked": checked,
         "context": context,
     }
