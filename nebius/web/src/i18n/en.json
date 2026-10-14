@@ -161,7 +161,8 @@
     "tour_stop": "Stop (Esc)",
     "tour_mute": "Mute narration",
     "tour_unmute": "Turn narration on",
-    "reset_view": "Reset view"
+    "reset_view": "Reset view",
+    "modes": "Expert view modes"
   },
   "tools": {
     "select": "Select and move",
