@@ -101,7 +101,7 @@ export function HomePage() {
             <h2 id="where-h" className="text-2xl font-bold tracking-tight">{t("home.where")}</h2>
             <div className="grid gap-4 md:grid-cols-3">
               <Link to="/new/place"
-                    className="group relative flex min-h-48 flex-col justify-between overflow-hidden rounded-[var(--radius-panel)] bg-[linear-gradient(135deg,var(--sky),var(--signal))] p-5 text-white shadow-[var(--shadow-float)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal">
+                    className="group relative flex min-h-48 flex-col justify-between overflow-hidden rounded-[var(--radius-panel)] bg-[linear-gradient(135deg,var(--sky),var(--signal))] dark:bg-[linear-gradient(135deg,#0b6fa4,#4b3fd6)] p-5 text-white shadow-[var(--shadow-float)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal">
                 <span className="grid size-12 place-items-center rounded-full bg-white/20 [&_svg]:size-6"><MapIcon /></span>
                 <span>
                   <span className="block text-xl font-bold">{t("home.way_map")}</span>
