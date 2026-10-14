@@ -118,6 +118,7 @@ def main(work: Path) -> int:
                 "sim_dt_s": float(settings["dt"]),
                 "frame_hz": frame_hz,
                 "stair_transfers": float(sum(len(o.stair_arrivals) for o in outputs)),
+                **raw.get("rewind", {}),
             }
         )
         statuses = {o.status for o in outputs}

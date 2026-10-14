@@ -6,6 +6,7 @@ source URL and evidence come from the incident record itself (never from the mod
 
 from __future__ import annotations
 
+import hashlib
 import json
 from types import GenericAlias
 from typing import Any, cast
@@ -15,16 +16,20 @@ from pydantic import BaseModel, Field, create_model
 from api.agents.base import AgentDef, AgentEnv, audit_decision, call_agent
 from api.agents.context import event_union, events_doc, ids_line, venue_summary
 from api.core.extensions import IncidentRecord, Registry
+from api.core.scripts import MAX_SCRIPT_CHARS, check_script
 from api.models import Attack, RunResult, Venue
 
 ATTACK_EVENTS = {"block_exit", "surge", "slowdown", "counterflow"}
 DOI = "https://doi.org/10.5281/zenodo.19483010"
+SCRIPT_EVENT = "script"
+MAX_SCRIPT_ATTACKS = 1  # per round, on top of the menu attacks
 
 
 class RedTeamBase(BaseModel):
     """Static stand-in for the dynamic output model."""
 
     attacks: list[dict[str, Any]] = Field(default_factory=list)
+    scripts: list[dict[str, Any]] = Field(default_factory=list)
 
 
 RED_TEAM_AGENT = AgentDef(
@@ -33,7 +38,7 @@ RED_TEAM_AGENT = AgentDef(
     prompt_file="red_team.md",
     output_model=RedTeamBase,
     temperature=0.3,
-    max_tokens=1400,
+    max_tokens=2600,
     description="Designs attack scenarios from real incidents.",
 )
 
@@ -49,8 +54,71 @@ def _model(registry: Registry, n: int) -> type[BaseModel]:
         ),
         rationale=(str, Field(default="", max_length=260)),
     )
+    # code is checked after parsing (check_script), so one bad script never sinks the reply
+    script = create_model(
+        "ScriptAttackDraft",
+        title=(str, Field(max_length=90)),
+        incident_row=(int, ...),
+        code=(str, ...),
+        every_s=(float, Field(default=1.0, ge=0.25, le=600)),
+        rationale=(str, Field(default="", max_length=260)),
+    )
     return create_model(
-        "RedTeamOut", attacks=(GenericAlias(list, draft), Field(min_length=1, max_length=n))
+        "RedTeamOut",
+        attacks=(GenericAlias(list, draft), Field(min_length=1, max_length=n)),
+        scripts=(
+            GenericAlias(list, script),
+            Field(default_factory=list, max_length=MAX_SCRIPT_ATTACKS),
+        ),
+    )
+
+
+def is_script_attack(attack: Attack) -> bool:
+    """An attack written as code (a `script` event) rather than picked from the menu."""
+    return any(e.type == SCRIPT_EVENT for e in attack.events)
+
+
+def script_problems(code: str) -> list[str]:
+    """Static problems with a scenario script (it is never run outside the sandbox)."""
+    if len(code) > MAX_SCRIPT_CHARS:
+        return [f"code is longer than {MAX_SCRIPT_CHARS} characters"]
+    return check_script(code)
+
+
+def script_attack(
+    title: str,
+    code: str,
+    record: IncidentRecord,
+    attack_id: str,
+    rationale: str = "",
+    every_s: float = 1.0,
+    generated_by: str = "ai",
+) -> Attack:
+    """An attack made of one scenario script; provenance comes from the incident record."""
+    name = getattr(record, "name", "") or f"{record.event_type} crowd accident, {record.country}"
+    return Attack.model_validate(
+        {
+            "attack_id": attack_id,
+            "title": title.strip()[:90],
+            "events": [
+                {
+                    "type": SCRIPT_EVENT,
+                    "title": title.strip()[:90],
+                    "code": code,
+                    "every_s": every_s,
+                    "at_s": 0.0,
+                }
+            ],
+            "inspired_by": {
+                "incident": name,
+                "year": record.year,
+                "source_url": _source_url(record),
+                "evidence": _evidence(record),
+                "dataset_row": record.row_id,
+            },
+            "rationale": rationale.strip(),
+            "extensions": {"kind": "script", "generated_by": generated_by},
+        }
     )
 
 
@@ -188,6 +256,8 @@ def signature(events: list[dict[str, Any]]) -> str:
     keys = []
     for e in events:
         ref = e.get("exit_id") or e.get("zone_id") or ""
+        if e.get("type") == SCRIPT_EVENT:
+            ref = hashlib.sha256(str(e.get("code", "")).encode()).hexdigest()[:12]
         keys.append(f"{e.get('type')}:{ref}")
     return "|".join(sorted(keys))
 
@@ -224,10 +294,21 @@ async def red_team(
                 p.append("events must start within the first 10 minutes")
         return p
 
+    def script_problems_of(d: Any) -> list[str]:
+        p: list[str] = []
+        if d.incident_row not in rows:
+            p.append(f"incident_row {d.incident_row} is not in the incident list")
+        if not d.title.strip():
+            p.append("title is empty")
+        p.extend(script_problems(d.code))
+        return p
+
     def validate(out: Any) -> list[str]:
         probs: list[str] = []
         for i, d in enumerate(out.attacks):
             probs.extend(f"attack {i + 1}: {x}" for x in problems_of(d))
+        for i, d in enumerate(getattr(out, "scripts", [])):
+            probs.extend(f"script {i + 1}: {x}" for x in script_problems_of(d))
         return probs
 
     values = {
@@ -246,7 +327,10 @@ async def red_team(
         f"Design {n} different attacks on this plan.",
         output_model=model,
         validate=validate,
-        summarize=lambda o: "; ".join(a.title for a in cast(Any, o).attacks)[:300],
+        summarize=lambda o: "; ".join(
+            [a.title for a in cast(Any, o).attacks]
+            + [f"script: {d.title}" for d in getattr(o, "scripts", [])]
+        )[:300],
     )
     attacks: list[Attack] = []
     for d in cast(Any, call.output).attacks if call.output else []:
@@ -265,5 +349,28 @@ async def red_team(
             audit_decision(env, "red_team", "discarded duplicate", {"title": a.title})
             continue
         seen.add(sig)
+        attacks.append(a)
+    for d in getattr(call.output, "scripts", []) if call.output else []:
+        probs = script_problems_of(d)
+        if probs:
+            # the reason is kept in the audit log; the code itself never ran
+            audit_decision(
+                env, "red_team", "discarded script attack", {"title": d.title, "problems": probs}
+            )
+            continue
+        a = script_attack(
+            d.title,
+            d.code,
+            rows[d.incident_row],
+            f"A{id_offset + len(attacks) + 1}",
+            d.rationale,
+            d.every_s,
+        )
+        sig = signature([e.model_dump() for e in a.events])
+        if sig in seen:
+            audit_decision(env, "red_team", "discarded duplicate", {"title": a.title})
+            continue
+        seen.add(sig)
+        audit_decision(env, "red_team", "script attack accepted", {"title": a.title})
         attacks.append(a)
     return attacks

@@ -35,6 +35,10 @@ class RunRequest(BaseModel):
     max_sim_s: float = Field(default=900.0, gt=0, le=3600)
     max_wall_s: float = Field(default=240.0, gt=0, le=3600)
     intervention_at_s: float | None = Field(default=None, ge=0)
+    # Rewind (single-floor venues): write checkpoint.json at this simulated time and go on;
+    # with resume=true the sim starts from checkpoint.json in the work folder instead.
+    checkpoint_at_s: float | None = Field(default=None, ge=0, le=3600)
+    resume: bool = False
     engine: str = "jupedsim"
     metrics: list[str] = Field(default_factory=lambda: ["rset", "peak_density", "per_exit_flow"])
     parent_run_id: str | None = None

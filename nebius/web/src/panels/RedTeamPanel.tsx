@@ -13,6 +13,7 @@ import { PanelTitle, Progress, Spinner } from "@/components/ui/misc";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { EmptyState } from "@/components/ui/states";
 import { t } from "@/i18n";
+import { ScriptCode } from "@/journey/ScriptCode";
 import { fmtDuration, fmtInt, fmtMoney, fmtNum, fmtTokens } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { usePlayback } from "@/state/playback";
@@ -257,6 +258,7 @@ function AttackCard({ attack, round, view, label, human, index, active, onShow, 
           </span>
         </a>
         {attack.rationale && <p className="text-sm text-muted">{attack.rationale}</p>}
+        <ScriptCode attack={attack} />
         {run && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular">
             <span>Peak <b>{fmtNum(run.metrics.peak_density_ppm2 ?? null, 1)}</b> per m²</span>

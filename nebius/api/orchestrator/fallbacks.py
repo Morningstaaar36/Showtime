@@ -5,9 +5,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from api.agents.red_team import _evidence, _source_url, signature
+from api.agents.red_team import _evidence, _source_url, script_attack, signature
 from api.core.extensions import IncidentRecord, Registry
 from api.core.extensions import geometry as geo
+from api.core.scripts import EXAMPLE_SCRIPT
 from api.models import Attack, Fix, RunResult, Venue
 
 PREFERRED_KEYWORDS = {
@@ -123,6 +124,21 @@ def rule_attacks(
                 }
             )
         )
+    # one hand-written scenario script, so AI-written scenarios show without a model
+    if out and len(exits) > 1:
+        ex = script_attack(
+            "Busiest gate jams 20 seconds in",
+            EXAMPLE_SCRIPT,
+            _cite(incidents, "block_exit", used) or incidents[0],
+            f"A{id_offset + len(out) + 1}",
+            "A gate that reacts to the crowd: whichever exit has the most people heading "
+            "to it fails at 20 s.",
+            generated_by="rules",
+        )
+        sig = signature([e.model_dump() for e in ex.events])
+        if sig not in seen:
+            seen.add(sig)
+            out.append(ex)
     return out
 
 
