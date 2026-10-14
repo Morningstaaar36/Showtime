@@ -1,9 +1,11 @@
 """Router agent for the one box "Ask or change anything" (N15).
 
-The `fast` model sorts a message into edit / question / what_if / navigate / other and pulls
-out what-if parameters. When the model is unreachable, or its answer stays unusable after the
-repair round and one escalation to `main`, a keyword router decides instead. Exit names are
-always matched to the venue in code; a name that fits no exit is reported, never guessed.
+The `fast` model sorts a message into edit / question / what_if / analyse / navigate / other
+and pulls out what-if parameters. "analyse" is a question answered by code the analyst writes
+and runs in a sandbox (queues, counts, averages, the worst minute, a chart). When the model
+is unreachable, or its answer stays unusable after the repair round and one escalation to
+`main`, a keyword router decides instead. Exit names are always matched to the venue in
+code; a name that fits no exit is reported, never guessed.
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from api.agents.base import AgentDef, AgentEnv, AgentUnavailable, call_agent
 from api.agents.context import wall_of
 from api.models import Venue
 
-Intent = Literal["edit", "question", "what_if", "navigate", "other"]
+Intent = Literal["edit", "question", "what_if", "analyse", "navigate", "other"]
 Target = Literal["report", "expert", "plan", "check", "work"]
 Weather = Literal["rain", "smoke", "none"]
 Screen = Literal["check", "plan"]
@@ -48,6 +50,9 @@ _INTENT_ALIASES: dict[str, str | None] = {
     "navigation": "navigate",
     "go to": "navigate",
     "ask": "question",
+    "analyze": "analyse",
+    "analysis": "analyse",
+    "data analysis": "analyse",
 }
 _WEATHER_ALIASES: dict[str, str | None] = {
     **_NONE,
@@ -236,6 +241,11 @@ _QUESTION = re.compile(
     r"^(why|how|what|whats|when|where|which|who|is|are|does|do|did|can|could|will|would|"
     r"should|was|were|tell me|explain|show me (where|why|how|what|which|when))\b"
 )
+# questions answered best by computing over the trajectories (the analyst writes the code)
+_ANALYSE = re.compile(
+    r"\b(how long|how many|which minute|what minute|queue|queues|queued|queuing|queueing|"
+    r"average|averages|chart|graph|plot|busiest)\b"
+)
 _WHAT_IF_WORDS = re.compile(
     r"\b(close|closed|closes|closing|shut|shuts|block|blocked|lose|lost|double|doubled|twice|"
     r"triple|tripled|half|halve|halved|rain|rains|raining|rainy|storm|smoke|smoky|dark|darkness|"
@@ -270,6 +280,8 @@ def keyword_intent(text: str) -> Intent:
         # a bare destination: "report", "expert view", "progress"
         if len(t.split()) <= 4 and not raw.endswith("?") and target in ("report", "expert", "work"):
             return "navigate"
+    if _ANALYSE.search(t):
+        return "analyse"
     if _QUESTION.search(t) or raw.endswith("?"):
         return "question"
     if _WHAT_IF_WORDS.search(t):

@@ -10,6 +10,7 @@ import { NotFound } from "@/pages/NotFound";
 import { PlacePage } from "@/pages/newproject/PlacePage";
 import { OnboardingPage } from "@/pages/Onboarding";
 import { ProjectsPage } from "@/pages/Projects";
+import { ScriptsPage } from "@/pages/Scripts";
 import { SettingsPage } from "@/pages/Settings";
 import { WorkspacePage } from "@/pages/Workspace";
 import { YourPlanPage } from "@/pages/YourPlan";
@@ -42,6 +43,7 @@ export function App() {
         <Route path="/p/:projectId/work" element={<AiAtWorkPage />} />
         <Route path="/p/:projectId/expert" element={<WorkspacePage />} />
         <Route path="/p/:projectId/expert/:mode" element={<WorkspacePage />} />
+        <Route path="/p/:projectId/scripts" element={<ScriptsPage />} />
         <Route path="/p/:projectId/:mode" element={<LegacyMode />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/help" element={<HelpPage />} />

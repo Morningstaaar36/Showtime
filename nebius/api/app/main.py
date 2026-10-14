@@ -24,6 +24,7 @@ from api.app.routes_places import router as places_router
 from api.app.routes_plan import router as plan_router
 from api.app.routes_projects import router as projects_router
 from api.app.routes_runs import router as runs_router
+from api.app.routes_scripts import router as scripts_router
 from api.app.state import AppState, build_state
 from api.core.settings import Settings, get_settings
 
@@ -136,6 +137,7 @@ def create_app(state: AppState | None = None, settings: Settings | None = None) 
     app.include_router(runs_router)
     app.include_router(agents_router)
     app.include_router(ask_router)
+    app.include_router(scripts_router)
     app.include_router(places_router)
     app.include_router(autopilot_router)
     return app
