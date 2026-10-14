@@ -21,8 +21,8 @@ from api.core.extensions import Registry
 from api.core.plan import (
     STAFF_MEASURES,
     PlanError,
-    fail,
     apply_fix_bundle,
+    fail,
     plan_hash,
     saved_events,
     validate_operational,
@@ -181,7 +181,16 @@ class RunService:
         if intervention_at_s is not None and fix is not None:
             for action in [*fix.actions, *fix.replace_actions]:
                 if action.start_s < intervention_at_s:
-                    raise PlanError([fail("action_before_intervention", "A proposed action starts before the intervention; update its interval and allocation.", action.action_id)])
+                    raise PlanError(
+                        [
+                            fail(
+                                "action_before_intervention",
+                                "A proposed action starts before the intervention; "
+                                "update its interval and allocation.",
+                                action.action_id,
+                            )
+                        ]
+                    )
         events = self._events(patched, attack, fix, intervention_at_s, extra)
         t1 = run_tier1(
             patched,

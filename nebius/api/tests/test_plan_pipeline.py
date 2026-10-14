@@ -227,8 +227,14 @@ def test_fixed_bundle_is_preserved_by_session_acceptance(client: TestClient) -> 
 def test_provenance_does_not_change_physical_identity_but_policy_does() -> None:
     venue = configured()
     original = plan_hash(venue)
-    venue.extensions["scene_metadata"] = {"schema_version": 1, "objects": {"E1": {"status": "measured", "source": "site survey"}}}
-    venue.extensions["plan_annotations"] = {"schema_version": 1, "objects": {"E1": {"change": "existing"}}}
+    venue.extensions["scene_metadata"] = {
+        "schema_version": 1,
+        "objects": {"E1": {"status": "measured", "source": "site survey"}},
+    }
+    venue.extensions["plan_annotations"] = {
+        "schema_version": 1,
+        "objects": {"E1": {"change": "existing"}},
+    }
     assert plan_hash(venue) == original
     data = plan_data(venue)
     data.constraints.objects["E1"].locked = True
