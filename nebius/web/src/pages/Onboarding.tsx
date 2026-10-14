@@ -26,7 +26,7 @@ function Row({ label, state, hint }: { label: string; state: State; hint?: strin
         {state !== "ok" && state !== "loading" && hint && <p className="mt-0.5 text-sm text-muted">{hint}</p>}
       </div>
       {state !== "loading" && (
-        <span className={cn("mt-1.5 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold", TONE[state])}>
+        <span className={cn("mt-1.5 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold", TONE[state], "text-ink")}>
           {state === "ok" ? t("onboarding.ok") : state === "off" ? t("onboarding.off") : t("onboarding.missing")}
         </span>
       )}

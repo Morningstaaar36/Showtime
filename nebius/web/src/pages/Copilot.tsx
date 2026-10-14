@@ -119,7 +119,7 @@ export function CopilotBox() {
         <span className="text-sm text-muted">{t("copilot.try")}</span>
         {EXAMPLES.map((k) => (
           <button key={k} type="button" onClick={() => setText(t(`copilot.ex_${k}`))} title={t(`copilot.ex_${k}`)}
-                  className="min-h-11 rounded-full bg-pink-soft px-3 text-sm font-medium text-pink hover:brightness-95">
+                  className="min-h-11 rounded-full bg-pink-soft px-3 text-sm font-medium text-[color-mix(in_srgb,var(--pink)_75%,black)] hover:brightness-95 dark:text-pink">
             {t(`copilot.ex_${k}_chip`)}
           </button>
         ))}

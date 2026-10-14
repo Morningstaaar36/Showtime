@@ -188,8 +188,8 @@ function Sub({ title, children }: { title: string; children: React.ReactNode }) 
 function Status({ ok, loading }: { ok: boolean | undefined; loading: boolean }) {
   if (loading) return null;
   return (
-    <span className={cn("ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 align-middle text-xs font-semibold",
-      ok ? "bg-egress-soft text-egress" : "bg-caution-soft text-caution")}>
+    <span className={cn("ml-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 align-middle text-xs font-semibold text-ink",
+      ok ? "bg-egress-soft" : "bg-caution-soft")}>
       <span aria-hidden className={cn("size-1.5 rounded-full", ok ? "bg-egress" : "bg-caution")} />{ok ? t("settings.ready") : t("settings.not_ready")}
     </span>
   );
@@ -201,8 +201,9 @@ function ServiceRow({ label, status, optional }: { label: string; status: Provid
     <div className="rounded-[var(--radius-control)] border border-border p-3">
       <dt className="flex items-center justify-between gap-2 text-sm font-medium">
         {label}
-        <span className={cn("rounded-full px-2 py-0.5 text-xs font-semibold",
-          off ? "bg-surface-3 text-muted" : status.ok ? "bg-egress-soft text-egress" : "bg-caution-soft text-caution")}>
+        <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-semibold text-ink",
+          off ? "bg-surface-3" : status.ok ? "bg-egress-soft" : "bg-caution-soft")}>
+          <span aria-hidden className={cn("size-1.5 rounded-full", off ? "bg-line" : status.ok ? "bg-egress" : "bg-caution")} />
           {off ? t("settings.off") : status.ok ? t("settings.ready") : t("settings.not_ready")}
         </span>
       </dt>
