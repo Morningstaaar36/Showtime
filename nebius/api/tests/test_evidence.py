@@ -20,6 +20,9 @@ def _r(**kw: object) -> RunResult:
         ({"tier": 2}, "completed_simulation"),  # a quick run that ended normally
         ({"tier": 2, "status": "partial"}, "partial_simulation"),
         ({"tier": 3, "status": "partial"}, "partial_simulation"),
+        # an "ok" run that still left people inside never counts as finished
+        ({"metrics": {"agents_total": 10, "agents_not_evacuated": 2}}, "partial_simulation"),
+        ({"tier": 2, "metrics": {"extra": {"rset_extrapolated_s": 300.0}}}, "partial_simulation"),
         ({"engine": "fake", "provider": "fake"}, "preview"),
         ({"provider": "fake"}, "preview"),
         ({"engine": ""}, "unknown"),
@@ -58,3 +61,15 @@ def test_stored_results_load_with_or_without_basis() -> None:
     # JSON round trip
     r = _r(tier=2, status="partial")
     assert RunResult.model_validate_json(r.model_dump_json()).basis == "partial_simulation"
+
+
+def test_basis_is_part_of_the_response_contract() -> None:
+    prop = RunResult.model_json_schema(mode="serialization")["properties"]["basis"]
+    assert prop["title"] == "ResultBasis" and prop["readOnly"] is True
+    assert set(prop["enum"]) == {
+        "instant_estimate",
+        "partial_simulation",
+        "completed_simulation",
+        "preview",
+        "unknown",
+    }

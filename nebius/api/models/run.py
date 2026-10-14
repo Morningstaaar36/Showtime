@@ -120,7 +120,7 @@ class RunResult(BaseModel):
             return {k: v for k, v in data.items() if k != "basis"}
         return data
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field(title="ResultBasis")  # type: ignore[prop-decorator]
     @property
     def basis(self) -> ResultBasis:
         """Evidence basis, always derived (see `result_basis`), so it can never go stale."""
@@ -132,8 +132,11 @@ def result_basis(r: RunResult) -> ResultBasis:
 
     A run that did not finish is `unknown`; a formula result is an `instant_estimate`; the
     mock sandbox gives a `preview`; a simulation that stopped before everyone was out (time
-    cap, people trapped) is a `partial_simulation`; only a simulation that ended normally is
-    a `completed_simulation`.
+    cap, people trapped or still inside) is a `partial_simulation`; only a simulation that
+    ended normally with everyone out is a `completed_simulation`.
+
+    `api.core.evidence` re-exports this function; it lives with the contract so the computed
+    `RunResult.basis` field can use it without a circular import.
     """
     if r.status in INCOMPLETE_STATUSES:
         return "unknown"
@@ -143,6 +146,7 @@ def result_basis(r: RunResult) -> ResultBasis:
         return "preview"
     if not r.engine:
         return "unknown"
-    if r.status == "partial":
+    m = r.metrics
+    if r.status == "partial" or m.agents_not_evacuated > 0 or "rset_extrapolated_s" in m.extra:
         return "partial_simulation"
     return "completed_simulation"
