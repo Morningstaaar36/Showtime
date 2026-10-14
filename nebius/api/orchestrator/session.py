@@ -10,9 +10,10 @@ import asyncio
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 
 from sqlmodel import col, select
@@ -202,6 +203,104 @@ class LiveSession:
     measures: list[ScenarioEventIn] = field(default_factory=list)
     tested: list[str] = field(default_factory=list)
     cost: CostMeter = field(default_factory=CostMeter)
+    stop_event: asyncio.Event = field(default_factory=asyncio.Event)
+    branch_runs: dict[str, str] = field(default_factory=dict)  # node id -> run id
+    inflight: set[str] = field(default_factory=set)  # node ids waiting for their run
+
+
+Maker = tuple[str, Callable[[], Awaitable[RunResult]]]
+
+
+class Branches:
+    """Independent simulations of one step (the screened attacks of a round, or the candidate
+    fixes of one attack), started together and read back in their original order, so scoring,
+    events and the summary follow the sequential order.
+
+    The runner bounds how many sandboxes actually run at once. With `parallel` off each
+    simulation starts only when it is read (the sequential behaviour). A stop request ends a
+    wait at once. Leaving the block cancels every unfinished branch, its sandbox run
+    included, and closes the tree node of every branch that was started but not read.
+    """
+
+    def __init__(
+        self,
+        mgr: SessionManager,
+        live: LiveSession,
+        makers: list[Maker],
+        parallel: bool,
+        unread_note: str = "Not needed: an earlier change was kept.",
+    ) -> None:
+        self.mgr = mgr
+        self.live = live
+        self.makers = makers
+        self.parallel = parallel
+        self.unread_note = unread_note
+        self.tasks: list[asyncio.Task[RunResult] | None] = [None] * len(makers)
+        self.read: set[int] = set()
+
+    def _start(self, i: int) -> asyncio.Task[RunResult]:
+        task = self.tasks[i]
+        if task is None:
+            coro = self.makers[i][1]()
+            task = self.tasks[i] = asyncio.ensure_future(coro)
+        return task
+
+    async def __aenter__(self) -> Branches:
+        if self.parallel:
+            for i in range(len(self.makers)):
+                self._start(i)
+        return self
+
+    async def get(self, i: int) -> RunResult:
+        """The result of branch i (raises what its simulation raised)."""
+        task = self._start(i)
+        self.read.add(i)
+        stop = asyncio.ensure_future(self.live.stop_event.wait())
+        try:
+            await asyncio.wait({task, stop}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            stop.cancel()
+        if not task.done():
+            raise StopSession("stopped by user")
+        return task.result()
+
+    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        live, runs = self.live, self.mgr.st.runs
+        pending: list[asyncio.Task[RunResult]] = []
+        # a branch whose wait was cut short by a stop was never used either
+        self.read = {i for i in self.read if (t := self.tasks[i]) is not None and t.done()}
+        for i, task in enumerate(self.tasks):
+            if task is None or task.done():
+                continue
+            node_id = self.makers[i][0]
+            if node_id in live.inflight and node_id in live.branch_runs:
+                await runs.cancel(live.branch_runs[node_id])
+            task.cancel()
+            pending.append(task)
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        for i, task in enumerate(self.tasks):
+            if task is None or i in self.read:
+                continue
+            if not task.cancelled():
+                task.exception()  # retrieved: an unread branch's error is not an error here
+            node_id = self.makers[i][0]
+            rid = live.branch_runs.get(node_id)
+            if rid is None:
+                continue  # never started, so never shown
+            self.mgr.emit(
+                live,
+                "branch_node",
+                {
+                    "node_id": node_id,
+                    "run_id": rid,
+                    "status": "failed" if exc_type is not None else "rejected",
+                    "skipped": True,
+                    "note": "Stopped before this branch was used."
+                    if exc_type is not None
+                    else self.unread_note,
+                },
+            )
 
 
 class SessionManager:
@@ -226,6 +325,8 @@ class SessionManager:
             "max_runs": s.session_max_runs,
             "max_wall_s": s.session_max_wall_s,
             "max_tokens": s.session_max_tokens,
+            # independent branches of a step run at once (the runner bounds how many)
+            "parallel_branches": True,
         }
         cfg.update({k: v for k, v in (config or {}).items() if k in cfg and v is not None})
         sid = f"s_{uuid.uuid4().hex[:10]}"
@@ -270,6 +371,7 @@ class SessionManager:
         if live is None or live.finished:
             return False
         live.stop_requested = True
+        live.stop_event.set()
         return True
 
     def stored_events(self, sid: str, after: int = 0) -> list[SessionEvent]:
@@ -366,6 +468,7 @@ class SessionManager:
         )
         job.request.extensions["events"] = job.events
         rid = job.request.run_id
+        live.branch_runs[node_id] = rid
         node = {
             "node_id": node_id,
             "parent_id": parent,
@@ -400,13 +503,20 @@ class SessionManager:
             },
         )
         live.runs += 1
-        res: RunResult = await st.runs.run(
-            job,
-            project_id=live.project_id,
-            venue_version=live.venue_version,
-            session_id=live.id,
-            label=label,
-        )
+        live.inflight.add(node_id)
+        try:
+            res: RunResult = await st.runs.run(
+                job,
+                project_id=live.project_id,
+                venue_version=live.venue_version,
+                session_id=live.id,
+                label=label,
+            )
+        finally:
+            live.inflight.discard(node_id)
+        me = asyncio.current_task()
+        if me is not None and me.cancelling():
+            raise asyncio.CancelledError  # a cancelled branch: no fallback, no events
         live.cost.add_run(res)
         if res.status not in ("failed", "timeout", "cancelled"):
             return res
@@ -477,6 +587,7 @@ class SessionManager:
         worst: tuple[float, Attack, RunResult] | None = None
         venue = st.projects.venue(live.project_id, live.venue_version)
         working = venue
+        parallel = bool(cfg.get("parallel_branches", True))
         try:
             self._status(live, "baseline", 0, "Running the baseline")
             baseline = await self._sim(live, venue, 3, "Baseline", "baseline", None, "baseline")
@@ -526,31 +637,40 @@ class SessionManager:
                 ]
                 self._status(live, "simulating", rnd, f"Simulating {len(ranked)} attacks")
                 breaks: list[tuple[float, Attack, RunResult]] = []
-                for _, a in ranked:
-                    r = await self._sim(
-                        live,
-                        working,
-                        2,
-                        a.title,
+                attack_sims: list[Maker] = [
+                    (
                         f"atk:{a.attack_id}",
-                        "baseline",
-                        "attack",
-                        attack=a,
-                        extra=live.measures,
+                        partial(
+                            self._sim,
+                            live,
+                            working,
+                            2,
+                            a.title,
+                            f"atk:{a.attack_id}",
+                            "baseline",
+                            "attack",
+                            attack=a,
+                            extra=list(live.measures),
+                        ),
                     )
-                    results[r.run_id] = r
-                    reasons = break_reasons(
-                        r,
-                        s.density_danger_ppm2,
-                        s.danger_min_duration_s,
-                        self._target(working),
-                        s.safety_factor,
-                    )
-                    self._node_done(live, f"atk:{a.attack_id}", r, reasons)
-                    if reasons:
-                        breaks.append((severity(r), a, r))
-                        if worst is None or severity(r) > worst[0]:
-                            worst = (severity(r), a, r)
+                    for _, a in ranked
+                ]
+                async with Branches(self, live, attack_sims, parallel) as screened:
+                    for i, (_, a) in enumerate(ranked):
+                        r = await screened.get(i)
+                        results[r.run_id] = r
+                        reasons = break_reasons(
+                            r,
+                            s.density_danger_ppm2,
+                            s.danger_min_duration_s,
+                            self._target(working),
+                            s.safety_factor,
+                        )
+                        self._node_done(live, f"atk:{a.attack_id}", r, reasons)
+                        if reasons:
+                            breaks.append((severity(r), a, r))
+                            if worst is None or severity(r) > worst[0]:
+                                worst = (severity(r), a, r)
                 scoreboard.append({"round": rnd, "breaks": len(breaks), "attacks": len(ranked)})
                 self.emit(
                     live,
@@ -601,108 +721,130 @@ class SessionManager:
                     fixes = await self._fixes(
                         env, working, a, r, int(cfg["fixes_per_attack"]), f"F{len(fixes_all) + 1}_"
                     )
+                    # every candidate is checked against the same plan (it changes only when
+                    # a fix is kept, which ends this attack), so the checks and the
+                    # simulations of all candidates can happen up front
+                    checked: list[tuple[Fix, Venue | None, Exception | None]] = []
                     for fx in fixes:
                         try:
                             candidate = apply_fix_bundle(working, fx, st.registry)
                             validate_operational(
                                 candidate, [*live.measures, *fx.operational], st.registry
                             )
+                            checked.append((fx, candidate, None))
                         except (PlanError, PatchError, ValueError) as exc:
-                            self.emit(
-                                live,
-                                "log",
-                                {
-                                    "level": "warning",
-                                    "message": f"Rejected complete fix bundle: {exc}",
-                                },
-                            )
-                            continue
-                        fixes_all.append(fx)
-                        self.emit(
-                            live,
-                            "fix_card",
-                            {
-                                "round": rnd,
-                                "fix": fx.model_dump(mode="json"),
-                                "attack_id": a.attack_id,
-                            },
-                        )
-                        fr = await self._sim(
-                            live,
-                            working,
-                            2,
-                            fx.title,
+                            checked.append((fx, None, exc))
+                    fix_sims: list[Maker] = [
+                        (
                             f"fix:{fx.fix_id}",
-                            f"atk:{a.attack_id}",
-                            "fix",
-                            attack=a,
-                            fix=fx,
-                            extra=live.measures,
+                            partial(
+                                self._sim,
+                                live,
+                                working,
+                                2,
+                                fx.title,
+                                f"fix:{fx.fix_id}",
+                                f"atk:{a.attack_id}",
+                                "fix",
+                                attack=a,
+                                fix=fx,
+                                extra=list(live.measures),
+                            ),
                         )
-                        results[fr.run_id] = fr
-                        gain = (sev - severity(fr)) / sev if sev > 0 else 0.0
-                        fr_reasons = break_reasons(
-                            fr,
-                            s.density_danger_ppm2,
-                            s.danger_min_duration_s,
-                            self._target(working),
-                            s.safety_factor,
-                        )
-                        # kept when it removes the break, or improves the result by FIX_MIN_GAIN,
-                        # and never when it makes the plan worse without the attack. Both sides
-                        # must be simulations (or both previews): an instant estimate shown in
-                        # place of a failed simulation is never enough to keep a change.
-                        helps = (not fr_reasons and gain > 0) or gain >= float(s.fix_min_gain)
-                        evidence_ok = comparable(r, fr)
-                        ok = (
-                            helps
-                            and evidence_ok
-                            and not self._hurts_baseline(working, fx, baseline, live)
-                        )
-                        if helps and not evidence_ok:
+                        for fx, cand, _ in checked
+                        if cand is not None
+                    ]
+                    async with Branches(self, live, fix_sims, parallel) as tried:
+                        k = -1
+                        for fx, cand, problem in checked:
+                            if cand is None:
+                                self.emit(
+                                    live,
+                                    "log",
+                                    {
+                                        "level": "warning",
+                                        "message": f"Rejected complete fix bundle: {problem}",
+                                    },
+                                )
+                                continue
+                            candidate, k = cand, k + 1
+                            fixes_all.append(fx)
                             self.emit(
                                 live,
-                                "log",
-                                {
-                                    "level": "warning",
-                                    "message": f"{fx.title}: not kept, because there is no "
-                                    "finished simulation to compare (only an instant estimate)",
-                                },
-                            )
-                        self._node_done(
-                            live,
-                            f"fix:{fx.fix_id}",
-                            fr,
-                            fr_reasons,
-                            accepted=ok,
-                            gain=round(gain, 3),
-                        )
-                        audit_decision(
-                            env,
-                            "orchestrator",
-                            "fix accepted" if ok else "fix rejected",
-                            {
-                                "fix_id": fx.fix_id,
-                                "gain": round(gain, 3),
-                                "comparable_evidence": evidence_ok,
-                            },
-                        )
-                        if ok:
-                            accepted.append(fx.fix_id)
-                            working = candidate
-                            live.measures.extend(fx.operational)
-                            self.emit(
-                                live,
-                                "score",
+                                "fix_card",
                                 {
                                     "round": rnd,
-                                    "breaks": len(breaks),
-                                    "attacks_tested": len(ranked),
-                                    "fixes_accepted": len(accepted),
-                                    "scoreboard": scoreboard,
+                                    "fix": fx.model_dump(mode="json"),
+                                    "attack_id": a.attack_id,
                                 },
                             )
-                            break  # one accepted fix per attack is enough
+                            fr = await tried.get(k)
+                            results[fr.run_id] = fr
+                            gain = (sev - severity(fr)) / sev if sev > 0 else 0.0
+                            fr_reasons = break_reasons(
+                                fr,
+                                s.density_danger_ppm2,
+                                s.danger_min_duration_s,
+                                self._target(working),
+                                s.safety_factor,
+                            )
+                            # kept when it removes the break, or improves the result by
+                            # FIX_MIN_GAIN, and never when it makes the plan worse without the
+                            # attack. Both sides must be simulations (or both previews): an
+                            # instant estimate shown in place of a failed simulation is never
+                            # enough to keep a change.
+                            helps = (not fr_reasons and gain > 0) or gain >= float(s.fix_min_gain)
+                            evidence_ok = comparable(r, fr)
+                            ok = (
+                                helps
+                                and evidence_ok
+                                and not self._hurts_baseline(working, fx, baseline, live)
+                            )
+                            if helps and not evidence_ok:
+                                self.emit(
+                                    live,
+                                    "log",
+                                    {
+                                        "level": "warning",
+                                        "message": f"{fx.title}: not kept, because there is no "
+                                        "finished simulation to compare (only an instant "
+                                        "estimate)",
+                                    },
+                                )
+                            self._node_done(
+                                live,
+                                f"fix:{fx.fix_id}",
+                                fr,
+                                fr_reasons,
+                                accepted=ok,
+                                gain=round(gain, 3),
+                            )
+                            audit_decision(
+                                env,
+                                "orchestrator",
+                                "fix accepted" if ok else "fix rejected",
+                                {
+                                    "fix_id": fx.fix_id,
+                                    "gain": round(gain, 3),
+                                    "comparable_evidence": evidence_ok,
+                                },
+                            )
+                            if ok:
+                                accepted.append(fx.fix_id)
+                                working = candidate
+                                live.measures.extend(fx.operational)
+                                self.emit(
+                                    live,
+                                    "score",
+                                    {
+                                        "round": rnd,
+                                        "breaks": len(breaks),
+                                        "attacks_tested": len(ranked),
+                                        "fixes_accepted": len(accepted),
+                                        "scoreboard": scoreboard,
+                                    },
+                                )
+                                break  # one accepted fix per attack is enough
             else:
                 reason = "all rounds done"
         except StopSession as exc:
@@ -939,6 +1081,7 @@ class SessionManager:
                 a = worst[1]
                 kept = [f for f in fixes if f.fix_id in accepted]
                 live.stop_requested = False
+                live.stop_event.clear()
                 live.config["max_runs"] = int(live.config["max_runs"]) + 2
                 self._check(live)  # the wall clock may already be spent
                 confirming = True
