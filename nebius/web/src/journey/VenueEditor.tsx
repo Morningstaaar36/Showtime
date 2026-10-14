@@ -6,7 +6,6 @@ import type { Exit, Obstacle, ProjectDetail, SceneSnapshot, Venue, Zone } from "
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { PanelTitle } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
 import { t } from "@/i18n";
 import { annotateOp, annotationOf, BASES, type Basis, type ChangeStatus, type ObjectAnnotation } from "@/lib/annotations";
@@ -131,7 +130,8 @@ function ProvenanceEditor({ id, a, disabled, onSave }: {
   );
 }
 
-/** Editor for the selected object. Locked objects show their facts but cannot change. */
+/** Editor for the selected object: the few things an organizer changes, the rest under "More details".
+ * Locked objects show their facts but cannot change. */
 export function ObjectCard({ project, scene, selection }: { project: ProjectDetail; scene: SceneSnapshot | undefined; selection: Selection }) {
   const venue = project.version.venue;
   const names = useMemo(() => displayNames(venue), [venue]);
@@ -148,21 +148,19 @@ export function ObjectCard({ project, scene, selection }: { project: ProjectDeta
   const off = locked || pending;
   const kindLabel = found.what === "exit" ? t("check.kind_exit") : found.what === "zone" ? t("check.kind_zone")
     : isStage ? t("check.kind_stage") : t("check.kind_obstacle");
+  const tone = found.what === "exit" ? "bg-emerald-500" : found.what === "zone" ? "bg-sky-500" : isStage ? "bg-violet-500" : "bg-amber-500";
+  const icon = found.what === "exit" ? <DoorOpen /> : found.what === "zone" ? <Users /> : <MapPin />;
 
   return (
     <section aria-label={name} className="space-y-4">
-      <PanelTitle action={<Badge tone="outline">{kindLabel}</Badge>}>{name}</PanelTitle>
-      <AnnotationBadges a={a} blocked={found.what === "exit" && !!found.item.blocked} />
-
-      <div className="flex items-center justify-between gap-3 rounded-[8px] border border-border p-3">
-        <label htmlFor={`lock-${id}`} className="flex items-start gap-2 text-sm">
-          {locked ? <Lock className="mt-0.5 size-4 shrink-0" /> : <LockOpen className="mt-0.5 size-4 shrink-0 text-muted" />}
-          <span><span className="block font-medium">{t("check.lock")}</span><span className="block text-xs text-muted">{t("check.lock_hint")}</span></span>
-        </label>
-        <Switch id={`lock-${id}`} checked={locked} disabled={pending}
-                onCheckedChange={(v) => submit([annotateOp(id, { locked: v })], v ? t("check.msg_locked", { name }) : t("check.msg_unlocked", { name }))} />
+      <div className="flex items-center gap-3">
+        <span className={cn("grid size-10 shrink-0 place-items-center rounded-full text-white shadow-sm [&_svg]:size-5", tone)}>{icon}</span>
+        <div className="min-w-0">
+          <h2 className="truncate text-lg font-semibold">{name}</h2>
+          <p className="text-sm text-muted">{kindLabel}</p>
+        </div>
       </div>
-      {locked && <p className="text-sm text-muted">{t("check.locked_note")}</p>}
+      <SimpleBadges a={a} blocked={found.what === "exit" && !!found.item.blocked} />
 
       {found.what === "exit" && (
         <>
@@ -181,35 +179,49 @@ export function ObjectCard({ project, scene, selection }: { project: ProjectDeta
                      onCommit={(v) => submit([{ op: "set_people", zone_id: id, people: Math.round(v) } as never], t("check.msg_people", { name, n: fmtInt(v) }))} />
       )}
 
-      {found.what === "obstacle" && (
-        <form className="grid gap-2" onSubmit={(e) => {
-          e.preventDefault();
-          if (move.dx || move.dy) submit([{ op: "move", target: id, dx: move.dx, dy: move.dy } as never], t("check.msg_moved", { name }), () => setMove({ dx: 0, dy: 0 }));
-        }}>
-          <p className="text-sm text-muted">{t("check.move_hint")}</p>
-          <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
-            {(["dx", "dy"] as const).map((k) => (
-              <div key={k} className="grid gap-1">
-                <Label htmlFor={`${k}-${id}`} className="text-sm text-muted">{t(k === "dx" ? "check.east" : "check.north")}</Label>
-                <Input id={`${k}-${id}`} type="number" step={0.5} value={move[k]} disabled={off} className="h-11 text-base"
-                       onChange={(e) => setMove((m) => ({ ...m, [k]: Number(e.target.value) || 0 }))} />
+      {!locked && <p className="flex items-center gap-2 text-sm text-muted"><Move className="size-4 shrink-0" />{t("check.drag_to_move")}</p>}
+
+      <div className="flex items-center justify-between gap-3 rounded-[10px] bg-surface-2 p-3">
+        <label htmlFor={`lock-${id}`} className="flex items-start gap-2 text-sm">
+          {locked ? <Lock className="mt-0.5 size-4 shrink-0" /> : <LockOpen className="mt-0.5 size-4 shrink-0 text-muted" />}
+          <span><span className="block font-medium">{t("check.lock")}</span><span className="block text-xs text-muted">{t("check.locked_note")}</span></span>
+        </label>
+        <Switch id={`lock-${id}`} checked={locked} disabled={pending}
+                onCheckedChange={(v) => submit([annotateOp(id, { locked: v })], v ? t("check.msg_locked", { name }) : t("check.msg_unlocked", { name }))} />
+      </div>
+
+      <details className="group rounded-[10px] border border-border">
+        <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-medium text-muted hover:text-ink">{t("check.more_details")}</summary>
+        <div className="space-y-4 border-t border-border p-3">
+          {(found.what === "exit" || (found.what === "obstacle" && !isStage)) && (
+            <Segmented<ChangeStatus> label={t(found.what === "exit" ? "check.opening_is" : "check.feature_is")} value={a.change} disabled={off}
+                                     options={[["existing", t("check.already_there")], ["proposed", t("check.proposed_new")]]}
+                                     onChange={(v) => submit([annotateOp(id, { change: v })], t(v === "proposed" ? "check.msg_proposed" : "check.msg_existing", { name }))} />
+          )}
+          {a.change === "proposed" && found.what === "exit" && <p className="rounded-[8px] bg-caution-soft p-2.5 text-sm">{t("check.proposed_exit_note")}</p>}
+          {found.what !== "exit" && (
+            <form className="grid gap-2" onSubmit={(e) => {
+              e.preventDefault();
+              if (move.dx || move.dy) submit([{ op: "move", target: id, dx: move.dx, dy: move.dy } as never], t("check.msg_moved", { name }), () => setMove({ dx: 0, dy: 0 }));
+            }}>
+              <p className="text-sm text-muted">{t("check.move_hint")}</p>
+              <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+                {(["dx", "dy"] as const).map((k) => (
+                  <div key={k} className="grid gap-1">
+                    <Label htmlFor={`${k}-${id}`} className="text-sm text-muted">{t(k === "dx" ? "check.east" : "check.north")}</Label>
+                    <Input id={`${k}-${id}`} type="number" step={0.5} value={move[k]} disabled={off} className="h-11 text-base"
+                           onChange={(e) => setMove((m) => ({ ...m, [k]: Number(e.target.value) || 0 }))} />
+                  </div>
+                ))}
+                <Button type="submit" className="h-11" disabled={off || (!move.dx && !move.dy)}><Move />{t("check.move")}</Button>
               </div>
-            ))}
-            <Button type="submit" className="h-11" disabled={off || (!move.dx && !move.dy)}><Move />{t("check.move")}</Button>
-          </div>
-        </form>
-      )}
-
-      {(found.what === "exit" || (found.what === "obstacle" && !isStage)) && (
-        <Segmented<ChangeStatus> label={t(found.what === "exit" ? "check.opening_is" : "check.feature_is")} value={a.change} disabled={off}
-                                 options={[["existing", t("check.already_there")], ["proposed", t("check.proposed_new")]]}
-                                 onChange={(v) => submit([annotateOp(id, { change: v })], t(v === "proposed" ? "check.msg_proposed" : "check.msg_existing", { name }))} />
-      )}
-      {a.change === "proposed" && found.what === "exit" && <p className="rounded-[8px] bg-caution-soft p-2.5 text-sm">{t("check.proposed_exit_note")}</p>}
-
-      <ProvenanceEditor id={id} a={a} disabled={pending}
-                        onSave={(basis, source) => submit([annotateOp(id, { provenance: { basis, ...(source ? { source, recorded_at: new Date().toISOString() } : {}) } })],
-                                                         t("check.msg_provenance", { name, basis: t(`provenance.${basis}`).toLowerCase() }))} />
+            </form>
+          )}
+          <ProvenanceEditor id={id} a={a} disabled={pending}
+                            onSave={(basis, source) => submit([annotateOp(id, { provenance: { basis, ...(source ? { source, recorded_at: new Date().toISOString() } : {}) } })],
+                                                             t("check.msg_provenance", { name, basis: t(`provenance.${basis}`).toLowerCase() }))} />
+        </div>
+      </details>
 
       {!isStage && (
         <Button variant="danger-ghost" disabled={off}
@@ -224,57 +236,121 @@ export function ObjectCard({ project, scene, selection }: { project: ProjectDeta
   );
 }
 
-/** Everything that can be checked, grouped the way an organizer thinks about a venue. */
-export function ObjectLists({ project, scene }: { project: ProjectDetail; scene: SceneSnapshot | undefined }) {
+/** Only what an organizer needs to see at a glance: new, closed, locked. */
+function SimpleBadges({ a, blocked }: { a: ObjectAnnotation; blocked?: boolean }) {
+  if (!blocked && !a.locked && a.change !== "proposed") return null;
+  return (
+    <span className="flex shrink-0 flex-wrap gap-1">
+      {a.change === "proposed" && <Badge tone="signal">{t("check.new")}</Badge>}
+      {a.locked && <Badge tone="ink"><Lock className="size-3" />{t("check.locked")}</Badge>}
+      {blocked && <Badge tone="danger">{t("check.closed")}</Badge>}
+    </span>
+  );
+}
+
+function Step({ n, tone, title, hint, aside, children }: {
+  n: number; tone: string; title: string; hint?: string; aside?: React.ReactNode; children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-2.5">
+      <div className="flex items-start gap-3">
+        <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-sm font-bold text-white", tone)}>{n}</span>
+        <div className="min-w-0 flex-1">
+          <h2 className="flex items-center justify-between gap-2 text-base font-semibold">{title}{aside}</h2>
+          {hint && <p className="text-sm text-muted">{hint}</p>}
+        </div>
+      </div>
+      <div className="pl-10">{children}</div>
+    </section>
+  );
+}
+
+/** Inline headcount for one crowd area (saved on Enter or when leaving the field). */
+function PeopleInput({ id, name, value, disabled, onCommit }: { id: string; name: string; value: number; disabled: boolean; onCommit: (v: number) => void }) {
+  const [v, setV] = useState(String(value));
+  const sent = useRef<number | null>(null);
+  useEffect(() => { setV(String(value)); sent.current = null; }, [value]);
+  const commit = () => {
+    const n = Math.round(Number(v));
+    if (n === sent.current) return;
+    if (Number.isFinite(n) && n >= 0 && n !== value) { sent.current = n; onCommit(n); } else setV(String(value));
+  };
+  return (
+    <Input id={`pp-${id}`} aria-label={t("check.people_of", { name })} type="number" inputMode="numeric" min={0} step={50}
+           value={v} disabled={disabled} onChange={(e) => setV(e.target.value)} onBlur={commit}
+           onKeyDown={(e) => e.key === "Enter" && commit()} className="h-10 w-24 text-right text-base tabular" />
+  );
+}
+
+const kindName = (kind: string) => {
+  const name = t(`check.kinds.${kind}`);
+  return name.startsWith("check.") ? kind.replace(/_/g, " ") : name;
+};
+
+/** The venue as three questions an organizer can answer in a minute. */
+export function VenueChecklist({ project, scene }: { project: ProjectDetail; scene: SceneSnapshot | undefined }) {
   const venue = project.version.venue;
   const names = useMemo(() => displayNames(venue), [venue]);
   const select = useUi((s) => s.select);
   const fly = useUi((s) => s.flyToPoint);
+  const { submit, pending } = useVenueEdit(project.id);
   const pick = (kind: Selection["kind"], id: string, floorId: string, poly: number[][]) => {
     const [x, y] = centroid(poly);
     select({ kind, id, floorId });
     fly(x, y, floorId);
   };
-  const rows = (list: { kind: Selection["kind"]; id: string; floorId: string; poly: number[][]; detail: string; blocked?: boolean }[]) => (
-    <ul className="divide-y divide-border rounded-[8px] border border-border">
-      {list.map((r) => {
-        const a = annotationWithScene(venue, scene, project.current_version, r.id);
-        return (
-          <li key={r.id}>
-            <button type="button" onClick={() => pick(r.kind, r.id, r.floorId, r.poly)}
-                    className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-surface-2">
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">{names.get(r.id) ?? r.id}</span>
-                <span className="block text-xs text-muted">{r.detail} · {t(`provenance.${a.provenance.basis}`)}</span>
-              </span>
-              <AnnotationBadges a={a} blocked={r.blocked} />
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
-  const exits = venue.floors.flatMap((f) => f.exits.map((e) => ({ kind: "exit" as const, id: e.id, floorId: f.floor_id, poly: e.polygon as number[][], detail: `${fmtNum(e.width_m, 1)} m wide`, blocked: !!e.blocked })));
+  const row = (r: { kind: Selection["kind"]; id: string; floorId: string; poly: number[][]; detail: string; blocked?: boolean; dot: string }) => {
+    const a = annotationWithScene(venue, scene, project.current_version, r.id);
+    return (
+      <li key={r.id}>
+        <button type="button" onClick={() => pick(r.kind, r.id, r.floorId, r.poly)}
+                className="flex min-h-11 w-full items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-left text-sm transition hover:bg-surface-2">
+          <span className={cn("size-2.5 shrink-0 rounded-full", r.dot)} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium">{names.get(r.id) ?? r.id}</span>
+            <span className="block text-xs text-muted">{r.detail}</span>
+          </span>
+          <SimpleBadges a={a} blocked={r.blocked} />
+        </button>
+      </li>
+    );
+  };
+  const exits = venue.floors.flatMap((f) => f.exits.map((e) => ({ kind: "exit" as const, id: e.id, floorId: f.floor_id, poly: e.polygon as number[][], detail: `${fmtNum(e.width_m, 1)} m wide`, blocked: !!e.blocked, dot: e.blocked ? "bg-danger" : "bg-emerald-500" })));
   const features = venue.floors.flatMap((f) => f.obstacles.filter((o) => o.kind !== "wall").map((o) => ({
-    kind: (o.kind === "stage" ? "stage" : "obstacle") as Selection["kind"], id: o.id, floorId: f.floor_id, poly: o.polygon as number[][], detail: o.kind.replace(/_/g, " "),
+    kind: (o.kind === "stage" ? "stage" : "obstacle") as Selection["kind"], id: o.id, floorId: f.floor_id, poly: o.polygon as number[][],
+    detail: kindName(o.kind), dot: o.kind === "stage" ? "bg-violet-500" : "bg-amber-500",
   })));
-  const zones = venue.floors.flatMap((f) => f.zones.map((z) => ({ kind: "zone" as const, id: z.id, floorId: f.floor_id, poly: z.polygon as number[][], detail: `${fmtInt(z.people)} people` })));
+  const zones = venue.floors.flatMap((f) => f.zones.map((z) => ({ ...z, floorId: f.floor_id })));
+  const total = zones.reduce((n, z) => n + z.people, 0);
   return (
-    <div className="space-y-5">
-      <section className="space-y-2">
-        <PanelTitle action={<DoorOpen className="size-4 text-muted" />}>{t("check.doors")}</PanelTitle>
-        {exits.length ? rows(exits) : <p className="text-sm text-danger">{t("check.no_exits")}</p>}
-      </section>
+    <div className="space-y-6">
+      <Step n={1} tone="bg-emerald-500" title={t("check.step_doors")} hint={t("check.step_doors_hint")}
+            aside={<Badge tone="neutral" className="tabular">{exits.length}</Badge>}>
+        {exits.length ? <ul className="-mx-2.5">{exits.map(row)}</ul> : <p className="text-sm text-danger">{t("check.no_exits")}</p>}
+      </Step>
+      <Step n={2} tone="bg-sky-500" title={t("check.step_people")} hint={t("check.people_total", { n: fmtInt(total) })}>
+        <ul className="space-y-1">
+          {zones.map((z) => {
+            const name = names.get(z.id) ?? z.id;
+            const locked = annotationWithScene(venue, scene, project.current_version, z.id).locked;
+            return (
+              <li key={z.id} className="flex items-center gap-2">
+                <button type="button" onClick={() => pick("zone", z.id, z.floorId, z.polygon as number[][])}
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-2.5 text-left text-sm font-medium hover:bg-surface-2 -ml-2.5">
+                  <Users className="size-4 shrink-0 text-sky-500" /><span className="truncate">{name}</span>
+                </button>
+                <PeopleInput id={z.id} name={name} value={z.people} disabled={pending || locked}
+                             onCommit={(v) => submit([{ op: "set_people", zone_id: z.id, people: v } as never], t("check.msg_people", { name, n: fmtInt(v) }))} />
+              </li>
+            );
+          })}
+        </ul>
+      </Step>
       {features.length > 0 && (
-        <section className="space-y-2">
-          <PanelTitle action={<MapPin className="size-4 text-muted" />}>{t("check.features")}</PanelTitle>
-          {rows(features)}
-        </section>
+        <Step n={3} tone="bg-amber-500" title={t("check.step_things")} hint={t("check.step_things_hint")}>
+          <ul className="-mx-2.5">{features.map(row)}</ul>
+        </Step>
       )}
-      <section className="space-y-2">
-        <PanelTitle action={<Users className="size-4 text-muted" />}>{t("check.zones")}</PanelTitle>
-        {rows(zones)}
-      </section>
     </div>
   );
 }

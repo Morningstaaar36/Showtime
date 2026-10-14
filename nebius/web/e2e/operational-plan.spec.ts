@@ -9,6 +9,7 @@ test("guided organizer settings and atomic action preview, replacement and remov
   const id = (await created.json()).id;
   try {
     await page.goto(`/p/${id}/describe`);
+    await page.getByText("More options", { exact: true }).click();
     await page.getByText("Resources and operational plan", { exact: true }).click();
     const panel = page.getByTestId("operational-plan");
     await panel.getByLabel("New resource ID").fill("stewards");
@@ -47,6 +48,7 @@ test("guided organizer settings and atomic action preview, replacement and remov
     await panel.getByRole("button", { name: "Apply operational proposal", exact: true }).click();
     await expect(panel.getByText(/Saved version 3/)).toBeVisible({ timeout: 15_000 }); // software-rendered 3D can stall the page
     await page.reload();
+    await page.getByText("More options", { exact: true }).click();
     await page.getByText("Resources and operational plan", { exact: true }).click();
     await expect(panel.getByText("Staffed release of the audience", { exact: true })).toBeVisible();
     await panel.getByRole("button", { name: "Edit action", exact: true }).click();
