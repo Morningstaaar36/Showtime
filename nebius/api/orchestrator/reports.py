@@ -15,6 +15,7 @@ from api.core.estimates import compute_estimates
 from api.core.evidence import describe_run
 from api.core.extensions import ReportBundle
 from api.core.extensions.geometry import display_names
+from api.core.plan import plan_hash
 from api.core.settings import ROOT_DIR
 from api.db.models import Run, SessionEventRow
 from api.db.session import db_session
@@ -96,14 +97,22 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
     final = _result(by_id.get(summary.get("final_run_id") or ""))
     # runs of this session come from its event log (cached runs may belong to an earlier session)
     run_info: dict[str, dict[str, Any]] = {}
+    nodes: dict[str, dict[str, Any]] = {}
     if session is not None:
         with db_session() as db:
             for ev in db.exec(
-                select(SessionEventRow).where(
-                    SessionEventRow.session_id == session.id, SessionEventRow.type == "run_finished"
+                select(SessionEventRow)
+                .where(
+                    SessionEventRow.session_id == session.id,
+                    col(SessionEventRow.type).in_(["run_finished", "branch_node"]),
                 )
+                .order_by(col(SessionEventRow.seq))
             ):
-                run_info[str(ev.payload.get("run_id"))] = ev.payload
+                if ev.type == "run_finished":
+                    run_info[str(ev.payload.get("run_id"))] = ev.payload
+                else:  # a node's later events update it, as in the live view
+                    nid = str(ev.payload.get("node_id"))
+                    nodes[nid] = {**nodes.get(nid, {}), **ev.payload}
     with db_session() as db:
         rows = {rid: db.get(Run, rid) for rid in run_info}
     results = {rid: res for rid, r in rows.items() if (res := _result(r)) is not None}
@@ -190,8 +199,108 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
             # typed evidence: evaluation status and the cost record (absent in old sessions)
             "evaluation": summary.get("evaluation"),
             "cost": summary.get("cost"),
+            # before/after results of each kept fix, and the plan selected for handover
+            "fix_evidence": fix_evidence(summary, nodes),
+            "handover": _handover(st, project_id, session, summary, venue, plan_venue, plan),
         },
     )
+
+
+def _side(node: dict[str, Any] | None) -> dict[str, Any] | None:
+    """One side of a fix comparison: the run a branch node shows and what it is based on."""
+    if not node or not node.get("run_id"):
+        return None
+    return {
+        "run_id": node["run_id"],
+        "basis": node.get("basis"),
+        "tier": node.get("tier"),
+        "fallback_for": node.get("fallback_for"),
+        "metrics": node.get("metrics") or {},
+    }
+
+
+def fix_evidence(
+    summary: dict[str, Any], nodes: dict[str, dict[str, Any]]
+) -> dict[str, dict[str, Any]]:
+    """Each kept fix's own test: its attack on the venue with the fixes kept before it
+    (re-run when an earlier fix of the round was kept), then the same attack with the fix.
+    Both are usually quick simulations; the combined plan is judged by `evaluation`."""
+    fixes = {str(f.get("fix_id")): f for f in summary.get("fixes") or [] if isinstance(f, dict)}
+    out: dict[str, dict[str, Any]] = {}
+    for i, fid in enumerate(summary.get("accepted_fixes") or []):
+        fx = fixes.get(str(fid))
+        if fx is None:
+            continue
+        attack = fx.get("for_attack")
+        before = nodes.get(f"atk:{attack}:current:{i}") or nodes.get(f"atk:{attack}")
+        after = nodes.get(f"fix:{fid}")
+        out[str(fid)] = {
+            "attack_id": attack,
+            "before": _side(before),
+            "after": _side(after),
+            "gain": (after or {}).get("gain"),
+        }
+    return out
+
+
+def plan_state(
+    current_hash: str, tested_hash: str | None, kept: int, applied: list[Any]
+) -> tuple[str, dict[str, Any] | None]:
+    """Where the selected plan (the current version) stands against a session's test.
+
+    `untested` (no session), `pending` (tested; kept fixes not accepted yet), `tested`
+    (tested; nothing to accept), `accepted` (the kept fixes, tested together),
+    `accepted_subset` (some kept fixes, not tested together) or `stale` (changed since).
+    """
+    if tested_hash is None:
+        return "untested", None
+    if current_hash == tested_hash:
+        return ("pending" if kept else "tested"), None
+    for rec in reversed(applied):
+        if isinstance(rec, dict) and rec.get("plan_hash") == current_hash:
+            return ("accepted" if rec.get("tested_together") else "accepted_subset"), rec
+    return "stale", None
+
+
+def _handover(
+    st: Any,
+    project_id: str,
+    session: Any,
+    summary: dict[str, Any],
+    tested: Venue,
+    plan_venue: Venue,
+    plan: dict[str, Any],
+) -> dict[str, Any]:
+    """The selected plan for the handover checklist: the project's current version, and how
+    the session's evidence relates to it."""
+    current = st.projects.version(project_id)
+    selected = Venue.model_validate(current.venue)
+    digest = plan_hash(selected)
+    kept = [str(f) for f in summary.get("accepted_fixes") or []]
+    state, record = plan_state(
+        digest,
+        plan_hash(tested) if session is not None else None,
+        len(kept),
+        list(summary.get("applied") or []),
+    )
+    if digest != plan_hash(plan_venue):
+        try:  # the exit plan of the selected venue, for its map
+            plan = st.runs.estimate(selected).extensions.get("plan", {})
+        except Exception:
+            plan = {}
+    return {
+        "version": current.version,
+        "plan_hash": digest,
+        "venue": selected.model_dump(mode="json"),
+        "tested_version": session.venue_version if session is not None else None,
+        "state": state,
+        "applied": record,
+        # kept fixes that are part of the selected plan, and the ones still waiting
+        "fix_ids": list(record.get("fix_ids") or []) if record else [],
+        "suggested_fix_ids": kept if state == "pending" else [],
+        "exit_assignment": plan.get("groups", {}),
+        "stair_assignment": plan.get("stairs", {}),
+    }
 
 
 def _stress_summary(r: RunResult | None) -> str:
