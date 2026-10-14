@@ -25,6 +25,7 @@ from api.agents.red_team import incident_query, red_team, venue_features
 from api.core.annotations import carry_annotations
 from api.core.countdown import compute_countdown
 from api.core.evidence import (
+    CostMeter,
     attempt_id,
     comparable,
     describe_run,
@@ -187,6 +188,7 @@ class LiveSession:
     final_venue: Venue | None = None
     measures: list[ScenarioEventIn] = field(default_factory=list)
     tested: list[str] = field(default_factory=list)
+    cost: CostMeter = field(default_factory=CostMeter)
 
 
 class SessionManager:
@@ -392,6 +394,7 @@ class SessionManager:
             session_id=live.id,
             label=label,
         )
+        live.cost.add_run(res)
         if res.status not in ("failed", "timeout", "cancelled"):
             return res
         # Never stall the session: show the instant estimate for this branch. The failed
@@ -407,6 +410,7 @@ class SessionManager:
         )
         if fb is None:
             return res
+        live.cost.add_estimates()
         self.emit(
             live,
             "run_finished",
@@ -421,6 +425,7 @@ class SessionManager:
                 "basis": res.basis,
                 "error": res.error,
                 "fallback_run_id": fb.run_id,
+                "cache_hit": bool(res.extensions.get("cache_hit")),
                 "is_break": False,
                 "break_reasons": [],
                 "accepted": None,
@@ -494,7 +499,7 @@ class SessionManager:
                 self._status(live, "screening", rnd, "Ranking attacks with the instant estimate")
                 ranked: list[tuple[float, Attack]] = []
                 for a in attacks:
-                    est = st.runs.estimate(working, a, extra=live.measures)
+                    est = self._estimate(live, working, a, extra=live.measures)
                     ranked.append((severity(est), a))
                     self.emit(
                         live,
@@ -715,8 +720,22 @@ class SessionManager:
         s = self.st.settings
         return float(s.target_evac_indoor_s if venue.mode == "indoor" else s.target_evac_outdoor_s)
 
+    def _estimate(
+        self,
+        live: LiveSession,
+        venue: Venue,
+        attack: Attack | None = None,
+        fix: Fix | None = None,
+        extra: list[ScenarioEventIn] | None = None,
+    ) -> RunResult:
+        """An instant estimate the session uses as evidence (counted in its cost record)."""
+        live.cost.add_estimates()
+        est: RunResult = self.st.runs.estimate(venue, attack, fix, extra=extra)
+        return est
+
     def _cost(self, live: LiveSession, u: Any) -> None:
         self.st.usage.add(u)
+        live.cost.add_usage(u)
         b = live.budget
         if b is not None:
             self.emit(
@@ -812,8 +831,8 @@ class SessionManager:
         """A fix must not make the plan worse without the attack (instant estimate)."""
         if baseline is None:
             return False
-        before = self.st.runs.estimate(venue, None, extra=live.measures)
-        after = self.st.runs.estimate(venue, None, fix, extra=live.measures)
+        before = self._estimate(live, venue, None, extra=live.measures)
+        after = self._estimate(live, venue, None, fix, extra=live.measures)
         return severity(after) > severity(before) * 1.05 + 1.0
 
     def _apply_ops(self, venue: Venue, ops: list[dict[str, Any]], live: LiveSession) -> Venue:
@@ -868,6 +887,7 @@ class SessionManager:
                 "provider": r.provider,
                 "engine": r.engine,
                 **evidence,
+                "cache_hit": bool(r.extensions.get("cache_hit")),
                 "is_break": bool(reasons),
                 "break_reasons": reasons or [],
                 "accepted": accepted,
@@ -1027,6 +1047,8 @@ class SessionManager:
             "final_venue": working.model_dump(mode="json"),
             "measures": [m.model_dump() for m in live.measures],
             "evaluation": evaluation,
+            # measured after the judge, so every model call of the session is included
+            "cost": live.cost.record(wall_s=time.monotonic() - live.started),
         }
         status = "stopped" if reason == "stopped by user" else "finished"
         b = live.budget
