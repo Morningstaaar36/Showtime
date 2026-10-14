@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { CloudOff, SearchX, ServerCrash } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { CloudOff, Monitor, SearchX, ServerCrash } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { api } from "@/api/client";
 import { useCountdown, useFeatures, useHealth, usePatchProject, useProject, useRedo, useRun, useRuns, useSettings, useStartRun, useTier1, useUndo } from "@/api/queries";
 import type { Exit, Floor, Hotspot, PatchOpIn, Pt, RunResult, Venue } from "@/api/types";
+import { AppShell } from "@/app/AppHeader";
 import { Skeleton } from "@/components/ui/misc";
 import { Banner, ErrorState } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,15 @@ import { usePlayback } from "@/state/playback";
 import { type Mode, type Tool, useUi } from "@/state/ui";
 
 const MODES: Mode[] = ["plan", "simulate", "redteam", "report"];
+
+/** Expert view needs a desktop-sized screen; below it a notice points back to the simple view. */
+const WIDE = "(min-width: 1024px)";
+function useWide(): boolean {
+  return useSyncExternalStore(
+    (cb) => { const mq = window.matchMedia(WIDE); mq.addEventListener("change", cb); return () => mq.removeEventListener("change", cb); },
+    () => window.matchMedia(WIDE).matches,
+  );
+}
 
 export function WorkspacePage() {
   const { projectId = "", mode: rawMode } = useParams();
@@ -188,17 +198,32 @@ export function WorkspacePage() {
   const shownRun = mode === "simulate" ? (ui.tier1Preview ?? (finished ? result : estimate.data))
     : mode === "redteam" && finished ? result : confirmed ?? estimate.data;
   const tour = useTour({ projectId, version: version ?? 0, venue, run: shownRun, autoStart: searchParams.get("tour") === "1" });
+  const wide = useWide();
 
   if (project.isError) {
     const missing = (project.error as { status?: number }).status === 404;
     return (
-      <div className="mx-auto max-w-2xl space-y-4 p-8">
-        <ErrorState title={missing ? "This project doesn't exist" : undefined}
-                    message={missing ? "It may have been deleted, or the link is from another installation." : (project.error as Error).message}
-                    hint={missing ? null : (project.error as { hint?: string }).hint}
-                    onRetry={missing ? undefined : () => project.refetch()} />
-        <Button variant="primary" onClick={() => navigate("/")}>Back to projects</Button>
-      </div>
+      <AppShell className="bg-hero">
+        <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-12">
+          <ErrorState title={missing ? t("workspace.missing_title") : undefined}
+                      message={missing ? t("workspace.missing_body") : (project.error as Error).message}
+                      hint={missing ? null : (project.error as { hint?: string }).hint}
+                      onRetry={missing ? undefined : () => project.refetch()} />
+          <Button asChild variant="primary" size="lg"><Link to="/projects">{t("workspace.missing_back")}</Link></Button>
+        </div>
+      </AppShell>
+    );
+  }
+  if (!wide) {
+    return (
+      <AppShell className="bg-hero">
+        <div className="mx-auto flex w-full max-w-md flex-col items-center px-4 py-16 text-center">
+          <span className="grid size-16 place-items-center rounded-full bg-signal-soft text-signal [&_svg]:size-8" aria-hidden><Monitor /></span>
+          <h1 className="mt-5 text-2xl font-bold leading-tight tracking-tight">{t("workspace.small_title")}</h1>
+          <p className="mt-2 text-lg text-muted">{t("workspace.small_body")}</p>
+          <Button asChild variant="primary" size="lg" className="mt-6"><Link to={`/p/${projectId}`}>{t("workspace.small_back")}</Link></Button>
+        </div>
+      </AppShell>
     );
   }
   if (!p || !venue) {

@@ -168,7 +168,13 @@
     "day_estimates": "Estimates",
     "day_whatif": "What if…",
     "whatif_lead": "Change the crowd, the walking speed or close exits. Results update instantly; nothing is saved.",
-    "estimates_unavailable": "Estimates are unavailable for this plan."
+    "estimates_unavailable": "Estimates are unavailable for this plan.",
+    "missing_title": "This project doesn't exist",
+    "missing_body": "It may have been deleted, or the link is from another installation.",
+    "missing_back": "Open your projects",
+    "small_title": "Expert view needs a bigger screen",
+    "small_body": "Open this plan on a computer to use the expert tools. Your plan and its report work on this screen.",
+    "small_back": "Back to your plan"
   },
   "tools": {
     "select": "Select and move",
