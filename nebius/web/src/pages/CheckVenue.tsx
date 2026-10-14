@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton, Spinner } from "@/components/ui/misc";
 import { ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
-import { AskChange, type ProposalPreview } from "@/journey/AskChange";
+import { AskAnything } from "@/journey/AskAnything";
+import type { ProposalPreview } from "@/journey/AskChange";
 import { type Hit, moveObject, type PaletteItem, placeItem } from "@/journey/dragDrop";
 import { DragBridge, DragGhost } from "@/journey/DragLayer";
 import { type Grab, useDrag } from "@/journey/dragStore";
@@ -148,7 +149,7 @@ export function CheckVenuePage() {
               </div>
             )}
             <div className="absolute inset-x-0 bottom-3 flex justify-center px-3">
-              <AskChange project={p} onPreview={(pv) => { setProposal(pv); setShowProposal(true); }} />
+              <AskAnything project={p} context="check" onPreview={(pv) => { setProposal(pv); setShowProposal(true); }} />
             </div>
           </div>
         </main>
