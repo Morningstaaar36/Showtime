@@ -1,4 +1,4 @@
-"""Typed evidence (P2-03).
+"""Typed evidence (P2-03) and the cost record of a session (N16).
 
 Execution status (did the session finish?) is separate from evaluation status (what do its
 results show?). Unknown, partial, preview and estimate results never satisfy a full-simulation
@@ -11,13 +11,17 @@ contract (so the computed `RunResult.basis` field can use it) and re-exported he
 
 from __future__ import annotations
 
+import time
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from api.models import ResultBasis, RunResult, result_basis
+from api.models import ResultBasis, RunResult, Usage, result_basis
 
 __all__ = [
     "EVALUATION_LABELS",
+    "FREE_PROVIDERS",
     "SIMULATION_BASES",
+    "CostMeter",
     "EvaluationStatus",
     "attempt_basis",
     "attempt_id",
@@ -29,6 +33,7 @@ __all__ = [
     "evidence_sentence",
     "fallback_estimate",
     "fallback_for",
+    "model_cost",
     "result_basis",
 ]
 
@@ -36,6 +41,9 @@ EvaluationStatus = Literal["confirmed", "partially_confirmed", "unconfirmed", "f
 
 SIMULATION_BASES: frozenset[ResultBasis] = frozenset({"partial_simulation", "completed_simulation"})
 """Results from the real simulator (time-capped or complete)."""
+
+FREE_PROVIDERS = frozenset({"local", "local-fallback", "fake"})
+"""Model providers that never charge for inference."""
 
 EVALUATION_LABELS: dict[str, str] = {
     "confirmed": "confirmed by full simulations",
@@ -267,3 +275,101 @@ def evaluation_sentence(evaluation: dict[str, Any]) -> str:
     label = EVALUATION_LABELS.get(str(evaluation.get("status")), "not confirmed")
     reasons = " ".join(str(r) for r in evaluation.get("reasons", []))
     return f"Evaluation: {label}." + (f" {reasons}" if reasons else "")
+
+
+# ---------------------------------------------------------------------------- cost record
+
+
+def _bucket() -> dict[str, Any]:
+    return {"calls": 0, "tokens_in": 0, "tokens_out": 0, "usd": 0.0}
+
+
+def model_cost(u: Usage) -> float:
+    """Inference charge of one call: free and local models, and cache replays, cost $0."""
+    if u.cached or u.provider in FREE_PROVIDERS or u.model.endswith(":free"):
+        return 0.0
+    return float(u.cost_usd)
+
+
+@dataclass
+class CostMeter:
+    """Measured cost of one session: model calls (the same usage records as the `agent_call`
+    events) and simulations by kind (the same results as the `run_finished` events).
+
+    A call and its one repair retry are reported together, as one call. Simulation seconds
+    count fresh sandbox runs only; a reused (cached) run cost no new compute."""
+
+    started: float = field(default_factory=time.monotonic)
+    calls: int = 0
+    tokens_in: int = 0
+    tokens_out: int = 0
+    usd: float = 0.0
+    llm_cache_hits: int = 0
+    by_role: dict[str, dict[str, Any]] = field(default_factory=dict)
+    by_model: dict[str, dict[str, Any]] = field(default_factory=dict)
+    instant_estimates: int = 0
+    quick_sims: int = 0
+    full_sims: int = 0
+    failed_sims: int = 0
+    sim_cache_hits: int = 0
+    sim_seconds: float = 0.0
+
+    def add_usage(self, u: Usage) -> None:
+        """One model call."""
+        usd = model_cost(u)
+        self.calls += 1
+        self.tokens_in += u.prompt_tokens
+        self.tokens_out += u.completion_tokens
+        self.usd += usd
+        if u.cached:
+            self.llm_cache_hits += 1
+        for key, table in ((u.role, self.by_role), (u.model or "unknown", self.by_model)):
+            b = table.setdefault(key, _bucket())
+            b["calls"] += 1
+            b["tokens_in"] += u.prompt_tokens
+            b["tokens_out"] += u.completion_tokens
+            b["usd"] += usd
+
+    def add_estimates(self, n: int = 1) -> None:
+        """Instant estimates used as evidence (screening, harm checks, fallbacks)."""
+        self.instant_estimates += n
+
+    def add_run(self, r: RunResult) -> None:
+        """One simulation attempt, as returned by the run service (failed ones included)."""
+        if r.tier == 1:
+            return
+        if r.tier == 2:
+            self.quick_sims += 1
+        else:
+            self.full_sims += 1
+        if r.basis == "unknown":
+            self.failed_sims += 1
+        if r.extensions.get("cache_hit"):
+            self.sim_cache_hits += 1
+        else:
+            self.sim_seconds += r.runtime_s
+
+    def record(self, wall_s: float | None = None) -> dict[str, Any]:
+        """The cost record stored in the session summary."""
+
+        def rounded(table: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+            return {k: {**v, "usd": round(float(v["usd"]), 6)} for k, v in table.items()}
+
+        return {
+            "usd_total": round(self.usd, 6),
+            "tokens_in": self.tokens_in,
+            "tokens_out": self.tokens_out,
+            "calls": self.calls,
+            "by_role": rounded(self.by_role),
+            "by_model": rounded(self.by_model),
+            "llm_cache_hits": self.llm_cache_hits,
+            "sims": {
+                "instant_estimates": self.instant_estimates,
+                "quick_sims": self.quick_sims,
+                "full_sims": self.full_sims,
+                "failed": self.failed_sims,
+                "cache_hits": self.sim_cache_hits,
+                "sim_seconds": round(self.sim_seconds, 1),
+            },
+            "wall_s": round(wall_s if wall_s is not None else time.monotonic() - self.started, 1),
+        }
