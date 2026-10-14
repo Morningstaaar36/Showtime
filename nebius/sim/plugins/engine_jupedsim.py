@@ -11,6 +11,7 @@ import heapq
 import json
 import math
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -28,11 +29,17 @@ from jps_build import (
     place_people,
     to_poly,
 )
+from script_api import ScriptRunner
 from shapely.geometry import Polygon
 
-from plugins.events import FLOOR_KEYS, HANDLERS
+from plugins.events import FLOOR_KEYS, HANDLERS, surge_step
 
 ENGINE_ID = "jupedsim"
+REWIND_SINGLE_FLOOR = "rewind needs a single-floor venue"
+
+
+def _ev_key(ev: dict[str, Any]) -> str:
+    return json.dumps(ev, sort_keys=True, default=str)
 
 
 @dataclass
@@ -69,6 +76,9 @@ class FloorRun:
         arrivals: list[tuple[float, int, str]],
         base_floor: dict[str, Any] | None = None,
         intervention_at_s: float | None = None,
+        checkpoint_at_s: float | None = None,
+        checkpoint_path: Path | None = None,
+        resume_state: dict[str, Any] | None = None,
     ) -> None:
         self.floor_id: str = floor["floor_id"]
         self.settings = settings
@@ -167,6 +177,23 @@ class FloorRun:
             events, key=lambda e: (float(e.get("at_s", 0.0)), first.get(str(e.get("type")), 2))
         )
         self.steps: list[Any] = []
+        self.scripts: list[Any] = []  # ScriptRunner per `script` event (script_api.py)
+        self.t0 = 0.0  # simulated time this run starts at (> 0 when resuming a checkpoint)
+        self.fired: list[dict[str, Any]] = []
+        self.checkpoint_at_s = checkpoint_at_s
+        self.checkpoint_path = checkpoint_path
+        self.checkpoint_t: float | None = None
+        self.resume_state = resume_state
+        if resume_state is not None:
+            # events already applied before the checkpoint are part of its state
+            done = Counter(_ev_key(e) for e in resume_state.get("fired_events", []))
+            kept = []
+            for e in self.events:
+                if done[_ev_key(e)] > 0:
+                    done[_ev_key(e)] -= 1
+                else:
+                    kept.append(e)
+            self.events = kept
         self._gid_of: dict[int, int] = {}
         self.last_exit_t: dict[str, float] = {}
         self.squeezed: set[int] = set()
@@ -229,9 +256,10 @@ class FloorRun:
         kind: str = "normal",
         gid: int | None = None,
         initial: bool = False,
+        speed: float | None = None,
     ) -> int | None:
         ex = self.exits[target]
-        speed = self._speed()
+        speed = self._speed() if speed is None else speed
         jid_stage = journey if journey is not None else (ex.journey_id, ex.stage_id)
         try:
             jid = self.sim.add_agent(
@@ -421,6 +449,134 @@ class FloorRun:
         journey = (self.sim.add_journey(jd), wp, final)
         self.cf_journeys[key] = journey
         return journey
+
+    # ------------------------------------------------------- checkpoint/resume
+    def _write_checkpoint(self) -> None:
+        """Everything needed to restart this floor from now (velocities are not kept)."""
+        agents = []
+        for ag in self.sim.agents():
+            info = self.agents.get(ag.id)
+            if info is None:
+                continue
+            agents.append(
+                {
+                    "gid": info.gid,
+                    "x": float(ag.position[0]),
+                    "y": float(ag.position[1]),
+                    "target": info.target,
+                    "kind": info.kind,
+                    "group": info.group,
+                    "speed": info.speed,
+                    "speed_factor": info.speed_factor,
+                    "held_until": info.held_until,
+                    "spawn_t": info.spawn_t,
+                    "radius": float(ag.model.radius),
+                }
+            )
+        pending = [s.pending() for s in self.steps if hasattr(s, "pending")]
+        state = {
+            "version": 1,
+            "t": round(self.t, 4),
+            "floor_id": self.floor_id,
+            "seed": self.seed,
+            "next_gid": self.gids[0],
+            "agents": agents,
+            "exits": {eid: ex.open for eid, ex in self.exits.items()},
+            "closed_inflows": sorted(self.closed_inflows),
+            "global_speed_factor": self.global_speed_factor,
+            "pending_spawns": [p for p in pending if p.get("people", 0) > 0],
+            "pending_people": self.out.pending + self.rejected,
+            "exit_times": [list(x) for x in self.out.exit_times],
+            "fired_events": self.fired,
+            "scripts": [sc.snapshot() for sc in self.scripts],
+            "notes": list(self.out.notes),
+            "event_log": list(self.out.event_log),
+            "marshals": list(self.out.marshals),
+        }
+        if self.checkpoint_path is not None:
+            self.checkpoint_path.write_text(json.dumps(state))
+        self.checkpoint_t = self.t
+        self.log_event("checkpoint", {}, people=len(agents))
+
+    def _restore(self, cp: dict[str, Any]) -> None:
+        """Start from a checkpoint instead of placing the zones' people."""
+        self.t0 = float(cp["t"])
+        self.t = self.t0
+        self.gids[0] = max(self.gids[0], int(cp["next_gid"]))
+        for eid, is_open in cp.get("exits", {}).items():
+            if eid in self.exits and eid not in self.late_exits:
+                self.exits[eid].open = bool(is_open)
+        self.closed_inflows = set(cp.get("closed_inflows", []))
+        self.global_speed_factor = float(cp.get("global_speed_factor", 1.0))
+        self.out.exit_times = [(float(t), int(g), str(e)) for t, g, e in cp["exit_times"]]
+        self.out.notes = list(cp.get("notes", []))
+        self.out.event_log = list(cp.get("event_log", []))
+        self.out.marshals[:] = cp.get("marshals", [])
+        self.out.pending = int(cp.get("pending_people", 0))
+        self.last_exit_t = {eid: self.t0 for eid in self.exits}
+        self._next_clog_check = self.t0 + 2.0
+        self._next_stuck_check = self.t0 + 5.0
+        lost = 0
+        for a in cp["agents"]:
+            pos = (float(a["x"]), float(a["y"]))
+            target = a["target"]
+            if target not in self.exits or (not self.exits[target].open and a["kind"] != "trapped"):
+                target = self.best_exit(pos) or target
+            if target not in self.exits:
+                lost += 1
+                continue
+            kind = a["kind"] if a["kind"] in ("normal", "counterflow", "trapped") else "normal"
+            jid = None
+            # someone squeezed against a wall or door jamb is nudged just inside the free space
+            for p in (pos, nearest_free_point(self.free, pos[0], pos[1])):
+                jid = self._add_agent(
+                    p,
+                    a["group"],
+                    target,
+                    kind="normal" if kind == "trapped" else kind,
+                    gid=int(a["gid"]),
+                    speed=float(a["speed"]),
+                )
+                if jid is not None:
+                    break
+            if jid is None:
+                lost += 1
+                continue
+            info = self.agents[jid]
+            info.speed_factor = float(a["speed_factor"])
+            info.held_until = a.get("held_until")
+            info.spawn_t = float(a.get("spawn_t", 0.0))
+            if kind == "trapped":
+                self.hold_at_blocked_exit(jid, self.exits[target])
+            if float(a.get("radius", self.radius)) < self.radius - 1e-6:
+                self.sim.agent(jid).model.radius = float(a["radius"])
+                self.squeezed.add(jid)
+            self.apply_speed(jid)
+        if lost:
+            self.note(f"{lost} people could not be put back at the checkpoint")
+            self.out.pending += lost
+        for p in cp.get("pending_spawns", []):
+            n_log = len(self.out.event_log)
+            if p["type"] == "surge" and p["zone_id"] in self.zones:
+                self.steps.append(surge_step(self, p["zone_id"], int(p["people"]), p["group"]))
+            elif p["type"] == "counterflow" and p["exit_id"] in self.exits:
+                ev = {
+                    "type": "counterflow",
+                    "exit_id": p["exit_id"],
+                    "people": int(p["people"]),
+                    "target_zone_id": p.get("target_zone_id"),
+                }
+                step = HANDLERS["counterflow"](self, ev)
+                if step is not None:
+                    self.steps.append(step)
+            del self.out.event_log[n_log:]
+        for snap in cp.get("scripts", []):
+            self.scripts.append(ScriptRunner(self, snap["event"], restore=snap))
+        self.note(
+            f"Rewound to {self.t0:g} s: {len(self.agents)} people put back where they stood "
+            "(walking speeds restart from standstill)"
+        )
+        self.log_event("resume", {}, people=len(self.agents))
 
     # ---------------------------------------------------------------- the loop
     def _record(self) -> None:
@@ -622,16 +778,28 @@ class FloorRun:
                 left.append((t_arr, gid, stair_id))
         self.arrival_queue = left
 
+    def _now(self) -> float:
+        return self.t0 + float(self.sim.elapsed_time())
+
     def run(self, max_sim_s: float, deadline: float, progress: Any) -> FloorOutput:
-        self.populate()
+        if self.resume_state is not None:
+            self._restore(self.resume_state)
+        else:
+            self.populate()
         ev_idx = 0
         intervened = self.intervention_at_s is None
         spawn_types = {"surge", "counterflow"}
         self._record()
-        next_frame = self.frame_dt
+        next_frame = self.t0 + self.frame_dt
         it = 0
         while True:
-            self.t = self.sim.elapsed_time()
+            self.t = self._now()
+            if (
+                self.checkpoint_at_s is not None
+                and self.checkpoint_t is None
+                and self.t >= self.checkpoint_at_s - 1e-9
+            ):
+                self._write_checkpoint()
             if not intervened and self.t >= float(self.intervention_at_s or 0.0):
                 self._intervene()
                 intervened = True
@@ -645,6 +813,7 @@ class FloorRun:
                 if handler is None:
                     self.note(f"Event type '{ev.get('type')}' is not supported by the engine")
                     continue
+                self.fired.append(ev)
                 step = handler(self, ev)
                 if step is not None and not step(self):
                     self.steps.append(step)
@@ -673,16 +842,18 @@ class FloorRun:
                 if info is None:
                     continue
                 self.load[info.target] = self.load.get(info.target, 1) - 1
-                t_rm = round(self.sim.elapsed_time(), 3)
+                t_rm = round(self._now(), 3)
                 self.last_exit_t[info.target] = t_rm
                 self.squeezed.discard(jid)
                 if self.exits[info.target].kind == "stair":
                     self.out.stair_arrivals.append((t_rm, info.gid, info.target))
                 else:
                     self.out.exit_times.append((t_rm, info.gid, info.target))
-            if self.sim.elapsed_time() >= next_frame - 1e-9:
-                self.t = self.sim.elapsed_time()
+            if self._now() >= next_frame - 1e-9:
+                self.t = self._now()
                 self.steps = [s for s in self.steps if not s(self)]
+                for sc in self.scripts:
+                    sc.tick(self)
                 self._due_arrivals()
                 self._doorway_capture()
                 if self.t >= self._next_clog_check:
@@ -717,7 +888,9 @@ class FloorRun:
                 "(too close to a wall) and were left out"
             )
             self.out.pending += self.rejected
-        self.out.sim_time = round(self.sim.elapsed_time(), 2)
+        if self.checkpoint_at_s is not None and self.checkpoint_t is None:
+            self.note(f"No checkpoint written: the run ended before {self.checkpoint_at_s:g} s")
+        self.out.sim_time = round(self._now(), 2)
         self.out.remaining = len(self.agents)
         self.out.pending += len(self.arrivals) + len(self.arrival_queue)
         return self.out
@@ -783,6 +956,19 @@ def run(
             )
         )
 
+    checkpoint_at = request.get("checkpoint_at_s")
+    resume_state: dict[str, Any] | None = None
+    rewind_note: str | None = None
+    if (checkpoint_at is not None or request.get("resume")) and len(venue["floors"]) > 1:
+        rewind_note = REWIND_SINGLE_FLOOR
+        checkpoint_at = None
+    elif request.get("resume"):
+        cp_path = work / "checkpoint.json"
+        if cp_path.exists():
+            resume_state = json.loads(cp_path.read_text())
+        else:
+            rewind_note = "No checkpoint.json to rewind to: the run started from the beginning"
+    rewind: dict[str, float] = {}
     gids = [1]
     outputs: list[FloorOutput] = []
     pending_arrivals: dict[str, list[tuple[float, int, str]]] = {}
@@ -802,11 +988,21 @@ def run(
             seed=seed + idx * 7919,
             gids=gids,
             arrivals=pending_arrivals.get(fid, []),
-            base_floor=base_floors.get(fid),
-            intervention_at_s=request.get("intervention_at_s"),
+            base_floor=None if resume_state else base_floors.get(fid),
+            intervention_at_s=None if resume_state else request.get("intervention_at_s"),
+            checkpoint_at_s=float(checkpoint_at) if checkpoint_at is not None else None,
+            checkpoint_path=work / "checkpoint.json",
+            resume_state=resume_state,
         )
         out = fr.run(max_sim_s, deadline, progress)
+        if rewind_note:
+            out.notes.insert(0, rewind_note)
+            rewind_note = None
         outputs.append(out)
+        if fr.checkpoint_t is not None:
+            rewind["checkpoint_t_s"] = round(fr.checkpoint_t, 2)
+        if resume_state is not None:
+            rewind["resumed_from_s"] = round(fr.t0, 2)
         if out.stair_arrivals:
             sched = stair_schedule(out.stair_arrivals, venue, settings)
             stairs = {s["id"]: s for s in venue.get("stairs", [])}
@@ -820,4 +1016,5 @@ def run(
         "wall_s": time.monotonic() - started,
         "people_total": gids[0] - 1,
         "people_planned": total,
+        "rewind": rewind,
     }
