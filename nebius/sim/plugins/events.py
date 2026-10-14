@@ -11,16 +11,15 @@ from collections.abc import Callable
 from typing import Any
 
 import numpy as np
+from script_api import ScriptRunner
 from shapely.geometry import Point
 
 Step = Callable[[Any], bool]
 HELD_SPEED = 0.0
 
 
-def block_exit(ctx: Any, ev: dict[str, Any]) -> Step | None:
-    ex = ctx.exits.get(ev["exit_id"])
-    if ex is None:
-        return None
+def close_exit_now(ctx: Any, ex: Any) -> tuple[int, int]:
+    """Close an exit: people heading there pick another one, or wait at it if none is left."""
     ex.open = False
     moved = trapped = 0
     for jid, info in list(ctx.agents.items()):
@@ -33,6 +32,66 @@ def block_exit(ctx: Any, ev: dict[str, Any]) -> Step | None:
         else:
             ctx.switch(jid, alt)
             moved += 1
+    return moved, trapped
+
+
+def open_exit_now(ctx: Any, ex: Any) -> int:
+    """Reopen an exit: people for whom it is now the best choice turn towards it."""
+    ex.open = True
+    moved = 0
+    for jid, info in list(ctx.agents.items()):
+        if info.kind == "trapped" or info.target != ex.id:
+            best = ctx.best_exit(ctx.position(jid))
+            if best == ex.id and best != info.target:
+                ctx.switch(jid, ex.id)
+                moved += 1
+    return moved
+
+
+def slow_everyone(ctx: Any, factor: float, zone: Any = None) -> int:
+    """Multiply walking speed by factor (in a zone, or everywhere and for later arrivals)."""
+    affected = 0
+    for jid, info in ctx.agents.items():
+        if zone is not None and not zone.contains(Point(ctx.position(jid))):
+            continue
+        info.speed_factor *= factor
+        ctx.apply_speed(jid)
+        affected += 1
+    if zone is None:
+        ctx.global_speed_factor *= factor
+    return affected
+
+
+def surge_step(ctx: Any, zone_id: str, n: int, group: str) -> Step:
+    """Spawn n extra people in a zone as room frees up (one batch per frame)."""
+    zone = ctx.zones[zone_id]
+    queue = list(ctx.sample_points(zone, n * 2))
+    state = {"left": n}
+
+    def step(c: Any) -> bool:
+        if state["left"] <= 0 or not queue:
+            if state["left"] > 0:
+                c.note(f"Surge in {zone_id}: {state['left']} people could not fit")
+            return True
+        placed = c.spawn_points(queue, state["left"], group=group, quotas=c.plan_quotas(zone_id))
+        state["left"] -= placed
+        return state["left"] <= 0
+
+    # what a checkpoint needs to restart this spawn later
+    step.pending = lambda: {  # type: ignore[attr-defined]
+        "type": "surge",
+        "zone_id": zone_id,
+        "people": state["left"],
+        "group": group,
+    }
+    return step
+
+
+def block_exit(ctx: Any, ev: dict[str, Any]) -> Step | None:
+    ex = ctx.exits.get(ev["exit_id"])
+    if ex is None:
+        return None
+    moved, trapped = close_exit_now(ctx, ex)
     ctx.note(
         f"{ex.id} blocked at {ctx.t:.0f} s: {moved} people rerouted"
         + (f", {trapped} trapped" if trapped else "")
@@ -45,56 +104,23 @@ def unblock_exit(ctx: Any, ev: dict[str, Any]) -> Step | None:
     ex = ctx.exits.get(ev["exit_id"])
     if ex is None:
         return None
-    ex.open = True
-    moved = 0
-    for jid, info in list(ctx.agents.items()):
-        if info.kind == "trapped" or info.target != ex.id:
-            best = ctx.best_exit(ctx.position(jid))
-            if best == ex.id and best != info.target:
-                ctx.switch(jid, ex.id)
-                moved += 1
+    moved = open_exit_now(ctx, ex)
     ctx.log_event("unblock_exit", ev, moved=moved)
     return None
 
 
 def surge(ctx: Any, ev: dict[str, Any]) -> Step | None:
-    zone = ctx.zones.get(ev["zone_id"])
-    if zone is None:
+    if ev["zone_id"] not in ctx.zones:
         return None
-    n = int(ev["extra_people"])
-    pts = ctx.sample_points(zone, n * 2)
-    group = f"surge:{ev['zone_id']}"
-    queue = list(pts)
-    state = {"left": n}
-
-    def step(c: Any) -> bool:
-        if state["left"] <= 0 or not queue:
-            if state["left"] > 0:
-                c.note(f"Surge in {ev['zone_id']}: {state['left']} people could not fit")
-            return True
-        placed = c.spawn_points(
-            queue, state["left"], group=group, quotas=c.plan_quotas(ev["zone_id"])
-        )
-        state["left"] -= placed
-        return state["left"] <= 0
-
+    step = surge_step(ctx, ev["zone_id"], int(ev["extra_people"]), f"surge:{ev['zone_id']}")
     ctx.log_event("surge", ev)
     return step
 
 
 def slowdown(ctx: Any, ev: dict[str, Any]) -> Step | None:
-    factor = float(ev["factor"])
     zone_id = ev.get("zone_id")
     zone = ctx.zones.get(zone_id) if zone_id else None
-    affected = 0
-    for jid, info in ctx.agents.items():
-        if zone is not None and not zone.contains(Point(ctx.position(jid))):
-            continue
-        info.speed_factor *= factor
-        ctx.apply_speed(jid)
-        affected += 1
-    if zone is None:
-        ctx.global_speed_factor *= factor
+    affected = slow_everyone(ctx, float(ev["factor"]), zone)
     ctx.log_event("slowdown", ev, affected=affected)
     return None
 
@@ -129,6 +155,12 @@ def counterflow(ctx: Any, ev: dict[str, Any]) -> Step | None:
         state["left"] -= placed
         return state["left"] <= 0
 
+    step.pending = lambda: {  # type: ignore[attr-defined]
+        "type": "counterflow",
+        "exit_id": ex.id,
+        "people": state["left"],
+        "target_zone_id": ev.get("target_zone_id"),
+    }
     ctx.log_event("counterflow", ev)
     return step
 
@@ -193,6 +225,14 @@ def marshal_redirect(ctx: Any, ev: dict[str, Any]) -> Step | None:
     return None
 
 
+def script(ctx: Any, ev: dict[str, Any]) -> Step | None:
+    """An AI- or user-written scenario: on_step(view, act) every every_s seconds."""
+    runner = ScriptRunner(ctx, ev)
+    ctx.scripts.append(runner)
+    runner.tick(ctx)
+    return None
+
+
 HANDLERS: dict[str, Callable[[Any, dict[str, Any]], Step | None]] = {
     "block_exit": block_exit,
     "unblock_exit": unblock_exit,
@@ -202,6 +242,7 @@ HANDLERS: dict[str, Callable[[Any, dict[str, Any]], Step | None]] = {
     "one_way": one_way,
     "staggered_release": staggered_release,
     "marshal_redirect": marshal_redirect,
+    "script": script,
 }
 
 # Which id field ties an event to a floor (events without one apply to every floor).
