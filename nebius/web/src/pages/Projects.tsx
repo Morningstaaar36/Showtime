@@ -1,21 +1,22 @@
-import { ArrowUpRight, Building2, Copy, Download, FolderOpen, LayoutTemplate, Map as MapIcon, MoreHorizontal, Plus, Search, Sparkles, Trash2, Trees, Upload, Users } from "lucide-react";
+/** "Your plans" (route `/projects`): every plan as a bright card, a search box and one clear way
+ * to start a new plan. Samples and the one-sentence copilot sit below as more ways to start. */
+import { ArrowUpRight, Building2, Clock, Copy, Download, FolderOpen, LayoutTemplate, Map as MapIcon, MoreHorizontal, Plus, Search, Sparkles, Trash2, Trees, Upload, Users, Wand2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { api } from "@/api/client";
 import { useCreateProject, useDeleteProject, useDuplicateProject, useImportProject, useProjects, useTemplates } from "@/api/queries";
 import type { ProjectSummary, Template, VenueDraft } from "@/api/types";
-import { AppHeader } from "@/app/AppHeader";
+import { AppShell } from "@/app/AppHeader";
 import { VenueThumb } from "@/components/VenueThumb";
 import { Confirm } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input, Label } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/misc";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { EmptyState, ErrorState } from "@/components/ui/states";
+import { ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
 import { fmtInt, fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -32,148 +33,172 @@ export function ProjectsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
+  const all = useMemo(() => projects.data ?? [], [projects.data]);
   const items = useMemo(() => {
-    const all = projects.data ?? [];
     const ql = q.trim().toLowerCase();
     return ql ? all.filter((p) => p.name.toLowerCase().includes(ql) || p.venue_name.toLowerCase().includes(ql)) : all;
-  }, [projects.data, q]);
+  }, [all, q]);
   const tplById = useMemo(() => new Map((templates.data ?? []).map((x) => [x.id, x])), [templates.data]);
+  const empty = !!projects.data && all.length === 0;
 
   return (
-    <div className="min-h-full">
-      <AppHeader />
-      <main id="main" className="mx-auto max-w-6xl px-4 pb-16">
-        <section className="relative mt-8 overflow-hidden rounded-[14px] border border-border bg-surface">
-          <div className="drafting-grid absolute inset-0 opacity-60" aria-hidden />
-          <div className="relative grid gap-6 p-6 md:grid-cols-[1.45fr_1fr] md:items-center md:p-8">
-            <div>
-              <p className="text-sm font-medium text-signal">Event Copilot · crowd-safety planning</p>
-              <h1 className="mt-2 text-balance text-3xl font-semibold leading-tight tracking-tight">From one sentence to a crowd-safety plan you can defend.</h1>
-              <p className="mt-3 max-w-prose text-muted">
-                Say what, where, when and how many. Showtime pulls the real site from the map, lays out the event,
-                estimates capacity, staff, toilets and budget, simulates the crowd, and lets AI red and blue teams break
-                and fix the plan, down to the latest safe time to start evacuating.
-              </p>
-              <div className="mt-5"><CopilotBox /></div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button onClick={() => setCreating("pick")}><Plus />{t("projects.new")}</Button>
-                <Button onClick={() => fileRef.current?.click()} disabled={importer.isPending}><Upload />{t("common.import")}</Button>
-                <input ref={fileRef} type="file" className="hidden" accept=".zip,.json,.dxf"
-                       onChange={(e) => {
-                         const f = e.target.files?.[0];
-                         if (!f) return;
-                         importer.mutate(f, {
-                           onSuccess: (p) => { toast.success(t("projects.imported")); navigate(`/p/${p.id}`); },
-                           onError: (err) => toast.error(err.message),
-                         });
-                         e.target.value = "";
-                       }} />
-              </div>
-            </div>
-            <ul className="grid gap-3 text-sm">
-              {[["1", "Real site or your words", "OpenStreetMap buildings, parks and roads, or a venue designed from a description"],
-                ["2", "Plan for the day", "Safe capacity, exits, stewards, first aid, toilets and budget, each with its source"],
-                ["3", "Simulate and red-team", "Crowd simulation, AI attacks from real incidents, measured fixes, evacuation deadline"]].map(([n, a, b]) => (
-                <li key={n} className="flex gap-3 rounded-[10px] border border-border bg-surface/90 p-3">
-                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-signal-soft text-xs font-semibold text-signal tabular">{n}</span>
-                  <div><p className="font-medium leading-snug">{a}</p><p className="mt-0.5 text-xs text-muted">{b}</p></div>
-                </li>
-              ))}
-            </ul>
+    <AppShell className="bg-hero">
+      <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-10">
+        <section className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">{t("projects.title")}</h1>
+            <p className="mt-2 max-w-prose text-lg text-muted">{t("projects.lead")}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="lg" onClick={() => fileRef.current?.click()} disabled={importer.isPending} title={t("projects.import_hint")}>
+              <Upload />{t("projects.import")}
+            </Button>
+            {!empty && <Button size="lg" variant="primary" onClick={() => setCreating("pick")}><Plus />{t("projects.new")}</Button>}
+            <input ref={fileRef} type="file" className="hidden" accept=".zip,.json,.dxf" aria-label={t("projects.import_hint")}
+                   onChange={(e) => {
+                     const f = e.target.files?.[0];
+                     if (!f) return;
+                     importer.mutate(f, {
+                       onSuccess: (p) => { toast.success(t("projects.imported")); navigate(`/p/${p.id}`); },
+                       onError: (err) => toast.error(err.message),
+                     });
+                     e.target.value = "";
+                   }} />
           </div>
         </section>
 
-        <div className="mt-10 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold tracking-tight">{t("projects.title")}</h2>
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-            <Input aria-label={t("projects.search")} placeholder={t("projects.search")} value={q}
-                   onChange={(e) => setQ(e.target.value)} className="pl-9" />
+        {all.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="relative w-full sm:max-w-sm">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted" aria-hidden />
+              <Input type="search" aria-label={t("projects.search")} placeholder={t("projects.search_ph")} value={q}
+                     onChange={(e) => setQ(e.target.value)} className="h-11 rounded-full pl-10 text-base shadow-sm" />
+            </div>
+            <p className="text-sm text-muted tabular">{all.length === 1 ? t("projects.count_one") : t("projects.count", { n: all.length })}</p>
           </div>
-        </div>
+        )}
 
         {projects.isError && (
-          <ErrorState className="mt-4" title={t("projects.load_error")} message={(projects.error as Error).message}
+          <ErrorState title={t("projects.load_error")} message={(projects.error as Error).message}
                       hint={(projects.error as { hint?: string }).hint} onRetry={() => projects.refetch()} />
         )}
         {projects.isLoading && (
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-64" />)}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-64" />)}</div>
+        )}
+        {empty && (
+          <div className="flex flex-col items-center gap-4 rounded-[var(--radius-panel)] border-2 border-dashed border-border-strong bg-surface/80 px-6 py-12 text-center">
+            <span className="grid size-14 place-items-center rounded-full bg-signal-soft text-signal [&_svg]:size-7"><FolderOpen aria-hidden /></span>
+            <div>
+              <p className="text-xl font-bold">{t("projects.empty_title")}</p>
+              <p className="mx-auto mt-1 max-w-md text-muted">{t("projects.empty_body")}</p>
+            </div>
+            <Button variant="primary" size="lg" onClick={() => setCreating("pick")}><Plus />{t("projects.new")}</Button>
           </div>
         )}
-        {projects.data && items.length === 0 && !q && (
-          <EmptyState className="mt-4" icon={<FolderOpen />} title={t("projects.empty_title")} body={t("projects.empty_body")}>
-            <Button variant="primary" onClick={() => setCreating("pick")}><Plus />{t("projects.new")}</Button>
-          </EmptyState>
+        {all.length > 0 && items.length === 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-[var(--radius-panel)] border border-border bg-surface p-5">
+            <p>{t("projects.no_match", { q: q.trim() })}</p>
+            <Button variant="link" onClick={() => setQ("")}>{t("projects.clear_search")}</Button>
+          </div>
         )}
-        {projects.data && items.length === 0 && q && (
-          <p className="mt-6 text-sm text-muted">No project matches “{q}”.</p>
+        {items.length > 0 && (
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((p) => <li key={p.id}><ProjectCard p={p} template={p.template_id ? tplById.get(p.template_id) : undefined} /></li>)}
+          </ul>
         )}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((p) => <ProjectCard key={p.id} p={p} template={p.template_id ? tplById.get(p.template_id) : undefined} />)}
-        </div>
 
-        <section className="mt-12">
-          <h2 className="text-xl font-semibold tracking-tight">{t("projects.create_pick")}</h2>
-          <p className="mt-1 text-sm text-muted">Each template is a complete, validated venue you can edit.</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {(templates.data ?? []).map((tpl) => (
-              <button key={tpl.id} type="button" onClick={() => setCreating(tpl)}
-                      className="group rounded-[10px] border border-border bg-surface p-3 text-left transition hover:-translate-y-0.5 hover:border-border-strong hover:shadow-[var(--shadow-float)]">
-                <div className="aspect-[4/3] rounded-[6px] bg-plan p-2"><VenueThumb venue={tpl.venue} className="size-full" /></div>
-                <p className="mt-3 font-medium">{tpl.name}</p>
-                <p className="mt-0.5 line-clamp-2 text-xs text-muted">{tpl.description}</p>
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted tabular"><Users className="size-3.5" />{fmtInt(tpl.people)}</p>
-              </button>
-            ))}
-            {templates.isLoading && [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-56" />)}
+        <section aria-labelledby="more-h" className="space-y-4 pt-4">
+          <h2 id="more-h" className="text-2xl font-bold tracking-tight">{t("projects.more_ways")}</h2>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <section aria-labelledby="samples-h" className="rounded-[var(--radius-panel)] border border-border bg-surface p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-orange-soft text-orange [&_svg]:size-5"><Sparkles aria-hidden /></span>
+                <div>
+                  <h3 id="samples-h" className="text-lg font-semibold">{t("projects.samples_title")}</h3>
+                  <p className="text-sm text-muted">{t("projects.samples_lead")}</p>
+                </div>
+              </div>
+              <ul className="mt-4 grid grid-cols-2 gap-3">
+                {(templates.data ?? [null, null, null, null]).map((tpl, i) => (
+                  <li key={tpl?.id ?? i}>
+                    {tpl ? (
+                      <button type="button" onClick={() => setCreating(tpl)}
+                              className="group flex h-full w-full flex-col overflow-hidden rounded-[var(--radius-control)] border-2 border-transparent bg-surface-2 text-left transition hover:-translate-y-0.5 hover:border-orange focus-visible:outline-2 focus-visible:outline-signal">
+                        <span className="block h-20 w-full bg-orange-soft/60 p-2"><VenueThumb venue={tpl.venue} className="size-full" /></span>
+                        <span className="flex flex-1 flex-col p-2.5">
+                          <span className="text-sm font-semibold leading-snug">{tpl.name}</span>
+                          <span className="mt-auto flex items-center gap-1 pt-1 text-xs text-muted tabular"><Users className="size-3.5" aria-hidden />{t("projects.people", { n: fmtInt(tpl.people) })}</span>
+                        </span>
+                      </button>
+                    ) : <Skeleton className="h-32" />}
+                  </li>
+                ))}
+              </ul>
+            </section>
+            <section aria-labelledby="copilot-h" className="rounded-[var(--radius-panel)] border border-border bg-surface p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-pink-soft text-pink [&_svg]:size-5"><Wand2 aria-hidden /></span>
+                <div>
+                  <h3 id="copilot-h" className="text-lg font-semibold">{t("projects.copilot_title")}</h3>
+                  <p className="text-sm text-muted">{t("projects.copilot_lead")}</p>
+                </div>
+              </div>
+              <div className="mt-4"><CopilotBox /></div>
+            </section>
           </div>
         </section>
-      </main>
+      </div>
       <NewProjectDialog state={creating} onClose={() => setCreating(null)} templates={templates.data ?? []} />
-    </div>
+    </AppShell>
   );
 }
 
+/** One plan: the whole card opens it; the menu holds copy, download and delete. */
 function ProjectCard({ p, template }: { p: ProjectSummary; template?: Template }) {
   const del = useDeleteProject();
   const dup = useDuplicateProject();
   const [confirm, setConfirm] = useState(false);
   const navigate = useNavigate();
+  const venue = p.thumb ?? template?.venue;
+  const outdoor = p.mode === "outdoor";
   return (
-    <article className="group relative flex flex-col rounded-[10px] border border-border bg-surface transition hover:border-border-strong hover:shadow-[var(--shadow-float)]">
-      <Link to={`/p/${p.id}`} className="block rounded-t-[10px] bg-plan p-3" aria-label={`Open ${p.name}`}>
-        <div className="aspect-[16/9]">{p.thumb ? <VenueThumb venue={p.thumb} className="size-full" /> : template ? <VenueThumb venue={template.venue} className="size-full" /> :
-          <div className="grid size-full place-items-center text-line">{p.mode === "indoor" ? <Building2 /> : <Trees />}</div>}</div>
-      </Link>
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <Link to={`/p/${p.id}`} className="min-w-0">
-            <h3 className="truncate font-semibold group-hover:text-signal">{p.name}</h3>
-            <p className="truncate text-xs text-muted">{p.venue_name} · v{p.current_version}</p>
-          </Link>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Project actions"><MoreHorizontal /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => navigate(`/p/${p.id}`)}><ArrowUpRight />{t("common.open")}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => dup.mutate(p.id, { onSuccess: () => toast.success(t("projects.duplicated")) })}><Copy />{t("common.duplicate")}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { window.location.href = api.url(`/projects/${p.id}/export`); }}><Download />{t("common.export")}</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem danger onSelect={() => setConfirm(true)}><Trash2 />{t("common.delete")}</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <div className="mt-auto flex flex-wrap items-center gap-1.5">
-          {p.sample && <Badge tone="signal">{t("projects.sample")}</Badge>}
-          <Badge tone="outline">{p.mode === "indoor" ? t("projects.indoor") : t("projects.outdoor")}</Badge>
-          <Badge tone="neutral"><Users />{fmtInt(p.people)}</Badge>
-          <Badge tone="neutral">{p.exits} exits</Badge>
-          <span className="ml-auto text-xs text-muted">{fmtRelative(p.updated_at)}</span>
-        </div>
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-[var(--radius-panel)] border-2 border-transparent bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-signal has-[a:focus-visible]:border-signal has-[a:focus-visible]:ring-4 has-[a:focus-visible]:ring-signal/20">
+      <div className={cn("relative h-40 p-3", outdoor ? "bg-teal-soft/70" : "bg-sky-soft/70")}>
+        {venue ? <VenueThumb venue={venue} className="size-full" />
+          : <span className="grid size-full place-items-center text-line [&_svg]:size-10">{outdoor ? <Trees aria-hidden /> : <Building2 aria-hidden />}</span>}
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-surface/90 px-2 py-0.5 text-xs font-medium text-ink shadow-sm">
+          {outdoor ? <Trees className="size-3.5 text-teal" aria-hidden /> : <Building2 className="size-3.5 text-sky" aria-hidden />}
+          {outdoor ? t("projects.outdoor") : t("projects.indoor")}
+        </span>
+        {p.sample && <span className="absolute right-3 top-3 rounded-full bg-signal px-2 py-0.5 text-xs font-semibold text-signal-ink shadow-sm">{t("projects.sample")}</span>}
       </div>
-      <Confirm open={confirm} onOpenChange={setConfirm} danger confirmLabel={t("common.delete")}
+      <div className="flex flex-1 items-start gap-2 p-4">
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-base font-semibold leading-snug">
+            {/* the link stretches over the whole card */}
+            <Link to={`/p/${p.id}`} aria-label={t("projects.open", { name: p.name })}
+                  className="outline-none after:absolute after:inset-0 group-hover:text-signal">{p.name}</Link>
+          </h3>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+            <span className="inline-flex items-center gap-1 tabular"><Users className="size-4" aria-hidden />{t("projects.people", { n: fmtInt(p.people) })}</span>
+            <span className="inline-flex items-center gap-1"><Clock className="size-4" aria-hidden />{t("projects.updated", { when: fmtRelative(p.updated_at) })}</span>
+          </p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={t("projects.actions", { name: p.name })}
+                    className="relative z-10 -mr-2 -mt-1.5 size-11 shrink-0 text-muted hover:text-ink"><MoreHorizontal /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => navigate(`/p/${p.id}`)}><ArrowUpRight />{t("projects.menu_open")}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => dup.mutate(p.id, { onSuccess: () => toast.success(t("projects.duplicated")) })}><Copy />{t("projects.menu_copy")}</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => { window.location.href = api.url(`/projects/${p.id}/export`); }}><Download />{t("projects.menu_download")}</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem danger onSelect={() => setConfirm(true)}><Trash2 />{t("projects.menu_delete")}</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <Confirm open={confirm} onOpenChange={setConfirm} danger confirmLabel={t("projects.menu_delete")}
                title={t("projects.confirm_delete_title", { name: p.name })} body={t("projects.confirm_delete_body")}
                onConfirm={() => del.mutate(p.id, { onSuccess: () => toast.success(t("projects.deleted")) })} />
     </article>
