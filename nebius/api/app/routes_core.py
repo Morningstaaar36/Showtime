@@ -1,4 +1,4 @@
-"""Health, features, plugins, settings, templates, weather and stage check."""
+"""Health, features, plugins, settings, templates, weather, stage check and validation."""
 
 from __future__ import annotations
 
@@ -13,7 +13,9 @@ from api.adapters.weather import WeatherUnavailable
 from api.app.errors import ApiException
 from api.app.state import AppState
 from api.core.templates import list_templates
+from api.core.validation import load_validation
 from api.models import StageParams
+from api.models.validation import SimulatorValidation
 
 router = APIRouter(prefix="/api/v1")
 
@@ -235,3 +237,17 @@ def glossary(q: str | None = Query(default=None)) -> list[dict[str, str]]:
         ql = q.lower()
         items = [g for g in items if ql in g["term"].lower() or ql in g["definition"].lower()]
     return items
+
+
+@router.get("/validation", response_model=SimulatorValidation)
+def validation() -> SimulatorValidation:
+    """Simulator vs a real bottleneck experiment (api/data/validation.json, `make validate`)."""
+    data = load_validation()
+    if data is None:
+        raise ApiException(
+            404,
+            "not_found",
+            "The simulator validation has not been generated.",
+            "Run: make get-data && make validate",
+        )
+    return data

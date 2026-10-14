@@ -199,3 +199,21 @@ def test_what_if_scales_crowd_closes_exits_and_scores(client: TestClient) -> Non
                          json={"blocked_exits": [exit_id], "speed_factor": 0.7}).json()  # fmt: skip
     assert closed["metrics"]["evac_time_p95_s"] >= base["metrics"]["evac_time_p95_s"]
     assert closed["capacity"]["by_egress"] < base["capacity"]["by_egress"]
+
+
+def test_validation_endpoint_serves_the_shipped_exhibit(client: TestClient) -> None:
+    r = client.get("/api/v1/validation")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["meta"]["dataset_doi"] == "10.34735/ped.2006.2"
+    assert all(len(w["simulated_flow_ps"]["runs"]) >= 3 for w in body["widths"])
+    assert "median_abs_error_pct" in body
+
+
+def test_validation_endpoint_missing_is_404(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("api.app.routes_core.load_validation", lambda: None)
+    r = client.get("/api/v1/validation")
+    assert r.status_code == 404
+    assert r.json()["code"] == "not_found"
