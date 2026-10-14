@@ -43,6 +43,24 @@ A walk through everything Showtime does, in the order an organizer meets it. Par
    - **Download report** and **Download checklist** (a printable handover list with open
      conditions to tick off, gates, staff actions, key numbers, map and a sign-off line).
 
+## Part A2 — why the sandboxes matter (2 min)
+
+Open the tested plan (or "Sandbox demo: school wing") and show, top to bottom:
+
+1. **AI-written scenario** in *Top risks*: the red team wrote this failure as a small Python
+   program (e.g. "close the stairwell when its queue passes 40 people"). **Show the code**. It
+   ran only inside the sealed simulation sandbox: no network, no files, time-limited.
+2. **Ask or change anything**: "How long was the longest queue at the East stairwell, and when?"
+   The AI writes analysis code, the sandbox runs it on the simulation data, and the answer
+   quotes only numbers the code computed (**Show the code** again).
+3. **Rewind the worst moment**: the crowd is saved at the most dangerous second; "do nothing"
+   and each response then run from that same second, each in its own sandbox branch, and are
+   compared side by side.
+4. **Stress test at scale**: every attack × your plan and each kept change × several random
+   crowds, fanned out over parallel sandboxes ("8 of 8 done").
+5. **Scripts** (Expert view): bring your own scenario or analysis script; a script that tries
+   `import socket` is refused before it runs, and the sandbox has no network anyway.
+
 ## Part B — deeper tools (pick any)
 
 - **Expert view** (top right): the full studio with Plan, Simulate, Red Team and Report tabs.
