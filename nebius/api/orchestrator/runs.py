@@ -175,8 +175,14 @@ class RunService:
         parent_run_id: str | None = None,
         max_people: int | None = None,
         extra: list[ScenarioEventIn] | None = None,
+        checkpoint_at_s: float | None = None,
+        resume_from: str | None = None,
     ) -> SimJob:
-        """Everything the sandbox needs; the exit plan comes from Tier 1."""
+        """Everything the sandbox needs; the exit plan comes from Tier 1.
+
+        `checkpoint_at_s` asks the run to write checkpoint.json at that simulated time;
+        `resume_from` starts the run from the checkpoint of that run (rewind branches).
+        """
         st = self.settings
         patched = self.apply_fix(venue, fix)
         if intervention_at_s is not None and fix is not None:
@@ -228,6 +234,11 @@ class RunService:
             "sim": settings_payload,
             "plan": plan,
         }
+        # rewind fields only enter the hash when used, so existing run ids stay the same
+        if checkpoint_at_s is not None:
+            payload["ckpt"] = checkpoint_at_s
+        if resume_from is not None:
+            payload["resume_from"] = resume_from
         rid = run_id_for(payload)
         req = RunRequest(
             run_id=rid,
@@ -242,6 +253,8 @@ class RunService:
             max_wall_s=st.max_wall_s,
             intervention_at_s=intervention_at_s,
             parent_run_id=parent_run_id,
+            checkpoint_at_s=checkpoint_at_s,
+            resume=resume_from is not None,
             extensions={
                 "plan_hash": plan_hash(patched),
                 "sandbox_provider": self.runner.provider,
@@ -258,6 +271,7 @@ class RunService:
             fix=fix,
             parent_node=parent_run_id,
             tier1=t1,
+            resume_from=resume_from,
         )
 
     def cached(self, run_id: str) -> RunResult | None:
@@ -316,6 +330,44 @@ class RunService:
         cached = self.cached(rid)
         assert cached is not None
         return _reused(cached)
+
+    async def run_many(
+        self,
+        jobs: list[tuple[SimJob, str]],
+        project_id: str | None = None,
+        venue_version: int | None = None,
+        session_id: str | None = None,
+        on_done: Callable[[int, RunResult], None] | None = None,
+    ) -> list[RunResult]:
+        """Run independent jobs (job, label) at once; results come back in the given order.
+
+        The runner bounds how many sandboxes run together (SANDBOX_MAX_PARALLEL). A job that
+        raises gives a failed result instead of stopping the others. `on_done(index, result)`
+        is called as each one finishes. Cancelling the caller cancels every unfinished run.
+        """
+
+        async def one(i: int, job: SimJob, label: str) -> RunResult:
+            try:
+                res = await self.run(job, project_id, venue_version, session_id, label)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # one bad job must not stop the fan-out
+                log.exception("fan-out job %s failed", job.request.run_id)
+                res = failed_result(job, self.runner.provider, f"The run couldn't start: {exc}")
+            if on_done is not None:
+                on_done(i, res)
+            return res
+
+        tasks = [asyncio.create_task(one(i, j, lb)) for i, (j, lb) in enumerate(jobs)]
+        try:
+            return list(await asyncio.gather(*tasks))
+        except BaseException:
+            for job, _ in jobs:
+                await self.cancel(job.request.run_id)
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
 
     def record_fallback(
         self,
