@@ -378,6 +378,10 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
   conference_hall_2f session found 1 break, accepted fix F1_R1 (new north exit; peak
   5.32 → 4.27 people/m², p95 292 → 192 s), applied as proposed construction; re-applying
   or applying after an edit returns 409 `stale_plan`.
-- Not verified: live OpenRouter. The configured key returns 401 "API key expired".
-- Observed, pre-existing on `main`: applying a session with 0 accepted fixes saves an
-  identical new version, and can be repeated.
+- Live OpenRouter (`nvidia/nemotron-3-super-120b-a12b:free`, cache off) + real Docker:
+  `make smoke` passed in 67 s — text edit applied, Tier 3 run, session with 1 break and a
+  blue-team fix confirmed by simulation, judge, report and map; 4 model calls, all HTTP 200,
+  9,249 tokens.
+- Fixed (pre-existing on `main`): applying a session that kept no fixes saved an identical
+  new version and could be repeated; the API now refuses it (409 `no_plan`). Both UIs
+  already hid the accept button in that case.

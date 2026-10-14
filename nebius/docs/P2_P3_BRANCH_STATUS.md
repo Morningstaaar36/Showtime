@@ -45,11 +45,10 @@ It is work in progress, not a completed or fully verified P2/P3 release. Main wa
 ## Required next work
 
 Items 1–5 were completed on `integration/p2-p3` on 14 October 2026; see
-[PROGRESS.md](PROGRESS.md). Remaining:
+[PROGRESS.md](PROGRESS.md).
+A live OpenRouter + real Docker smoke run also passed. Remaining:
 
-1. Live OpenRouter session (the configured key has expired) and a combined
-   live-model/real-simulation run.
-2. Complete P2-03 and the remaining separately allocated P2/P3 milestones afterward.
+1. Complete P2-03 and the remaining separately allocated P2/P3 milestones afterward.
 
 Nebius inference, cloud sandbox execution and Tavily remain deferred. Local simulation
 execution uses Docker. Successful software tests do not establish real-world safety.
