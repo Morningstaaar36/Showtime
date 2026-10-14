@@ -24,7 +24,7 @@ function GraphNode({ data }: NodeProps<Node<{ label: string; status: NodeStatus 
   return (
     <div className={cn(
       "relative w-[130px] rounded-full border px-2.5 py-1 text-center text-[11px] font-medium shadow-sm transition-colors",
-      s === "running" && "border-signal bg-signal text-white shadow-[0_0_14px_var(--signal)]",
+      s === "running" && "border-signal bg-signal text-signal-ink shadow-[0_0_14px_var(--signal)]",
       s === "done" && "border-egress bg-egress-soft text-ink",
       s === "warn" && "border-caution bg-caution-soft text-ink",
       s === "failed" && "border-danger bg-danger-soft text-ink",
