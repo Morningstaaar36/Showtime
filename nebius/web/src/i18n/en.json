@@ -291,10 +291,11 @@
   },
   "journey": {
     "steps": "Planning steps",
-    "describe": "Describe",
-    "work": "AI at work",
+    "describe": "Your venue",
+    "work": "AI tests it",
     "plan": "Your plan",
     "expert": "Expert view",
+    "help": "Help",
     "simple_view": "Simple view",
     "home": "Home",
     "your_plan": "Your plan"
