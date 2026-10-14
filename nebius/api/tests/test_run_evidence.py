@@ -1,5 +1,6 @@
-"""Run service evidence records (P2-03, N16): reused runs are tagged as cache hits and results
-stored before `basis` existed get it on read. Fake runners only."""
+"""Run service evidence records (P2-03, N16): reused runs are tagged as cache hits, a failed
+simulation keeps its own record next to a separate linked estimate, and results stored
+before `basis` existed get it on read. Fake runners only."""
 
 from __future__ import annotations
 
@@ -52,6 +53,33 @@ async def test_failed_runs_are_not_reused(make_state: Callable[..., Any]) -> Non
     assert first.status == again.status == "timeout"
     assert "cache_hit" not in again.extensions  # retried, not reused
     assert len(st.runs.runner.calls) == 2
+
+
+async def test_a_fallback_estimate_is_stored_as_its_own_linked_run(
+    make_state: Callable[..., Any],
+) -> None:
+    st = make_state(outcome=lambda job: "timeout")
+    p = st.projects.create("Hall", template_id="conference_hall_2f")
+    job = _job(st, p.id, tier=3)
+    failed = await st.runs.run(job, project_id=p.id, session_id="s_x", label="Baseline")
+    fb = st.runs.record_fallback(job, failed, project_id=p.id, session_id="s_x", label="Baseline")
+    assert fb is not None and fb.run_id == f"{failed.run_id}-est"
+    assert fb.basis == "instant_estimate"
+    assert fb.extensions["fallback_for"] == failed.run_id
+    assert fb.extensions["plan_hash"] == job.request.extensions["plan_hash"]
+    stored_failed = st.runs.get(failed.run_id)
+    assert stored_failed.status == "timeout" and stored_failed.result["basis"] == "unknown"
+    stored_fb = st.runs.get(fb.run_id)
+    assert (stored_fb.tier, stored_fb.status, stored_fb.label) == (
+        1,
+        fb.status,
+        "Baseline (instant estimate)",
+    )
+    assert stored_fb.request["extensions"]["fallback_for"] == failed.run_id
+    assert stored_fb.result["basis"] == "instant_estimate"
+    assert {r.id for r in st.runs.list(p.id)} == {failed.run_id, fb.run_id}
+    # never served as a cached simulation for the request
+    assert st.runs.cached(failed.run_id) is None
 
 
 def test_old_stored_runs_get_their_basis_on_read(make_state: Callable[..., Any]) -> None:

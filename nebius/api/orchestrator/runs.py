@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from api.adapters.sandbox import SandboxRunner, SimJob, failed_result
+from api.core.evidence import fallback_estimate
 from api.core.extensions import Registry
 from api.core.plan import (
     STAFF_MEASURES,
@@ -315,6 +316,48 @@ class RunService:
         cached = self.cached(rid)
         assert cached is not None
         return _reused(cached)
+
+    def record_fallback(
+        self,
+        job: SimJob,
+        failed: RunResult,
+        project_id: str | None = None,
+        venue_version: int | None = None,
+        session_id: str | None = None,
+        label: str = "",
+    ) -> RunResult | None:
+        """Store the instant estimate shown in place of a failed simulation as its own run,
+        linked to the failed one (`extensions.fallback_for`). The failed run is untouched."""
+        if job.tier1 is None:
+            return None
+        fb = fallback_estimate(failed, job.tier1)
+        fb.extensions.setdefault("plan_hash", job.request.extensions.get("plan_hash"))
+        request = job.request.model_copy(
+            update={
+                "run_id": fb.run_id,
+                "tier": 1,
+                "extensions": {**job.request.extensions, "fallback_for": failed.run_id},
+            }
+        )
+        with db_session(self.db_url) as s:
+            row = s.get(Run, fb.run_id) or Run(id=fb.run_id)
+            row.project_id = project_id or row.project_id
+            row.session_id = session_id or row.session_id
+            row.venue_version = venue_version if venue_version is not None else row.venue_version
+            row.venue_hash = fb.venue_hash
+            row.tier = 1
+            row.status = fb.status
+            row.label = f"{label} (instant estimate)" if label else row.label
+            row.attack_id, row.fix_id = fb.attack_id, fb.fix_id
+            row.parent_run_id = fb.parent_run_id
+            row.request = request.model_dump(mode="json")
+            row.result = fb.model_dump(mode="json")
+            row.error = None
+            row.created_at = datetime.now(UTC)
+            row.finished_at = row.created_at
+            s.add(row)
+            s.commit()
+        return fb
 
     async def _execute(self, job: SimJob) -> RunResult:
         rid = job.request.run_id
