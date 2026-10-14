@@ -430,3 +430,43 @@ export function useApplyFixes(projectId: string) {
     },
   });
 }
+
+// --- Rewind the worst moment and stress test at scale (SANDBOX_SCOPE ideas 3 and 4) ----------
+
+import type { RewindRecord } from "@/journey/plan/rewind";
+import type { StressRecord } from "@/journey/plan/stress";
+
+const POLL_MS = 1500;
+
+/** A session's latest rewind (null when none); polled while its branches run. */
+export const useRewind = (sessionId: string | null | undefined) =>
+  useQuery({ queryKey: ["rewind", sessionId], enabled: !!sessionId,
+             queryFn: () => api.get<RewindRecord | null>(`/sessions/${sessionId}/rewind`),
+             refetchInterval: (q) => (q.state.data?.status === "running" ? POLL_MS : false) });
+
+/** Rewind the session's worst attack to its moment of peak danger and try every response. */
+export function useStartRewind(sessionId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<RewindRecord>(`/sessions/${sessionId}/rewind`, {}),
+    onSuccess: (rec) => qc.setQueryData(["rewind", sessionId], rec),
+  });
+}
+
+/** A project's latest stress test at scale (null when none); polled while it runs. */
+export const useStress = (projectId: string | undefined) =>
+  useQuery({ queryKey: ["stress", projectId], enabled: !!projectId,
+             queryFn: () => api.get<StressRecord | null>(`/projects/${projectId}/stress`),
+             refetchInterval: (q) => (q.state.data?.status === "running" ? POLL_MS : false) });
+
+export function useStartStress(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { attacks: "session" | "rules"; seeds: number; include_fixes: boolean }) =>
+      api.post<StressRecord>(`/projects/${projectId}/stress`, body),
+    onSuccess: (rec) => {
+      qc.setQueryData(["stress", projectId], rec);
+      void qc.invalidateQueries({ queryKey: qk.runs(projectId) });
+    },
+  });
+}
