@@ -33,8 +33,15 @@ A walk through everything Showtime does, in the order an organizer meets it. Par
 4. **Test this plan.** The AI red team invents what could go wrong (citing real incidents), each
    idea runs as a crowd simulation, the blue team proposes fixes and each fix is re-simulated.
    The progress bar shows the step; it takes a few minutes.
-5. **Your plan.** Verdict, evacuation time, peak density and the latest safe time to start
-   evacuating; before/after replay; **Accept these changes**; **Download report**.
+5. **Your plan.** Reads top to bottom:
+   - the verdict, with how sure it is ("Confirmed by full simulations" only when the before and
+     after full simulations ran to the end) and every number labelled with where it came from;
+   - **What the AI suggests**: each fix with its own test; untick any you don't want, then
+     **Accept these changes** (a partial choice says it was tested one by one: **Test again**);
+   - before/after replay, top risks with the real incidents they came from;
+   - **How this plan was made**: AI cost, model calls, simulations by kind, time taken;
+   - **Download report** and **Download checklist** (a printable handover list with open
+     conditions to tick off, gates, staff actions, key numbers, map and a sign-off line).
 
 ## Part B — deeper tools (pick any)
 
