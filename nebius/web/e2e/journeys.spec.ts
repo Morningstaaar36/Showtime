@@ -79,6 +79,7 @@ test("help lists the keyboard shortcuts and unknown pages explain themselves", a
 test("guided journey: template, correct and lock, test, review and accept", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Plan a safe event in minutes" })).toBeVisible();
+  await page.getByRole("button", { name: /Try a sample/ }).click();
   await page.getByRole("button", { name: /Conference hall, 2 floors/ }).click();
   await expect(page).toHaveURL(/\/describe$/);
   created.push(page.url().split("/p/")[1].split("/")[0]);
