@@ -211,7 +211,7 @@ export function YourPlanPage() {
         )}
         {status === "stopped" && <p role="status" className="rounded-[10px] border border-caution/40 bg-caution-soft p-3 text-sm">{t("yourplan.partial", { reason: summary?.stopped_reason ?? "" })}</p>}
 
-        <section aria-label={t("yourplan.verdict")} className={cn("flex flex-wrap items-start gap-3 rounded-[12px] border p-4", tone)}>
+        <section aria-label={t("yourplan.verdict")} className={cn("flex flex-wrap items-start gap-3 rounded-[var(--radius-panel)] border-2 p-5 shadow-sm", tone)}>
           <span className="mt-0.5 [&_svg]:size-7">{icon}</span>
           <div className="min-w-0 flex-1">
             <p className="text-xl font-semibold leading-tight">{verdictRun ? verdict.headline : t("yourplan.no_result")}</p>
@@ -228,10 +228,10 @@ export function YourPlanPage() {
         </section>
 
         <ul className="grid gap-3 sm:grid-cols-3">
-          {numbers.map((n) => (
-            <li key={n.label} className="rounded-[10px] border border-border bg-surface p-3">
+          {numbers.map((n, i) => (
+            <li key={n.label} className={cn("rounded-[var(--radius-panel)] border border-t-4 border-border bg-surface p-4 shadow-sm", ["border-t-sky", "border-t-pink", "border-t-orange"][i % 3])}>
               <p className="text-sm text-muted">{n.label}</p>
-              <p className="mt-0.5 text-xl font-semibold tabular">{n.value}</p>
+              <p className="mt-0.5 text-2xl font-bold tabular">{n.value}</p>
               <p className="mt-0.5 text-xs text-muted">{n.source}</p>
             </li>
           ))}
