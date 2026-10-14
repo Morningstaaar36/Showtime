@@ -3172,7 +3172,6 @@
     "checkpoint_at_s": {
      "anyOf": [
       {
-       "maximum": 3600,
        "minimum": 0,
        "type": "number"
       },
