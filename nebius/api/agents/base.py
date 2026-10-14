@@ -264,17 +264,16 @@ async def _escalate(
         return first
     out = reply.parsed
     problems = validate(out) if (validate and out is not None) else []
-    usage = _merge(reply.usage, first.usage)
     if out is not None and (first.output is None or len(problems) < len(first.problems)):
         return AgentCall(
             output=out,
             ok=not problems,
-            usage=usage,
+            usage=_merge(reply.usage, first.usage),  # reported as the main model's answer
             problems=problems,
             repaired=first.repaired or reply.repaired,
             escalated=True,
         )
-    first.usage = usage
+    first.usage = _merge(first.usage, reply.usage)  # the fast answer stays: its model is reported
     return first
 
 

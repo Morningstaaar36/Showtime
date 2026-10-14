@@ -109,3 +109,21 @@ async def test_domain_problems_left_after_repair_also_escalate() -> None:
     )
     assert call.ok and call.escalated and call.output is not None
     assert call.output.answer == "good" and len(llm.calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_a_kept_fast_answer_is_reported_as_the_fast_model() -> None:
+    # main is no better (one problem each): the fast answer stays, all three calls are counted
+    script = [{"answer": "bad"}, {"answer": "still bad"}, {"answer": "main bad"}]
+    llm = FakeLLM({"probe": script})
+    call = await call_agent(
+        AgentEnv(llm=llm, audit=False),
+        PROBE,
+        {"context": "{}"},
+        "Q",
+        validate=lambda o: [] if o.answer == "good" else ["say good"],
+    )
+    assert not call.ok and call.escalated
+    assert call.output is not None and call.output.answer == "still bad"
+    assert call.model == "fake-fast"
+    assert call.usage is not None and call.usage.prompt_tokens == 300
