@@ -1,8 +1,9 @@
 """Typed evidence in Red Team Night sessions (P2-03).
 
 A failed or timed-out simulation stays on record with basis `unknown`; the instant estimate
-shown in its place is a separate, linked run that is never enough to keep a fix. FakeLLM and
-fake runners only: no Docker, no live model calls.
+shown in its place is a separate, linked run that can never confirm anything; evaluation
+status is separate from session status. FakeLLM and fake runners only: no Docker, no live
+model calls.
 """
 
 from __future__ import annotations
@@ -104,3 +105,75 @@ async def test_fallback_estimate_never_keeps_a_fix(make_state: Callable[..., Any
     assert fix_nodes and all(n["accepted"] is False for n in fix_nodes)
     logs = [e.payload["message"] for e in _events(st, row.id, "log")]
     assert any("not kept, because there is no finished simulation" in m for m in logs)
+
+
+# --- evaluation status ----------------------------------------------------------------------
+
+
+async def test_completed_confirmation_is_confirmed(make_state: Callable[..., Any]) -> None:
+    st = make_state()
+    p = st.projects.create("Hall", template_id="conference_hall_2f")
+    row = await _session(st, p.id)
+    s = row.summary
+    assert s["accepted_fixes"], "the scenario needs a kept fix to confirm"
+    ev = s["evaluation"]
+    assert ev["status"] == "confirmed"
+    assert ev["before_basis"] == ev["after_basis"] == "completed_simulation"
+    assert ev["fallback_run_ids"] == {}
+    assert "Evaluation: confirmed by full simulations." in s["judge_text"]
+    assert "full simulation" in s["countdown"]["rset_source"]
+
+
+@pytest.mark.parametrize(("which", "status", "node"), FAILING)
+async def test_failed_confirmation_is_never_confirmed(
+    make_state: Callable[..., Any], which: Callable[[SimJob], bool], status: str, node: str
+) -> None:
+    st = make_state(outcome=lambda job: status if which(job) else None)
+    p = st.projects.create("Hall", template_id="conference_hall_2f")
+    row = await _session(st, p.id)
+    assert row.status == "finished"  # the session finished; its evaluation did not
+    s = row.summary
+    ev = s["evaluation"]
+    side = node.split(":")[1]
+    assert ev["status"] == "failed"
+    assert ev[f"{side}_basis"] == "unknown"
+    failed_id = ev[f"{side}_run_id"]
+    assert st.runs.get(failed_id).status == status
+    assert ev["fallback_run_ids"] == {side: f"{failed_id}-est"}
+    assert any(f"did not finish ({status})" in r for r in ev["reasons"])
+
+    # wording follows the basis: no confirmation claim, no estimate-vs-simulation comparison
+    text = s["judge_text"]
+    assert "Evaluation: confirmation failed." in text
+    assert "confirmed by full simulations" not in text
+    assert "went from" not in text
+    assert "Planning aid, not a safety certification." in text
+    if side == "after":
+        assert "instant estimate" in s["countdown"]["rset_source"]
+        assert "did not finish" in s["countdown"]["rset_source"]
+
+
+async def test_partial_confirmation_is_only_partly_confirmed(
+    make_state: Callable[..., Any],
+) -> None:
+    st = make_state(
+        outcome=lambda job: "partial" if job.request.tier == 3 and job.request.attack_id else None
+    )
+    p = st.projects.create("Hall", template_id="conference_hall_2f")
+    s = (await _session(st, p.id)).summary
+    ev = s["evaluation"]
+    assert ev["status"] == "partially_confirmed"
+    assert ev["before_basis"] == ev["after_basis"] == "partial_simulation"
+    assert any("people were still inside" in r for r in ev["reasons"])
+    assert "confirmed by full simulations" not in s["judge_text"]
+
+
+async def test_preview_sessions_are_never_confirmed(make_state: Callable[..., Any]) -> None:
+    st = make_state(fake=True)
+    p = st.projects.create("Hall", template_id="conference_hall_2f")
+    s = (await _session(st, p.id)).summary
+    assert s["evaluation"]["status"] == "unconfirmed"
+    if s["accepted_fixes"]:
+        assert s["evaluation"]["before_basis"] == "preview"
+        assert "previews" in s["evaluation"]["reasons"][0]
+    assert s["judge_text"].startswith("Preview only")

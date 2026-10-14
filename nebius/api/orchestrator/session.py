@@ -27,6 +27,10 @@ from api.core.countdown import compute_countdown
 from api.core.evidence import (
     attempt_id,
     comparable,
+    describe_run,
+    evaluate,
+    evaluation_sentence,
+    evidence_sentence,
     fallback_for,
 )
 from api.core.extensions import HazardContext, HazardResult, IncidentRecord
@@ -890,6 +894,12 @@ class SessionManager:
         after: RunResult | None = None
         final_run_id: str | None = None
         stopped = reason.startswith("stopped") or reason.startswith("budget")
+        # Session status (did it finish?) and evaluation status (what do the results show?)
+        # are separate; only the confirmation runs under the worst attack can confirm a plan.
+        confirming = False
+        confirm_before: RunResult | None = None
+        confirm_after: RunResult | None = None
+        confirm_error: str | None = None
         try:
             if worst and accepted and live.config.get("confirm_tier3") and not stopped:
                 self._status(live, "confirming", len(scoreboard), "Confirming the best plan")
@@ -897,7 +907,9 @@ class SessionManager:
                 kept = [f for f in fixes if f.fix_id in accepted]
                 live.stop_requested = False
                 live.config["max_runs"] = int(live.config["max_runs"]) + 2
-                before = await self._sim(
+                self._check(live)  # the wall clock may already be spent
+                confirming = True
+                confirm_before = before = await self._sim(
                     live,
                     venue,
                     3,
@@ -920,7 +932,7 @@ class SessionManager:
                         s.safety_factor,
                     ),
                 )
-                after = await self._sim(
+                confirm_after = after = await self._sim(
                     live,
                     working,
                     3,
@@ -948,10 +960,26 @@ class SessionManager:
                     ),
                 )
         except Exception as exc:
+            confirm_error = str(exc) or type(exc).__name__
             self.emit(live, "log", {"level": "warning", "message": f"Confirmation skipped: {exc}"})
+        evaluation = evaluate(
+            confirm_before if confirming else before,
+            confirm_after,
+            confirmation_ran=confirming,
+            kept=len(accepted),
+            had_breaks=worst is not None,
+            stopped_reason=reason,
+            baseline=baseline,
+            error=confirm_error,
+        )
         # external hazards only (wind, or a time the user set); attack events are scenario
         # details, not the event's hazard deadline
-        countdown = await self._countdown(live, working, None, after or before)
+        scenario = (
+            "the worst red-team attack" + (" with the kept fixes" if after else "")
+            if worst
+            else "the baseline"
+        )
+        countdown = await self._countdown(live, working, None, after or before, scenario)
         if countdown is not None:
             self.emit(live, "countdown", {"countdown": countdown.model_dump()})
         facts = {
@@ -968,21 +996,12 @@ class SessionManager:
             "after_fixes": headline(after),
             "countdown": countdown.model_dump() if countdown else None,
             "stopped_reason": reason,
+            # wording follows the evidence: what the results are, whether before and after
+            # may be compared, and the evaluation status with its reasons
+            "evidence_basis": evidence_sentence(after or before or baseline),
+            "comparable": comparable(before, after),
+            "evaluation": evaluation_sentence(evaluation),
         }
-        assessment_run = after or before or baseline
-        if assessment_run is None:
-            basis = "No usable result was available."
-        elif assessment_run.provider == "fake" or assessment_run.engine == "fake":
-            basis = "Preview only: these results use mock simulations."
-        elif assessment_run.tier == 1:
-            basis = "These results are instant estimates."
-        elif assessment_run.status != "ok":
-            basis = "These results include an incomplete simulation."
-        elif not assessment_run.engine:
-            basis = "The simulation engine for these results is unverified."
-        else:
-            basis = "These results describe the tested scenarios under the configured assumptions."
-        facts["evidence_basis"] = basis
         template = self._template(facts)
         facts_for_judge = plain_keys(facts)
         self._status(live, "judging", len(scoreboard), "Judge is checking every number")
@@ -1007,6 +1026,7 @@ class SessionManager:
             "stopped_reason": reason,
             "final_venue": working.model_dump(mode="json"),
             "measures": [m.model_dump() for m in live.measures],
+            "evaluation": evaluation,
         }
         status = "stopped" if reason == "stopped by user" else "finished"
         b = live.budget
@@ -1086,17 +1106,25 @@ class SessionManager:
         else:
             parts.append("No fixes were accepted.")
         b, a = f["before_fixes"], f["after_fixes"]
-        if b and a and f["fixes_kept"]:
+        # an estimate standing in for a failed simulation is not compared with a simulation
+        if b and a and f["fixes_kept"] and f.get("comparable", True):
             parts.append(
                 f"Under that scenario, peak density went from {b['peak_density_ppm2']} to "
                 f"{a['peak_density_ppm2']} people per m² and time above danger from "
                 f"{b['time_above_danger_s']:.0f} s to {a['time_above_danger_s']:.0f} s."
             )
+        if f.get("evaluation"):
+            parts.append(f["evaluation"])
         parts.append("Planning aid, not a safety certification.")
         return " ".join(parts)
 
     async def _countdown(
-        self, live: LiveSession, venue: Venue, attack: Attack | None, run: RunResult | None
+        self,
+        live: LiveSession,
+        venue: Venue,
+        attack: Attack | None,
+        run: RunResult | None,
+        scenario: str = "the worst red-team attack",
     ) -> Countdown | None:
         st = self.st
         s = st.settings
@@ -1129,18 +1157,8 @@ class SessionManager:
             if timed
             else (hazards[0] if hazards else None)
         )
-        source = ""
-        if run:
-            basis = (
-                "preview estimate (no simulation)"
-                if run.provider == "fake" or run.engine == "fake"
-                else "instant estimate"
-                if run.tier == 1
-                else "partial simulation"
-                if run.status == "partial"
-                else "simulation"
-            )
-            source = f"the worst red-team attack, using {basis} (run {run.run_id})"
+        # the wording follows the run's basis; it never claims more than that run shows
+        source = f"{scenario} ({describe_run(run)})" if run else ""
         return compute_countdown(
             chosen,
             rset,
