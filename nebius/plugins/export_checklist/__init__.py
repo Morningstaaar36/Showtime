@@ -309,8 +309,8 @@ def _conditions(
     ]
     if unmeasured:
         open_.append(
-            "Exit widths not measured on site: " + ", ".join(unmeasured) + ". Measure them and "
-            "update the plan if they differ."
+            "Exit widths nobody has measured or checked: " + ", ".join(unmeasured) + ". Measure "
+            "them on site and update the plan if they differ."
         )
     return shows, open_
 

@@ -132,7 +132,7 @@ def test_checklist_of_an_untested_plan_lists_actions_permissions_and_gates(
     # open conditions
     assert "This plan has not been tested by the AI red team yet" in html
     assert "Permission “fire_marshal” is pending" in html
-    assert "Exit widths not measured on site: E1" in html
+    assert "Exit widths nobody has measured or checked: E1." in html
     assert DISCLAIMER in html and APPROVAL in html
     assert not claims_confirmed(html)
 
