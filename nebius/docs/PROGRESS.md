@@ -385,3 +385,19 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
 - Fixed (pre-existing on `main`): applying a session that kept no fixes saved an identical
   new version and could be repeated; the API now refuses it (409 `no_plan`). Both UIs
   already hid the accept button in that case.
+
+## 2026-10-14 — Simple organizer UI and a demo-ready Docker stack (`ui/simple-organizer`)
+
+- Bright light theme by default; Home asks "Where is your event?" (map, describe, sample);
+  full-page map picker (`/new/place`) with numbered steps; Check screen as three questions
+  with drag-and-drop doors, fences, crowds and stalls and direct grab-to-move; progress bar
+  while the AI tests; Help and Expert view always in the header. See [DEMO.md](DEMO.md).
+- Fixed: large map areas failed to build (automatic headcount above the 100,000 zone limit;
+  now capped at 10,000 with a note); the selected place was never outlined on the map.
+- Fixed the Docker stack on Linux: an empty `.env` value followed by an inline comment is
+  read by Docker Compose as the comment (`HOST_RUNS_DIR`), so every simulation failed to
+  start and sessions silently fell back to instant estimates; and the root API created
+  run folders the non-root simulator could not write to (now handed to the sim user).
+- Checks: lint, types, fast pytest 243 passed / 1 skipped, vitest 39, Playwright 6/6 (fake
+  providers). `make up` stack with live OpenRouter: map flow and a conference-hall session
+  (2 breaks, 2 fixes kept, peak 6.95 → 4.6 people/m², p95 279 → 168 s, 9 Docker runs).
