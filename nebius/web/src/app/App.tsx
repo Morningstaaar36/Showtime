@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useParams } from "react-router";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AiAtWorkPage } from "@/pages/AiAtWork";
+import { AutopilotRunPage } from "@/pages/AutopilotRun";
 import { CheckVenuePage } from "@/pages/CheckVenue";
 import { HelpPage } from "@/pages/Help";
 import { HomePage } from "@/pages/Home";
@@ -34,6 +35,7 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/new/place" element={<PlacePage />} />
+        <Route path="/autopilot/:runId" element={<AutopilotRunPage />} />
         <Route path="/welcome" element={<OnboardingPage />} />
         <Route path="/p/:projectId" element={<YourPlanPage />} />
         <Route path="/p/:projectId/describe" element={<CheckVenuePage />} />
