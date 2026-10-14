@@ -1,6 +1,14 @@
 # Showtime: Red Team Night
 
-**Describe your event. AI builds it, simulates it, breaks it, fixes it, and hands you the plan.**
+**Will everyone get out safely? Test your event before the gates open.**
+
+Showtime is a crowd-safety planning studio for event organizers who can't afford a consultant.
+Pick your venue on a map, and AI red-team agents (NVIDIA Nemotron) write new crowd-disaster
+scenarios as code. Each runs in its own sealed sandbox against a real crowd simulator (JuPedSim).
+AI fixes are simulated again, the worst moment can be rewound to test responses from the same
+second, and you get a tested plan, a report and a handover checklist. Every number comes from the
+simulator, never from the AI. **[Read the pitch, the evidence and the limits](docs/PITCH.md)**
+· [Demo script](docs/DEMO.md) · [Simulator validation](docs/VALIDATION.md)
 
 Event safety planning and crowd simulation are slow, expensive and need specialists, so most
 events never get stress-tested. Showtime lets AI do that work. NVIDIA Nemotron agents drive
