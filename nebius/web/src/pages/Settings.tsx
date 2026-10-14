@@ -147,10 +147,10 @@ export function SettingsPage() {
           </div>
         </details>
 
-        <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-end gap-3 rounded-[var(--radius-panel)] border border-border bg-surface/95 p-3 shadow-[var(--shadow-float)] backdrop-blur">
-          <p className="mr-auto text-sm text-muted" aria-live="polite">{dirty ? t("settings.unsaved") : t("settings.all_saved")}</p>
+        <div className="sticky bottom-4 z-10 flex items-center justify-end gap-2 rounded-[var(--radius-panel)] border border-border bg-surface/95 p-2 shadow-[var(--shadow-float)] backdrop-blur sm:gap-3 sm:p-3">
+          <p className="sr-only mr-auto text-sm text-muted sm:not-sr-only" aria-live="polite">{dirty ? t("settings.unsaved") : t("settings.all_saved")}</p>
           {defaults && (
-            <Button variant="ghost" size="lg" onClick={() => setValues(fromServer(defaults))}>{t("settings.restore")}</Button>
+            <Button variant="ghost" className="h-11 px-3" onClick={() => setValues(fromServer(defaults))}>{t("settings.restore")}</Button>
           )}
           <Button variant="primary" size="lg" disabled={!dirty || save.isPending} onClick={submit}>{t("settings.save")}</Button>
         </div>
