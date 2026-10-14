@@ -26,7 +26,7 @@ function GraphNode({ data }: NodeProps<Node<{ label: string; status: NodeStatus 
   return (
     <div className={cn(
       "relative w-[130px] rounded-full border px-2.5 py-1 text-center text-[11px] font-medium shadow-sm transition-colors",
-      s === "running" && "border-signal bg-signal text-white shadow-[0_0_14px_var(--signal)]",
+      s === "running" && "border-signal bg-signal text-signal-ink shadow-[0_0_14px_var(--signal)]",
       s === "done" && "border-egress bg-egress-soft text-ink",
       s === "warn" && "border-caution bg-caution-soft text-ink",
       s === "failed" && "border-danger bg-danger-soft text-ink",
@@ -65,7 +65,7 @@ export function AgentGraph({ status }: { status: Record<string, NodeStatus> }) {
     return { nodes, edges };
   }, [shape.data, status]);
   return (
-    <div className="h-[500px] w-[300px] shrink-0 rounded-[10px] border border-border bg-plan/60" aria-label="Agent graph">
+    <div className="h-[500px] w-[300px] shrink-0 rounded-[var(--radius-panel)] border border-border bg-plan/60" aria-label="Agent graph">
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.04 }}
                  nodesConnectable={false} elementsSelectable={false} panOnDrag={false} zoomOnScroll={false}
                  zoomOnPinch={false} zoomOnDoubleClick={false} proOptions={{ hideAttribution: true }}>

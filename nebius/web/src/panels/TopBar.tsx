@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, Clock, Coins, History, Redo2, RotateCcw, Undo2 } from "lucide-react";
+import { ChevronDown, ChevronLeft, Clock, History, Redo2, RotateCcw, Undo2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useRedo, useRestoreVersion, useUndo, useVersions } from "@/api/queries";
@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tip } from "@/components/ui/tooltip";
 import { Kbd, ScrollArea } from "@/components/ui/misc";
 import { t } from "@/i18n";
-import { fmtClock, fmtDuration, fmtHM, fmtMoney, fmtRelative, fmtTokens } from "@/lib/format";
+import { fmtClock, fmtDuration, fmtHM, fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Mode } from "@/state/ui";
 
@@ -30,53 +30,46 @@ export function TopBar({ project, mode, countdown, cost }: {
   const undo = useUndo(project.id);
   const redo = useRedo(project.id);
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
-      <Link to="/" aria-label="All projects" className="flex items-center gap-1 text-muted hover:text-ink">
-        <ChevronLeft className="size-4" /><Logo compact />
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-3">
+      <Link to="/" aria-label={t("common.home_label")} className="shrink-0 rounded-[var(--radius-control)]"><Logo compact /></Link>
+      <Link to={`/p/${project.id}`}
+            className="inline-flex h-9 shrink-0 items-center gap-1 rounded-full bg-signal-soft pl-2 pr-3.5 text-sm font-semibold text-signal transition hover:brightness-95">
+        <ChevronLeft className="size-4" aria-hidden />{t("journey.simple_view")}
       </Link>
-      <div className="flex min-w-0 items-center gap-1.5 text-sm">
-        <span className="truncate font-semibold">{project.name}</span>
-        <span className="text-line">▸</span>
+      <div className="flex min-w-0 items-center gap-1.5 pl-1 text-sm">
+        <span className="truncate font-semibold" title={project.name}>{project.name}</span>
+        <span className="text-line" aria-hidden>▸</span>
         <VersionMenu project={project} />
       </div>
-      <div className="flex items-center gap-0.5">
+      <div className="flex shrink-0 items-center gap-0.5">
         <Tip content={<span>{t("common.undo")} <Kbd>Ctrl</Kbd> <Kbd>Z</Kbd></span>}>
-          <Button variant="ghost" size="icon-sm" aria-label={t("common.undo")} disabled={!project.can_undo || undo.isPending}
+          <Button variant="ghost" size="icon" aria-label={t("common.undo")} disabled={!project.can_undo || undo.isPending}
                   onClick={() => undo.mutate(undefined, { onSuccess: () => toast(t("workspace.undone")), onError: (e) => toast.error(e.message) })}>
             <Undo2 />
           </Button>
         </Tip>
         <Tip content={<span>{t("common.redo")} <Kbd>Ctrl</Kbd> <Kbd>Shift</Kbd> <Kbd>Z</Kbd></span>}>
-          <Button variant="ghost" size="icon-sm" aria-label={t("common.redo")} disabled={!project.can_redo || redo.isPending}
+          <Button variant="ghost" size="icon" aria-label={t("common.redo")} disabled={!project.can_redo || redo.isPending}
                   onClick={() => redo.mutate(undefined, { onSuccess: () => toast(t("workspace.redone")), onError: (e) => toast.error(e.message) })}>
             <Redo2 />
           </Button>
         </Tip>
       </div>
 
-      <nav aria-label="Workspace mode" className="mx-auto flex items-center rounded-[8px] bg-surface-2 p-0.5">
+      <nav aria-label={t("workspace.modes")} className="mx-auto flex shrink-0 items-center gap-0.5 rounded-full bg-surface-2 p-1">
         {MODES.map((m) => (
           <button key={m.id} type="button" onClick={() => navigate(`/p/${project.id}/expert/${m.id}`)}
-                  aria-current={mode === m.id ? "page" : undefined}
-                  className={cn("rounded-[6px] px-3.5 py-1 text-sm font-medium transition",
-                    mode === m.id ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink")}>
+                  aria-current={mode === m.id ? "page" : undefined} aria-keyshortcuts={String(m.n)}
+                  className={cn("whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-medium transition",
+                    mode === m.id ? "bg-signal text-signal-ink shadow-sm" : "text-muted hover:bg-surface hover:text-ink")}>
             {t(m.key)}
           </button>
         ))}
       </nav>
 
-      <Link to={`/p/${project.id}`} className="hidden items-center rounded-[var(--radius-control)] px-2 py-1 text-sm text-muted hover:bg-surface-2 hover:text-ink md:inline-flex">
-        {t("journey.simple_view")}
-      </Link>
       <CountdownChip data={countdown} />
-      {cost && (
-        <Tip content={`${cost.tokens.toLocaleString()} tokens used by AI agents in this project's red-team sessions`}>
-          <span className="hidden h-7 items-center gap-1.5 rounded-[var(--radius-control)] border border-border px-2 text-xs tabular text-muted md:inline-flex">
-            <Coins className="size-3.5" />{fmtTokens(cost.tokens)} · {fmtMoney(cost.usd)}
-          </span>
-        </Tip>
-      )}
-      <ProviderBadge />
+      {/* the project's AI cost lives in the provider badge popover */}
+      <ProviderBadge cost={cost} />
       <ThemeToggle />
     </header>
   );
@@ -138,7 +131,7 @@ function CountdownChip({ data }: { data: CountdownOut | undefined }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" className={cn("inline-flex h-7 max-w-64 items-center gap-1.5 rounded-[var(--radius-control)] border px-2 text-xs font-medium", tone)}>
+        <button type="button" className={cn("inline-flex h-8 max-w-48 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium xl:max-w-64", tone)}>
           <Clock className="size-3.5 shrink-0" /><span className="truncate tabular">{text}</span>
         </button>
       </PopoverTrigger>

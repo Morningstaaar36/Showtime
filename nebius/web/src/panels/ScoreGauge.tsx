@@ -36,7 +36,7 @@ export function ScoreGauge({ score, size = 88, label = "Planning score", delta }
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" className="group flex items-center gap-3 rounded-[10px] text-left focus-visible:outline-2 focus-visible:outline-signal"
+        <button type="button" className="group flex items-center gap-3 rounded-[var(--radius-panel)] text-left focus-visible:outline-2 focus-visible:outline-signal"
                 aria-label={`${label}: ${score.grade}, ${score.score} of 100. Show how it is computed.`}>
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0 -rotate-90">
             <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={7} />

@@ -38,7 +38,7 @@ export function ScenarioMatrix({ projectId, version, danger, warn }: { projectId
     <section className="space-y-2" aria-label="Scenario sweep">
       <div className="flex items-center justify-between">
         <PanelTitle><Boxes className="mr-1.5 inline size-4 text-signal" />Scenario sweep</PanelTitle>
-        <Button size="sm" variant={data?.items.length ? "secondary" : "primary"} disabled={start.isPending || running} onClick={() => start.mutate()}>
+        <Button size="sm" variant="secondary" disabled={start.isPending || running} onClick={() => start.mutate()}>
           {start.isPending || running ? <Loader2 className="animate-spin" /> : <Play />}{data?.items.length ? "Run again" : "Run 6 scenarios"}
         </Button>
       </div>
@@ -56,7 +56,7 @@ export function ScenarioMatrix({ projectId, version, danger, warn }: { projectId
             return (
               <button key={it.key} type="button" disabled={!it.run_id || !m}
                       onClick={() => it.run_id && setActive(it.run_id)}
-                      className={cn("rounded-[10px] border p-2 text-left transition hover:shadow-[var(--shadow-float)] disabled:cursor-default",
+                      className={cn("rounded-[var(--radius-panel)] border p-2 text-left transition hover:shadow-[var(--shadow-float)] disabled:cursor-default",
                         tone, active && it.run_id === active && "ring-2 ring-signal")}>
                 <p className="line-clamp-2 text-xs font-medium leading-snug">{it.label}</p>
                 {it.closed_exit && <p className="text-2xs text-muted">closes {it.closed_exit}</p>}

@@ -4,14 +4,16 @@ import { toast } from "sonner";
 import { api } from "@/api/client";
 import { usePatchProject } from "@/api/queries";
 import type { Estimates, PatchOpIn, ProjectDetail } from "@/api/types";
-import { PanelTitle, Spinner } from "@/components/ui/misc";
+import { Spinner } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
+import { t } from "@/i18n";
 import { fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const HOURS = [2, 4, 6, 8, 12, 24];
 
-/** "Plan for the day": safe capacity, exits, staff, toilets, fencing and a budget, each with its source. */
+/** Estimates for the day: safe capacity, exits, staff, toilets, fencing and a budget, each with its source.
+ * Shown in the "Plan for the day" card of the Plan inspector. */
 export function EstimatesPanel({ project }: { project: ProjectDetail }) {
   const version = project.version.version;
   const q = useQuery({
@@ -24,17 +26,13 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
     patch.mutate({ patch: { ops: [{ op: "set_event", ...fields } as unknown as PatchOpIn] }, message: msg },
       { onError: (e) => toast.error(e.message) });
   const est = q.data;
-  if (!est) return <section className="space-y-2"><PanelTitle>Plan for the day</PanelTitle>{q.isLoading ? <Spinner /> : <p className="text-xs text-muted">Estimates unavailable.</p>}</section>;
+  if (!est) return q.isLoading ? <Spinner /> : <p className="text-sm text-muted">{t("workspace.estimates_unavailable")}</p>;
   const cap = est.capacity;
   const over = cap.current_people > cap.safe_people;
   const pct = Math.min(100, (cap.current_people / Math.max(cap.safe_people, 1)) * 100);
   const money = (v: number) => `${est.currency} ${fmtInt(Math.round(v))}`;
   return (
-    <section className="space-y-3" aria-label="Plan for the day">
-      <div className="flex items-baseline justify-between">
-        <PanelTitle>Plan for the day</PanelTitle>
-        <span className="text-2xs text-muted">planning ratios, cited</span>
-      </div>
+    <div className="space-y-3">
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <label className="inline-flex items-center gap-1.5">
@@ -52,14 +50,14 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
         <div className="inline-flex rounded-[var(--radius-control)] border border-border p-0.5">
           {(["standing", "seated", "mixed"] as const).map((a) => (
             <button key={a} type="button" onClick={() => setEvent({ audience: a }, `Audience ${a}`)}
-                    className={cn("rounded-[4px] px-2 py-0.5 capitalize", est.event.audience === a ? "bg-signal text-white" : "text-muted hover:text-ink")}>
+                    className={cn("rounded-[4px] px-2 py-0.5 capitalize", est.event.audience === a ? "bg-signal text-signal-ink" : "text-muted hover:text-ink")}>
               {a}
             </button>
           ))}
         </div>
       </div>
 
-      <div className={cn("rounded-[10px] border p-3", over ? "border-caution/50 bg-caution-soft/60" : "border-egress/30 bg-egress-soft/50")}>
+      <div className={cn("rounded-[var(--radius-panel)] border p-3", over ? "border-caution/50 bg-caution-soft/60" : "border-egress/30 bg-egress-soft/50")}>
         <div className="flex items-end justify-between gap-3">
           <div>
             <p className="text-xs text-muted">Safe capacity</p>
@@ -75,7 +73,7 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
         </p>
       </div>
 
-      <ul className="divide-y divide-border rounded-[10px] border border-border">
+      <ul className="divide-y divide-border rounded-[var(--radius-panel)] border border-border">
         {est.lines.filter((l) => l.key !== "capacity").map((l) => (
           <li key={l.key} className="px-3 py-2">
             <div className="flex items-baseline justify-between gap-2">
@@ -91,7 +89,7 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
         ))}
       </ul>
 
-      <details className="rounded-[10px] border border-border px-3 py-2 text-sm">
+      <details className="rounded-[var(--radius-panel)] border border-border px-3 py-2 text-sm">
         <summary className="flex cursor-pointer items-baseline justify-between">
           <span>Budget estimate</span><span className="tabular font-semibold">{money(est.budget_total)}</span>
         </summary>
@@ -108,6 +106,6 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
         </table>
         <p className="mt-1 text-2xs text-muted">{est.prices_are_examples ? "Example unit prices: replace them with your quotes in Settings." : "Your unit prices from Settings."}</p>
       </details>
-    </section>
+    </div>
   );
 }

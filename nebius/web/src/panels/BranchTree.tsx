@@ -15,7 +15,7 @@ function BranchCard({ data }: NodeProps<Node<FlowData>>) {
     : n.status === "rejected" ? "border-l-line" : n.status === "failed" ? "border-l-caution" : "border-l-signal";
   const peak = n.metrics?.peak_density_ppm2;
   return (
-    <div className={cn("w-[260px] rounded-[8px] border border-border border-l-[3px] bg-surface px-2.5 py-1.5 text-left shadow-sm transition",
+    <div className={cn("w-[260px] rounded-[var(--radius-control)] border border-border border-l-[3px] bg-surface px-2.5 py-1.5 text-left shadow-sm transition",
       tone, data.active && "ring-2 ring-signal", n.status === "running" && "animate-pulse")}>
       <Handle type="target" position={Position.Left} className="!size-1.5 !border-0 !bg-line" />
       <div className="flex items-center justify-between text-[10px] font-medium uppercase-none text-muted">
@@ -79,7 +79,7 @@ export function BranchTree({ nodes, activeRunId, onPick, human = (x) => x }: {
   }, [list, nodes, activeRunId, human]);
   if (!list.length) return <p className="p-4 text-sm text-muted">The tree grows as attacks and fixes are simulated.</p>;
   return (
-    <div className="overflow-hidden rounded-[10px] border border-border bg-plan" style={{ height: height + 24 }}
+    <div className="overflow-hidden rounded-[var(--radius-panel)] border border-border bg-plan" style={{ height: height + 24 }}
          aria-label="Branch tree of simulated scenarios">
       {/* full size, no inner pan/zoom: the side panel scrolls, so every branch stays readable */}
       <ReactFlow nodes={flowNodes} edges={edges} nodeTypes={nodeTypes} defaultViewport={{ x: 12, y: 12, zoom: 1 }}

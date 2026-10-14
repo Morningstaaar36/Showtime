@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 export function PlanCompass({ span }: { span: number }) {
   const nice = [5, 10, 20, 25, 50, 100].find((n) => n >= span / 8) ?? 100;
   return (
-    <div className="pointer-events-none flex items-end gap-3 rounded-[8px] border border-border bg-surface/90 px-3 py-2 text-2xs text-muted shadow-sm backdrop-blur">
+    <div className="pointer-events-none flex items-end gap-3 rounded-[var(--radius-control)] border border-border bg-surface/90 px-3 py-2 text-2xs text-muted shadow-sm backdrop-blur">
       <div className="flex flex-col items-center"><Navigation className="size-4 rotate-0 text-ink" fill="currentColor" /><span className="font-semibold text-ink">N</span></div>
       <div>
         <div className="flex h-1.5 w-20 overflow-hidden rounded-[1px] border border-ink"><span className="w-1/2 bg-ink" /><span className="w-1/2" /></div>
@@ -25,7 +25,7 @@ export function DensityLegend({ warn, danger }: { warn: number; danger: number }
   }).join(",");
   const pos = (v: number) => `${(v / DENSITY_MAX) * 100}%`;
   return (
-    <div className="pointer-events-none w-64 rounded-[8px] border border-border bg-surface/90 px-3 py-2 shadow-sm backdrop-blur">
+    <div className="pointer-events-none w-64 rounded-[var(--radius-control)] border border-border bg-surface/90 px-3 py-2 shadow-sm backdrop-blur">
       <p className="text-2xs font-medium text-muted">People per m²</p>
       <div className="relative mt-1.5 h-2.5 rounded-[2px]" style={{ background: `linear-gradient(90deg,${stops})` }}>
         <span className="absolute -top-1 h-4.5 w-0.5 bg-caution" style={{ left: pos(warn) }} />

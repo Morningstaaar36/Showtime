@@ -23,7 +23,7 @@ export function RunStatus({ run, onCancel }: { run: RunOut; onCancel: () => void
   const done = p ? p.agents_total - p.agents_remaining : 0;
   const pct = total ? (done / total) * 100 : 3;
   return (
-    <div className="rounded-[10px] border border-signal/30 bg-signal-soft/50 p-4" role="status" aria-live="polite">
+    <div className="rounded-[var(--radius-panel)] border border-signal/30 bg-signal-soft/50 p-4" role="status" aria-live="polite">
       <div className="flex items-center gap-2">
         <Spinner className="text-signal" />
         <p className="text-sm font-medium">
@@ -45,7 +45,7 @@ function HotspotList({ hotspots, onPick, label }: { hotspots: Hotspot[]; onPick:
       {hotspots.slice(0, 6).map((h, i) => (
         <li key={i}>
           <button type="button" onClick={() => onPick(h)}
-                  className="flex w-full items-center gap-2 rounded-[8px] border border-border px-2.5 py-2 text-left text-sm hover:bg-surface-2">
+                  className="flex w-full items-center gap-2 rounded-[var(--radius-control)] border border-border px-2.5 py-2 text-left text-sm hover:bg-surface-2">
             <Flame className={cn("size-4 shrink-0", h.level === "danger" ? "text-danger" : "text-caution")} />
             <span className="min-w-0 flex-1 truncate">{h.near ? `Near ${label(h.near)}` : `At ${fmtNum(h.x, 0)}, ${fmtNum(h.y, 0)} m`}</span>
             <span className="tabular text-muted">{fmtNum(h.peak_density_ppm2, 1)}</span>
@@ -101,7 +101,7 @@ export function SimulatePanel({ project, run, estimate, replay, th, onAsk }: {
       {run?.status === "timeout" && <ErrorState title={t("workspace.stress_test_failed")} message={run.error ?? "Stopped at the time limit."} />}
 
       {blocked.length > 0 && (
-        <section className="rounded-[10px] border border-danger/30 bg-danger-soft/60 p-3">
+        <section className="rounded-[var(--radius-panel)] border border-danger/30 bg-danger-soft/60 p-3">
           <div className="flex items-center gap-2 text-sm font-semibold"><Ban className="size-4 text-danger" />Break it yourself</div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {blocked.map((id) => <Badge key={id} tone="danger">{label(id)}</Badge>)}

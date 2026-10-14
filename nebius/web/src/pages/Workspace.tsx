@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { CloudOff, SearchX, ServerCrash, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { CloudOff, Monitor, SearchX, ServerCrash } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { api } from "@/api/client";
 import { useCountdown, useFeatures, useHealth, usePatchProject, useProject, useRedo, useRun, useRuns, useSettings, useStartRun, useTier1, useUndo } from "@/api/queries";
 import type { Exit, Floor, Hotspot, PatchOpIn, Pt, RunResult, Venue } from "@/api/types";
+import { AppShell } from "@/app/AppHeader";
 import { Skeleton } from "@/components/ui/misc";
 import { Banner, ErrorState } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { AskDialog } from "@/panels/AskDialog";
 import { CommandBar } from "@/panels/CommandBar";
 import { PlanInspector } from "@/panels/Inspector";
 import { DensityLegend, PlanCompass, TierChip } from "@/panels/Overlays";
-import { TourButton } from "@/panels/Tour";
+import { useTour } from "@/panels/Tour";
 import { RedTeamPanel, useRedTeamSession } from "@/panels/RedTeamPanel";
 import { ReportView } from "@/panels/ReportView";
 import { SimulatePanel } from "@/panels/SimulatePanel";
@@ -24,6 +25,7 @@ import { Timeline, type TimelineMarker } from "@/panels/Timeline";
 import { ToolRail } from "@/panels/ToolRail";
 import { TopBar } from "@/panels/TopBar";
 import { tierLabel, type Thresholds } from "@/panels/verdict";
+import { ViewMenu } from "@/panels/ViewMenu";
 import { useReplay } from "@/replay/useReplay";
 import { exitRectAt, polygonArea, venueBounds } from "@/scene/geom";
 import type { MarshalNote } from "@/scene/ReplayLayers";
@@ -32,6 +34,15 @@ import { usePlayback } from "@/state/playback";
 import { type Mode, type Tool, useUi } from "@/state/ui";
 
 const MODES: Mode[] = ["plan", "simulate", "redteam", "report"];
+
+/** Expert view needs a desktop-sized screen; below it a notice points back to the simple view. */
+const WIDE = "(min-width: 1024px)";
+function useWide(): boolean {
+  return useSyncExternalStore(
+    (cb) => { const mq = window.matchMedia(WIDE); mq.addEventListener("change", cb); return () => mq.removeEventListener("change", cb); },
+    () => window.matchMedia(WIDE).matches,
+  );
+}
 
 export function WorkspacePage() {
   const { projectId = "", mode: rawMode } = useParams();
@@ -180,16 +191,39 @@ export function WorkspacePage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [p, mode, projectId, runStress, navigate, undo, redo]);
 
+  const result = run.data?.result ?? null;
+  // the verdict in Plan prefers a confirmed simulation of exactly this version over the formula
+  const confirmed = finished && run.data && run.data.tier === 3 && run.data.venue_version === version
+    && !run.data.attack_id && !run.data.fix_id ? result : null;
+  const shownRun = mode === "simulate" ? (ui.tier1Preview ?? (finished ? result : estimate.data))
+    : mode === "redteam" && finished ? result : confirmed ?? estimate.data;
+  const tour = useTour({ projectId, version: version ?? 0, venue, run: shownRun, autoStart: searchParams.get("tour") === "1" });
+  const wide = useWide();
+
   if (project.isError) {
     const missing = (project.error as { status?: number }).status === 404;
     return (
-      <div className="mx-auto max-w-2xl space-y-4 p-8">
-        <ErrorState title={missing ? "This project doesn't exist" : undefined}
-                    message={missing ? "It may have been deleted, or the link is from another installation." : (project.error as Error).message}
-                    hint={missing ? null : (project.error as { hint?: string }).hint}
-                    onRetry={missing ? undefined : () => project.refetch()} />
-        <Button variant="primary" onClick={() => navigate("/")}>Back to projects</Button>
-      </div>
+      <AppShell className="bg-hero">
+        <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-12">
+          <ErrorState title={missing ? t("workspace.missing_title") : undefined}
+                      message={missing ? t("workspace.missing_body") : (project.error as Error).message}
+                      hint={missing ? null : (project.error as { hint?: string }).hint}
+                      onRetry={missing ? undefined : () => project.refetch()} />
+          <Button asChild variant="primary" size="lg"><Link to="/projects">{t("workspace.missing_back")}</Link></Button>
+        </div>
+      </AppShell>
+    );
+  }
+  if (!wide) {
+    return (
+      <AppShell className="bg-hero">
+        <div className="mx-auto flex w-full max-w-md flex-col items-center px-4 py-16 text-center">
+          <span className="grid size-16 place-items-center rounded-full bg-signal-soft text-signal [&_svg]:size-8" aria-hidden><Monitor /></span>
+          <h1 className="mt-5 text-2xl font-bold leading-tight tracking-tight">{t("workspace.small_title")}</h1>
+          <p className="mt-2 text-lg text-muted">{t("workspace.small_body")}</p>
+          <Button asChild variant="primary" size="lg" className="mt-6"><Link to={`/p/${projectId}`}>{t("workspace.small_back")}</Link></Button>
+        </div>
+      </AppShell>
     );
   }
   if (!p || !venue) {
@@ -207,10 +241,6 @@ export function WorkspacePage() {
     : null;
   const [bx0, by0, bx1, by1] = venueBounds(venue);
   const span = Math.max(bx1 - bx0, by1 - by0);
-  const result = run.data?.result ?? null;
-  // the verdict in Plan prefers a confirmed simulation of exactly this version over the formula
-  const confirmed = finished && run.data && run.data.tier === 3 && run.data.venue_version === version
-    && !run.data.attack_id && !run.data.fix_id ? result : null;
   const shownHotspots: Hotspot[] = mode === "simulate"
     ? (ui.tier1Preview?.hotspots ?? (finished ? result?.hotspots ?? [] : []))
     : mode === "redteam" && finished ? result?.hotspots ?? [] : [];
@@ -264,8 +294,6 @@ export function WorkspacePage() {
     mode === "redteam" && features.data && !features.data.search_live && { key: "s", tone: "signal" as const, icon: <SearchX />, text: t("workspace.search_off") },
   ].filter(Boolean) as { key: string; tone: "caution" | "danger" | "signal"; icon: React.ReactNode; text: string }[];
 
-  const shownRun = mode === "simulate" ? (ui.tier1Preview ?? (finished ? result : estimate.data))
-    : mode === "redteam" && finished ? result : confirmed ?? estimate.data;
   const tone = shownRun?.tier === 3 ? "confirmed" : shownRun?.tier === 2 ? "partial" : "estimate";
 
   return (
@@ -273,6 +301,7 @@ export function WorkspacePage() {
       <AskDialog open={ask.open} onOpenChange={(v) => setAsk((a) => ({ ...a, open: v }))} projectId={p.id}
                  runId={finished ? runId : null} hotspot={ask.hotspot} />
       <TopBar project={p} mode={mode} countdown={countdown.data} cost={aiCost} />
+      {tour.overlay}
       {banners.map((b) => <Banner key={b.key} tone={b.tone} icon={b.icon}>{b.text}</Banner>)}
       {mode === "report" ? (
         <main id="main" className="min-h-0 flex-1"><ReportView project={p} /></main>
@@ -285,12 +314,12 @@ export function WorkspacePage() {
                            editable={false} resetNonce={resetNonce} quality="low" clock={false}
                            onExitClick={() => {}} onObjectClick={() => {}} onFloorClick={() => {}}
                            onFloorDoubleClick={() => {}} onMove={() => {}} onHotspot={() => {}} />
-                <span className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-danger px-3 py-1 text-xs font-semibold text-white shadow">Before fixes</span>
+                <span className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-danger px-3 py-1 text-xs font-semibold text-white shadow dark:text-plan">Before fixes</span>
               </div>
             )}
             <div className={compareId && compareReplay.data ? "absolute inset-y-0 right-0 w-1/2" : "absolute inset-0"}>
             {compareId && compareReplay.data && (
-              <span className="pointer-events-none absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full bg-egress px-3 py-1 text-xs font-semibold text-white shadow">After fixes</span>
+              <span className="pointer-events-none absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full bg-egress px-3 py-1 text-xs font-semibold text-white shadow dark:text-plan">After fixes</span>
             )}
             <SceneRoot
               venue={mode !== "plan" && runVenue.data ? runVenue.data : venue}
@@ -313,17 +342,9 @@ export function WorkspacePage() {
             />
             </div>
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute left-3 top-3"><ToolRail mode={mode} multiFloor={venue.floors.length > 1} onResetView={() => setResetNonce((n) => n + 1)} /></div>
+              <div className="absolute left-3 top-3"><ToolRail mode={mode} onResetView={() => setResetNonce((n) => n + 1)} /></div>
               {!compareId && (
-                <div className="absolute right-3 top-3 flex gap-2">
-                  <Button size="sm" aria-pressed={ui.layers.night}
-                          className={`pointer-events-auto shadow-sm ${ui.layers.night ? "bg-ink text-surface hover:bg-ink/90" : "bg-surface/95"}`}
-                          onClick={() => ui.toggleLayer("night")}>
-                    <Sparkles />{ui.layers.night ? "Daylight" : "Showtime lights"}
-                  </Button>
-                  <TourButton projectId={p.id} version={p.current_version} venue={venue} run={shownRun}
-                              autoStart={searchParams.get("tour") === "1"} />
-                </div>
+                <div className="absolute right-3 top-3"><ViewMenu multiFloor={venue.floors.length > 1} tour={tour} /></div>
               )}
               {shownRun && !compareId && (
                 <div className="absolute left-1/2 top-3 -translate-x-1/2"><TierChip label={tierLabel(shownRun)} tone={tone} /></div>
@@ -335,7 +356,7 @@ export function WorkspacePage() {
                 </button>
               )}
               {mode === "plan" && ui.tool !== "select" && (
-                <div className="absolute left-16 top-3 max-w-sm rounded-[8px] border border-border bg-surface/95 px-3 py-2 text-sm shadow-sm">
+                <div className="absolute left-16 top-3 max-w-sm rounded-[var(--radius-control)] border border-border bg-surface/95 px-3 py-2 text-sm shadow-sm">
                   {t(`tools.${ui.tool === "exit" ? "exit_hint" : ui.tool === "barrier" ? "barrier_hint" : ui.tool === "zone" ? "zone_hint" : "measure"}`)}
                 </div>
               )}

@@ -36,7 +36,7 @@ export function Timeline({ markers }: { markers: TimelineMarker[] }) {
   }, []);
   const pb = usePlayback.getState();
   return (
-    <div className="pointer-events-auto flex items-center gap-3 rounded-[12px] border border-border bg-surface/95 px-3 py-2 shadow-[var(--shadow-float)] backdrop-blur">
+    <div className="pointer-events-auto flex items-center gap-3 rounded-[var(--radius-panel)] border border-border bg-surface/95 px-3 py-2 shadow-[var(--shadow-float)] backdrop-blur">
       <Tip content="Back to start">
         <button type="button" aria-label="Back to start" onClick={() => pb.setT(0)} className="text-muted hover:text-ink"><SkipBack className="size-4" /></button>
       </Tip>
@@ -44,7 +44,7 @@ export function Timeline({ markers }: { markers: TimelineMarker[] }) {
               className="grid size-9 place-items-center rounded-full bg-ink text-plan transition hover:scale-105">
         {playing ? <Pause className="size-4" fill="currentColor" /> : <Play className="ml-0.5 size-4" fill="currentColor" />}
       </button>
-      <div className="flex rounded-[6px] bg-surface-2 p-0.5 text-xs">
+      <div className="flex rounded-[var(--radius-control)] bg-surface-2 p-0.5 text-xs">
         {[1, 4, 16].map((s) => (
           <button key={s} type="button" onClick={() => pb.setSpeed(s)} aria-pressed={speed === s}
                   className={cn("rounded-[4px] px-2 py-0.5 font-medium tabular", speed === s ? "bg-surface shadow-sm" : "text-muted")}>

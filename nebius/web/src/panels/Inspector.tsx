@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, CircleAlert, Info, ShieldAlert, ShieldCheck, ShieldQuestion, Trash2, Wind } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, CircleAlert, Info, ShieldAlert, ShieldCheck, ShieldQuestion, Trash2, Wind } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { PanelTitle, Separator, Spinner } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { t } from "@/i18n";
 import { fmtInt, fmtNum, fmtSpeed } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ import { useUi } from "@/state/ui";
 import { tierLabel, type Thresholds, verdictOf } from "./verdict";
 import { EstimatesPanel } from "./EstimatesPanel";
 import { OfficerCard } from "./OfficerCard";
-import { WhatIfLab } from "./WhatIfLab";
+import { PlanScore, WhatIfLab } from "./WhatIfLab";
 import { WindPanel } from "./WindPanel";
 import type { CountdownOut } from "@/api/types";
 
@@ -44,7 +45,7 @@ export function VerdictCard({ run, th, venue, compact }: { run: RunResult | null
     : v.level === "holds" ? "border-egress/35 bg-egress-soft" : "border-border bg-surface-2";
   const iconTone = v.level === "fails" ? "text-danger" : v.level === "at_risk" ? "text-caution" : v.level === "holds" ? "text-egress" : "text-line";
   return (
-    <section aria-label="Plan verdict" className={cn("rounded-[10px] border p-4", tone)}>
+    <section aria-label="Plan verdict" className={cn("rounded-[var(--radius-panel)] border-2 p-4", tone)}>
       <div className="flex items-start gap-3">
         <span className={cn("mt-0.5 [&_svg]:size-6", iconTone)}>{icon}</span>
         <div className="min-w-0">
@@ -72,7 +73,7 @@ function VenueFacts({ venue }: { venue: Venue }) {
   const area = venue.floors.reduce((a, f) => a + polygonArea(f.walkable), 0);
   const perM = width ? people / width : 0;
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[8px] border border-border bg-border text-sm">
+    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-control)] border border-border bg-border text-sm">
       {[
         [t("inspector.people_total"), fmtInt(people)],
         ["Exits open", `${venue.floors.reduce((a, f) => a + f.exits.filter((e) => !e.blocked).length, 0)}`],
@@ -101,7 +102,7 @@ function Checks({ checks }: { checks: Check[] }) {
     <ul className="space-y-2">
       {items.map((c, i) => (
         <li key={i}>
-          <button type="button" className="flex w-full gap-2 rounded-[8px] border border-border p-2.5 text-left text-sm hover:bg-surface-2"
+          <button type="button" className="flex w-full gap-2 rounded-[var(--radius-control)] border border-border p-2.5 text-left text-sm hover:bg-surface-2"
                   onClick={() => {
                     if (c.x != null && c.y != null) fly(c.x, c.y, c.floor_id ?? "F0");
                     if (c.target_ids?.[0]) select({ kind: "obstacle", id: c.target_ids[0], floorId: c.floor_id ?? "F0" });
@@ -127,7 +128,7 @@ function StagePanel({ project }: { project: ProjectDetail }) {
   return (
     <section className="space-y-3">
       <PanelTitle>{t("inspector.stage")}</PanelTitle>
-      <div className="rounded-[8px] border border-border bg-surface-2 p-3">
+      <div className="rounded-[var(--radius-control)] border border-border bg-surface-2 p-3">
         <div className="flex items-center gap-2 text-sm text-muted"><Wind className="size-4" />{t("inspector.wind_limit")}</div>
         {check.isLoading ? <Spinner className="mt-2" /> : check.data ? (
           <>
@@ -271,6 +272,28 @@ function RulesSection({ project }: { project: ProjectDetail }) {
   );
 }
 
+/** "Plan for the day": the planning score, then the cited estimates and the what-if lab as two tabs. */
+function PlanForTheDay({ project, runId }: { project: ProjectDetail; runId: string | null }) {
+  const tab = "mb-0 flex-1 rounded-full border-0 py-1.5 data-[state=active]:bg-surface data-[state=active]:text-ink data-[state=active]:shadow-sm";
+  return (
+    <section aria-labelledby="day-h" className="space-y-3 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
+      <div>
+        <h2 id="day-h" className="flex items-center gap-2 text-base font-bold"><CalendarDays className="size-4 text-orange" aria-hidden />{t("workspace.day_title")}</h2>
+        <p className="text-xs text-muted">{t("workspace.day_lead")}</p>
+      </div>
+      <PlanScore project={project} runId={runId} />
+      <Tabs defaultValue="estimates">
+        <TabsList className="w-full gap-0.5 rounded-full border-0 bg-surface-2 p-1">
+          <TabsTrigger value="estimates" className={tab}>{t("workspace.day_estimates")}</TabsTrigger>
+          <TabsTrigger value="whatif" className={tab}>{t("workspace.day_whatif")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="estimates" className="pt-3"><EstimatesPanel project={project} /></TabsContent>
+        <TabsContent value="whatif" className="pt-3"><WhatIfLab project={project} /></TabsContent>
+      </Tabs>
+    </section>
+  );
+}
+
 /** Right-hand panel in Plan mode. */
 export function PlanInspector({ project, estimate, th, countdown }: { project: ProjectDetail; estimate: RunResult | null | undefined; th: Thresholds; countdown?: CountdownOut }) {
   const selection = useUi((s) => s.selection);
@@ -279,11 +302,10 @@ export function PlanInspector({ project, estimate, th, countdown }: { project: P
   return (
     <div className="space-y-5">
       <VerdictCard run={estimate} th={th} venue={venue} />
-      {!selection && <WhatIfLab project={project} runId={estimate?.tier === 3 ? estimate.run_id : null} />}
+      {!selection && <PlanForTheDay project={project} runId={estimate?.tier === 3 ? estimate.run_id : null} />}
       {selection && selection.kind !== "hotspot" && !stageSelected && <><SelectionEditor project={project} /><Separator /></>}
       {venue.stage && (stageSelected || !selection) && <><StagePanel project={project} /><Separator /></>}
       {!selection && <><OfficerCard projectId={project.id} /><Separator /></>}
-      {!selection && <><EstimatesPanel project={project} /><Separator /></>}
       {venue.mode === "outdoor" && !selection && countdown && (
         <><WindPanel data={countdown} eventStart={venue.location?.event_start} /><Separator /></>
       )}

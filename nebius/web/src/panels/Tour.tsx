@@ -1,8 +1,8 @@
-import { Clapperboard, Square, Volume2, VolumeX } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Volume2, VolumeX } from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import type { Pt, RunResult, Venue, WhatIfOut } from "@/api/types";
-import { Button } from "@/components/ui/button";
+import { t } from "@/i18n";
 import { fmtInt } from "@/lib/format";
 import { exitName } from "@/lib/venueText";
 import { bbox, centroid, floorY, venueBounds } from "@/scene/geom";
@@ -60,8 +60,11 @@ function buildShots(venue: Venue, run: RunResult | null | undefined, what: WhatI
   return shots;
 }
 
-/** A narrated camera tour of the plan: overview, stage, exits, the densest spot, the verdict. */
-export function TourButton({ projectId, version, venue, run, autoStart }: { projectId: string; version: number; venue: Venue; run: RunResult | null | undefined; autoStart?: boolean }) {
+export interface Tour { playing: boolean; play: () => void; stop: () => void; overlay: ReactNode }
+
+/** A narrated camera tour of the plan: overview, stage, exits, the densest spot, the verdict.
+ * Returns the controls (the View menu starts it) and the caption overlay to render once. */
+export function useTour({ projectId, version, venue, run, autoStart }: { projectId: string; version: number; venue: Venue | undefined; run: RunResult | null | undefined; autoStart?: boolean }): Tour {
   const setShot = useUi((s) => s.setShot);
   const [caption, setCaption] = useState<string | null>(null);
   const [step, setStep] = useState(0);
@@ -77,6 +80,7 @@ export function TourButton({ projectId, version, venue, run, autoStart }: { proj
   }, []);
 
   const play = useCallback(async () => {
+    if (!venue) return;
     const id = ++alive.current;
     let what: WhatIfOut | null = null;
     try {
@@ -110,34 +114,35 @@ export function TourButton({ projectId, version, venue, run, autoStart }: { proj
     window.addEventListener("keydown", onKey);
     return () => { window.removeEventListener("keydown", onKey); stop(); };
   }, [stop]);
+  // start once (?tour=1) when the venue is there, with the latest data at that moment
+  const latest = useRef(play);
+  useEffect(() => { latest.current = play; }, [play]);
+  const ready = !!venue;
   useEffect(() => {
-    if (autoStart && !started.current) { started.current = true; const h = setTimeout(() => void play(), 1500); return () => clearTimeout(h); }
-  }, [autoStart, play]);
+    if (!autoStart || !ready || started.current) return;
+    started.current = true;
+    const h = setTimeout(() => void latest.current(), 1500);
+    return () => clearTimeout(h);
+  }, [autoStart, ready]);
 
-  return (
+  const overlay = caption ? (
     <>
-      <Button size="sm" className="pointer-events-auto bg-surface/95 shadow-sm" onClick={() => (caption ? stop() : void play())}
-              aria-label={caption ? "Stop the tour" : "Play a narrated tour of the plan"}>
-        {caption ? <Square /> : <Clapperboard />}{caption ? "Stop tour" : "Tour"}
-      </Button>
-      {caption && (
-        <>
-          <div className="pointer-events-none fixed inset-x-0 top-0 z-30 h-14 bg-gradient-to-b from-black/60 to-transparent" />
-          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-40 bg-gradient-to-t from-black/70 to-transparent" />
-          <div className="pointer-events-auto fixed inset-x-0 bottom-10 z-40 flex justify-center px-6">
-            <div className="max-w-2xl rounded-[12px] bg-black/55 px-5 py-3 text-center text-white shadow-2xl backdrop-blur">
-              <p className="text-[17px] leading-snug">{caption}</p>
-              <div className="mt-2 flex items-center justify-center gap-3">
-                <div className="flex gap-1">{Array.from({ length: count }, (_, i) => <span key={i} className={`h-1 w-5 rounded-full ${i <= step ? "bg-white" : "bg-white/30"}`} />)}</div>
-                <button type="button" className="text-white/80 hover:text-white" onClick={() => { setMuted((m) => !m); window.speechSynthesis?.cancel(); }} aria-label={muted ? "Turn narration on" : "Mute narration"}>
-                  {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-                </button>
-                <button type="button" className="text-xs text-white/80 underline hover:text-white" onClick={stop}>Stop (Esc)</button>
-              </div>
-            </div>
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-30 h-14 bg-gradient-to-b from-black/60 to-transparent" />
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-40 bg-gradient-to-t from-black/70 to-transparent" />
+      <div className="pointer-events-auto fixed inset-x-0 bottom-10 z-40 flex justify-center px-6">
+        <div role="status" aria-live="polite" className="max-w-2xl rounded-[var(--radius-panel)] bg-black/60 px-5 py-3 text-center text-white shadow-2xl backdrop-blur">
+          <p className="text-[17px] leading-snug">{caption}</p>
+          <div className="mt-2 flex items-center justify-center gap-3">
+            <div className="flex gap-1" aria-hidden>{Array.from({ length: count }, (_, i) => <span key={i} className={`h-1 w-5 rounded-full ${i <= step ? "bg-white" : "bg-white/30"}`} />)}</div>
+            <button type="button" className="grid size-9 place-items-center rounded-full text-white/85 hover:bg-white/10 hover:text-white"
+                    onClick={() => { setMuted((m) => !m); window.speechSynthesis?.cancel(); }} aria-label={muted ? t("workspace.tour_unmute") : t("workspace.tour_mute")}>
+              {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+            </button>
+            <button type="button" className="min-h-9 rounded-full px-3 text-sm text-white/85 underline hover:text-white" onClick={stop}>{t("workspace.tour_stop")}</button>
           </div>
-        </>
-      )}
+        </div>
+      </div>
     </>
-  );
+  ) : null;
+  return { playing: caption !== null, play: () => void play(), stop, overlay };
 }

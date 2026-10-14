@@ -25,7 +25,7 @@ export function ReportView({ project }: { project: ProjectDetail }) {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="w-80 shrink-0 space-y-5 overflow-y-auto border-r border-border bg-surface p-5 scrollbar-thin">
+      <aside className="w-80 shrink-0 space-y-5 overflow-y-auto border-r border-border bg-surface p-5 scrollbar-thin" aria-label={t("report.title")}>
         <div>
           <h2 className="text-lg font-semibold tracking-tight">{t("report.title")}</h2>
           <p className="mt-1 text-sm text-muted">A document for your safety team and the permit office: verdict, countdown, evacuation map, red-team results, assumptions and sources.</p>
@@ -37,8 +37,8 @@ export function ReportView({ project }: { project: ProjectDetail }) {
               {finished.map((s) => (
                 <li key={s.id}>
                   <button type="button" onClick={() => setSessionId(s.id)}
-                          className={cn("w-full rounded-[8px] border px-3 py-2 text-left text-sm",
-                            s.id === sid ? "border-signal bg-signal-soft/50" : "border-border hover:bg-surface-2")}>
+                          className={cn("w-full rounded-[var(--radius-control)] border px-3 py-2 text-left text-sm",
+                            s.id === sid ? "border-2 border-signal bg-signal-soft/50" : "border-2 border-border hover:bg-surface-2")}>
                     <span className="font-medium">Red Team Night</span>
                     <span className="block text-xs text-muted">{fmtRelative(s.created_at)} · {(s.summary?.accepted_fixes ?? []).length} {(s.summary?.accepted_fixes ?? []).length === 1 ? "fix" : "fixes"} kept</span>
                   </button>
