@@ -82,12 +82,15 @@ def describe_op(o: dict[str, Any], name: Callable[[Any], str] = _same) -> str:
 
 
 def verdict(r: RunResult | None, danger: float) -> tuple[str, str]:
+    """Headline verdict; it never claims more than the result's basis supports."""
     if r is None:
         return "Not tested", "neutral"
-    if r.provider == "fake" or r.engine == "fake":
+    if r.basis == "preview":
         return "Preview only — not simulated", "neutral"
-    if r.status not in ("ok", "partial"):
+    if r.basis == "unknown":
         return "Simulation did not complete", "neutral"
+    if r.basis == "instant_estimate":
+        return "Instant estimate only — not simulated", "neutral"
     m = r.metrics
     trapped = m.extra.get("trapped", 0)
     if (
@@ -98,21 +101,100 @@ def verdict(r: RunResult | None, danger: float) -> tuple[str, str]:
         return "Fails", "danger"
     if m.peak_density_ppm2 >= 3.5:
         return "At risk", "caution"
-    if r.status == "partial":
+    if r.basis == "partial_simulation":
         return "Test incomplete", "neutral"
     return "Holds", "egress"
 
 
+def basis_label(basis: str | None, tier: int = 3) -> str:
+    """Plain words for a result basis (see `RunResult.basis`)."""
+    if basis == "completed_simulation":
+        return "full simulation" if tier == 3 else "quick simulation (ran to the end)"
+    if basis == "partial_simulation":
+        return (
+            "quick simulation (first minutes only)"
+            if tier == 2
+            else "full simulation, stopped before everyone was out"
+        )
+    if basis == "instant_estimate":
+        return "instant estimate"
+    if basis == "preview":
+        return "preview only (no simulation)"
+    return "simulation did not complete"
+
+
 def source_label(run: RunResult | None) -> str:
+    """What a result is based on, derived from its basis; never a confirmation claim."""
     if run is None:
         return "not tested"
-    if run.provider == "fake" or run.engine == "fake":
-        return "preview only (no simulation)"
-    if run.status not in ("ok", "partial"):
-        return "simulation did not complete"
-    if run.status == "partial":
-        return "partial simulation (stopped early)"
-    return {1: "instant estimate", 2: "ranking run", 3: "confirmed by simulation"}[run.tier]
+    if run.extensions.get("fallback_for"):
+        return "instant estimate (the simulation did not finish)"
+    return basis_label(run.basis, run.tier)
+
+
+def shown_result(run: RunResult | None, results: dict[str, RunResult]) -> RunResult | None:
+    """The result to show for `run`: the linked instant estimate when it did not finish."""
+    if run is None or run.basis != "unknown":
+        return run
+    return next(
+        (r for r in results.values() if r.extensions.get("fallback_for") == run.run_id), run
+    )
+
+
+EVALUATION = {
+    "confirmed": ("Confirmed by full simulations", "egress"),
+    "partially_confirmed": ("Partly confirmed", "caution"),
+    "unconfirmed": ("Not confirmed", "neutral"),
+    "failed": ("Confirmation failed", "danger"),
+}
+
+
+def _evaluation_html(ev: Any) -> str:
+    """Evaluation status of the plan, separate from whether the session finished."""
+    if not isinstance(ev, dict) or ev.get("status") not in EVALUATION:
+        return ""
+    label, tone = EVALUATION[ev["status"]]
+    reasons = " ".join(e(r) for r in ev.get("reasons", []))
+    return f'<p class="evaluation {tone}"><b>Evaluation: {e(label)}.</b> {reasons}</p>'
+
+
+def _side_label(ev: Any, side: str) -> str:
+    """Basis of one side of the before/after comparison (confirmation runs are tier 3)."""
+    if not isinstance(ev, dict):
+        return ""
+    if (ev.get("fallback_run_ids") or {}).get(side):
+        return "instant estimate (the simulation did not finish)"
+    return basis_label(ev.get(f"{side}_basis"), 3) if ev.get(f"{side}_basis") else ""
+
+
+def _int(v: Any) -> str:
+    return "–" if v is None else f"{int(v):,}"
+
+
+def _attack_result(r: RunResult | None, shown: RunResult | None, broke: bool, why: str) -> str:
+    """Result cell for one attack, labelled by what the result is based on."""
+    if r is None or shown is None:
+        return "–"
+    numbers = f"{num(shown.metrics.peak_density_ppm2)} /m² · {dur(shown.metrics.time_above_danger_s)} above danger"
+    reasons = f"<br><span class=muted>{why}</span>" if why else ""
+    if shown.basis == "preview":
+        return e(source_label(shown))
+    if shown.basis == "unknown":
+        return e(source_label(r))
+    if shown is not r or shown.basis == "instant_estimate":
+        # an estimate shown in place of a failed simulation: labelled, never a verdict
+        return (
+            f"{e(source_label(r))}<br><span class=muted>{e(source_label(shown))}: {numbers}</span>"
+        )
+    if shown.basis == "partial_simulation" and not broke:
+        return (
+            f'<span class="tag neutral">no break seen</span><br>{numbers}'
+            f"<br><span class=muted>{e(source_label(shown))}</span>"
+        )
+    return (
+        f'<span class="tag {"danger" if broke else "egress"}">{"breaks" if broke else "holds"}</span>'
+        f"<br>{numbers}{reasons}"
+    )
 
 
 CSS = """
@@ -130,7 +212,10 @@ padding-top:14px;border-top:1px solid var(--border)}h3{font-size:14px;margin:16p
 .verdict.danger{background:#F9E0DF;border:1px solid #e9b4b2}.verdict.caution{background:#F8EDD2;border:1px solid #e8d29c}
 .verdict.egress{background:#DDF1E8;border:1px solid #a9d7c2}.verdict.neutral{background:#F3F6F8;border:1px solid var(--border)}
 .verdict b{font-size:20px}
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-top:12px}
+.evaluation{margin-top:10px;padding:8px 12px;border-radius:8px;border:1px solid var(--border)}
+.evaluation.egress{background:#DDF1E8}.evaluation.caution{background:#F8EDD2}
+.evaluation.danger{background:#F9E0DF}.evaluation.neutral{background:#F3F6F8}
 .tile{border:1px solid var(--border);border-radius:8px;padding:10px}.tile .v{font-size:20px;font-weight:700}
 .tile .l{font-size:11px;color:var(--muted)}.tile .s{font-size:10px;color:var(--muted)}
 table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
@@ -187,7 +272,8 @@ def _estimates_html(est: Any) -> str:
 
 def render(b: ReportBundle) -> str:
     """The report as a complete HTML document."""
-    run = b.final or b.baseline
+    evaluation = b.extras.get("evaluation")
+    run = shown_result(b.final, b.results) or b.baseline
     v_text, v_tone = verdict(run, b.density_danger_ppm2)
     venue = b.fixed_venue or b.venue
     labels = display_names(b.venue, b.fixed_venue)
@@ -198,12 +284,14 @@ def render(b: ReportBundle) -> str:
     tier = source_label(run)
     m = run.metrics if run else None
     tiles = ""
-    if m:
+    if m and run is not None and run.basis != "unknown":
+        # the 95% time is not "everyone out": people still inside sit right next to it
         tiles = "".join(
             f'<div class="tile"><div class="l">{lbl}</div><div class="v">{val}</div><div class="s">{tier}</div></div>'
             for lbl, val in [
                 ("People", f"{m.agents_total:,}"),
                 ("Evacuation time (95%)", dur(m.evac_time_p95_s)),
+                ("Still inside at the end", f"{m.agents_not_evacuated:,}"),
                 ("Peak density", f"{num(m.peak_density_ppm2)} /m²"),
                 ("Time above danger", dur(m.time_above_danger_s)),
             ]
@@ -230,7 +318,7 @@ def render(b: ReportBundle) -> str:
             f"<tr><td>Safety factor</td><td>× {cd.safety_factor}</td></tr></table></div>"
             f'<p class="muted" style="font-size:11px">{e(cd.formula)}'
             + (f" · Evacuation time from: {e(cd.rset_source)}" if cd.rset_source else "")
-            + "</p>"
+            + ". The evacuation time is the time for 95% of people to get out, not everyone.</p>"
         )
     recs = "".join(f"<li>{e(r)}</li>" for r in b.recommendations)
     scoreboard = " → ".join(f"{s['breaks']}" for s in b.scoreboard)
@@ -244,16 +332,7 @@ def render(b: ReportBundle) -> str:
         info = b.extras.get("run_info", {}).get(r.run_id, {}) if r is not None else {}
         broke = bool(info.get("is_break"))
         why = "<br>".join(e(x) for x in info.get("break_reasons", [])[:2])
-        result = (
-            "–"
-            if r is None
-            else e(source_label(r))
-            if r.provider == "fake" or r.engine == "fake" or r.status != "ok"
-            else f'<span class="tag {"danger" if broke else "egress"}">'
-            f"{'breaks' if broke else 'holds'}</span><br>{num(r.metrics.peak_density_ppm2)} /m² · "
-            f"{dur(r.metrics.time_above_danger_s)} above danger"
-            f"{'<br><span class=muted>' + why + '</span>' if why else ''}"
-        )
+        result = _attack_result(r, shown_result(r, b.results), broke, why)
         attack_rows += (
             f"<tr><td><b>{e(a.attack_id)}</b> {e(a.title)}<br><span class='muted'>"
             f"{e('; '.join(describe_event(ev.model_dump(), name) for ev in a.events))}</span></td>"
@@ -281,19 +360,27 @@ def render(b: ReportBundle) -> str:
         )
     before_after = ""
     if b.before and b.after:
+        bl, al = _side_label(evaluation, "before"), _side_label(evaluation, "after")
         before_after = (
             "<h3>Worst attack, before and after the kept fixes</h3><table>"
             "<tr><th></th><th>Before</th><th>After</th></tr>"
+            + (
+                f"<tr><td>Based on</td><td class='muted'>{e(bl)}</td><td class='muted'>{e(al)}</td></tr>"
+                if bl or al
+                else ""
+            )
             + "".join(
                 f"<tr><td>{lbl}</td><td>{fmt(b.before.get(k))}</td><td><b>{fmt(b.after.get(k))}</b></td></tr>"
                 for lbl, k, fmt in [
                     ("Evacuation time (95%)", "evac_time_p95_s", dur),
+                    ("People still inside at the end", "agents_not_evacuated", _int),
                     ("Peak density (people per m²)", "peak_density_ppm2", num),
                     ("Time above danger", "time_above_danger_s", dur),
                 ]
             )
             + "</table>"
         )
+    before_after += _evaluation_html(evaluation)
     exit_rows = ""
     if run:
         widths = {x.id: x for f in venue.floors for x in f.exits}
@@ -354,7 +441,7 @@ def render(b: ReportBundle) -> str:
 <p class="muted">Arrows show which exit each zone should use (from the flow model), with headcounts. Circles mark density hotspots.</p>
 <div class="map">{map_svg}</div>
 {measures_html}
-{f"<h2>Red team results</h2><p>Breaks per round: <b>{e(scoreboard)}</b>. Each attack is grounded in a real incident and was simulated in an isolated sandbox.</p>" if b.attacks else ""}
+{f"<h2>Red team results</h2><p>Breaks per round: <b>{e(scoreboard)}</b>. Each attack is grounded in a real incident and was tested in an isolated sandbox; the Result column says what each result is based on.</p>" if b.attacks else ""}
 {f"<table><tr><th>Attack</th><th>Inspired by</th><th>Result</th></tr>{attack_rows}</table>" if attack_rows else ""}
 {f"<h3>Fixes proposed by the blue team</h3><table><tr><th>Fix</th><th>For</th><th>Cost</th><th>Outcome</th></tr>{fix_rows}</table>" if fix_rows else ""}
 {before_after}

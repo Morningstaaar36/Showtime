@@ -12,6 +12,7 @@ from sqlmodel import col, select
 
 from api.core.assumptions import assumptions
 from api.core.estimates import compute_estimates
+from api.core.evidence import describe_run
 from api.core.extensions import ReportBundle
 from api.core.extensions.geometry import display_names
 from api.core.settings import ROOT_DIR
@@ -114,10 +115,11 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
     fixes = [f.model_copy(update={"title": human(f.title)}) for f in fixes]
     countdown = Countdown.model_validate(summary["countdown"]) if summary.get("countdown") else None
     if countdown is not None and countdown.rset_source.startswith("run "):
-        # sessions saved before the label existed; their countdown always used the worst attack
-        countdown.rset_source = (
-            f"the worst red-team attack, confirmed by simulation ({countdown.rset_source})"
-        )
+        # sessions saved before the label existed: their countdown used the worst attack;
+        # say what that run actually is instead of assuming it was a finished simulation
+        used = _result(by_id.get(countdown.rset_source[4:].strip()))
+        what = describe_run(used) if used is not None else countdown.rset_source
+        countdown.rset_source = f"the worst red-team attack ({what})"
     fixed_venue = (
         Venue.model_validate(summary["final_venue"]) if summary.get("final_venue") else None
     )
@@ -185,6 +187,9 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
             "tier1_plan_venue": "fixed" if fixed_venue else "current",
             "run_info": run_info,
             "measures": summary.get("measures", []),
+            # typed evidence: evaluation status and the cost record (absent in old sessions)
+            "evaluation": summary.get("evaluation"),
+            "cost": summary.get("cost"),
         },
     )
 
