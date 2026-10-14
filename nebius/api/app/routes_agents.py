@@ -34,7 +34,7 @@ async def edit_by_text(
 ) -> dict[str, Any]:
     """Venue agent: plain language → validated patch (applied unless apply=false)."""
     venue = st.projects.venue(project_id)
-    env = AgentEnv(llm=st.llm, project_id=project_id, on_usage=st.usage.add)
+    env = AgentEnv(llm=st.llm, project_id=project_id)
     try:
         out = await propose_edit(env, st.registry, venue, body.text)
     except BudgetExceeded as exc:
@@ -378,7 +378,7 @@ async def explain_or_503(
 
     try:
         return await explain(
-            AgentEnv(llm=st.llm, project_id=project_id, on_usage=st.usage.add),
+            AgentEnv(llm=st.llm, project_id=project_id),
             question,
             context,
         )

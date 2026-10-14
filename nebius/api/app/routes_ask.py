@@ -51,7 +51,7 @@ async def ask_anything(
     """Sort the text (model, else keywords), then propose an edit, answer, try a what-if or
     name the screen to open. `result` has the response shape of the route that answered."""
     venue = st.projects.venue(project_id)
-    env = AgentEnv(llm=st.llm, project_id=project_id, on_usage=st.usage.add)
+    env = AgentEnv(llm=st.llm, project_id=project_id)
     route = await route_message(env, venue, body.text, body.context)
     try:
         result = await _answer(st, project_id, venue, route, body)
