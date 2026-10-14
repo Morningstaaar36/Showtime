@@ -322,3 +322,46 @@ export function useVenueFromMap() {
       api.post<VenueDraft>("/venues/from-map", body),
   });
 }
+
+// --- Autopilot (N13): one request to a tested plan ----------------------------------------
+
+import type { AutopilotRun } from "@/types/generated";
+
+export const autopilotKey = (id: string) => ["autopilot", id] as const;
+
+/** An Autopilot run, polled while it works (its event stream is the fast path). */
+export const useAutopilot = (id: string | null | undefined) =>
+  useQuery({
+    queryKey: autopilotKey(id ?? ""),
+    queryFn: () => api.get<AutopilotRun>(`/autopilot/${id}`),
+    enabled: !!id,
+    retry: (n, e) => (e as { status?: number }).status !== 404 && n < 2,
+    refetchInterval: (q) => (q.state.data?.status === "running" || q.state.data?.status === "queued" ? 3000 : false),
+  });
+
+/** A project's latest Autopilot run (null when it never had one). */
+export const useProjectAutopilot = (projectId: string | undefined) =>
+  useQuery({ queryKey: ["project-autopilot", projectId], enabled: !!projectId, retry: false,
+             queryFn: () => api.get<AutopilotRun | null>(`/projects/${projectId}/autopilot`) });
+
+/** Plan an event from one sentence (or test a project): returns the run at once. */
+export function useStartAutopilot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { text?: string; project_id?: string; depth?: AutopilotRun["depth"] }) =>
+      api.post<AutopilotRun>("/autopilot", body),
+    onSuccess: (run) => {
+      qc.setQueryData(autopilotKey(run.id), run);
+      void qc.invalidateQueries({ queryKey: qk.projects });
+    },
+  });
+}
+
+/** Stop gracefully: the plan keeps what was finished. */
+export function useStopAutopilot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<AutopilotRun>(`/autopilot/${id}/stop`),
+    onSuccess: (run) => qc.setQueryData(autopilotKey(run.id), run),
+  });
+}
