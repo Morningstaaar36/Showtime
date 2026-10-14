@@ -1,6 +1,6 @@
 """Simulation tests (section 14.2). They run the real sim image on small crowds.
 
-Run with: make test-sim   (needs Docker and showtime-sim:latest)
+Run with: make test-sim   (needs Docker and showtime-sim:latest, or the image in SIM_IMAGE)
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 RUNS = ROOT / "runs" / "_simtests"
 pytestmark = pytest.mark.slow  # registered in api/pyproject.toml
+IMAGE = os.environ.get("SIM_IMAGE", "showtime-sim:latest")
 
 SETTINGS = {
     "walk_speed_mean": 1.34,
@@ -36,9 +37,7 @@ SETTINGS = {
 def _docker_ok() -> bool:
     if shutil.which("docker") is None:
         return False
-    r = subprocess.run(
-        ["docker", "image", "inspect", "showtime-sim:latest"], capture_output=True, check=False
-    )
+    r = subprocess.run(["docker", "image", "inspect", IMAGE], capture_output=True, check=False)
     return r.returncode == 0
 
 
@@ -105,20 +104,26 @@ def run(
     dt: float = 0.05,
     intervention: float | None = None,
     base: dict[str, Any] | None = None,
+    request: dict[str, Any] | None = None,
+    checkpoint: Path | None = None,
+    max_sim_s: float = 300,
 ) -> tuple[dict[str, Any], Path]:
     work = RUNS / f"t_{uuid.uuid4().hex[:8]}"
     work.mkdir(parents=True)
+    if checkpoint is not None:
+        shutil.copy(checkpoint, work / "checkpoint.json")
     req = {
         "run_id": work.name,
         "venue_id": venue["venue_id"],
         "tier": 3,
         "seed": seed,
         "max_people": 2000,
-        "max_sim_s": 300,
+        "max_sim_s": max_sim_s,
         "max_wall_s": 120,
         "engine": "jupedsim",
         "intervention_at_s": intervention,
         "settings": {**SETTINGS, "dt": dt},
+        **(request or {}),
     }
     (work / "request.json").write_text(json.dumps(req))
     (work / "venue.json").write_text(json.dumps(venue))
@@ -143,7 +148,7 @@ def run(
             f"{ROOT / 'sim'}:/app:ro",
             "-v",
             f"{work}:/work",
-            "showtime-sim:latest",
+            IMAGE,
             "python",
             "/app/run_sim.py",
             "/work",
