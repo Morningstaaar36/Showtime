@@ -5,7 +5,7 @@ import type * as React from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
-import { useCreateProject, useDesignVenue, useProjects, useTemplates } from "@/api/queries";
+import { useCreateProject, useDesignVenue, useProjects, useStartAutopilot, useTemplates } from "@/api/queries";
 import type { Template } from "@/api/types";
 import { VenueThumb } from "@/components/VenueThumb";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ export function HomePage() {
   const projects = useProjects();
   const create = useCreateProject();
   const design = useDesignVenue();
+  const autopilot = useStartAutopilot();
   const navigate = useNavigate();
   const [way, setWay] = useState<Way>(null);
   const [text, setText] = useState("");
@@ -65,6 +66,17 @@ export function HomePage() {
     });
   };
   const busy = design.isPending || (create.isPending && !creating);
+  /** Autopilot: the sentence becomes a venue, a test and a plan; the organizer watches it work. */
+  const planIt = () => {
+    const value = text.trim();
+    if (value.length < 10 || busy || autopilot.isPending) return;
+    autopilot.mutate({ text: value, depth: "quick" }, {
+      onSuccess: (run) => navigate(`/autopilot/${run.id}`),
+      onError: (e) => toast.error(t("autopilot.start_failed"), { description: e.message }),
+    });
+  };
+  const working = busy || autopilot.isPending;
+  const tooShort = text.trim().length < 10;
   const recent = (projects.data ?? []).slice(0, 6);
   const toggle = (w: Way) => setWay((cur) => (cur === w ? null : w));
 
@@ -106,12 +118,12 @@ export function HomePage() {
 
             {way === "describe" && (
               <section aria-labelledby="desc-h" className="animate-deal-in rounded-[var(--radius-panel)] border-2 border-pink/30 bg-surface p-5 shadow-sm">
-                <h3 id="desc-h" className="text-lg font-semibold">{t("home.describe")}</h3>
-                <p className="mt-1 text-sm text-muted">{t("home.describe_lead")}</p>
-                <form className="mt-3 space-y-3" onSubmit={(e) => { e.preventDefault(); fromText(); }}>
-                  <Label htmlFor="venue-text" className="sr-only">{t("home.describe")}</Label>
+                <h3 id="desc-h" className="text-lg font-semibold">{t("autopilot.describe_title")}</h3>
+                <p className="mt-1 text-sm text-muted">{t("autopilot.describe_lead")}</p>
+                <form className="mt-3 space-y-3" onSubmit={(e) => { e.preventDefault(); planIt(); }}>
+                  <Label htmlFor="venue-text" className="sr-only">{t("autopilot.describe_title")}</Label>
                   <textarea id="venue-text" rows={3} value={text} onChange={(e) => setText(e.target.value)} maxLength={500} autoFocus
-                            placeholder={t("home.describe_ph")}
+                            placeholder={t("autopilot.describe_ph")}
                             className="w-full resize-y rounded-[var(--radius-control)] border border-border bg-surface px-3 py-2 text-base outline-none placeholder:text-muted/80 focus:border-signal focus:ring-2 focus:ring-signal/20" />
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm text-muted">{t("home.try")}</span>
@@ -121,8 +133,14 @@ export function HomePage() {
                         {t(`${k}_chip`)}
                       </button>
                     ))}
-                    <Button type="submit" variant="primary" size="lg" className="ml-auto" disabled={text.trim().length < 10 || busy}>
-                      {busy ? <Loader2 className="animate-spin" /> : <Sparkles />}{busy ? t("home.drafting") : t("home.draft")}
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <p className="mr-auto text-sm text-muted">{t("autopilot.plan_it_hint")}</p>
+                    <Button type="button" size="lg" onClick={fromText} disabled={tooShort || working}>
+                      {busy ? <Loader2 className="animate-spin" /> : <PencilLine />}{busy ? t("home.drafting") : t("autopilot.just_draw")}
+                    </Button>
+                    <Button type="submit" variant="primary" size="lg" disabled={tooShort || working}>
+                      {autopilot.isPending ? <Loader2 className="animate-spin" /> : <Wand2 />}{autopilot.isPending ? t("autopilot.starting") : t("autopilot.plan_it")}
                     </Button>
                   </div>
                 </form>
