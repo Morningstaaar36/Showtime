@@ -578,7 +578,8 @@ def plan_headline(summary: dict[str, Any]) -> str:
         return f"{head}: your plan held up."
     head += f"; {_n(breaks, 'broke', 'broke')} the plan."
     if kept:
-        return f"{head} {_n(kept, 'fix', 'fixes')} worked in testing. Accept them on Your plan."
+        them = "it" if kept == 1 else "them"
+        return f"{head} {_n(kept, 'fix', 'fixes')} worked in testing. Accept {them} on Your plan."
     return f"{head} No fix worked well enough yet."
 
 
