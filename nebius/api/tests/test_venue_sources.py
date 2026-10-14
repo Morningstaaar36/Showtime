@@ -139,6 +139,13 @@ def test_building_without_entrances_gets_two_assumed_exits() -> None:
     assert _errors(imp.venue) == []
 
 
+def test_large_park_gets_a_plausible_automatic_headcount() -> None:
+    # a 600 x 500 m park at 1.5 per m2 would be ~450,000 people, beyond the zone limit
+    imp = venue_from_osm([], _ring(0, 0, 600, 500), mode="outdoor", name="Park")
+    assert imp.venue.total_people() == 10_000
+    assert any("Set your real headcount" in n for n in imp.notes)
+
+
 def test_too_large_area_is_refused_with_a_hint() -> None:
     with pytest.raises(ValueError, match="Draw a smaller box"):
         venue_from_osm([], _ring(0, 0, 900, 900), mode="outdoor", name="City", people=10)

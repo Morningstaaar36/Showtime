@@ -23,6 +23,9 @@ from api.models import Exit, Floor, Location, Obstacle, Venue, Zone
 MAX_AREA_M2 = 400_000  # 40 ha, about 630 m × 630 m
 MAX_SIDE_M = 1000
 DEFAULT_DENSITY_PPM2 = {"indoor": 1.0, "outdoor": 1.5}
+# a whole park at the default density can mean hundreds of thousands of people; the automatic
+# guess stays at a plausible event size and the organizer sets the real headcount
+AUTO_PEOPLE_MAX = 10_000
 _PATH_WIDTH_M = {
     "footway": 3,
     "path": 3,
@@ -410,11 +413,18 @@ def venue_from_osm(
         raise ValueError("No open floor space left after buildings and fences. Pick another area.")
     total_area = sum(p.area for p in parts)
     if people is None:
-        people = int(total_area * DEFAULT_DENSITY_PPM2[mode] / 10) * 10
-        notes.append(
-            f"Assumed {people:,} people ({DEFAULT_DENSITY_PPM2[mode]:g} per m² of open "
-            "floor). Change the headcount in the zone inspector."
-        )
+        estimate = int(total_area * DEFAULT_DENSITY_PPM2[mode] / 10) * 10
+        people = min(estimate, AUTO_PEOPLE_MAX)
+        if people < estimate:
+            notes.append(
+                f"Assumed {people:,} people; the open floor could hold about {estimate:,} at "
+                f"{DEFAULT_DENSITY_PPM2[mode]:g} per m². Set your real headcount."
+            )
+        else:
+            notes.append(
+                f"Assumed {people:,} people ({DEFAULT_DENSITY_PPM2[mode]:g} per m² of open "
+                "floor). Change the headcount in the zone inspector."
+            )
     zones: list[Zone] = []
     left = people
     for i, p in enumerate(parts):
