@@ -5,25 +5,44 @@ Switching to Nebius is an `.env` change only; no code changes.
 
 ## 1. Token Factory (Nemotron in the cloud)
 
-```dotenv
-LLM_PROVIDER=nebius
-NEBIUS_API_KEY=...                     # from the Token Factory console
-NEBIUS_BASE_URL=https://api.tokenfactory.nebius.com/v1
-MODEL_FAST=<Nemotron Nano / Lightning id>   # red team, rules, marshals
-MODEL_LONG=<long-context id>                # long incident texts
-MODEL_MAIN=<Nemotron Super id>              # venue edits, blue team, explainer
-MODEL_JUDGE=<Nemotron Ultra id>             # final judgement
-PRICE_<ROLE>_IN / PRICE_<ROLE>_OUT     # USD per 1M tokens, for the cost meter
+Three steps:
+
+```bash
+make use-nebius          # sets the provider, model ids, prices and the reasoning switch in .env
+                         # (keeps your keys; the old file is saved as .env.bak)
+# then put your key in .env:  NEBIUS_API_KEY=...
+make smoke-nebius        # every model role: a plain and a JSON reply, with time, tokens and cost
+make up                  # restart the app (or: make dev-down && make dev)
 ```
 
-Copy the exact model ids from the console or https://tokenfactory.nebius.com/model-catalog.md.
-The adapter (`api/adapters/llm.py`) uses the OpenAI-compatible endpoint, sends JSON schemas via
-`response_format`, validates every reply with Pydantic, makes one repair call on invalid output,
-reads `usage` for tokens and computes cost from the prices above.
+`make use-openrouter` and `make use-local` switch back the same way.
 
-**Reasoning control:** the local model uses `/think` and `/no_think` (Nemotron Nano 9B v2 model
-card). Nemotron 3 models may use a different switch; if replies contain reasoning text, set
-`LLM_REASONING=false` and check the model card. *Status: untested (no key during development).*
+What `make use-nebius` writes (ids and prices from the
+[model catalog](https://tokenfactory.nebius.com/model-catalog.md), checked 2026-10-14):
+
+| Role | Used for | Model id | USD per 1M in / out |
+| --- | --- | --- | --- |
+| fast | red team drafts, routing, classification | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` | 0.06 / 0.24 |
+| long | long incident texts | `nvidia/Nemotron-3_5-Lightning` | 0.06 / 0.24 |
+| main | venue edits, blue team, explainer | `nvidia/nemotron-3-super-120b-a12b` | 0.30 / 0.90 |
+| judge | final judgement | `nvidia/Nemotron-3-Ultra-550b-a55b` | 1.00 / 3.00 |
+
+To keep costs lower, set `MODEL_JUDGE` to the Super id (and its prices) after switching.
+
+**Reasoning:** Nemotron 3 reasons by default (model card: "Reasoning ON (default)"). JSON replies
+need it off, so the preset sets `LLM_EXTRA_BODY={"chat_template_kwargs":{"enable_thinking":false}}`.
+
+**JSON:** the preset asks for JSON in the prompt and validates it with Pydantic, with one repair
+call (`LLM_SUPPORTS_JSON_SCHEMA=false`, the setup proven live on OpenRouter with Nemotron 3 Super).
+With `true` the adapter sends `response_format` JSON schemas.
+
+**Self-healing requests** (`api/adapters/llm.py`): if Token Factory rejects `response_format`
+(models without the "JSON mode" tag) or the extra request fields, the call is retried once without
+them and the model is remembered; a reply whose reasoning used up every token is retried once with
+more room. `make smoke-nebius` prints what it had to leave out.
+
+*Status: base URL verified (the endpoint answers and rejects a wrong key with 401). Live replies
+not yet tested with a key.*
 
 ## 2. Sandboxes (simulations in Nebius)
 
@@ -62,7 +81,7 @@ make smoke-nebius     # health, one Tier 2 run in a sandbox, one agent call; ski
 
 | Item | Status |
 | --- | --- |
-| LLM adapter (OpenAI-compatible) | Works locally with llama.cpp; Token Factory: untested (no key) |
-| Model ids and prices | Must be copied from the console |
+| LLM adapter (OpenAI-compatible) | Live on OpenRouter (Nemotron 3 Super); Token Factory endpoint and auth verified, replies untested (no key) |
+| Model ids and prices | From the public model catalog (2026-10-14); `make use-nebius` |
 | Sandboxes runner | Built against SDK source + fake-client tests; live: untested (no access) |
 | Parallel branches | `SANDBOX_MAX_PARALLEL` semaphore; local default 1 |
