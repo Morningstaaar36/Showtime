@@ -152,7 +152,16 @@
     "offline_banner": "Some services are unavailable. Features that need them are paused.",
     "search_off": "Live search is off. Attack cards use the incident dataset.",
     "llm_down": "The local model isn't running. Text edits and the red team need it: make llm-up",
-    "sandbox_down": "The simulation sandbox isn't ready. Instant estimates still work: make build-sim"
+    "sandbox_down": "The simulation sandbox isn't ready. Instant estimates still work: make build-sim",
+    "view_lights": "Showtime lights",
+    "view_lights_hint": "See the event at night, with stage lighting.",
+    "view_layers": "Layers",
+    "tour_play": "Play the narrated tour",
+    "tour_stop_short": "Stop the tour",
+    "tour_stop": "Stop (Esc)",
+    "tour_mute": "Mute narration",
+    "tour_unmute": "Turn narration on",
+    "reset_view": "Reset view"
   },
   "tools": {
     "select": "Select and move",

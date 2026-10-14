@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { CloudOff, SearchX, ServerCrash, Sparkles } from "lucide-react";
+import { CloudOff, SearchX, ServerCrash } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -16,7 +16,7 @@ import { AskDialog } from "@/panels/AskDialog";
 import { CommandBar } from "@/panels/CommandBar";
 import { PlanInspector } from "@/panels/Inspector";
 import { DensityLegend, PlanCompass, TierChip } from "@/panels/Overlays";
-import { TourButton } from "@/panels/Tour";
+import { useTour } from "@/panels/Tour";
 import { RedTeamPanel, useRedTeamSession } from "@/panels/RedTeamPanel";
 import { ReportView } from "@/panels/ReportView";
 import { SimulatePanel } from "@/panels/SimulatePanel";
@@ -24,6 +24,7 @@ import { Timeline, type TimelineMarker } from "@/panels/Timeline";
 import { ToolRail } from "@/panels/ToolRail";
 import { TopBar } from "@/panels/TopBar";
 import { tierLabel, type Thresholds } from "@/panels/verdict";
+import { ViewMenu } from "@/panels/ViewMenu";
 import { useReplay } from "@/replay/useReplay";
 import { exitRectAt, polygonArea, venueBounds } from "@/scene/geom";
 import type { MarshalNote } from "@/scene/ReplayLayers";
@@ -180,6 +181,14 @@ export function WorkspacePage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [p, mode, projectId, runStress, navigate, undo, redo]);
 
+  const result = run.data?.result ?? null;
+  // the verdict in Plan prefers a confirmed simulation of exactly this version over the formula
+  const confirmed = finished && run.data && run.data.tier === 3 && run.data.venue_version === version
+    && !run.data.attack_id && !run.data.fix_id ? result : null;
+  const shownRun = mode === "simulate" ? (ui.tier1Preview ?? (finished ? result : estimate.data))
+    : mode === "redteam" && finished ? result : confirmed ?? estimate.data;
+  const tour = useTour({ projectId, version: version ?? 0, venue, run: shownRun, autoStart: searchParams.get("tour") === "1" });
+
   if (project.isError) {
     const missing = (project.error as { status?: number }).status === 404;
     return (
@@ -207,10 +216,6 @@ export function WorkspacePage() {
     : null;
   const [bx0, by0, bx1, by1] = venueBounds(venue);
   const span = Math.max(bx1 - bx0, by1 - by0);
-  const result = run.data?.result ?? null;
-  // the verdict in Plan prefers a confirmed simulation of exactly this version over the formula
-  const confirmed = finished && run.data && run.data.tier === 3 && run.data.venue_version === version
-    && !run.data.attack_id && !run.data.fix_id ? result : null;
   const shownHotspots: Hotspot[] = mode === "simulate"
     ? (ui.tier1Preview?.hotspots ?? (finished ? result?.hotspots ?? [] : []))
     : mode === "redteam" && finished ? result?.hotspots ?? [] : [];
@@ -264,8 +269,6 @@ export function WorkspacePage() {
     mode === "redteam" && features.data && !features.data.search_live && { key: "s", tone: "signal" as const, icon: <SearchX />, text: t("workspace.search_off") },
   ].filter(Boolean) as { key: string; tone: "caution" | "danger" | "signal"; icon: React.ReactNode; text: string }[];
 
-  const shownRun = mode === "simulate" ? (ui.tier1Preview ?? (finished ? result : estimate.data))
-    : mode === "redteam" && finished ? result : confirmed ?? estimate.data;
   const tone = shownRun?.tier === 3 ? "confirmed" : shownRun?.tier === 2 ? "partial" : "estimate";
 
   return (
@@ -273,6 +276,7 @@ export function WorkspacePage() {
       <AskDialog open={ask.open} onOpenChange={(v) => setAsk((a) => ({ ...a, open: v }))} projectId={p.id}
                  runId={finished ? runId : null} hotspot={ask.hotspot} />
       <TopBar project={p} mode={mode} countdown={countdown.data} cost={aiCost} />
+      {tour.overlay}
       {banners.map((b) => <Banner key={b.key} tone={b.tone} icon={b.icon}>{b.text}</Banner>)}
       {mode === "report" ? (
         <main id="main" className="min-h-0 flex-1"><ReportView project={p} /></main>
@@ -313,17 +317,9 @@ export function WorkspacePage() {
             />
             </div>
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute left-3 top-3"><ToolRail mode={mode} multiFloor={venue.floors.length > 1} onResetView={() => setResetNonce((n) => n + 1)} /></div>
+              <div className="absolute left-3 top-3"><ToolRail mode={mode} onResetView={() => setResetNonce((n) => n + 1)} /></div>
               {!compareId && (
-                <div className="absolute right-3 top-3 flex gap-2">
-                  <Button size="sm" aria-pressed={ui.layers.night}
-                          className={`pointer-events-auto shadow-sm ${ui.layers.night ? "bg-ink text-surface hover:bg-ink/90" : "bg-surface/95"}`}
-                          onClick={() => ui.toggleLayer("night")}>
-                    <Sparkles />{ui.layers.night ? "Daylight" : "Showtime lights"}
-                  </Button>
-                  <TourButton projectId={p.id} version={p.current_version} venue={venue} run={shownRun}
-                              autoStart={searchParams.get("tour") === "1"} />
-                </div>
+                <div className="absolute right-3 top-3"><ViewMenu multiFloor={venue.floors.length > 1} tour={tour} /></div>
               )}
               {shownRun && !compareId && (
                 <div className="absolute left-1/2 top-3 -translate-x-1/2"><TierChip label={tierLabel(shownRun)} tone={tone} /></div>
