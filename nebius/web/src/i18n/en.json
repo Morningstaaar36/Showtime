@@ -449,6 +449,9 @@
     "test_hint": "Takes a few minutes. The AI tries what could go wrong and simulates fixes."
   },
   "work": {
+    "step_of": "Step {n} of {total}",
+    "all_done": "All done",
+    "leave_ok": "This takes a few minutes. You can leave this page; the test keeps running.",
     "title": "Testing your plan",
     "done_title": "Testing finished",
     "failed_title": "The test didn't finish",

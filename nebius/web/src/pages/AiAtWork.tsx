@@ -66,6 +66,8 @@ export function AiAtWorkPage() {
 
   const steps = workSteps(view.phases, { ended, failed, now });
   const current = steps.find((s) => s.status === "running");
+  const finishedSteps = steps.filter((s) => s.status === "done" || s.status === "skipped").length;
+  const percent = ended ? 100 : Math.round(((finishedSteps + (current ? 0.5 : 0)) / Math.max(steps.length, 1)) * 100);
   const doneNodes = Object.values(view.nodes).filter((n) => n.status !== "running" && n.status !== "pending");
   const runId = doneNodes[doneNodes.length - 1]?.run_id ?? null;
   const run = useRun(runId);
@@ -117,6 +119,16 @@ export function AiAtWorkPage() {
           <div className="flex-1 space-y-4 overflow-y-auto p-4">
             <h1 className="text-xl font-semibold tracking-tight">{ended ? (failed ? t("work.failed_title") : t("work.done_title")) : t("work.title")}</h1>
             {failed && <ErrorState message={session.data?.error || t("work.failed_body")} />}
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="font-medium">{ended ? t("work.all_done") : t("work.step_of", { n: Math.min(finishedSteps + 1, steps.length), total: steps.length })}</span>
+                <span className="text-muted tabular">{percent}%</span>
+              </div>
+              <div className="h-3 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={t("work.progress")}>
+                <div className={cn("h-full rounded-full transition-all duration-700", failed ? "bg-danger" : "bg-[linear-gradient(90deg,var(--sky),var(--signal),var(--pink))]")} style={{ width: `${percent}%` }} />
+              </div>
+              {!ended && <p className="text-sm text-muted">{t("work.leave_ok")}</p>}
+            </div>
             <p className="sr-only" aria-live="polite">{current ? t(`work.step_${current.key}`) : ended ? t("work.done_title") : ""}</p>
             <ol className="space-y-1">
               {steps.map((s) => (
