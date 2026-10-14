@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, CircleAlert, Info, ShieldAlert, ShieldCheck, ShieldQuestion, Trash2, Wind } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, CircleAlert, Info, ShieldAlert, ShieldCheck, ShieldQuestion, Trash2, Wind } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { PanelTitle, Separator, Spinner } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { t } from "@/i18n";
 import { fmtInt, fmtNum, fmtSpeed } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ import { useUi } from "@/state/ui";
 import { tierLabel, type Thresholds, verdictOf } from "./verdict";
 import { EstimatesPanel } from "./EstimatesPanel";
 import { OfficerCard } from "./OfficerCard";
-import { WhatIfLab } from "./WhatIfLab";
+import { PlanScore, WhatIfLab } from "./WhatIfLab";
 import { WindPanel } from "./WindPanel";
 import type { CountdownOut } from "@/api/types";
 
@@ -271,6 +272,28 @@ function RulesSection({ project }: { project: ProjectDetail }) {
   );
 }
 
+/** "Plan for the day": the planning score, then the cited estimates and the what-if lab as two tabs. */
+function PlanForTheDay({ project, runId }: { project: ProjectDetail; runId: string | null }) {
+  const tab = "mb-0 flex-1 rounded-full border-0 py-1.5 data-[state=active]:bg-surface data-[state=active]:text-ink data-[state=active]:shadow-sm";
+  return (
+    <section aria-labelledby="day-h" className="space-y-3 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
+      <div>
+        <h2 id="day-h" className="flex items-center gap-2 text-base font-bold"><CalendarDays className="size-4 text-orange" aria-hidden />{t("workspace.day_title")}</h2>
+        <p className="text-xs text-muted">{t("workspace.day_lead")}</p>
+      </div>
+      <PlanScore project={project} runId={runId} />
+      <Tabs defaultValue="estimates">
+        <TabsList className="w-full gap-0.5 rounded-full border-0 bg-surface-2 p-1">
+          <TabsTrigger value="estimates" className={tab}>{t("workspace.day_estimates")}</TabsTrigger>
+          <TabsTrigger value="whatif" className={tab}>{t("workspace.day_whatif")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="estimates" className="pt-3"><EstimatesPanel project={project} /></TabsContent>
+        <TabsContent value="whatif" className="pt-3"><WhatIfLab project={project} /></TabsContent>
+      </Tabs>
+    </section>
+  );
+}
+
 /** Right-hand panel in Plan mode. */
 export function PlanInspector({ project, estimate, th, countdown }: { project: ProjectDetail; estimate: RunResult | null | undefined; th: Thresholds; countdown?: CountdownOut }) {
   const selection = useUi((s) => s.selection);
@@ -279,11 +302,10 @@ export function PlanInspector({ project, estimate, th, countdown }: { project: P
   return (
     <div className="space-y-5">
       <VerdictCard run={estimate} th={th} venue={venue} />
-      {!selection && <WhatIfLab project={project} runId={estimate?.tier === 3 ? estimate.run_id : null} />}
+      {!selection && <PlanForTheDay project={project} runId={estimate?.tier === 3 ? estimate.run_id : null} />}
       {selection && selection.kind !== "hotspot" && !stageSelected && <><SelectionEditor project={project} /><Separator /></>}
       {venue.stage && (stageSelected || !selection) && <><StagePanel project={project} /><Separator /></>}
       {!selection && <><OfficerCard projectId={project.id} /><Separator /></>}
-      {!selection && <><EstimatesPanel project={project} /><Separator /></>}
       {venue.mode === "outdoor" && !selection && countdown && (
         <><WindPanel data={countdown} eventStart={venue.location?.event_start} /><Separator /></>
       )}

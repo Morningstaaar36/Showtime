@@ -162,7 +162,13 @@
     "tour_mute": "Mute narration",
     "tour_unmute": "Turn narration on",
     "reset_view": "Reset view",
-    "modes": "Expert view modes"
+    "modes": "Expert view modes",
+    "day_title": "Plan for the day",
+    "day_lead": "Capacity, staff, toilets and budget from cited planning ratios, and instant what-if tests.",
+    "day_estimates": "Estimates",
+    "day_whatif": "What if…",
+    "whatif_lead": "Change the crowd, the walking speed or close exits. Results update instantly; nothing is saved.",
+    "estimates_unavailable": "Estimates are unavailable for this plan."
   },
   "tools": {
     "select": "Select and move",
