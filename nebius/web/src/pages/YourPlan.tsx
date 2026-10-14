@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton, Spinner } from "@/components/ui/misc";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
+import { ScriptCode } from "@/journey/ScriptCode";
 import { AskAnything } from "@/journey/AskAnything";
 import type { ProposalPreview } from "@/journey/AskChange";
 import { JourneyShell } from "@/journey/JourneyShell";
@@ -269,6 +270,7 @@ export function YourPlanPage() {
                             <ExternalLink className="size-3" />{t("work.inspired_by", { what: `${a.inspired_by.incident}${a.inspired_by.year ? ` (${a.inspired_by.year})` : ""}` })}
                           </a>
                         )}
+                        <ScriptCode attack={a} />
                       </li>
                     );
                   })}

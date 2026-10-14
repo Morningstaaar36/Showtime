@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
+import { ScriptCode } from "@/journey/ScriptCode";
 import { autopilotProgress, autopilotView, isEnded, opensPlan, planHref, retryBody, stepElapsed } from "@/journey/autopilotSteps";
 import { JourneyShell } from "@/journey/JourneyShell";
 import { runOutcome } from "@/lib/evidence";
@@ -123,11 +124,11 @@ export function AutopilotRunPage() {
     ...session.attacks.map(({ attack }) => {
       const node = session.nodes[`atk:${attack.attack_id}`];
       const r = node ? session.runs[node.run_id] : undefined;
-      return { id: attack.attack_id, kind: "attack" as const, title: human(attack.title), status: r ? runOutcome(r) : node?.status === "running" ? "running" : "waiting", source: attack.inspired_by };
+      return { id: attack.attack_id, kind: "attack" as const, title: human(attack.title), status: r ? runOutcome(r) : node?.status === "running" ? "running" : "waiting", source: attack.inspired_by, attack };
     }),
     ...session.fixes.map(({ fix }) => {
       const node = session.nodes[`fix:${fix.fix_id}`];
-      return { id: fix.fix_id, kind: "fix" as const, title: human(fix.title), status: node?.accepted === true ? "kept" : node?.accepted === false ? "not_kept" : "testing", source: null };
+      return { id: fix.fix_id, kind: "fix" as const, title: human(fix.title), status: node?.accepted === true ? "kept" : node?.accepted === false ? "not_kept" : "testing", source: null, attack: null };
     }),
   ];
   const visible = showAll ? cards : cards.slice(-4);
@@ -283,6 +284,7 @@ export function AutopilotRunPage() {
                         <ExternalLink className="size-3" />{t("work.inspired_by", { what: `${c.source.incident}${c.source.year ? ` (${c.source.year})` : ""}` })}
                       </a>
                     )}
+                    <ScriptCode attack={c.attack} />
                   </li>
                 ))}
               </ul>

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
+import { ScriptCode } from "@/journey/ScriptCode";
 import { runOutcome } from "@/lib/evidence";
 import { JourneyShell } from "@/journey/JourneyShell";
 import { workSteps } from "@/journey/workSteps";
@@ -101,11 +102,11 @@ export function AiAtWorkPage() {
     ...view.attacks.map(({ attack }) => {
       const node = view.nodes[`atk:${attack.attack_id}`];
       const r = node ? view.runs[node.run_id] : undefined;
-      return { id: attack.attack_id, kind: "attack" as const, title: human(attack.title), status: r ? runOutcome(r) : node?.status === "running" ? "running" : "waiting", source: attack.inspired_by };
+      return { id: attack.attack_id, kind: "attack" as const, title: human(attack.title), status: r ? runOutcome(r) : node?.status === "running" ? "running" : "waiting", source: attack.inspired_by, attack };
     }),
     ...view.fixes.map(({ fix }) => {
       const node = view.nodes[`fix:${fix.fix_id}`];
-      return { id: fix.fix_id, kind: "fix" as const, title: human(fix.title), status: node?.accepted === true ? "kept" : node?.accepted === false ? "not_kept" : "testing", source: null };
+      return { id: fix.fix_id, kind: "fix" as const, title: human(fix.title), status: node?.accepted === true ? "kept" : node?.accepted === false ? "not_kept" : "testing", source: null, attack: null };
     }),
   ];
   const visible = showAll ? cards : cards.slice(-4);
@@ -200,6 +201,7 @@ export function AiAtWorkPage() {
                         <ExternalLink className="size-3" />{t("work.inspired_by", { what: `${c.source.incident}${c.source.year ? ` (${c.source.year})` : ""}` })}
                       </a>
                     )}
+                    <ScriptCode attack={c.attack} />
                   </li>
                 ))}
               </ul>

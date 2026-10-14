@@ -16,6 +16,7 @@ export function describeEvent(e: Dict, label: (id: string) => string): string {
     case "staggered_release": return `Hold ${id("zone_id")} for ${Math.round(Number(e.delay_s))} s`;
     case "marshal_redirect": return `Marshals send ${Math.round(Number(e.fraction ?? 0.5) * 100)}% ${e.from_exit_id ? `from ${id("from_exit_id")} ` : ""}to ${id("to_exit_id")}${at}`;
     case "one_way": return `One-way flow at ${id("exit_id")}`;
+    case "script": return `Scenario written as code${e.title ? `: ${String(e.title)}` : ""}`;
     default: return String(e.type);
   }
 }
