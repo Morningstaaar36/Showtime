@@ -15,7 +15,7 @@ from api.app.routes_core import get_state
 from api.app.routes_projects import _after_edit
 from api.app.state import AppState
 from api.core.venue_ops import PatchError
-from api.models import RunResult, Venue
+from api.models import RunResult, ScenarioEventIn, Venue
 from api.orchestrator.session import FixConflict, FixSelectionError, StalePlan
 
 router = APIRouter(prefix="/api/v1")
@@ -487,3 +487,64 @@ async def ask_venue(body: AskIn, st: AppState = Depends(get_state)) -> dict[str,
         "numbers_checked": checked,
         "context": context,
     }
+
+
+# --- Rewind the worst moment (SANDBOX_SCOPE idea 3) --------------------------------------------
+
+
+class RewindResponseIn(BaseModel):
+    """One response to try from the rewind moment: a label and its scenario events."""
+
+    label: str = Field(min_length=1, max_length=120)
+    events: list[ScenarioEventIn] = Field(min_length=1, max_length=8)
+
+
+class RewindIn(BaseModel):
+    """`at_s` defaults to the moment of peak danger; `responses` to the kept changes' staff
+    measures plus a few quick actions."""
+
+    at_s: float | None = Field(default=None, gt=0, le=3600)
+    responses: list[RewindResponseIn] | None = Field(default=None, max_length=6)
+
+
+@router.post("/sessions/{session_id}/rewind", status_code=202)
+async def rewind_session(
+    session_id: str, body: RewindIn | None = None, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """Rewind the worst attack to one second and try every response from there in parallel.
+
+    Returns the rewind record at once (`id`, `status`); poll `GET /rewind/{id}`.
+    """
+    from api.orchestrator.rewind import RewindError, start_rewind
+
+    body = body or RewindIn()
+    try:
+        return start_rewind(
+            st,
+            session_id,
+            body.at_s,
+            [r.model_dump() for r in body.responses] if body.responses else None,
+        )
+    except LookupError as exc:
+        raise ApiException(404, "not_found", str(exc)) from exc
+    except RewindError as exc:
+        raise ApiException(409, "cannot_rewind", str(exc)) from exc
+
+
+@router.get("/rewind/{rewind_id}")
+def get_rewind(rewind_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """A rewind's status, its moment, the checkpoint run and every branch against "do nothing"."""
+    from api.orchestrator.rewind import get_rewind as load
+
+    rec = load(st, rewind_id)
+    if rec is None:
+        raise ApiException(404, "not_found", f"Rewind {rewind_id} does not exist.")
+    return rec
+
+
+@router.get("/sessions/{session_id}/rewind")
+def latest_session_rewind(session_id: str, st: AppState = Depends(get_state)) -> Any:
+    """The session's latest rewind, or null."""
+    from api.orchestrator.rewind import latest_rewind
+
+    return latest_rewind(st, session_id)
