@@ -4,11 +4,19 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 
 SCHEMA_VERSION = 1
 
 RunStatus = Literal["queued", "running", "ok", "partial", "timeout", "failed", "cancelled"]
+
+ResultBasis = Literal[
+    "instant_estimate", "partial_simulation", "completed_simulation", "preview", "unknown"
+]
+"""What kind of evidence a result is. Only `completed_simulation` satisfies a full-simulation
+gate; `preview` comes from the mock sandbox and `unknown` from a run that did not finish."""
+
+INCOMPLETE_STATUSES = frozenset({"queued", "running", "failed", "timeout", "cancelled"})
 
 
 class RunRequest(BaseModel):
@@ -103,3 +111,38 @@ class RunResult(BaseModel):
     notes: list[str] = Field(default_factory=list)
     error: str | None = None
     extensions: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_derived(cls, data: Any) -> Any:
+        """`basis` is derived from the other fields; stored copies may still carry it."""
+        if isinstance(data, dict) and "basis" in data:
+            return {k: v for k, v in data.items() if k != "basis"}
+        return data
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def basis(self) -> ResultBasis:
+        """Evidence basis, always derived (see `result_basis`), so it can never go stale."""
+        return result_basis(self)
+
+
+def result_basis(r: RunResult) -> ResultBasis:
+    """The one definition of what kind of evidence a run result is.
+
+    A run that did not finish is `unknown`; a formula result is an `instant_estimate`; the
+    mock sandbox gives a `preview`; a simulation that stopped before everyone was out (time
+    cap, people trapped) is a `partial_simulation`; only a simulation that ended normally is
+    a `completed_simulation`.
+    """
+    if r.status in INCOMPLETE_STATUSES:
+        return "unknown"
+    if r.tier == 1:
+        return "instant_estimate"
+    if r.provider == "fake" or r.engine == "fake":
+        return "preview"
+    if not r.engine:
+        return "unknown"
+    if r.status == "partial":
+        return "partial_simulation"
+    return "completed_simulation"
