@@ -6,9 +6,12 @@ and is validated against the model registered for it by a plugin.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+
+if TYPE_CHECKING:
+    from api.models.plan import ObjectConstraint, PlanAction
 
 SCHEMA_VERSION = 1
 
@@ -70,6 +73,10 @@ class Fix(BaseModel):
     title: str
     patch: VenuePatch = Field(default_factory=VenuePatch)
     operational: list[ScenarioEventIn] = Field(default_factory=list, max_length=8)
+    actions: list[PlanAction] = Field(default_factory=list, max_length=100)
+    replace_actions: list[PlanAction] = Field(default_factory=list, max_length=100)
+    remove_action_ids: list[str] = Field(default_factory=list, max_length=100)
+    new_objects: dict[str, ObjectConstraint] = Field(default_factory=dict)
     rationale: str = ""
     cost_label: Literal["low", "medium", "high"] = "medium"
     extensions: dict[str, Any] = Field(default_factory=dict)

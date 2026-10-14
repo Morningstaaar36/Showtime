@@ -12,6 +12,7 @@ from api.agents.base import AgentCall, AgentDef, AgentEnv, call_agent
 from api.agents.context import explain_patch, ids_line, op_union, ops_doc, venue_summary
 from api.core.extensions import Registry
 from api.core.extensions import geometry as geo
+from api.core.plan import PlanError
 from api.core.venue_ops import PatchError, apply_patch
 from api.models import Venue, VenuePatch
 
@@ -97,7 +98,7 @@ async def propose_edit(env: AgentEnv, registry: Registry, venue: Venue, text: st
             return []
         try:
             res = apply_patch(venue, _to_patch(out), registry)
-        except PatchError as exc:
+        except (PatchError, PlanError) as exc:
             return exc.problems
         return out_of_bounds(venue, res.venue)
 

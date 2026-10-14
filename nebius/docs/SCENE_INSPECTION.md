@@ -2,8 +2,9 @@
 
 Implemented on 11 October 2026. The user reported all 29 scene acceptance tests passing,
 and the synthetic room's live scene endpoints were checked. The sample and unit fixture
-were subsequently corrected for the existing placement-density limit; an automated
-rerun, existing regression tests, and the live simulation consistency check remain pending.
+were subsequently corrected for the existing placement-density limit. The corrected
+scene suite and existing regressions passed during P2-02 verification on native M1
+Python 3.12. The live simulation consistency check remains pending.
 
 ## Purpose
 

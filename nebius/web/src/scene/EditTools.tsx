@@ -3,7 +3,9 @@ import { Html, Line, TransformControls } from "@react-three/drei";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { Pt, Venue } from "@/api/types";
+import { lockedIds } from "@/lib/annotations";
 import { fmtNum } from "@/lib/format";
+import type { ObjectChange } from "@/lib/venueDiff";
 import { useUi } from "@/state/ui";
 import { bbox, centroid, exitRectAt, floorY } from "./geom";
 import type { ScenePalette } from "./palette";
@@ -28,6 +30,8 @@ export function MoveGizmo({ venue, exploded, palette, onMove }: { venue: Venue; 
   const [dragging, setDragging] = useState(false);
   const info = selection ? objectPolygon(venue, selection.id) : null;
   if (!selection || !info || selection.kind === "hotspot" || selection.kind === "stair") return null;
+  // a locked object has no handle: the organizer unlocks it first
+  if (lockedIds(venue).has(selection.id)) return null;
   const [cx, cy] = centroid(info.poly);
   const [x0, y0, x1, y1] = bbox(info.poly);
   const y = floorY(venue, info.floorId, exploded);
@@ -110,4 +114,23 @@ export function DraftPreview({ venue, exploded, palette, cursor }: {
     );
   }
   return null;
+}
+
+/** Outlines of what a proposal adds, changes or removes, drawn just above the floor. */
+export function ChangeHighlights({ venue, changes, exploded, palette }: {
+  venue: Venue; changes: ObjectChange[]; exploded: boolean; palette: ScenePalette;
+}) {
+  return (
+    <group>
+      {changes.map((c) => {
+        const y = floorY(venue, c.floorId, exploded) + 0.08;
+        const pts = [...c.polygon, c.polygon[0]].map(([x, z]) => new THREE.Vector3(x, y, -z));
+        const color = c.kind === "removed" ? palette.edge : palette.signal;
+        return (
+          <Line key={`${c.kind}:${c.id}`} points={pts} color={color} lineWidth={c.kind === "added" ? 4 : 3}
+                dashed={c.kind !== "added"} dashSize={0.5} gapSize={0.3} />
+        );
+      })}
+    </group>
+  );
 }

@@ -134,6 +134,14 @@ See [the M1 test setup guide](docs/M1_TEST_SETUP.md) for configuration and troub
 point clearances, and bounded geometric routes without AI or simulation calls.
 See [the interface and prepared test procedure](docs/SCENE_INSPECTION.md).
 
+### Organizer plan API (P2-02)
+
+Save organizer constraints and timed operational actions alongside the venue through
+`GET/PUT /api/v1/projects/{id}/plan`. Preview and apply complete bundles with version
+checks, locks, approvals, dependency checks, and staff/equipment allocation validation.
+Runs use saved actions and expose evidence applicability against the current plan.
+See [the backend contract](docs/PLAN_CONSTRAINTS.md) and [M1 tests](docs/P2_02_TESTING.md).
+
 ## Quickstart (Linux, NVIDIA GPU, Docker)
 
 ```bash

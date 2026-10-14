@@ -7,7 +7,7 @@ API := cd api &&
 
 .PHONY: help setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
         types check lint typecheck test test-sim test-web e2e smoke smoke-nebius demo-precompute \
-        clean mem plugins new-plugin calibrate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke
+        clean mem plugins new-plugin calibrate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[1m%-20s\033[0m %s\n", $$1, $$2}'
@@ -73,6 +73,14 @@ m1-test-logs: ## Follow M1 test API and web logs
 
 m1-test-smoke: ## Verify M1 test UI, API, and real simulation without AI calls
 	@python3 scripts/m1_test.py smoke
+
+m1-test-p2-02: ## Verify plan constraints and all fast API regressions in the M1 test image
+	@mkdir -p cache/uv-tests
+	@docker run --rm --platform linux/arm64 -w /app/api \
+	  -v "$(CURDIR)/api:/app/api:ro" -v "$(CURDIR)/cache/uv-tests:/root/.cache/uv" \
+	  -v "$(CURDIR)/plugins:/app/plugins:ro" \
+	  showtime-api:latest uv run --frozen pytest -q -m "not slow" --tb=short \
+	  --basetemp=/tmp/showtime-p2-02-tests
 
 types: ## Regenerate TypeScript types from the Pydantic contracts
 	@$(ENV) $(API) uv run python ../scripts/export_schemas.py ../web/src/types/contracts.schema.json

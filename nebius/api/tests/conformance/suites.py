@@ -32,12 +32,17 @@ def check_patch_op(registry: Registry, venue: Venue, params: dict[str, Any]) -> 
     assert API_VERSION == "1"
     before_hash = venue_hash(venue)
     snapshot = venue.model_dump_json()
-    result = apply_patch(venue, VenuePatch.model_validate({"ops": [params]}), registry)
+    organizer = getattr(registry.patch_op(params["op"]), "user_only", False)
+    result = apply_patch(
+        venue, VenuePatch.model_validate({"ops": [params]}), registry, organizer_edit=organizer
+    )
     assert venue.model_dump_json() == snapshot, "op mutated its input venue"
     # the hash covers what a simulation sees; metadata ops (event details) change extensions
     changed = venue_hash(result.venue) != before_hash or result.venue.extensions != venue.extensions
     assert changed, "op had no effect"
-    undone = apply_patch(result.venue, result.inverse, registry, allow_new_errors=True)
+    undone = apply_patch(
+        result.venue, result.inverse, registry, allow_new_errors=True, organizer_edit=True
+    )
     assert venue_hash(undone.venue) == before_hash, "inverse did not restore the venue"
     assert undone.venue.extensions == venue.extensions, "inverse did not restore extensions"
     return result.venue

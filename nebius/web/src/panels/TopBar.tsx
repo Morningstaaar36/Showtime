@@ -56,7 +56,7 @@ export function TopBar({ project, mode, countdown, cost }: {
 
       <nav aria-label="Workspace mode" className="mx-auto flex items-center rounded-[8px] bg-surface-2 p-0.5">
         {MODES.map((m) => (
-          <button key={m.id} type="button" onClick={() => navigate(`/p/${project.id}/${m.id}`)}
+          <button key={m.id} type="button" onClick={() => navigate(`/p/${project.id}/expert/${m.id}`)}
                   aria-current={mode === m.id ? "page" : undefined}
                   className={cn("rounded-[6px] px-3.5 py-1 text-sm font-medium transition",
                     mode === m.id ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink")}>
@@ -65,6 +65,9 @@ export function TopBar({ project, mode, countdown, cost }: {
         ))}
       </nav>
 
+      <Link to={`/p/${project.id}`} className="hidden items-center rounded-[var(--radius-control)] px-2 py-1 text-sm text-muted hover:bg-surface-2 hover:text-ink md:inline-flex">
+        {t("journey.simple_view")}
+      </Link>
       <CountdownChip data={countdown} />
       {cost && (
         <Tip content={`${cost.tokens.toLocaleString()} tokens used by AI agents in this project's red-team sessions`}>

@@ -43,7 +43,7 @@ def _settings(tmp_path: Path, **kw: Any) -> Settings:
         "llm_cache_mode": "off",
         "cache_dir": tmp_path,
     }
-    return Settings(**(base | kw))
+    return Settings(_env_file=None, **(base | kw))
 
 
 def test_openai_provider_uses_cloud_models_and_label(tmp_path: Path) -> None:

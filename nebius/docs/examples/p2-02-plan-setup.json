@@ -1,0 +1,13 @@
+{
+  "expected_version": 1,
+  "plan": {
+    "constraints": {
+      "objects": {"E1": {"placement": "fixed", "origin": "existing"}},
+      "resources": {
+        "stewards": {"kind": "staff", "count": 2, "available_until_s": 3600},
+        "radios": {"kind": "equipment", "count": 1, "available_until_s": 3600}
+      }
+    },
+    "actions": []
+  }
+}

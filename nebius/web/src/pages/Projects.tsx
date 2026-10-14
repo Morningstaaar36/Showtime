@@ -197,7 +197,7 @@ function NewProjectDialog({ state, onClose, templates }: { state: Template | nul
       : { name: name || draft?.venue?.name || "", venue: draft!.venue!,
           description: tab === "map" ? "Imported from OpenStreetMap" : "Designed from a description" };
     create.mutate(body, {
-      onSuccess: (p) => { toast.success(t("projects.created")); close(); navigate(`/p/${p.id}`); },
+      onSuccess: (p) => { toast.success(t("projects.created")); close(); navigate(`/p/${p.id}/describe`); },
       onError: (e) => toast.error(e.message),
     });
   };

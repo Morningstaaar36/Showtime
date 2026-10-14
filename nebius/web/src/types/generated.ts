@@ -134,6 +134,36 @@ export type Operational =
       ScenarioEventIn,
       ScenarioEventIn
     ];
+export type ActionId = string;
+export type Label3 = string;
+export type StartS = number;
+export type EndS = number;
+export type TargetIds = string[];
+export type DependsOn = string[];
+export type RequiredApprovals = string[];
+export type ResourceId = string;
+export type Quantity = number;
+export type Resources = ResourceAllocation[];
+export type EstimatedCost = number | null;
+export type Source = "user" | "agent" | "rules" | "imported";
+/**
+ * @maxItems 100
+ */
+export type Actions = PlanAction[];
+/**
+ * @maxItems 100
+ */
+export type ReplaceActions = PlanAction[];
+/**
+ * @maxItems 100
+ */
+export type RemoveActionIds = string[];
+export type Locked = boolean;
+export type Placement = "fixed" | "movable";
+export type Origin = "existing" | "proposed";
+export type Access = "allowed" | "restricted" | "unavailable";
+export type RequiredApprovals1 = string[];
+export type EstimatedCost1 = number | null;
 export type Rationale1 = string;
 export type CostLabel = "low" | "medium" | "high";
 export type SchemaVersion4 = number;
@@ -231,16 +261,16 @@ export type Provider1 = string;
 export type Code = string;
 export type Message = string;
 export type Hint = string | null;
-export type Source = string;
+export type Source1 = string;
 export type THazardS1 = number | null;
 export type THazardIso1 = string | null;
 export type Explanation = string;
-export type Label3 = string;
+export type Label4 = string;
 export type Code1 = string;
 export type Severity = "error" | "warning" | "info";
 export type Message1 = string;
 export type Hint1 = string;
-export type TargetIds = string[];
+export type TargetIds1 = string[];
 export type FloorId2 = string | null;
 export type X1 = number | null;
 export type Y1 = number | null;
@@ -250,7 +280,7 @@ export type VLimitMs = number;
 export type Governing = string;
 export type WindDirection = string;
 export type Assumptions = string[];
-export type Label4 = string;
+export type Label5 = string;
 export type Formula1 = string;
 export type RuleId = string;
 export type Status2 = "pass" | "fail" | "unknown";
@@ -299,6 +329,167 @@ export type DensityWarnPpm2 = number;
 export type ProviderLabel = string;
 export type TokensTotal = number;
 export type CostUsd1 = number;
+export type Scoreboard = {
+  [k: string]: unknown;
+}[];
+export type Recommendations = string[];
+export type WorstAttackId = string | null;
+export type SchemaVersion6 = 1;
+export type ProjectId = string | null;
+export type VenueId2 = string;
+export type VenueVersion1 = number | null;
+export type VenueSchemaVersion = number;
+export type VenueHash2 = string;
+export type SceneHash = string;
+export type Coordinates = "m";
+export type Elevation = "m";
+export type Area = "m2";
+export type Distance = "m";
+export type Time = "s";
+export type CoordinateSystem = "local_cartesian";
+export type Id4 = string;
+export type Kind1 = "floor" | "obstacle" | "exit" | "zone" | "stair";
+export type FloorId3 = string | null;
+export type Basis = "unknown" | "assumed" | "imported" | "organizer_confirmed" | "measured";
+export type Source2 = string | null;
+export type RecordedAt = string | null;
+export type Notes1 = string | null;
+export type Objects = SceneObject[];
+export type SchemaVersion7 = 1;
+export type SchemaVersion8 = 1;
+export type Basis1 = "computed_geometry";
+export type FloorId4 = string;
+export type ElevationM1 = number;
+export type WalkableAreaM2 = number;
+export type ObstacleAreaWithinFloorM2 = number;
+export type UsableAreaM2 = number;
+export type ComponentIds = string[];
+export type Floors1 = FloorFacts[];
+export type ComponentId = string;
+export type FloorId5 = string;
+export type AreaM2 = number;
+export type Exterior = [number, number][];
+export type Holes = [number, number][][];
+/**
+ * @minItems 2
+ * @maxItems 2
+ */
+export type RepresentativePoint = [number, number];
+export type DirectExitIds = string[];
+export type ReachableExitIds = string[];
+export type DownstreamComponentIds = string[];
+export type Components = ComponentFacts[];
+export type ExitId1 = string;
+export type FloorId6 = string;
+export type Blocked1 = boolean;
+export type AvailableInGeometry = boolean;
+export type DeclaredWidthM = number;
+export type UsableAreaM21 = number;
+export type UsableAreaFraction = number;
+export type ComponentIds1 = string[];
+export type NearestObstacleDistanceM = number | null;
+export type Exits1 = ExitFacts[];
+export type StairId = string;
+export type FromFloor1 = string;
+export type ToFloor1 = string;
+export type FromComponentIds = string[];
+export type ToComponentIds = string[];
+export type Connected = boolean;
+export type DeclaredWidthM1 = number;
+export type DeclaredLengthM = number;
+export type Direction = "from_floor_to_to_floor";
+export type Stairs1 = StairFacts[];
+export type ZoneId = string;
+export type FloorId7 = string;
+export type People2 = number;
+export type UsableAreaM22 = number;
+export type ExcludedAreaM2 = number;
+export type ReachableAreaM2 = number;
+export type UnreachableAreaM2 = number;
+export type Placement1 = "fully_placed" | "partially_placed" | "unplaced";
+export type Reachability = "reachable" | "partially_reachable" | "unreachable" | "unplaced";
+export type ReachableExitIds1 = string[];
+export type ComponentId1 = string;
+export type UsableAreaM23 = number;
+export type FractionOfUsableZoneArea = number;
+/**
+ * @minItems 2
+ * @maxItems 2
+ */
+export type RepresentativePoint1 = [number, number];
+export type PointClearanceM = number;
+export type ReachableExitIds2 = string[];
+export type Status3 = "computed" | "unreachable" | "not_computed";
+export type ExitId2 = string | null;
+export type DistanceM = number | null;
+export type WaypointCount = number;
+export type Reason = string | null;
+export type Basis2 = "polygon_visibility_graph";
+export type Parts = ZonePartFacts[];
+export type Zones1 = ZoneFacts[];
+export type Code2 = string;
+export type Severity1 = "error" | "warning" | "info";
+export type Message3 = string;
+export type TargetIds2 = string[];
+export type FloorId8 = string | null;
+export type Issues = SpatialIssue[];
+export type RoutesComputed = boolean;
+export type RouteBudgetReason = string | null;
+export type Limitations = string[];
+export type SchemaVersion9 = 1;
+export type ProjectId1 = string;
+export type Version = number;
+export type PlanHash = string;
+export type Configured = boolean;
+export type SchemaVersion10 = 1;
+export type EnforceConstraints = boolean;
+export type BudgetLimit = number | null;
+export type Currency = string;
+export type AllowConstruction = boolean;
+export type AllowedOps = string[] | null;
+export type RequireStaffForMeasures = boolean;
+export type Status4 = "pending" | "approved" | "rejected";
+export type Source3 = string;
+export type RecordedBy = string;
+export type Kind2 = "staff" | "equipment";
+export type Count = number;
+export type AvailableFromS = number;
+export type AvailableUntilS = number;
+/**
+ * @maxItems 100
+ */
+export type Actions1 = PlanAction[];
+export type ExpectedVersion = number;
+/**
+ * @maxItems 100
+ */
+export type Actions2 = PlanAction[];
+/**
+ * @maxItems 100
+ */
+export type ReplaceActions1 = PlanAction[];
+/**
+ * @maxItems 100
+ */
+export type RemoveActionIds1 = string[];
+export type Message4 = string;
+export type Source4 = "user" | "agent" | "rules";
+export type ExpectedVersion1 = number;
+export type Message5 = string;
+export type Valid = boolean;
+export type Code3 = string;
+export type Message6 = string;
+export type TargetIds3 = string[];
+export type Issues1 = PlanIssue[];
+export type ProjectId2 = string;
+export type Version1 = number;
+export type PlanHash1 = string;
+export type RunId2 = string;
+export type RunStatus = string;
+export type PlanHash2 = string | null;
+export type Applicability = "current" | "stale" | "unknown";
+export type Reason1 = string;
+export type Runs = EvidenceReference[];
 
 export interface ShowtimeContracts {
   Venue: Venue;
@@ -320,6 +511,13 @@ export interface ShowtimeContracts {
   RuleFinding: RuleFinding;
   IncidentRecord: IncidentRecord;
   ReportBundle: ReportBundle;
+  SceneSnapshot: SceneSnapshot;
+  SceneFacts: SceneFacts;
+  PlanSnapshot: PlanSnapshot;
+  PlanBundle: PlanBundle;
+  PlanUpdate: PlanUpdate;
+  BundlePreview: BundlePreview;
+  PlanEvidence: PlanEvidence;
   [k: string]: unknown;
 }
 /**
@@ -517,9 +715,53 @@ export interface Fix {
   title: Title1;
   patch: VenuePatch;
   operational: Operational;
+  actions: Actions;
+  replace_actions: ReplaceActions;
+  remove_action_ids: RemoveActionIds;
+  new_objects: NewObjects;
   rationale: Rationale1;
   cost_label: CostLabel;
   extensions: Extensions2;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PlanAction".
+ */
+export interface PlanAction {
+  action_id: ActionId;
+  label: Label3;
+  event: ScenarioEventIn | null;
+  start_s: StartS;
+  end_s: EndS;
+  target_ids: TargetIds;
+  depends_on: DependsOn;
+  required_approvals: RequiredApprovals;
+  resources: Resources;
+  estimated_cost: EstimatedCost;
+  source: Source;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "ResourceAllocation".
+ */
+export interface ResourceAllocation {
+  resource_id: ResourceId;
+  quantity: Quantity;
+}
+export interface NewObjects {
+  [k: string]: ObjectConstraint;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "ObjectConstraint".
+ */
+export interface ObjectConstraint {
+  locked: Locked;
+  placement: Placement;
+  origin: Origin;
+  access: Access;
+  required_approvals: RequiredApprovals1;
+  estimated_cost: EstimatedCost1;
 }
 export interface Extensions2 {
   [k: string]: unknown;
@@ -723,12 +965,12 @@ export interface Details {
  * via the `definition` "HazardResult".
  */
 export interface HazardResult {
-  source: Source;
+  source: Source1;
   t_hazard_s: THazardS1;
   t_hazard_iso: THazardIso1;
   explanation: Explanation;
   details: Details1;
-  label: Label3;
+  label: Label4;
   [k: string]: unknown;
 }
 export interface Details1 {
@@ -745,7 +987,7 @@ export interface Check {
   severity: Severity;
   message: Message1;
   hint: Hint1;
-  target_ids: TargetIds;
+  target_ids: TargetIds1;
   floor_id: FloorId2;
   x: X1;
   y: Y1;
@@ -774,7 +1016,7 @@ export interface StageCheckResult {
   limits_ms: LimitsMs;
   wind_direction: WindDirection;
   assumptions: Assumptions;
-  label: Label4;
+  label: Label5;
   formula: Formula1;
   [k: string]: unknown;
 }
@@ -856,6 +1098,15 @@ export interface ReportBundle {
   provider_label: ProviderLabel;
   tokens_total: TokensTotal;
   cost_usd: CostUsd1;
+  scoreboard: Scoreboard;
+  recommendations: Recommendations;
+  worst_attack_id: WorstAttackId;
+  before: Before;
+  after: After;
+  fixed_venue: Venue | null;
+  stair_assignment: StairAssignment;
+  calibration: Calibration;
+  extras: Extras;
   [k: string]: unknown;
 }
 export interface Results {
@@ -865,4 +1116,366 @@ export interface ExitAssignment {
   [k: string]: {
     [k: string]: number;
   };
+}
+export interface Before {
+  [k: string]: unknown;
+}
+export interface After {
+  [k: string]: unknown;
+}
+export interface StairAssignment {
+  [k: string]: {
+    [k: string]: number;
+  };
+}
+export interface Calibration {
+  [k: string]: unknown;
+}
+export interface Extras {
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "SceneSnapshot".
+ */
+export interface SceneSnapshot {
+  schema_version: SchemaVersion6;
+  identity: SceneIdentity;
+  units: SceneUnits;
+  venue: Venue;
+  objects: Objects;
+  metadata: SceneMetadata;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "SceneIdentity".
+ */
+export interface SceneIdentity {
+  project_id: ProjectId;
+  venue_id: VenueId2;
+  venue_version: VenueVersion1;
+  venue_schema_version: VenueSchemaVersion;
+  venue_hash: VenueHash2;
+  scene_hash: SceneHash;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "SceneUnits".
+ */
+export interface SceneUnits {
+  coordinates: Coordinates;
+  elevation: Elevation;
+  area: Area;
+  distance: Distance;
+  time: Time;
+  coordinate_system: CoordinateSystem;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "SceneObject".
+ */
+export interface SceneObject {
+  id: Id4;
+  kind: Kind1;
+  floor_id: FloorId3;
+  provenance: InputProvenance;
+  fields: Fields;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "InputProvenance".
+ */
+export interface InputProvenance {
+  basis: Basis;
+  source: Source2;
+  recorded_at: RecordedAt;
+  notes: Notes1;
+}
+export interface Fields {
+  [k: string]: InputProvenance;
+}
+/**
+ * Optional venue.extensions.scene_metadata; missing provenance stays unknown.
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "SceneMetadata".
+ */
+export interface SceneMetadata {
+  schema_version: SchemaVersion7;
+  objects: Objects1;
+  fields: Fields1;
+}
+export interface Objects1 {
+  [k: string]: InputProvenance;
+}
+export interface Fields1 {
+  [k: string]: {
+    [k: string]: InputProvenance;
+  };
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "SceneFacts".
+ */
+export interface SceneFacts {
+  schema_version: SchemaVersion8;
+  identity: SceneIdentity;
+  units: SceneUnits;
+  basis: Basis1;
+  floors: Floors1;
+  components: Components;
+  exits: Exits1;
+  stairs: Stairs1;
+  zones: Zones1;
+  issues: Issues;
+  routes_computed: RoutesComputed;
+  route_budget_reason: RouteBudgetReason;
+  limitations: Limitations;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "FloorFacts".
+ */
+export interface FloorFacts {
+  floor_id: FloorId4;
+  elevation_m: ElevationM1;
+  walkable_area_m2: WalkableAreaM2;
+  obstacle_area_within_floor_m2: ObstacleAreaWithinFloorM2;
+  usable_area_m2: UsableAreaM2;
+  component_ids: ComponentIds;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "ComponentFacts".
+ */
+export interface ComponentFacts {
+  component_id: ComponentId;
+  floor_id: FloorId5;
+  area_m2: AreaM2;
+  geometry: PolygonSurface;
+  representative_point: RepresentativePoint;
+  direct_exit_ids: DirectExitIds;
+  reachable_exit_ids: ReachableExitIds;
+  downstream_component_ids: DownstreamComponentIds;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PolygonSurface".
+ */
+export interface PolygonSurface {
+  exterior: Exterior;
+  holes: Holes;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "ExitFacts".
+ */
+export interface ExitFacts {
+  exit_id: ExitId1;
+  floor_id: FloorId6;
+  blocked: Blocked1;
+  available_in_geometry: AvailableInGeometry;
+  declared_width_m: DeclaredWidthM;
+  usable_area_m2: UsableAreaM21;
+  usable_area_fraction: UsableAreaFraction;
+  component_ids: ComponentIds1;
+  nearest_obstacle_distance_m: NearestObstacleDistanceM;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "StairFacts".
+ */
+export interface StairFacts {
+  stair_id: StairId;
+  from_floor: FromFloor1;
+  to_floor: ToFloor1;
+  from_component_ids: FromComponentIds;
+  to_component_ids: ToComponentIds;
+  connected: Connected;
+  declared_width_m: DeclaredWidthM1;
+  declared_length_m: DeclaredLengthM;
+  direction: Direction;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "ZoneFacts".
+ */
+export interface ZoneFacts {
+  zone_id: ZoneId;
+  floor_id: FloorId7;
+  people: People2;
+  usable_area_m2: UsableAreaM22;
+  excluded_area_m2: ExcludedAreaM2;
+  reachable_area_m2: ReachableAreaM2;
+  unreachable_area_m2: UnreachableAreaM2;
+  placement: Placement1;
+  reachability: Reachability;
+  reachable_exit_ids: ReachableExitIds1;
+  parts: Parts;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "ZonePartFacts".
+ */
+export interface ZonePartFacts {
+  component_id: ComponentId1;
+  usable_area_m2: UsableAreaM23;
+  fraction_of_usable_zone_area: FractionOfUsableZoneArea;
+  representative_point: RepresentativePoint1;
+  point_clearance_m: PointClearanceM;
+  reachable_exit_ids: ReachableExitIds2;
+  route: RouteFacts;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "RouteFacts".
+ */
+export interface RouteFacts {
+  status: Status3;
+  exit_id: ExitId2;
+  distance_m: DistanceM;
+  waypoint_count: WaypointCount;
+  reason: Reason;
+  basis: Basis2;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "SpatialIssue".
+ */
+export interface SpatialIssue {
+  code: Code2;
+  severity: Severity1;
+  message: Message3;
+  target_ids: TargetIds2;
+  floor_id: FloorId8;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PlanSnapshot".
+ */
+export interface PlanSnapshot {
+  schema_version: SchemaVersion9;
+  project_id: ProjectId1;
+  version: Version;
+  plan_hash: PlanHash;
+  configured: Configured;
+  venue: Venue;
+  plan: PlanData;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PlanData".
+ */
+export interface PlanData {
+  schema_version: SchemaVersion10;
+  enforce_constraints: EnforceConstraints;
+  constraints: PlanConstraints;
+  actions: Actions1;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PlanConstraints".
+ */
+export interface PlanConstraints {
+  budget_limit: BudgetLimit;
+  currency: Currency;
+  allow_construction: AllowConstruction;
+  allowed_ops: AllowedOps;
+  require_staff_for_measures: RequireStaffForMeasures;
+  objects: Objects2;
+  approvals: Approvals;
+  resources: Resources1;
+}
+export interface Objects2 {
+  [k: string]: ObjectConstraint;
+}
+export interface Approvals {
+  [k: string]: Approval;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "Approval".
+ */
+export interface Approval {
+  status: Status4;
+  source: Source3;
+  recorded_by: RecordedBy;
+}
+export interface Resources1 {
+  [k: string]: ResourcePool;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "ResourcePool".
+ */
+export interface ResourcePool {
+  kind: Kind2;
+  count: Count;
+  available_from_s: AvailableFromS;
+  available_until_s: AvailableUntilS;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PlanBundle".
+ */
+export interface PlanBundle {
+  expected_version: ExpectedVersion;
+  patch: VenuePatch;
+  actions: Actions2;
+  replace_actions: ReplaceActions1;
+  remove_action_ids: RemoveActionIds1;
+  new_objects: NewObjects1;
+  message: Message4;
+  source: Source4;
+}
+export interface NewObjects1 {
+  [k: string]: ObjectConstraint;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PlanUpdate".
+ */
+export interface PlanUpdate {
+  expected_version: ExpectedVersion1;
+  plan: PlanData;
+  message: Message5;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "BundlePreview".
+ */
+export interface BundlePreview {
+  valid: Valid;
+  issues: Issues1;
+  candidate: PlanSnapshot | null;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PlanIssue".
+ */
+export interface PlanIssue {
+  code: Code3;
+  message: Message6;
+  target_ids: TargetIds3;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PlanEvidence".
+ */
+export interface PlanEvidence {
+  project_id: ProjectId2;
+  version: Version1;
+  plan_hash: PlanHash1;
+  runs: Runs;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "EvidenceReference".
+ */
+export interface EvidenceReference {
+  run_id: RunId2;
+  run_status: RunStatus;
+  plan_hash: PlanHash2;
+  applicability: Applicability;
+  reason: Reason1;
 }

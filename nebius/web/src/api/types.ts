@@ -3,10 +3,14 @@ import type {
   Attack,
   Check,
   Countdown,
+  EvidenceReference,
   Fix,
   HazardResult,
+  InputProvenance,
   PatchOpIn,
   RunResult,
+  SceneObject,
+  SceneSnapshot,
   SessionEvent,
   StageCheckResult,
   StageParams,
@@ -20,8 +24,11 @@ export type {
   Countdown,
   Fix,
   HazardResult,
+  InputProvenance,
   PatchOpIn,
   RunResult,
+  SceneObject,
+  SceneSnapshot,
   SessionEvent,
   StageCheckResult,
   StageParams,
@@ -39,6 +46,16 @@ export type Pt = [number, number];
 /** Patch as sent by the UI (server fills schema_version). */
 export interface PatchInput {
   ops: PatchOpIn[];
+}
+
+/** POST /projects/{id}/patch/preview: the venue a patch would produce, nothing saved. */
+export interface PatchPreview {
+  ok: boolean;
+  base_version: number;
+  problems: string[];
+  venue: Venue | null;
+  validation?: Validation;
+  warnings?: Check[];
 }
 
 export interface ProjectSummary {
@@ -86,6 +103,7 @@ export interface VersionOut {
   author: string;
   created_at: string;
   venue_hash: string;
+  plan_hash?: string;
   base_version: number | null;
   patch: VenuePatch | null;
   venue?: Venue;
@@ -128,6 +146,7 @@ export interface RunOut {
   created_at: string;
   finished_at: string | null;
   tier1?: RunResult | null;
+  evidence?: EvidenceReference;
 }
 
 export interface Template {

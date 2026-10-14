@@ -147,7 +147,7 @@ export function WorkspacePage() {
     start.mutate({ project_id: p.id, tier: 3, label: "Stress test" }, {
       onSuccess: (r) => {
         useUi.getState().setActiveRun(r.id);
-        if (mode === "plan") navigate(`/p/${p.id}/simulate`);
+        if (mode === "plan") navigate(`/p/${p.id}/expert/simulate`);
         if (r.status === "ok" || r.status === "partial") {
           // same plan and seed as an earlier run: runs are content-addressed, so the result is reused
           toast.success(t("workspace.stress_test_finished"), { description: "This exact plan was simulated before; showing that result." });
@@ -173,7 +173,7 @@ export function WorkspacePage() {
       const k = e.key.toLowerCase();
       if (k === "escape") { useUi.getState().setTool("select"); useUi.getState().select(null); }
       else if (k === "r") runStress();
-      else if (["1", "2", "3", "4"].includes(k)) navigate(`/p/${projectId}/${MODES[Number(k) - 1]}`);
+      else if (["1", "2", "3", "4"].includes(k)) navigate(`/p/${projectId}/expert/${MODES[Number(k) - 1]}`);
       else if (tools[k] && (mode === "plan" || ["select", "block", "measure"].includes(tools[k]))) useUi.getState().setTool(tools[k]);
     };
     window.addEventListener("keydown", onKey);

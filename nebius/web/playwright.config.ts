@@ -11,7 +11,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.BASE ?? "http://127.0.0.1:5173",
     viewport: { width: 1600, height: 900 },
-    launchOptions: { args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"] },
+    launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"] },
     trace: "retain-on-failure",
   },
 });

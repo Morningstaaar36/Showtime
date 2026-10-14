@@ -3,8 +3,8 @@
 This guide explains how to test the current implementation. The user reported all 29
 scene unit/API cases passing, and the synthetic room's live scene endpoints were checked.
 The sample and unit fixture were subsequently corrected for the existing placement-density
-limit. Rerunning the scene suite, running the existing regression suite, and checking live
-simulation source consistency remain pending.
+limit. The corrected scene suite and existing regressions passed during P2-02 verification
+on native M1 Python 3.12. The live simulation source-consistency check remains pending.
 
 Use a checkout containing the P2-01 scene inspection feature and the matching sample below.
 

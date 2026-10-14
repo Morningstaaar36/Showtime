@@ -152,7 +152,7 @@ export function CopilotBox() {
           <div className="flex justify-end gap-2 pt-2">
             {running && <Button onClick={() => { abort.current?.abort(); setOpen(false); }}>Cancel</Button>}
             {projectId && (
-              <Button variant="primary" onClick={() => { setOpen(false); navigate(`/p/${projectId}?tour=1`); }}>
+              <Button variant="primary" onClick={() => { setOpen(false); navigate(`/p/${projectId}/expert?tour=1`); }}>
                 Open the plan
               </Button>
             )}

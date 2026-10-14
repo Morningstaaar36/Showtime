@@ -10,11 +10,25 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import update
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session, col, select
 
 from api.core import trajpack
 from api.core.extensions import Registry
 from api.core.geometry import validate_venue
+from api.core.plan import (
+    PLAN_KEY,
+    PlanConflict,
+    PlanError,
+    apply_plan_bundle,
+    fail,
+    plan_data,
+    plan_hash,
+    transition_issues,
+    validate_plan,
+    with_plan,
+)
 from api.core.templates import get_template
 from api.core.venue_ops import PatchError, PatchResult, apply_patch, venue_hash
 from api.db.models import (
@@ -28,6 +42,7 @@ from api.db.models import (
 from api.db.queries import project_runs
 from api.db.session import db_session
 from api.models import Venue, VenuePatch
+from api.models.plan import BundlePreview, PlanBundle, PlanSnapshot, PlanUpdate
 
 EXPORT_FORMAT = "showtime-project-v1"
 ARTIFACT_FILES = (
@@ -130,6 +145,7 @@ class ProjectService:
             if template_id is None:
                 raise ValueError("Give a template or a venue.")
             venue = get_template(template_id)
+        validate_plan(venue, self.registry)
         pid = project_id or new_id("p")
         venue = venue.model_copy(update={"venue_id": pid}, deep=True)
         now = _now()
@@ -231,7 +247,25 @@ class ProjectService:
         message: str,
         author: str,
         base_version: int | None,
+        expected_version: int | None = None,
     ) -> VenueVersion:
+        if expected_version is not None:
+            try:
+                claimed = s.connection().execute(
+                    update(Project)
+                    .where(
+                        col(Project.id) == p.id, col(Project.current_version) == expected_version
+                    )
+                    .values(current_version=expected_version)
+                )
+            except OperationalError as exc:
+                if "database is locked" not in str(exc).lower():
+                    raise
+                raise PlanConflict(
+                    "Another save is in progress. Reload the project and retry."
+                ) from exc
+            if claimed.rowcount != 1:
+                raise PlanConflict("The project changed. Reload its current version and retry.")
         latest = s.exec(
             select(VenueVersion)
             .where(VenueVersion.project_id == p.id)
@@ -272,10 +306,20 @@ class ProjectService:
         message: str = "",
         author: str = "user",
         allow_new_errors: bool = False,
+        expected_version: int | None = None,
     ) -> tuple[VenueVersion, PatchResult]:
         """Apply a patch to the current venue and save a new version (clears redo)."""
-        venue = self.venue(project_id)
-        result = apply_patch(venue, patch, self.registry, allow_new_errors=allow_new_errors)
+        base = self.version(project_id)
+        if expected_version is not None and base.version != expected_version:
+            raise PlanConflict("The proposal is for an older version. Reload and preview again.")
+        venue = Venue.model_validate(base.venue)
+        result = apply_patch(
+            venue,
+            patch,
+            self.registry,
+            allow_new_errors=allow_new_errors,
+            organizer_edit=author == "user",
+        )
         with db_session(self.db_url) as s:
             p = s.get(Project, project_id)
             assert p is not None
@@ -287,7 +331,8 @@ class ProjectService:
                 result.inverse,
                 message or _describe(patch),
                 author,
-                base_version=p.current_version,
+                base_version=base.version,
+                expected_version=base.version,
             )
             p.redo_stack = []
             s.add(
@@ -385,19 +430,148 @@ class ProjectService:
             return row
 
     def replace_venue(
-        self, project_id: str, venue: Venue, message: str, author: str = "system"
+        self,
+        project_id: str,
+        venue: Venue,
+        message: str,
+        author: str = "system",
+        expected_version: int | None = None,
     ) -> VenueVersion:
         """Save a whole venue (e.g. the red team's fixed plan) as a new version."""
         venue = venue.model_copy(update={"venue_id": project_id}, deep=True)
+        base = self.version(project_id)
+        before = Venue.model_validate(base.venue)
+        problems = transition_issues(before, venue)
+        if problems:
+            raise PlanError(problems)
+        validate_plan(venue, self.registry)
         with db_session(self.db_url) as s:
             p = s.get(Project, project_id)
             if p is None:
                 raise NotFound(project_id)
             row = self._save_version(
-                s, p, venue, None, None, message, author, base_version=p.current_version
+                s,
+                p,
+                venue,
+                None,
+                None,
+                message,
+                author,
+                base_version=base.version,
+                expected_version=expected_version if expected_version is not None else base.version,
             )
             p.redo_stack = []
             s.add(p)
+            s.commit()
+            s.refresh(row)
+            return row
+
+    def plan(self, project_id: str, version: int | None = None) -> PlanSnapshot:
+        row = self.version(project_id, version)
+        venue = Venue.model_validate(row.venue)
+        data = validate_plan(venue, self.registry)
+        return PlanSnapshot(
+            project_id=project_id,
+            version=row.version,
+            plan_hash=plan_hash(venue),
+            configured=PLAN_KEY in venue.extensions,
+            venue=venue,
+            plan=data,
+        )
+
+    def update_plan(self, project_id: str, body: PlanUpdate) -> VenueVersion:
+        """Explicit organizer command: replace policy/actions, preserve scene geometry."""
+        if not body.plan.enforce_constraints:
+            raise PlanError(
+                [
+                    fail(
+                        "constraints_required",
+                        "Organizer configuration must enforce constraints. "
+                        "Legacy actions must be assigned resources before migration.",
+                    )
+                ]
+            )
+        base = self.version(project_id)
+        if base.version != body.expected_version:
+            raise PlanConflict("The project changed. Reload its current version and retry.")
+        candidate = with_plan(Venue.model_validate(base.venue), body.plan)
+        validate_plan(candidate, self.registry)
+        return self._save_plan(project_id, candidate, base.version, body.message, "user")
+
+    def _bundle_candidate(self, project_id: str, body: PlanBundle) -> Venue:
+        base = self.version(project_id)
+        if base.version != body.expected_version:
+            raise PlanConflict("The project changed. Reload its current version and retry.")
+        venue = Venue.model_validate(base.venue)
+        if PLAN_KEY not in venue.extensions:
+            raise PlanError(
+                [
+                    fail(
+                        "plan_not_configured",
+                        "Configure the organizer plan before submitting bundles.",
+                    )
+                ]
+            )
+        return apply_plan_bundle(venue, body, self.registry)
+
+    def preview_bundle(self, project_id: str, body: PlanBundle) -> BundlePreview:
+        try:
+            candidate = self._bundle_candidate(project_id, body)
+        except PlanError as exc:
+            return BundlePreview(valid=False, issues=exc.issues)
+        except PatchError as exc:
+            return BundlePreview(
+                valid=False, issues=[fail("invalid_edit", p) for p in exc.problems]
+            )
+        return BundlePreview(
+            valid=True,
+            candidate=PlanSnapshot(
+                project_id=project_id,
+                version=body.expected_version,
+                plan_hash=plan_hash(candidate),
+                configured=True,
+                venue=candidate,
+                plan=plan_data(candidate),
+            ),
+        )
+
+    def apply_bundle(self, project_id: str, body: PlanBundle) -> VenueVersion:
+        candidate = self._bundle_candidate(project_id, body)
+        return self._save_plan(
+            project_id, candidate, body.expected_version, body.message, body.source
+        )
+
+    def _save_plan(
+        self, project_id: str, venue: Venue, expected: int, message: str, author: str
+    ) -> VenueVersion:
+        with db_session(self.db_url) as s:
+            p = s.get(Project, project_id)
+            if p is None:
+                raise NotFound(project_id)
+            row = self._save_version(
+                s,
+                p,
+                venue,
+                None,
+                None,
+                message,
+                author,
+                base_version=expected,
+                expected_version=expected,
+            )
+            p.redo_stack = []
+            s.add(
+                AuditEntry(
+                    project_id=project_id,
+                    kind="plan_edit",
+                    agent=author,
+                    payload={
+                        "version": row.version,
+                        "plan_hash": plan_hash(venue),
+                        "message": message,
+                    },
+                )
+            )
             s.commit()
             s.refresh(row)
             return row
@@ -517,6 +691,7 @@ class ProjectService:
             s.flush()
             for v in versions:
                 venue = Venue.model_validate(v["venue"]).model_copy(update={"venue_id": pid})
+                validate_plan(venue, self.registry)
                 s.add(
                     VenueVersion(
                         project_id=pid,

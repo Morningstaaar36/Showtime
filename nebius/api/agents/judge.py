@@ -57,8 +57,18 @@ def _bad_numbers(texts: list[str], facts: Any) -> list[str]:
     return bad
 
 
-async def judge(env: AgentEnv, facts: dict[str, Any], fallback: str) -> tuple[str, list[str], bool]:
-    """(summary, recommendations, checked). Falls back to a template when numbers don't match."""
+async def judge(
+    env: AgentEnv,
+    facts: dict[str, Any],
+    fallback: str,
+    *,
+    computed_summary: bool = False,
+) -> tuple[str, list[str], bool]:
+    """Number-check suggestions; session outcome claims use the computed summary.
+
+    Number membership does not validate a causal claim or prove that a fix was accepted.
+    Session callers therefore keep their deterministic summary even on valid model output.
+    """
     values = {"facts": json.dumps(facts, default=str)[:7000]}
 
     def validate(out: JudgeOut) -> list[str]:
@@ -72,12 +82,22 @@ async def judge(env: AgentEnv, facts: dict[str, Any], fallback: str) -> tuple[st
         env,
         JUDGE_AGENT,
         values,
-        "Write the final assessment.",
+        (
+            "Suggest follow-up actions. The system computes the outcome summary. "
+            "Do not describe fixes as accepted unless they are listed under fixes kept."
+            if computed_summary
+            else "Write the final assessment."
+        ),
         validate=validate,
-        summarize=lambda o: o.summary[:200],
+        summarize=lambda o: (
+            f"{len(o.recommendations)} suggestions; outcome summary computed from recorded results"
+            if computed_summary
+            else o.summary[:200]
+        ),
     )
     if call.output is not None and call.ok:
-        return call.output.summary, list(call.output.recommendations), True
+        text = fallback if computed_summary else call.output.summary
+        return text, list(call.output.recommendations), True
     audit_decision(
         env, "judge", "template summary used", {"problems": call.problems[:5], "error": call.error}
     )

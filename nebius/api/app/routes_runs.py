@@ -13,6 +13,7 @@ from api.app.routes_core import get_state
 from api.app.routes_projects import _check_events
 from api.app.state import AppState
 from api.core.geometry import validate_venue
+from api.core.plan import evidence_reference, plan_hash
 from api.core.venue_ops import PatchError
 from api.db.models import Run
 from api.models import Attack, Fix, ScenarioEventIn
@@ -21,9 +22,9 @@ from api.orchestrator import sweep
 router = APIRouter(prefix="/api/v1")
 
 
-def run_out(row: Run) -> dict[str, Any]:
+def run_out(row: Run, current_plan_hash: str | None = None) -> dict[str, Any]:
     """Run payload for the UI."""
-    return {
+    out = {
         "id": row.id,
         "project_id": row.project_id,
         "session_id": row.session_id,
@@ -41,6 +42,15 @@ def run_out(row: Run) -> dict[str, Any]:
         "created_at": row.created_at.isoformat(),
         "finished_at": row.finished_at.isoformat() if row.finished_at else None,
     }
+    if current_plan_hash is not None:
+        out["evidence"] = evidence_reference(
+            row.id,
+            row.status,
+            row.request.get("extensions", {}).get("plan_hash"),
+            current_plan_hash,
+            bool(row.fix_id),
+        ).model_dump(mode="json")
+    return out
 
 
 class RunIn(BaseModel):
@@ -104,7 +114,9 @@ async def start_run(body: RunIn, st: AppState = Depends(get_state)) -> dict[str,
     rid = st.runs.submit(job, project_id=body.project_id, venue_version=version, label=label)
     row = st.runs.get(rid)
     assert row is not None
-    return run_out(row) | {"tier1": job.tier1.model_dump(mode="json") if job.tier1 else None}
+    return run_out(row, plan_hash(st.projects.venue(body.project_id))) | {
+        "tier1": job.tier1.model_dump(mode="json") if job.tier1 else None
+    }
 
 
 @router.get("/runs/{run_id}")
@@ -113,15 +125,17 @@ def get_run(run_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
     row = st.runs.get(run_id)
     if row is None:
         raise ApiException(404, "not_found", f"Run {run_id} does not exist.")
-    return run_out(row)
+    digest = plan_hash(st.projects.venue(row.project_id)) if row.project_id else None
+    return run_out(row, digest)
 
 
 @router.get("/projects/{project_id}/runs")
 def list_runs(project_id: str, st: AppState = Depends(get_state)) -> list[dict[str, Any]]:
     """Recent runs of a project (without heavy fields)."""
     out = []
+    digest = plan_hash(st.projects.venue(project_id))
     for r in st.runs.list(project_id):
-        d = run_out(r)
+        d = run_out(r, digest)
         d.pop("request", None)
         out.append(d)
     return out

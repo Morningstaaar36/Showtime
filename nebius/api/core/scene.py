@@ -255,10 +255,10 @@ def _route_graph(
     if checks > MAX_VISIBILITY_CHECKS:
         return None, "visibility_check_budget_exceeded"
     graph = nx.DiGraph()
-    for cid, vertices in points.items():
+    for cid, route_vertices in points.items():
         polygon = components[cid].polygon
-        graph.add_nodes_from((cid, x, y) for x, y in vertices)
-        for a, b in itertools.combinations(vertices, 2):
+        graph.add_nodes_from((cid, x, y) for x, y in route_vertices)
+        for a, b in itertools.combinations(route_vertices, 2):
             if polygon.covers(LineString([a, b])):
                 na, nb = (cid, *a), (cid, *b)
                 distance = math.dist(a, b)
@@ -283,10 +283,10 @@ def inspect_scene(
     floors: list[FloorFacts] = []
     for floor in venue.floors:
         free = geo.free_space(floor)
-        parts = sorted(_polygons(free), key=lambda p: (*p.bounds, p.area, p.normalize().wkb))
+        free_parts = sorted(_polygons(free), key=lambda p: (*p.bounds, p.area, p.normalize().wkb))
         local = [
             _Component(f"{floor.floor_id}:component:{i}", floor.floor_id, p, [], [])
-            for i, p in enumerate(parts)
+            for i, p in enumerate(free_parts)
         ]
         by_floor[floor.floor_id] = local
         components.update((component.id, component) for component in local)
@@ -465,36 +465,37 @@ def inspect_scene(
         for check in validate_venue(venue).checks
         if check.code != "zone_no_exit"
     ]
-    for zone in zones:
-        if zone.people and zone.placement != "fully_placed":
+    for zone_fact in zones:
+        if zone_fact.people and zone_fact.placement != "fully_placed":
             issues.append(
                 SpatialIssue(
                     code="zone_demand_not_fully_placed",
                     severity="warning",
-                    floor_id=zone.floor_id,
-                    target_ids=[zone.zone_id],
-                    message=f"Demand in '{zone.zone_id}' is not fully placed in usable geometry; "
+                    floor_id=zone_fact.floor_id,
+                    target_ids=[zone_fact.zone_id],
+                    message=f"Demand in '{zone_fact.zone_id}' is not fully placed; "
                     "reachability applies only to the modeled usable area.",
                 )
             )
-        if zone.people and zone.reachability == "unreachable":
+        if zone_fact.people and zone_fact.reachability == "unreachable":
             issues.append(
                 SpatialIssue(
                     code="zone_no_exit",
                     severity="error",
-                    floor_id=zone.floor_id,
-                    target_ids=[zone.zone_id],
-                    message=f"Occupied zone '{zone.zone_id}' cannot reach an open exit.",
+                    floor_id=zone_fact.floor_id,
+                    target_ids=[zone_fact.zone_id],
+                    message=f"Occupied zone '{zone_fact.zone_id}' cannot reach an open exit.",
                 )
             )
-        if zone.people and zone.reachability == "partially_reachable":
+        if zone_fact.people and zone_fact.reachability == "partially_reachable":
             issues.append(
                 SpatialIssue(
                     code="zone_partially_unreachable",
                     severity="error",
-                    floor_id=zone.floor_id,
-                    target_ids=[zone.zone_id],
-                    message=f"Part of occupied zone '{zone.zone_id}' cannot reach an open exit.",
+                    floor_id=zone_fact.floor_id,
+                    target_ids=[zone_fact.zone_id],
+                    message=f"Part of occupied zone '{zone_fact.zone_id}' "
+                    "cannot reach an open exit.",
                 )
             )
     return SceneFacts(
