@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     llm_supports_json_schema: bool = True
     llm_timeout_s: float = 120.0
     llm_reasoning: bool = False
+    # a `fast`-role answer that stays invalid after its repair round is retried once on `main`
+    llm_escalate: bool = True
 
     # --- Nebius Token Factory ---
     nebius_api_key: str = ""

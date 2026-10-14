@@ -38,9 +38,10 @@ class LLMError(Exception):
 class LLMOutputError(LLMError):
     """Output failed validation even after one repair attempt."""
 
-    def __init__(self, message: str, raw: str) -> None:
+    def __init__(self, message: str, raw: str, usage: Usage | None = None) -> None:
         super().__init__(message)
         self.raw = raw
+        self.usage = usage  # tokens spent on the invalid answers (still billed)
 
 
 class LLMReplayMiss(LLMError):
@@ -285,15 +286,17 @@ class LLMClient:
             role, model, repair, schema, agent, prompt_version, 0.0, max_tokens, budget
         )
         fixed.repaired = True
+        fixed.usage.prompt_tokens += reply.usage.prompt_tokens
+        fixed.usage.completion_tokens += reply.usage.completion_tokens
+        fixed.usage.cost_usd += reply.usage.cost_usd
         try:
             fixed.parsed = self._parse(fixed.text, schema)
         except (ValueError, ValidationError) as exc:
             raise LLMOutputError(
-                f"{agent}: output invalid after repair: {_short_error(exc)}", fixed.text
+                f"{agent}: output invalid after repair: {_short_error(exc)}",
+                fixed.text,
+                fixed.usage,
             ) from exc
-        fixed.usage.prompt_tokens += reply.usage.prompt_tokens
-        fixed.usage.completion_tokens += reply.usage.completion_tokens
-        fixed.usage.cost_usd += reply.usage.cost_usd
         return fixed
 
     def _with_directive(
@@ -674,7 +677,7 @@ class FakeLLM:
             try:
                 parsed = schema.model_validate_json(extract_json(text))
             except (ValueError, ValidationError) as exc:
-                raise LLMOutputError(f"{agent}: {exc}", text) from exc
+                raise LLMOutputError(f"{agent}: {exc}", text, usage) from exc
         return LLMReply(text=text, parsed=parsed, usage=usage)
 
 

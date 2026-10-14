@@ -85,6 +85,8 @@ class AgentEnv:
     db_url: str | None = None
     audit: bool = True
     on_usage: Callable[[Usage], None] | None = None
+    # None: follow the LLM settings (LLM_ESCALATE, on by default)
+    escalate: bool | None = None
 
 
 @dataclass
@@ -99,6 +101,7 @@ class AgentCall(Generic[T]):
     ms: float = 0.0
     error: str | None = None
     model: str = ""
+    escalated: bool = False  # retried on the `main` model after the `fast` one stayed invalid
 
 
 def _merge(a: Usage | None, b: Usage | None) -> Usage | None:
@@ -127,15 +130,51 @@ async def call_agent(
     summarize: Callable[[T], str] | None = None,
     reasoning: bool = False,
 ) -> AgentCall[T]:
-    """Run one agent: call, validate ids, one repair round, audit, emit `agent_call`."""
+    """Run one agent: call, validate ids, one repair round, audit, emit `agent_call`.
+
+    A `fast`-role call that is still invalid after its repair round is retried once on the
+    `main` model (model escalation, `LLM_ESCALATE`).
+    """
     model_cls: type[T] = output_model or spec.output_model  # type: ignore[assignment]
     messages = [
         {"role": "system", "content": spec.system_prompt(values)},
         {"role": "user", "content": user},
     ]
     t0 = time.perf_counter()
+    try:
+        result = await _attempt(env, spec, messages, model_cls, validate, reasoning)
+    except (BudgetExceeded, LLMReplayMiss):
+        raise
+    except LLMError as exc:
+        _finish(
+            env,
+            spec,
+            AgentCall(output=None, ok=False, error=str(exc)),
+            t0,
+            "unreachable",
+            summarize,
+        )
+        raise AgentUnavailable(str(exc)) from exc
+    if not result.ok and spec.role == "fast" and _escalation_on(env):
+        result = await _escalate(env, spec, messages, model_cls, validate, reasoning, result)
+    result.model = result.usage.model if result.usage else ""
+    _finish(env, spec, result, t0, None, summarize)
+    return result
+
+
+async def _attempt(
+    env: AgentEnv,
+    spec: AgentDef,
+    messages: list[dict[str, str]],
+    model_cls: type[T],
+    validate: Callable[[T], list[str]] | None,
+    reasoning: bool,
+) -> AgentCall[T]:
+    """One call on the agent's own role, plus one repair round for domain problems.
+
+    Output that stays invalid comes back as a failed AgentCall; an unreachable model raises.
+    """
     usage: Usage | None = None
-    repaired = False
     try:
         reply = await env.llm.chat(
             spec.role,
@@ -178,26 +217,64 @@ async def call_agent(
             if out2 is not None and len(problems2) <= len(problems):
                 out, problems = out2, problems2
                 repaired = True
-        result: AgentCall[T] = AgentCall(
+        return AgentCall(
             output=out, ok=not problems, usage=usage, problems=problems, repaired=repaired
         )
     except LLMOutputError as exc:
-        result = AgentCall(output=None, ok=False, usage=usage, error=str(exc), repaired=True)
+        usage = _merge(usage, exc.usage)
+        return AgentCall(output=None, ok=False, usage=usage, error=str(exc), repaired=True)
+
+
+def _escalation_on(env: AgentEnv) -> bool:
+    if env.escalate is not None:
+        return env.escalate
+    return bool(getattr(getattr(env.llm, "settings", None), "llm_escalate", True))
+
+
+async def _escalate(
+    env: AgentEnv,
+    spec: AgentDef,
+    messages: list[dict[str, str]],
+    model_cls: type[T],
+    validate: Callable[[T], list[str]] | None,
+    reasoning: bool,
+    first: AgentCall[T],
+) -> AgentCall[T]:
+    """Retry an invalid `fast` answer once on `main`; keep the better of the two."""
+    log.info("agent %s: fast answer still invalid, retrying on main", spec.name)
+    first.escalated = True
+    try:
+        reply = await env.llm.chat(
+            "main",
+            messages,
+            model_cls,
+            agent=spec.name,
+            prompt_version=spec.prompt_version,
+            temperature=spec.temperature,
+            max_tokens=spec.max_tokens,
+            reasoning=reasoning,
+            budget=env.budget,
+        )
     except (BudgetExceeded, LLMReplayMiss):
         raise
-    except LLMError as exc:
-        _finish(
-            env,
-            spec,
-            AgentCall(output=None, ok=False, error=str(exc)),
-            t0,
-            "unreachable",
-            summarize,
+    except LLMError as exc:  # also invalid on main, or main unreachable: keep the fast answer
+        log.info("agent %s: escalation did not help (%s)", spec.name, exc)
+        if isinstance(exc, LLMOutputError):
+            first.usage = _merge(first.usage, exc.usage)
+        return first
+    out = reply.parsed
+    problems = validate(out) if (validate and out is not None) else []
+    if out is not None and (first.output is None or len(problems) < len(first.problems)):
+        return AgentCall(
+            output=out,
+            ok=not problems,
+            usage=_merge(reply.usage, first.usage),  # reported as the main model's answer
+            problems=problems,
+            repaired=first.repaired or reply.repaired,
+            escalated=True,
         )
-        raise AgentUnavailable(str(exc)) from exc
-    result.model = usage.model if usage else ""
-    _finish(env, spec, result, t0, None, summarize)
-    return result
+    first.usage = _merge(first.usage, reply.usage)  # the fast answer stays: its model is reported
+    return first
 
 
 def _finish(
@@ -230,6 +307,7 @@ def _finish(
         "ok": res.ok,
         "summary": summary[:300],
         "repaired": res.repaired,
+        "escalated": res.escalated,
         "cached": bool(u and u.cached),
     }
     if env.emit is not None:
@@ -256,6 +334,7 @@ def _finish(
                             "problems": res.problems[:10],
                             "error": res.error,
                             "repaired": res.repaired,
+                            "escalated": res.escalated,
                             "ms": res.ms,
                         },
                     )
