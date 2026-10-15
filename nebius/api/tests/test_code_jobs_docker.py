@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 from pathlib import Path
 
 import numpy as np
 import pytest
 
 from api.adapters.sandbox import CodeJob, DockerRunner
+from api.tests.docker_check import docker_unavailable
 
 pytestmark = pytest.mark.slow
 IMAGE = os.environ.get("SIM_IMAGE", "showtime-sim:latest")
@@ -22,8 +22,9 @@ IMAGE = os.environ.get("SIM_IMAGE", "showtime-sim:latest")
 
 @pytest.fixture
 def runner(tmp_path: Path) -> DockerRunner:
-    if shutil.which("docker") is None:
-        pytest.skip("docker is not installed")
+    reason = docker_unavailable(IMAGE)
+    if reason:
+        pytest.skip(reason)
     return DockerRunner(tmp_path / "runs", IMAGE, "1g", 1.0)
 
 

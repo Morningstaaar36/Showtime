@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import statistics
 import subprocess
 from pathlib import Path
@@ -23,6 +22,7 @@ from api.core.validation import (
     summarize,
 )
 from api.models.validation import SimulatorValidation
+from api.tests.docker_check import docker_unavailable
 
 DATA = ROOT_DIR / "data" / "validation" / "bottleneck2006"
 
@@ -71,19 +71,13 @@ def test_load_validation_missing_file(tmp_path: Path) -> None:
     assert load_validation(tmp_path / "nope.json") is None
 
 
-def _image_ok(image: str) -> bool:
-    if shutil.which("docker") is None:
-        return False
-    r = subprocess.run(["docker", "image", "inspect", image], capture_output=True, check=False)
-    return r.returncode == 0
-
-
 @pytest.mark.slow
 def test_validate_script_one_width_end_to_end(tmp_path: Path) -> None:
     """T-N10-3: the batch script on one width with a small headcount, in the sim image."""
     image = os.environ.get("SIM_IMAGE", "showtime-sim:latest")
-    if not _image_ok(image):
-        pytest.skip(f"docker or {image} not available")
+    reason = docker_unavailable(image)
+    if reason:
+        pytest.skip(reason)
     if not (DATA / "txt" / "b120.txt").exists():
         pytest.skip("validation data missing: run scripts/get_data.sh")
     out = tmp_path / "validation.json"
