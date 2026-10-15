@@ -35,7 +35,8 @@ test("open a sample, read its red-team result and its report", async ({ page }) 
 
 test("plan a new event: create, edit by text, undo, stress test, block an exit", async ({ page, request }) => {
   await page.goto("/projects");
-  await page.getByRole("button", { name: /School wing/ }).first().click();
+  // the template button; a saved "School wing" project's card menu is named after it too
+  await page.getByRole("button", { name: /^School wing/ }).first().click();
   await page.getByPlaceholder("Riverside Festival 2026").fill("E2E school drill");
   await page.getByRole("button", { name: "Create project" }).click();
   await expect(page).toHaveURL(/\/p\/p_.*\/describe$/);
