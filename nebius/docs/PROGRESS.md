@@ -516,3 +516,21 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
   Playwright 7/7 with the real model (guided journey intermittent once, see G3-06).
 - Open: Overpass servers were down all afternoon (building clicks fail, "Draw an area" works);
   groups, pre-movement and routes are not simulated yet (G2-01..03).
+
+## 2026-10-15 — Everything on one branch, tested
+
+- Merged the last parked branches into `shahraz`: `feat/handover-extras` (seed check:
+  `POST/GET /sessions/{id}/seeds`; one conflict in `routes_runs.py`, both sides kept) and
+  `feat/day-of` (day-of observation and share-link tables, migration 0003). No branch on
+  GitHub or local has work missing from `shahraz` now.
+- Fixed before: three type errors that failed CI's `tsc -b` and `npm run build` (`tsc -p .`
+  checks nothing in `web/`).
+- Checks in a clean clone, as CI runs them: ruff, format, import contracts, mypy, pytest 583
+  passed / 1 skipped; eslint (0 warnings), `tsc -b`, vitest 129, production build; sim image
+  rebuilt, 18 sim tests. Migration 0003 on a fresh database and on a copy of the live one (25
+  projects kept; downgrade and upgrade). Live stack migrated to 0003.
+- Live: seed check on the 4-storey hospital test (key run after fixes, 3 extra seeds): 95% out
+  in 4 min 29 s – 4 min 42 s over 4 runs, peak 1.2–1.5 people per m², nobody left inside.
+  Playwright 7/7 with the real model and Docker.
+- Work split updated (TEAM_TASK_ALLOCATION.md §12): seed check backend done; its screen is
+  Saif's S-09; Ridwan takes the real-life examples (R-01).
