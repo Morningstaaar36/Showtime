@@ -32,6 +32,7 @@ import type { MarshalNote } from "@/scene/ReplayLayers";
 import { SceneRoot } from "@/scene/SceneRoot";
 import { usePlayback } from "@/state/playback";
 import { type Mode, type Tool, useUi } from "@/state/ui";
+import { FloorSwitch } from "@/panels/FloorSwitch";
 
 const MODES: Mode[] = ["plan", "simulate", "redteam", "report"];
 
@@ -344,7 +345,10 @@ export function WorkspacePage() {
             <div className="pointer-events-none absolute inset-0 z-40">
               <div className="absolute left-3 top-3"><ToolRail mode={mode} onResetView={() => setResetNonce((n) => n + 1)} /></div>
               {!compareId && (
-                <div className="absolute right-3 top-3"><ViewMenu multiFloor={venue.floors.length > 1} tour={tour} /></div>
+                <div className="absolute right-3 top-3 flex items-center gap-2">
+                  <FloorSwitch venue={venue} />
+                  <ViewMenu multiFloor={venue.floors.length > 1} tour={tour} />
+                </div>
               )}
               {shownRun && !compareId && (
                 <div className="absolute left-1/2 top-3 -translate-x-1/2"><TierChip label={tierLabel(shownRun)} tone={tone} /></div>

@@ -1424,5 +1424,10 @@
     "col_error": "Difference",
     "source": "Data: {dataset}, DOI {doi}, licence {licence}. Method, assumptions and how to rerun: docs/VALIDATION.md.",
     "missing": "This check has not been generated on this install yet. Run: make get-data && make validate"
+  },
+  "floors": {
+    "label": "Floors to show",
+    "all": "All floors",
+    "exploded": "Spread apart"
   }
 }

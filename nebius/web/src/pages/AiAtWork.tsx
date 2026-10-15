@@ -23,6 +23,7 @@ import { useReplay } from "@/replay/useReplay";
 import { SceneRoot } from "@/scene/SceneRoot";
 import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
+import { FloorSwitch } from "@/panels/FloorSwitch";
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
@@ -167,6 +168,7 @@ export function AiAtWorkPage() {
 
         <main id="main" className="flex min-w-0 flex-1 flex-col">
           <div className="relative h-[45vh] lg:h-auto lg:flex-1">
+            {venue && <FloorSwitch venue={venue} className="absolute left-3 top-3 z-20" />}
             {venue ? (
               <SceneRoot venue={runVenue.data ?? venue} replay={replay.data ?? null} hotspots={[]} marshals={[]} editable={false}
                          resetNonce={0} quality="low" onExitClick={() => {}} onObjectClick={() => {}} onFloorClick={() => {}}
