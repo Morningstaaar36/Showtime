@@ -266,3 +266,29 @@ def test_area_of_a_lat_lon_ring_is_in_square_metres() -> None:
     from api.orchestrator.copilot import _area_m2
 
     assert abs(_area_m2(_ring(0, 0, 100, 50)) - 5000) < 50
+
+
+def test_wall_feature_slides_then_shortens_to_keep_an_exit_clear() -> None:
+    # live test: a 15 m buffet on the north wall of a 30 m hall with a 1.2 m fire exit in
+    # the middle of that wall used to be left out; it now shortens to fit beside the exit
+    hall = {"name": "Wedding hall", "mode": "indoor", "width_m": 30, "depth_m": 20,
+            "exits": [{"wall": "south", "width_m": 2, "position": 0.5},
+                      {"wall": "north", "width_m": 1.2, "position": 0.5, "label": "Fire exit"}],
+            "zones": [{"label": "Guests", "people": 450, "region": "whole"}],
+            "features": [{"kind": "bar", "label": "Buffet", "place": "north",
+                          "width_m": 15, "depth_m": 2}]}  # fmt: skip
+    spec = VenueSpec.model_validate(hall)
+    res = build_venue(spec)
+    f = res.venue.floors[0]
+    buffet = next(o for o in f.obstacles if o.label == "Buffet")
+    fire = next(e for e in f.exits if e.label == "Fire exit")
+    length = geo.to_polygon(buffet.polygon).bounds[2] - geo.to_polygon(buffet.polygon).bounds[0]
+    assert 7.5 <= length < 15
+    assert not geo.to_polygon(buffet.polygon).intersects(geo.to_polygon(fire.polygon).buffer(3))
+    assert not any("Left out" in n for n in res.notes)
+    assert any("Shortened “Buffet”" in a for a in res.assumptions)
+    assert _errors(res.venue) == []
+    # a feature that fits keeps its full length and adds no assumption
+    spec.features[0].width_m = 8
+    res = build_venue(spec)
+    assert res.assumptions == []

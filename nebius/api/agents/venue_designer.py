@@ -79,7 +79,7 @@ async def design_venue(env: AgentEnv, text: str) -> DesignOutcome:
         venue=built.venue,
         spec=spec,
         notes=[n for n in built.notes if n not in problems],
-        assumptions=list(spec.assumptions),
+        assumptions=[*spec.assumptions, *built.assumptions],
         problems=problems,
         call=call,
     )
