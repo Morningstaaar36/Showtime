@@ -294,9 +294,8 @@ usable. It does not replace sections 3–5; it is added on top, with the same ru
 
 ### 11.4 Person 1 (Shahraz)
 
-Merges the G2 and G3 branches into `shahraz`, re-tests live with the real model, keeps
-`GENERIC_VENUES.md` and `PROGRESS.md` current, and records the demo. Integration problems go
-back to the task owner (section 10).
+Superseded by section 12: Shahraz now owns only the Nebius work; everything else, including
+merging, re-testing, documentation and the demo, is split between Ridwan and Saif.
 
 ### 11.5 Order and handoffs
 
@@ -307,3 +306,74 @@ back to the task owner (section 10).
   Person 3's. Contract changes stay additive and go through Person 1.
 - Branch from `shahraz`, small Conventional Commits, `make check` and vitest green before each
   merge request.
+
+## 12. All remaining work, split on 15 October 2026
+
+Decision (Shahraz, 15 Oct): **Shahraz does the Nebius work only; Ridwan and Saif share
+everything else.** This replaces the 20/40/40 split in section 1 and the Person 1 tasks in
+section 3 for whatever is not finished. The G2 and G3 tasks from section 11 stay as written and
+are counted here. Points are relative effort, as before.
+
+### 12.1 Already done (no owner needed)
+
+Typed evidence (P2-03), Autopilot (P3-02, N13), ask-or-change (N15), Your plan with
+fix selection, cost and checklist (P3-03/05/06), AI-written scenario scripts, the crowd analyst,
+rewind and parallel sandboxes (Docker), the validation lab with calibration (N10), the simple
+three-screen journey (P3-01), the map import with multi-storey buildings and the building ops
+(section 11.1), CI, licence and the M1 test profile.
+
+### 12.2 Shahraz: Nebius only
+
+| ID | Task | Acceptance |
+| --- | --- | --- |
+| N-01 | Nemotron on Nebius Token Factory (P3-04 live part) | `make use-nebius`, `make smoke-nebius` passes for every role; one full Autopilot session and one red-team session recorded live on Nebius; model IDs and prices in `.env.example` and `docs/NEBIUS_SWITCH.md`. |
+| N-02 | Nebius Sandboxes (O1) | `SANDBOX_PROVIDER=nebius`: a stress test, an attack with fixes, a script attack and a rewind branch run live; snapshot branching shown in the branch tree; limits and cleanup documented. |
+| N-03 | Public demo on Nebius (plan §8) | A public URL with keys server-side, job limits on, sample projects loaded; Ridwan's R-03 release checklist passes against it. |
+| N-04 | Nebius parts of the submission | Nebius/NVIDIA sections of the README and `docs/FEEDBACK.md`; the live runs Saif's demo video (S-10) needs, with their run IDs. |
+
+### 12.3 Ridwan: simulation, backend, data and release
+
+| ID | Task | Points | Acceptance |
+| --- | --- | ---: | --- |
+| G2-01…09 | Generic venues backend (section 11.2) | 32 | As in 11.2. Do G2-04 and G2-06 first: Saif's G3-03 and G3-05 wait on them. |
+| R-01 | Seed check (finish `feat/handover-extras`) | 3 | Rebase the 3 commits onto `main`; `POST/GET /sessions/{id}/seeds` repeats the plan's key run with more seeds and reports the range; distinct seeds, reused runs, failures left out (tests exist on the branch). |
+| R-02 | Fixes tested together and sensitivity (P2-04 rest) | 4 | The accepted fix bundle is simulated together before "confirmed"; headcount ±20% and walking speed ±15% runs give a range on Your plan's numbers; documented in `docs/ASSUMPTIONS.md`. |
+| R-03 | Release hardening, not Nebius-specific (P2-05 rest) | 4 | Artifact cleanup policy (`runs/` size cap), per-project job limits and cancellation, project export → import round trip of the selected plan, fresh clone `make setup && make up && make smoke` on a clean machine; a release checklist in `docs/HANDOFF.md`. |
+| R-04 | Backend failure checks (P2-06) | 3 | Regression tests for stale evidence, simulation timeout fallback, conflicting bundles, save/reload, multi-floor rewind refusal and Overpass outages; all in `make check`. |
+| R-05 | Map data that survives outages | 2 | Overpass answers cached per area on disk with retry and backoff; a cached area rebuilds offline; the "map servers busy" message names the cache and "Draw an area". |
+| R-06 | Live Ops backend (O3, finish `feat/day-of`) | 4 | Rebase migration 0003; timestamped observations, freshness ("12 min old"), validated day-of actions, share links that expire; API tests. Unblocks S-03. |
+| R-07 | Web evidence backend (O4, Tavily, optional) | 3 | Bounded search with cache and source records, quote check against the fetched page, per-session call cap; works with the key absent. Unblocks S-04. |
+| R-08 | Rewind "best" ranking | 1 | The best response ranks by evacuation time first and peak density second (today it weighs overall risk); the rule is shown on screen and in Help. |
+| R-09 | Repository docs and submission text (non-Nebius) | 3 | README top section, setup, architecture and limits current; `CHANGELOG.md` and `docs/USER_GUIDE.md` cover buildings, floors and groups; Devpost text draft; licence visible. Shahraz adds the Nebius parts (N-04). |
+| R-10 | Backend integration lead | 2 | Merges Ridwan's and Saif's branches into `main` after `make check`, vitest, `tsc -b` and Playwright pass; keeps `docs/PROGRESS.md` current. |
+| | **Total** | **61** | |
+
+### 12.4 Saif: screens, agents, users and the demo
+
+| ID | Task | Points | Acceptance |
+| --- | --- | ---: | --- |
+| G3-01…07 | Generic venues screens (section 11.3) | 30 | As in 11.3, including the intermittent "Test this plan" bug in G3-06. |
+| S-01 | Agent evaluation (P3-07) | 4 | Rules-only vs model-only vs hybrid on the same venues, constraints and simulation budget, run on OpenRouter; spatial errors, feasible proposals, regressions, latency, retries and cache use recorded in `docs/EVALUATION.md`. Shahraz repeats the model-only arm on Nebius (N-01). |
+| S-02 | Frontend release quality | 3 | First-run onboarding and judge tour updated for buildings and floors; WCAG 2.2 AA contrast, keyboard paths and focus on the three simple screens; no console errors on any page; phone widths without sideways scroll. |
+| S-03 | Live Ops screen (O3) | 4 | Manual observations with freshness labels and the available actions, clearly separate from planning advice; after R-06. |
+| S-04 | Evidence Desk (O4, optional) | 2 | Accept, edit or reject web-sourced inputs, with source and quote; guidance lines on fix cards; after R-07. |
+| S-05 | Explain the verdict badges | 1 | "This plan holds · Not confirmed" (and "Partly confirmed") gets a one-line reason and a Help link; organizers in S-06 understand it. |
+| S-06 | Organizer exercises (P1-02) | 5 | 3–5 organizers or representative users do the full task (map building → test → accept → checklist); time, corrections, confusion and failures recorded; prioritized issue list; one correction round re-checked. Backend issues go to Ridwan. |
+| S-07 | Screenshots and user guide pictures | 2 | `make screenshots` refreshed (light and dark, empty and filled, error states, a multi-storey venue); best ones in the README. |
+| S-08 | Demo projects for the video | 2 | Precomputed demos (`make demo-precompute`) for a 4-storey hospital and a march, replaying offline. |
+| S-09 | Real-life example venues | 2 | Three ready examples from real places (a hospital, a stadium or rally ground, a school), imported through the map with their sources noted. |
+| S-10 | Demo video (P1-04) | 3 | Three minutes at most: venue built from the map, a supported weakness, a feasible fix, before/after evidence, the handover; uses Shahraz's live Nebius runs (N-04); published on YouTube. |
+| | **Total** | **58** | |
+
+### 12.5 Order, handoffs and rules
+
+- Start immediately: Ridwan G2-04, G2-06, R-01, R-05; Saif G3-01, G3-02, G3-04, S-05, S-02.
+- Waits: G3-03 on G2-04; G3-05 on G2-06; S-03 on R-06; S-04 on R-07; S-06 on G3-01 and G3-02
+  (organizers should see the building tools); S-10 on S-08 and Shahraz's N-04 runs.
+- Both branch from `main`, use small Conventional Commits, and pass `make check`, `npx tsc -b
+  --noEmit`, `npx eslint src --max-warnings=0` and vitest before asking Ridwan (R-10) to merge.
+  `tsc -p .` checks nothing in `web/`; use `tsc -b`.
+- File ownership: `sim/`, `api/core`, `api/adapters`, `api/orchestrator`, migrations → Ridwan;
+  `web/src` → Saif; agent prompts → whoever's task changes them, reviewed by the other.
+- Nebius questions, keys and accounts → Shahraz. Nobody else needs Nebius access.
+- The `feat/day-of` and `feat/handover-extras` branches are pushed for Ridwan to finish.
