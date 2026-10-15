@@ -160,7 +160,7 @@ export function YourPlanPage() {
             </div>
           )}
           <div className="relative h-[50vh] overflow-hidden rounded-[10px] border border-border">
-            <FloorSwitch venue={venue} className="absolute right-3 top-3 z-50" />
+            <FloorSwitch venue={venue} className="absolute left-3 top-3 z-50" />
             <SceneRoot venue={venue} replay={null} hotspots={[]} marshals={[]} editable={false} resetNonce={0} quality="low"
                        onExitClick={noop} onObjectClick={noop} onFloorClick={noop} onFloorDoubleClick={noop} onMove={noop} onHotspot={noop} />
           </div>
@@ -238,7 +238,7 @@ export function YourPlanPage() {
 
         <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
           <section aria-label={t("yourplan.replay")} className="relative h-[50vh] min-h-80 overflow-hidden rounded-[10px] border border-border">
-            <FloorSwitch venue={venue} className="absolute right-3 top-3 z-50" />
+            <FloorSwitch venue={venue} className="absolute bottom-12 left-3 z-50" />
             <SceneRoot venue={previewing ? proposal.venue : shownVenue.data ?? venue} replay={previewing ? null : replay.data ?? null} hotspots={[]} marshals={[]}
                        editable={false} resetNonce={0} quality="low" highlights={previewing ? proposal.changes : undefined}
                        onExitClick={noop} onObjectClick={noop} onFloorClick={noop} onFloorDoubleClick={noop} onMove={noop} onHotspot={noop} />
