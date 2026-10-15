@@ -320,7 +320,9 @@ Typed evidence (P2-03), Autopilot (P3-02, N13), ask-or-change (N15), Your plan w
 fix selection, cost and checklist (P3-03/05/06), AI-written scenario scripts, the crowd analyst,
 rewind and parallel sandboxes (Docker), the validation lab with calibration (N10), the simple
 three-screen journey (P3-01), the map import with multi-storey buildings and the building ops
-(section 11.1), CI, licence and the M1 test profile.
+(section 11.1), CI, licence and the M1 test profile. Also merged on 15 Oct: the seed check
+backend (`POST/GET /sessions/{id}/seeds`, from `feat/handover-extras`) and the day-of tables
+(migration 0003, from `feat/day-of`).
 
 ### 12.2 Shahraz: Nebius only
 
@@ -336,17 +338,17 @@ three-screen journey (P3-01), the map import with multi-storey buildings and the
 | ID | Task | Points | Acceptance |
 | --- | --- | ---: | --- |
 | G2-01…09 | Generic venues backend (section 11.2) | 32 | As in 11.2. Do G2-04 and G2-06 first: Saif's G3-03 and G3-05 wait on them. |
-| R-01 | Seed check (finish `feat/handover-extras`) | 3 | Rebase the 3 commits onto `main`; `POST/GET /sessions/{id}/seeds` repeats the plan's key run with more seeds and reports the range; distinct seeds, reused runs, failures left out (tests exist on the branch). |
+| R-01 | Real-life example venues (moved from Saif) | 2 | Three ready examples from real places (a hospital, a stadium or rally ground, a school), imported through the map with their sources noted, simulated once. |
 | R-02 | Fixes tested together and sensitivity (P2-04 rest) | 4 | The accepted fix bundle is simulated together before "confirmed"; headcount ±20% and walking speed ±15% runs give a range on Your plan's numbers; documented in `docs/ASSUMPTIONS.md`. |
 | R-03 | Release hardening, not Nebius-specific (P2-05 rest) | 4 | Artifact cleanup policy (`runs/` size cap), per-project job limits and cancellation, project export → import round trip of the selected plan, fresh clone `make setup && make up && make smoke` on a clean machine; a release checklist in `docs/HANDOFF.md`. |
 | R-04 | Backend failure checks (P2-06) | 3 | Regression tests for stale evidence, simulation timeout fallback, conflicting bundles, save/reload, multi-floor rewind refusal and Overpass outages; all in `make check`. |
 | R-05 | Map data that survives outages | 2 | Overpass answers cached per area on disk with retry and backoff; a cached area rebuilds offline; the "map servers busy" message names the cache and "Draw an area". |
-| R-06 | Live Ops backend (O3, finish `feat/day-of`) | 4 | Rebase migration 0003; timestamped observations, freshness ("12 min old"), validated day-of actions, share links that expire; API tests. Unblocks S-03. |
+| R-06 | Live Ops backend (O3) | 4 | The tables and migration 0003 are on `main`; add the API: timestamped observations, freshness ("12 min old"), validated day-of actions, share links that expire; API tests. Unblocks S-03. |
 | R-07 | Web evidence backend (O4, Tavily, optional) | 3 | Bounded search with cache and source records, quote check against the fetched page, per-session call cap; works with the key absent. Unblocks S-04. |
 | R-08 | Rewind "best" ranking | 1 | The best response ranks by evacuation time first and peak density second (today it weighs overall risk); the rule is shown on screen and in Help. |
 | R-09 | Repository docs and submission text (non-Nebius) | 3 | README top section, setup, architecture and limits current; `CHANGELOG.md` and `docs/USER_GUIDE.md` cover buildings, floors and groups; Devpost text draft; licence visible. Shahraz adds the Nebius parts (N-04). |
 | R-10 | Backend integration lead | 2 | Merges Ridwan's and Saif's branches into `main` after `make check`, vitest, `tsc -b` and Playwright pass; keeps `docs/PROGRESS.md` current. |
-| | **Total** | **61** | |
+| | **Total** | **60** | |
 
 ### 12.4 Saif: screens, agents, users and the demo
 
@@ -361,13 +363,13 @@ three-screen journey (P3-01), the map import with multi-storey buildings and the
 | S-06 | Organizer exercises (P1-02) | 5 | 3–5 organizers or representative users do the full task (map building → test → accept → checklist); time, corrections, confusion and failures recorded; prioritized issue list; one correction round re-checked. Backend issues go to Ridwan. |
 | S-07 | Screenshots and user guide pictures | 2 | `make screenshots` refreshed (light and dark, empty and filled, error states, a multi-storey venue); best ones in the README. |
 | S-08 | Demo projects for the video | 2 | Precomputed demos (`make demo-precompute`) for a 4-storey hospital and a march, replaying offline. |
-| S-09 | Real-life example venues | 2 | Three ready examples from real places (a hospital, a stadium or rally ground, a school), imported through the map with their sources noted. |
+| S-09 | Seed range on Your plan | 2 | A "Check with more seeds" action on Your plan calls `POST /sessions/{id}/seeds` and shows the range (for example "95% out in 4 min 29 s – 4 min 42 s over 4 seeds"), with each run's basis. |
 | S-10 | Demo video (P1-04) | 3 | Three minutes at most: venue built from the map, a supported weakness, a feasible fix, before/after evidence, the handover; uses Shahraz's live Nebius runs (N-04); published on YouTube. |
 | | **Total** | **58** | |
 
 ### 12.5 Order, handoffs and rules
 
-- Start immediately: Ridwan G2-04, G2-06, R-01, R-05; Saif G3-01, G3-02, G3-04, S-05, S-02.
+- Start immediately: Ridwan G2-04, G2-06, R-05, R-06; Saif G3-01, G3-02, G3-04, S-05, S-09, S-02.
 - Waits: G3-03 on G2-04; G3-05 on G2-06; S-03 on R-06; S-04 on R-07; S-06 on G3-01 and G3-02
   (organizers should see the building tools); S-10 on S-08 and Shahraz's N-04 runs.
 - Both branch from `main`, use small Conventional Commits, and pass `make check`, `npx tsc -b
@@ -376,4 +378,6 @@ three-screen journey (P3-01), the map import with multi-storey buildings and the
 - File ownership: `sim/`, `api/core`, `api/adapters`, `api/orchestrator`, migrations → Ridwan;
   `web/src` → Saif; agent prompts → whoever's task changes them, reviewed by the other.
 - Nebius questions, keys and accounts → Shahraz. Nobody else needs Nebius access.
-- The `feat/day-of` and `feat/handover-extras` branches are pushed for Ridwan to finish.
+- Branches: start every task from `main` on a new branch named `<name>/<task-id>-<short-name>`
+  (for example `ridwan/g2-04-agent-kinds`, `saif/g3-01-building-tools`). The old `ridwan`,
+  `feat/day-of` and `feat/handover-extras` branches are fully merged; do not reuse them.
