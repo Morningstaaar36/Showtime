@@ -21,6 +21,7 @@ import type {
   SceneSnapshot,
   SessionOut,
   SettingsOut,
+  SimulatorValidation,
   StageCheckResult,
   Template,
   Venue,
@@ -42,6 +43,7 @@ export const qk = {
   sessions: (id: string) => ["sessions", id] as const,
   session: (id: string) => ["session", id] as const,
   glossary: ["glossary"] as const,
+  validation: ["validation"] as const,
   scene: (id: string, version: number | undefined) => ["scene", id, version ?? "current"] as const,
 };
 
@@ -79,6 +81,11 @@ export const useRunVenue = (runId: string | null | undefined) =>
 export const useGlossary = () =>
   useQuery({ queryKey: qk.glossary, queryFn: () => api.get<GlossaryItem[]>("/glossary"),
              staleTime: Infinity });
+
+/** Simulator vs a real bottleneck experiment (shipped JSON; 404 until `make validate`). */
+export const useValidation = () =>
+  useQuery({ queryKey: qk.validation, queryFn: () => api.get<SimulatorValidation>("/validation"),
+             staleTime: Infinity, retry: false });
 
 /** A run, polled every second while it is queued or running. */
 export const useRun = (id: string | null | undefined) =>

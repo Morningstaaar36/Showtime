@@ -373,3 +373,55 @@ export interface WhatIfOut {
   basis: string;
   people: number;
 }
+
+/** GET /validation: simulator vs a real bottleneck experiment (api/models/validation.py). */
+export interface ValidationSeedRun {
+  seed: number;
+  run_id: string;
+  flow_ps: number;
+  crossings: number;
+  window_s: number[];
+}
+
+export interface ValidationWidth {
+  run_name: string;
+  b_m: number;
+  l_m: number;
+  n_people: number;
+  measured_flow_ps: number;
+  measured_specific_flow: number;
+  measured_window_s: number[];
+  simulated_flow_ps: { median: number; min: number; max: number; runs: ValidationSeedRun[] };
+  simulated_specific_flow: number;
+  error_pct: number;
+}
+
+export interface SimulatorValidation {
+  schema_version: number;
+  meta: {
+    dataset: string;
+    dataset_doi: string;
+    dataset_licence: string;
+    funding: string;
+    papers: { label: string; url: string }[];
+    method: string;
+    measurement_line: string;
+    steady_window: string;
+    engine: string;
+    model: string;
+    pedpy_version: string;
+    sim_image: string;
+    agent_radius_m: number;
+    walk_speed: string;
+    sim_dt_s: number;
+    frame_hz: number;
+    seeds: number[];
+    app_defaults: boolean;
+    generated_at: string;
+    assumptions: string[];
+    experimental_repeat: string;
+  };
+  widths: ValidationWidth[];
+  median_abs_error_pct: number;
+  mean_error_pct: number;
+}
