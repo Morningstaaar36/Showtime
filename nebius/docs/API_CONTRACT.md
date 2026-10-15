@@ -38,7 +38,9 @@ Response:
 | GET | `/projects/{id}/sessions` | list (newest first) |
 | GET | `/sessions/{id}/events?after=<seq>` | SSE stream; every message `data:` is a SessionEvent JSON; replays from `after` (default 0) then streams live; ends with an `event: end` message when the session is finished |
 | POST | `/sessions/{id}/stop` | stop gracefully (finishes with partial results) |
-| POST | `/sessions/{id}/apply` | save the session's final fixed venue as a new project version |
+| POST | `/sessions/{id}/apply` | save the session's final fixed venue as a new project version; body `{fix_ids?}` accepts only some kept fixes, and then starts simulating them together (`applied.together`) |
+| GET / POST | `/sessions/{id}/together` | the latest subset version's run of its fixes together: `status` `none`, `not_started`, `running`, `done` (simulated; `record.together.evaluation`), `preview` (mock sandbox) or `failed`; POST starts it again (409 `together_unavailable` without a subset) |
+| GET / POST | `/sessions/{id}/sensitivity` | the plan's key run with 20% fewer/more people and walking 15% slower/faster: each run with basis and `breaks`, `range` over finished runs, `holds_in_all`, `breaks_in`, `notes`; POST starts it (202; 409 `sensitivity_unavailable` before the test finished) |
 | GET | `/sessions/{id}/report` | printable HTML report (Exporter `export_html_report`) |
 | GET | `/sessions/{id}/map.svg` | evacuation map (Exporter `export_svg_map`) |
 | GET | `/sessions/{id}/bundle.json` | everything as JSON (Exporter `export_json_bundle`) |

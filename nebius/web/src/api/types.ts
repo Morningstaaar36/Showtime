@@ -17,6 +17,7 @@ import type {
   Venue,
   VenuePatch,
 } from "@/types/generated";
+import type { TogetherCheck } from "@/journey/plan/range";
 import type { CostRecord, Evaluation } from "@/lib/evidence";
 
 export type {
@@ -284,7 +285,7 @@ export interface SessionSummary {
 }
 
 /** A version saved by POST /sessions/{id}/apply: which kept fixes it holds and whether they
- * were tested together (every kept fix) or one by one (a subset). */
+ * were tested together (every kept fix, or a subset once its own run has finished). */
 export interface AppliedRecord {
   version: number;
   plan_hash: string;
@@ -292,6 +293,8 @@ export interface AppliedRecord {
   tested_together: boolean;
   note: string | null;
   at: string;
+  /** a subset's run of the chosen fixes together (absent when every kept fix was accepted) */
+  together?: TogetherCheck | null;
 }
 
 /** POST /sessions/{id}/apply */

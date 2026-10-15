@@ -17,7 +17,7 @@ from api.core.plan import evidence_reference, plan_hash
 from api.core.venue_ops import PatchError
 from api.db.models import Run
 from api.models import Attack, Fix, ScenarioEventIn
-from api.orchestrator import seeds, sweep
+from api.orchestrator import seeds, sensitivity, sweep, together
 
 router = APIRouter(prefix="/api/v1")
 
@@ -296,3 +296,45 @@ def get_seed_check(session_id: str, st: AppState = Depends(get_state)) -> dict[s
     """The latest seed check: status, each run with its basis, and the range over the runs
     that finished (`status` is "none" before the first check)."""
     return seeds.seed_check_status(st, _tested_session(st, session_id))
+
+
+# --- Sensitivity and chosen fixes together (P2-04) ---------------------------------------------
+
+
+@router.post("/sessions/{session_id}/sensitivity", status_code=202)
+async def start_sensitivity(session_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Repeat Your plan's key run with 20% fewer and more people and walking 15% slower and
+    faster (same seed, venue, events and tier). Repeating the check reuses the runs it has.
+
+    Async on purpose: runs start as tasks on the server's event loop."""
+    row = _tested_session(st, session_id)
+    try:
+        return sensitivity.start_sensitivity(st, row)
+    except sensitivity.SensitivityError as exc:
+        raise ApiException(409, "sensitivity_unavailable", str(exc)) from exc
+
+
+@router.get("/sessions/{session_id}/sensitivity")
+def get_sensitivity(session_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The latest sensitivity check: each run with its basis and verdict, and the range over
+    the runs that finished (`status` is "none" before the first check)."""
+    return sensitivity.sensitivity_status(st, _tested_session(st, session_id))
+
+
+@router.post("/sessions/{session_id}/together", status_code=202)
+async def start_together(session_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Simulate the latest version that holds only some kept fixes, as one plan, under the
+    worst attack. Accepting a subset starts this already; use it again after a failed run."""
+    row = _tested_session(st, session_id)
+    try:
+        return together.start_together_check(st, row)
+    except together.TogetherCheckError as exc:
+        raise ApiException(409, "together_unavailable", str(exc)) from exc
+
+
+@router.get("/sessions/{session_id}/together")
+def get_together(session_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The check of the latest subset version: `none`, `not_started`, `running`, `done`
+    (simulated together; its `evaluation` says how far that is confirmed), `preview` (mock
+    sandbox, not a simulation) or `failed`."""
+    return together.together_status(st, _tested_session(st, session_id))

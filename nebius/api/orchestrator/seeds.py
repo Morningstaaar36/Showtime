@@ -33,7 +33,7 @@ METRICS = ("evac_time_p95_s", "peak_density_ppm2", "agents_not_evacuated")
 USABLE = ("ok", "partial")
 PENDING = ("queued", "running")
 
-Side = Literal["after", "baseline"]
+Side = Literal["after", "baseline", "together"]
 
 
 class SeedCheckError(Exception):

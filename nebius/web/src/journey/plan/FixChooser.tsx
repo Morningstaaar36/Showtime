@@ -1,6 +1,7 @@
 /** "What the AI suggests" (P3-03): every kept fix as a card with its own before/after test and
  * where it came from. All are chosen by default; "Accept these changes" saves only the chosen
- * ones. A choice that is not every kept fix was never tested as a whole, and says so. */
+ * ones. A choice that is not every kept fix was never tested as a whole: accepting it simulates
+ * the chosen ones together under the worst attack, and the card says where that stands. */
 import { AlertTriangle, Check, Hammer, Lock, RotateCcw, Workflow } from "lucide-react";
 import type { AppliedRecord, Fix, PatchOpIn, Venue } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import { fmtDuration, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { describeEvent, describeOp } from "@/panels/describe";
 import { evacValue, type FixTest, fixSource, fixTest, type NodeLike, testedTogether } from "./fixes";
+import { type TogetherCheck, togetherText } from "./range";
 import { actionText } from "./SavedActions";
 import type { PlanState } from "./state";
 
@@ -37,6 +39,27 @@ export interface FixChooserProps {
   accepting: boolean;
   onTestAgain: () => void;
   testing: boolean;
+  /** the accepted subset's run of the chosen changes together, and starting it again */
+  together?: TogetherCheck | null;
+  onTogether?: () => void;
+  togetherBusy?: boolean;
+}
+
+const TOGETHER_TONE = { egress: "text-egress", caution: "text-ink", neutral: "text-ink" } as const;
+
+function TogetherStatus({ check, onRetry, busy }: { check: TogetherCheck | null | undefined; onRetry?: () => void; busy?: boolean }) {
+  const status = togetherText(check);
+  if (!check || !status) return null;
+  const retry = (check.status === "failed" || check.status === "preview") && onRetry;
+  return (
+    <div className="space-y-2">
+      <p role="status" aria-live="polite" className={cn("flex gap-1.5 text-sm", TOGETHER_TONE[status.tone])}>
+        {check.status === "running" ? <Spinner /> : check.status === "done" ? <Check className="mt-0.5 size-4 shrink-0" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-caution" />}
+        <span>{status.text}</span>
+      </p>
+      {retry && <Button variant="secondary" onClick={onRetry} disabled={busy}>{busy ? <Spinner /> : <RotateCcw />}{t("together.retry")}</Button>}
+    </div>
+  );
 }
 
 /** What one fix changes, in plain words. */
@@ -155,11 +178,13 @@ export function FixChooser(p: FixChooserProps) {
         </div>
       )}
       {p.kept.length > 0 && p.state === "accepted" && <p className="flex gap-1.5 text-sm text-egress"><Check className="mt-0.5 size-4 shrink-0" />{t("yourplan.already_accepted")}</p>}
+      {p.kept.length > 0 && p.state === "accepted" && p.record?.together && <TogetherStatus check={p.together ?? p.record.together} />}
       {p.kept.length > 0 && p.state === "accepted_subset" && (
         <div role="status" className="space-y-2 rounded-[10px] border border-caution/40 bg-caution-soft p-3 text-sm">
           <p className="font-medium">{t("yourplan.subset_applied", { k: p.record?.fix_ids.length ?? 0, n: p.kept.length, v: p.record?.version ?? "" })}</p>
           <p>{p.record?.note ?? t("yourplan.subset_note")}</p>
-          <Button variant="primary" onClick={p.onTestAgain} disabled={p.testing}><RotateCcw />{t("yourplan.test_again")}</Button>
+          <TogetherStatus check={p.together ?? p.record?.together} onRetry={p.onTogether} busy={p.togetherBusy} />
+          <Button variant={p.together?.status === "running" ? "secondary" : "primary"} onClick={p.onTestAgain} disabled={p.testing}><RotateCcw />{t("yourplan.test_again")}</Button>
         </div>
       )}
       {p.kept.length > 0 && p.state === "stale" && <p className="text-sm text-muted">{t("yourplan.accept_stale")}</p>}

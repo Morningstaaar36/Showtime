@@ -7,6 +7,13 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **How sure are these numbers?** (P2-04) on Your plan: the run the verdict rests on again with
+  20% fewer and more people and walking 15% slower and faster (same seed, layout and scenario),
+  with the range, which assumptions break the plan, and every run's basis
+  (`/sessions/{id}/sensitivity`, `docs/ASSUMPTIONS.md`).
+- **Chosen changes tested together** (P2-04): accepting only some kept changes simulates exactly
+  those under the worst attack; the version counts as tested together, and can be confirmed, only
+  after that run (`/sessions/{id}/together`).
 - **Guided journey** (P3-01): Describe → Check your venue → AI at work → Your plan, with the
   studio kept as Expert view. Collaborative editor with existing/proposed openings, provenance,
   locks, AI patch preview and stale-evidence banners; `set_annotation` op and
