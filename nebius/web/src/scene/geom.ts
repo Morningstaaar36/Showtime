@@ -186,3 +186,112 @@ export function floorY(v: Venue, floorId: string, exploded: boolean): number {
   const elev = v.floors.find((f) => f.floor_id === floorId)?.elevation_m ?? 0;
   return exploded ? elev * 1.6 + idx * 6 : elev;
 }
+
+// --- floor view ------------------------------------------------------------------------------
+
+/** Floors bottom to top. */
+export function floorsBottomUp(v: Venue): Floor[] {
+  return [...v.floors].sort((a, b) => (a.elevation_m ?? 0) - (b.elevation_m ?? 0));
+}
+
+/** The floor view the scene can draw: an unknown floor id (another venue's) falls back to all. */
+export function resolveFloorView(v: Venue, view: string | null | undefined): string {
+  if (!view || view === "all") return "all";
+  if (view === "exploded") return v.floors.length > 1 ? "exploded" : "all";
+  return v.floors.some((f) => f.floor_id === view) ? view : "all";
+}
+
+/** Is this floor drawn in the given (resolved) floor view? */
+export function floorShown(view: string, floorId: string): boolean {
+  return view === "all" || view === "exploded" || view === floorId;
+}
+
+/** Bounds of one floor's walkable area. */
+export function floorBounds(v: Venue, floorId: string): [number, number, number, number] {
+  const f = v.floors.find((x) => x.floor_id === floorId);
+  return f ? bbox(f.walkable as Pt[]) : venueBounds(v);
+}
+
+// --- stairs ----------------------------------------------------------------------------------
+
+export interface StairRun {
+  /** foot of the stair (lower floor) and head (upper floor), venue metres */
+  bx: number;
+  by: number;
+  tx: number;
+  ty: number;
+  run: number;
+  /** heading of the climb, radians from +x (east) */
+  angle: number;
+}
+
+/** Where a stair climbs: from the bottom landing's centre to the top landing's centre. When both
+ * landings sit on the same footprint (a stairwell drawn as one box), the climb runs along the
+ * footprint's long side. */
+export function stairRun(top: Pt[] | number[][], bottom: Pt[] | number[][]): StairRun {
+  const [tx, ty] = centroid(top);
+  const [bx, by] = centroid(bottom);
+  const d = Math.hypot(tx - bx, ty - by);
+  if (d >= 0.5) return { bx, by, tx, ty, run: d, angle: Math.atan2(ty - by, tx - bx) };
+  const [x0, y0, x1, y1] = bbox(top);
+  const alongX = x1 - x0 >= y1 - y0;
+  const run = Math.max(alongX ? x1 - x0 : y1 - y0, 1);
+  const cx = (tx + bx) / 2, cy = (ty + by) / 2;
+  return alongX
+    ? { bx: cx - run / 2, by: cy, tx: cx + run / 2, ty: cy, run, angle: 0 }
+    : { bx: cx, by: cy - run / 2, tx: cx, ty: cy + run / 2, run, angle: Math.PI / 2 };
+}
+
+/** Side profile of a stair (x along the run, y up) as a closed outline: steps on top, a straight
+ * soffit underneath. A stair between floors at the same level is a flat landing. */
+export function stairProfile(run: number, rise: number, riserM = 0.18): Pt[] {
+  if (rise <= 0.3) return [[0, -0.15], [run, -0.15], [run, 0.02], [0, 0.02]];
+  const n = Math.max(4, Math.min(60, Math.round(rise / riserM)));
+  const d = run / n, s = rise / n;
+  const pts: Pt[] = [[0, 0]];
+  for (let i = 0; i < n; i++) {
+    pts.push([i * d, (i + 1) * s]);
+    pts.push([(i + 1) * d, (i + 1) * s]);
+  }
+  pts.push([run, rise - Math.min(0.35, rise * 0.25)]);
+  return pts;
+}
+
+// --- walls drawn as lines --------------------------------------------------------------------
+
+export function polylineLength(points: Pt[] | number[][]): number {
+  let len = 0;
+  for (let i = 1; i < points.length; i++) len += Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]);
+  return len;
+}
+
+/** Thickness of a wall drawn along a centreline: its footprint area over its length. */
+export function wallThickness(polygon: Pt[] | number[][], line: Pt[] | number[][]): number {
+  const len = polylineLength(line);
+  if (len < 1e-6) return WALL_T;
+  return Math.max(0.08, Math.min(0.6, polygonArea(polygon) / len));
+}
+
+// --- routes ----------------------------------------------------------------------------------
+
+/** Chevron positions along a route, every `spacing` metres, pointing in walking order. */
+export function routeMarks(points: Pt[] | number[][], spacing: number): { x: number; y: number; angle: number }[] {
+  const out: { x: number; y: number; angle: number }[] = [];
+  if (points.length < 2 || spacing <= 0) return out;
+  let next = spacing / 2;
+  let walked = 0;
+  for (let i = 1; i < points.length; i++) {
+    const [ax, ay] = points[i - 1];
+    const [bx, by] = points[i];
+    const len = Math.hypot(bx - ax, by - ay);
+    if (len < 1e-6) continue;
+    const angle = Math.atan2(by - ay, bx - ax);
+    while (next <= walked + len && out.length < 2000) {
+      const k = (next - walked) / len;
+      out.push({ x: ax + (bx - ax) * k, y: ay + (by - ay) * k, angle });
+      next += spacing;
+    }
+    walked += len;
+  }
+  return out;
+}
