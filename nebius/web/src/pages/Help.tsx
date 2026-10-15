@@ -1,14 +1,17 @@
 /** Help (route `/help`): organizer first. How it works in three steps, what the numbers mean,
- * the limits, a plain glossary and the keyboard shortcuts; technical details stay one click away. */
+ * how good the simulator is against a real experiment, the limits, a plain glossary and the
+ * keyboard shortcuts; technical details stay one click away. */
 import { ChevronDown, ClipboardCheck, Clock, Gauge, Map as MapIcon, ShieldCheck, Timer, Users, Wand2 } from "lucide-react";
 import type * as React from "react";
 import { Link } from "react-router";
-import { useGlossary } from "@/api/queries";
+import { useGlossary, useValidation } from "@/api/queries";
+import type { SimulatorValidation } from "@/api/types";
 import { AppShell } from "@/app/AppHeader";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/misc";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { ValidationChart, ValidationTable } from "@/panels/ValidationChart";
 
 const STEPS = [
   { icon: <MapIcon />, tone: "bg-sky-soft text-sky", key: "step1" },
@@ -41,10 +44,14 @@ const SHORTCUTS: [string[], string][] = [
 
 const TECH = ["tech_instant", "tech_sim", "tech_density", "tech_evac", "tech_wind", "tech_latest"];
 
-const SECTIONS = ["how", "numbers", "limits", "glossary", "shortcuts"];
+const SECTIONS = ["how", "numbers", "validation", "limits", "glossary", "shortcuts"];
+const sectionLabel = (s: string) => (s === "validation" ? t("validation.nav") : t(`help.${s}`));
+
+const VALIDATION_LIMITS = ["limit_forces", "limit_motivation", "limit_density", "limit_scope"];
 
 export function HelpPage() {
   const glossary = useGlossary();
+  const validation = useValidation();
   return (
     <AppShell className="bg-hero">
       <div className="mx-auto w-full max-w-5xl space-y-12 px-4 py-10">
@@ -54,7 +61,7 @@ export function HelpPage() {
           <nav aria-label={t("help.on_this_page")} className="mt-5 flex flex-wrap gap-2">
             {SECTIONS.map((s) => (
               <a key={s} href={`#${s}`} className="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium shadow-sm hover:border-signal hover:text-signal">
-                {t(`help.${s}`)}
+                {sectionLabel(s)}
               </a>
             ))}
           </nav>
@@ -96,6 +103,12 @@ export function HelpPage() {
               </li>
             ))}
           </ol>
+        </Section>
+
+        <Section id="validation" title={t("validation.title")} lead={t("validation.lead")}>
+          {validation.data ? <SimulatorCheck data={validation.data} /> : validation.isError && (
+            <p className="rounded-[var(--radius-panel)] border border-border bg-surface p-5 text-muted">{t("validation.missing")}</p>
+          )}
         </Section>
 
         <Section id="limits" title={t("help.limits")}>
@@ -163,6 +176,46 @@ export function HelpPage() {
         </details>
       </div>
     </AppShell>
+  );
+}
+
+/** "How good is the simulator?": the measured-vs-simulated chart, the error in words, the limits. */
+export function SimulatorCheck({ data, chartWidth }: { data: SimulatorValidation; chartWidth?: number }) {
+  const widths = data.widths.map((w) => w.b_m);
+  const median = data.median_abs_error_pct.toFixed(0);
+  const n = data.widths.length;
+  const close = data.median_abs_error_pct < 10;
+  const lower = data.mean_error_pct < 0;
+  const verdict = close ? "verdict_close" : lower ? "verdict_lower" : "verdict_higher";
+  return (
+    <div className="space-y-5">
+      <p className="max-w-prose text-muted">
+        {t("validation.what", { n, min: Math.min(...widths).toFixed(1), max: Math.max(...widths).toFixed(1), seeds: data.meta.seeds.length })}
+      </p>
+      <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-5 shadow-sm">
+        <p className="text-lg font-bold" data-testid="validation-verdict">{t(`validation.${verdict}`, { median, n })}</p>
+        <div className="mt-4"><ValidationChart data={data} width={chartWidth} /></div>
+        <details className="mt-3">
+          <summary className="min-h-11 cursor-pointer py-2 text-sm font-medium text-signal">{t("validation.show_numbers")}</summary>
+          <ValidationTable data={data} />
+        </details>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-5">
+          <h3 className="font-bold">{t("validation.meaning_title")}</h3>
+          <p className="mt-1 text-sm text-muted">{t(lower ? "validation.meaning_lower" : "validation.meaning_higher")}</p>
+        </div>
+        <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-5">
+          <h3 className="font-bold">{t("validation.limits_title")}</h3>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted">
+            {VALIDATION_LIMITS.map((k) => <li key={k}>{t(`validation.${k}`)}</li>)}
+          </ul>
+        </div>
+      </div>
+      <p className="text-sm text-muted">
+        {t("app.disclaimer")} {t("validation.source", { dataset: data.meta.dataset, doi: data.meta.dataset_doi, licence: data.meta.dataset_licence })}
+      </p>
+    </div>
   );
 }
 
