@@ -9,7 +9,7 @@ import type { Replay } from "@/replay/useReplay";
 import { useUi } from "@/state/ui";
 import { CameraRig } from "./CameraRig";
 import { ChangeHighlights, DraftPreview, MoveGizmo } from "./EditTools";
-import { venueBounds } from "./geom";
+import { resolveFloorView, venueBounds } from "./geom";
 import { useScenePalette } from "./palette";
 import { LabelLayer } from "./SceneHtml";
 import { Agents, DensityLayer, Hotspots, Marshals, PlaybackClock, type MarshalNote } from "./ReplayLayers";
@@ -57,6 +57,18 @@ export function SceneRoot(p: SceneProps) {
   const showAgents = layers.people && p.replay;
   const site = useMemo(() => osmSite(p.venue), [p.venue]);
   const labelLayer = useRef<HTMLDivElement>(null);
+  // one floor alone: the model, hotspots and highlights see a venue holding only that floor;
+  // people and the heatmap keep the full venue (their floor indexes) and skip the others
+  const floorView = useUi((s) => s.floorView);
+  const view = resolveFloorView(p.venue, floorView);
+  const onlyFloor = view === "all" || view === "exploded" ? null : view;
+  const shown = useMemo<Venue>(() => (onlyFloor ? {
+    ...p.venue,
+    floors: p.venue.floors.filter((f) => f.floor_id === onlyFloor),
+    stairs: [],
+    routes: (p.venue.routes ?? []).filter((r) => r.floor_id === onlyFloor),
+  } : p.venue), [p.venue, onlyFloor]);
+  const hotspots = onlyFloor ? p.hotspots.filter((h) => h.floor_id === onlyFloor) : p.hotspots;
 
   return (
     <LabelLayer.Provider value={labelLayer}>
@@ -100,9 +112,9 @@ export function SceneRoot(p: SceneProps) {
 
       <Suspense fallback={null}>
         {site && <SiteContext venue={p.venue} palette={palette} show={{ map: true, neighbours: true }} />}
-        {layers.night && <ShowLights venue={p.venue} exploded={layers.exploded} />}
+        {layers.night && <ShowLights venue={shown} exploded={layers.exploded} />}
         <VenueModel
-          venue={p.venue}
+          venue={shown}
           palette={palette}
           onMap={!!site}
           exploded={layers.exploded}
@@ -120,23 +132,25 @@ export function SceneRoot(p: SceneProps) {
         />
         {p.replay && p.clock !== false && <PlaybackClock />}
         {showAgents && p.replay && (
-          <Agents traj={p.replay.traj} density={p.replay.density} venue={p.venue} exploded={layers.exploded} palette={palette} />
+          <Agents traj={p.replay.traj} density={p.replay.density} venue={p.venue} exploded={layers.exploded} palette={palette}
+                  onlyFloor={onlyFloor} />
         )}
         {p.replay?.density && (layers.heatmap || layers.terrain) && (
           <DensityLayer density={p.replay.density} venue={p.venue} exploded={layers.exploded} palette={palette}
-                        terrain={layers.terrain} />
+                        terrain={layers.terrain} onlyFloor={onlyFloor} />
         )}
-        {p.hotspots.length > 0 && (
-          <Hotspots hotspots={p.hotspots} venue={p.venue} exploded={layers.exploded} palette={palette}
+        {hotspots.length > 0 && (
+          <Hotspots hotspots={hotspots} venue={shown} exploded={layers.exploded} palette={palette}
                     labels={layers.labels} selectedKey={selection?.kind === "hotspot" ? selection.id : null}
                     showAll={!p.replay} onSelect={(h) => p.onHotspot(h)} />
         )}
-        {p.marshals.length > 0 && <Marshals notes={p.marshals} venue={p.venue} exploded={layers.exploded} />}
+        {p.marshals.length > 0 && <Marshals notes={onlyFloor ? p.marshals.filter((m) => m.floor_id === onlyFloor) : p.marshals}
+                                              venue={shown} exploded={layers.exploded} />}
         {p.editable && tool === "select" && !p.onObjectPointerDown && (
-          <MoveGizmo venue={p.venue} exploded={layers.exploded} palette={palette} onMove={p.onMove} />
+          <MoveGizmo venue={shown} exploded={layers.exploded} palette={palette} onMove={p.onMove} />
         )}
         {p.highlights && p.highlights.length > 0 && (
-          <ChangeHighlights venue={p.venue} changes={p.highlights} exploded={layers.exploded} palette={palette} />
+          <ChangeHighlights venue={shown} changes={onlyFloor ? p.highlights.filter((c) => c.floorId === onlyFloor) : p.highlights} exploded={layers.exploded} palette={palette} />
         )}
         {p.editable && drawing && (
           <DraftPreview venue={p.venue} exploded={layers.exploded} palette={palette} cursor={cursor} />

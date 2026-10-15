@@ -47,8 +47,10 @@ function useFloorYs(venue: Venue, floors: string[], exploded: boolean): number[]
   return useMemo(() => floors.map((fid) => floorY(venue, fid, exploded)), [venue, floors, exploded]);
 }
 
-export function Agents({ traj, density, venue, exploded, palette }: {
+export function Agents({ traj, density, venue, exploded, palette, onlyFloor = null }: {
   traj: Trajectory; density: DensityGrid | null; venue: Venue; exploded: boolean; palette: ScenePalette;
+  /** draw only the people on this floor (one-floor view) */
+  onlyFloor?: string | null;
 }) {
   const max = Math.min(Math.max(traj.index.max_agents, 1), 9000);
   const mesh = useRef<THREE.InstancedMesh>(null);
@@ -57,6 +59,7 @@ export function Agents({ traj, density, venue, exploded, palette }: {
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const base = useMemo(() => new THREE.Color(palette.agent), [palette.agent]);
   const tmp = useMemo(() => new THREE.Color(), []);
+  const only = onlyFloor ? traj.index.floors.indexOf(onlyFloor) : -1;
   const densFloor = useMemo(() => {
     // traj floor index -> density floor index
     const dIdx = density?.index.floors ?? [];
@@ -76,10 +79,13 @@ export function Agents({ traj, density, venue, exploded, palette }: {
     const t = usePlayback.getState().t;
     const n = traj.sample(t, buf);
     const frame = density ? density.pairAt(t)[0] : -1;
-    for (let i = 0; i < n; i++) {
-      const x = buf[i * 3];
-      const y = buf[i * 3 + 1];
-      const f = buf[i * 3 + 2] | 0;
+    let k = 0; // instances written (people on hidden floors are skipped)
+    for (let j = 0; j < n; j++) {
+      const x = buf[j * 3];
+      const y = buf[j * 3 + 1];
+      const f = buf[j * 3 + 2] | 0;
+      if (only >= 0 && f !== only) continue;
+      const i = k++;
       dummy.position.set(x, (ys[f] ?? 0) + 0.56, -y);
       dummy.updateMatrix();
       m.setMatrixAt(i, dummy.matrix);
@@ -91,7 +97,7 @@ export function Agents({ traj, density, venue, exploded, palette }: {
         m.setColorAt(i, tmp);
       }
     }
-    m.count = n;
+    m.count = k;
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
   });
@@ -154,8 +160,10 @@ const HEAT_FRAG = /* glsl */ `
 `;
 
 /** Density as a coloured overlay on each floor, with warning and danger contours. */
-export function DensityLayer({ density, venue, exploded, palette, terrain }: {
+export function DensityLayer({ density, venue, exploded, palette, terrain, onlyFloor = null }: {
   density: DensityGrid; venue: Venue; exploded: boolean; palette: ScenePalette; terrain: boolean;
+  /** draw only this floor's heatmap (one-floor view) */
+  onlyFloor?: string | null;
 }) {
   const { nx, ny, cell_m: cell, origin, floors, scale, warn, danger } = density.index;
   const lut = useMemo(lutTexture, []);
@@ -216,6 +224,7 @@ export function DensityLayer({ density, venue, exploded, palette, terrain }: {
   return (
     <group>
       {floors.map((fid, i) => {
+        if (onlyFloor && fid !== onlyFloor) return null;
         const y = floorY(venue, fid, exploded) + 0.05;
         return (
           <group key={fid}>
