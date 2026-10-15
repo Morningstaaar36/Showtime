@@ -49,8 +49,12 @@ to reach the network is refused before it runs, and the sandbox has no network a
   simulations with no one left inside. On a school wing the model wrote its own scenario script,
   which closed a stairwell at 25 s and rerouted 168 people; the analyst answered "longest queue
   13 people at 62 s" from code it ran.
-- **Simulator check against real people:** see [VALIDATION.md](VALIDATION.md) (Jülich bottleneck
-  experiments, Seyfried et al. 2009).
+- **Simulator check against real people:** on the Jülich bottleneck experiments (Seyfried et al.
+  2009; doors 0.9–2.5 m, about 175 people each) the simulator's flow is within about 6% of the
+  real crowd's at every width (median error 4.0%). One parameter, the time gap to the person
+  ahead, was calibrated on half the widths and checked on the other half (held-out error 4.4%);
+  with the model's default the simulator let only half as many people through. See
+  [VALIDATION.md](VALIDATION.md).
 - **Cost:** every plan shows its measured AI cost, model calls and simulations.
 
 ## Honest limits
