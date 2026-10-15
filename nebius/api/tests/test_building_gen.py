@@ -130,3 +130,18 @@ def test_map_tags() -> None:
         "11th floor",
         "21st floor",
     ]
+
+
+def test_event_kinds_cover_the_contract_and_carry_no_unsourced_numbers() -> None:
+    from typing import get_args
+
+    from api.core.event_profiles import event_kinds
+    from api.models.venue import EventKind
+
+    kinds = event_kinds()
+    assert [k["id"] for k in kinds] == list(get_args(EventKind))
+    assert all(k["label"] and k["description"] for k in kinds)
+    hospital = next(k for k in kinds if k["id"] == "hospital")
+    assert {g["kind"] for g in hospital["default_groups"]} >= {"bed", "staff"}
+    assert hospital["interior"] == "rooms"
+    assert all(k["default_pre_movement_s"] is None for k in kinds)

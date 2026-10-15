@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from api.adapters.weather import WeatherUnavailable
 from api.app.errors import ApiException
 from api.app.state import AppState
+from api.core.event_profiles import event_kinds
 from api.core.templates import list_templates
 from api.core.validation import load_validation
 from api.models import StageParams
@@ -139,6 +140,12 @@ def put_settings(body: SettingsIn, st: AppState = Depends(get_state)) -> dict[st
             422, "invalid_settings", str(exc).splitlines()[0], "Check the highlighted value."
         ) from exc
     return {"saved": saved, "effective": st.settings.public_dict(), "ui": st.ui}
+
+
+@router.get("/event-kinds")
+def event_kind_list() -> list[dict[str, Any]]:
+    """Kinds of event or building: copy, usual people mix, usual interior."""
+    return event_kinds()
 
 
 @router.get("/templates")
