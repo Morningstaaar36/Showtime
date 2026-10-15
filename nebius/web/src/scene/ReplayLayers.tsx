@@ -1,5 +1,4 @@
 /** Replay layers: people (instanced), density heatmap, danger terrain, hotspots, marshals. */
-import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
@@ -12,6 +11,7 @@ import { textHumanizer } from "@/lib/venueText";
 import { CIVIDIS } from "./colormaps";
 import { floorY } from "./geom";
 import type { ScenePalette } from "./palette";
+import { SceneHtml } from "./SceneHtml";
 
 export const DENSITY_MAX = 7; // colormap range (people per m²)
 const TERRAIN_SCALE = 0.55; // metres of height per person per m²
@@ -287,7 +287,7 @@ export function Hotspots({ hotspots, venue, exploded, palette, labels, selectedK
               <meshBasicMaterial color={color} transparent opacity={selectedKey === key ? 0.35 : 0.14} depthWrite={false} />
             </mesh>
             {labels && (
-              <Html position={[0, 2.6, 0]} center zIndexRange={[40, 0]}
+              <SceneHtml position={[0, 2.6, 0]} center zIndexRange={[40, 0]}
                     style={{ display: visible && (labelled.has(key) || selectedKey === key) ? "block" : "none" }}>
                 <button
                   type="button"
@@ -296,7 +296,7 @@ export function Hotspots({ hotspots, venue, exploded, palette, labels, selectedK
                 >
                   {fmtNum(h.peak_density_ppm2, 1)} people per m² · {fmtClock(h.t_s)}
                 </button>
-              </Html>
+              </SceneHtml>
             )}
             {i === 0 && <pointLight color={color} intensity={selectedKey === key ? 6 : 2} distance={8} position={[0, 1.5, 0]} />}
           </group>
@@ -325,13 +325,13 @@ export function Marshals({ notes, venue, exploded }: { notes: MarshalNote[]; ven
   return (
     <group>
       {notes.map((m, i) => (
-        <Html key={i} position={[m.x, floorY(venue, m.floor_id, exploded) + 3.2, -m.y]} center zIndexRange={[50, 0]}
+        <SceneHtml key={i} position={[m.x, floorY(venue, m.floor_id, exploded) + 3.2, -m.y]} center zIndexRange={[50, 0]}
               style={{ display: t >= m.t_s && t <= m.t_s + 10 ? "block" : "none" }}>
           <div className="relative max-w-56 rounded-[8px] border border-border bg-surface px-2.5 py-1.5 text-xs text-ink shadow-[var(--shadow-float)]">
             <span className="mr-1 font-semibold text-signal">Marshal:</span>{human(m.speech)}
             <span className="absolute -bottom-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-b border-r border-border bg-surface" />
           </div>
-        </Html>
+        </SceneHtml>
       ))}
     </group>
   );

@@ -1,5 +1,5 @@
 /** The static venue in 3D: an architectural model look (section-cut walls, ink edges). */
-import { Edges, Html, Line } from "@react-three/drei";
+import { Edges, Line } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useMemo } from "react";
 import * as THREE from "three";
@@ -19,6 +19,7 @@ import {
   wallPieces,
 } from "./geom";
 import type { ScenePalette } from "./palette";
+import { SceneHtml } from "./SceneHtml";
 
 export interface ModelHandlers {
   onExitClick?: (exit: Exit, floor: Floor, e: ThreeEvent<MouseEvent>) => void;
@@ -293,11 +294,11 @@ function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, o
         </mesh>
       )}
       {showLabel && (
-        <Html position={[cx, h + 0.4, -cy]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
+        <SceneHtml position={[cx, h + 0.4, -cy]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs font-medium text-muted shadow-sm">
             {obstacle.label ?? obstacle.id}{proposed ? " · proposed" : ""}{locked ? " · locked" : ""}
           </div>
-        </Html>
+        </SceneHtml>
       )}
     </group>
   );
@@ -380,11 +381,11 @@ function StageModel({ obstacle, stage, palette, selected, labels, venue, onClick
         </group>
       )}
       {labels && (
-        <Html position={[cx, (stage ? roofH : deckH) + 1.2, -cy]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
+        <SceneHtml position={[cx, (stage ? roofH : deckH) + 1.2, -cy]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs font-semibold text-ink shadow-sm">
             {obstacle.label ?? "Stage"}
           </div>
-        </Html>
+        </SceneHtml>
       )}
     </group>
   );
@@ -447,11 +448,11 @@ function ExitGate({ exit, floor, palette, outdoor, blocked, selected, proposed, 
         <ExitArrow width={door.width} color={palette.egress} outward={door.edge} rot={rot} />
       )}
       {labels && (
-        <Html position={[0, h + 0.7, 0]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
+        <SceneHtml position={[0, h + 0.7, 0]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
           <div className={`whitespace-nowrap rounded-[3px] px-1.5 py-0.5 text-2xs font-semibold shadow-sm tabular ${blocked ? "bg-danger text-white" : "bg-egress text-white"}`}>
             {exitName(floor, exit)} · {fmtNum(exit.width_m, 1)} m{blocked ? " · blocked" : ""}{proposed ? " · proposed" : ""}{locked ? " · locked" : ""}
           </div>
-        </Html>
+        </SceneHtml>
       )}
     </group>
   );
@@ -501,11 +502,11 @@ function ZonePatch({ zone, palette, selected, labels, people, onClick, onGrab, v
       <Line points={pts} color={palette.zone} lineWidth={selected ? 2 : 1.2} dashed dashSize={0.8} gapSize={0.5}
             transparent opacity={0.75} />
       {labels && (
-        <Html position={[cx, 0.4, -cy]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none", display: visible ? "block" : "none" }}>
+        <SceneHtml position={[cx, 0.4, -cy]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none", display: visible ? "block" : "none" }}>
           <div className="whitespace-nowrap rounded-[3px] border border-signal/30 bg-surface/85 px-1.5 py-0.5 text-2xs text-signal shadow-sm tabular">
             {zone.label ?? zone.id} · {fmtInt(people)}
           </div>
-        </Html>
+        </SceneHtml>
       )}
     </group>
   );
@@ -538,11 +539,11 @@ function StairMesh({ stair, venue, palette, exploded, selected, labels, onClick 
               color={palette.edge} lineWidth={1.5} />
       ))}
       {labels && (
-        <Html position={[run / 2, (yTop - yBot) / 2 + 1.6, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
+        <SceneHtml position={[run / 2, (yTop - yBot) / 2 + 1.6, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs text-muted shadow-sm">
             Stair · {fmtNum(stair.width_m, 1)} m
           </div>
-        </Html>
+        </SceneHtml>
       )}
     </group>
   );

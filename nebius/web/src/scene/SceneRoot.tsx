@@ -2,7 +2,7 @@
 import { Grid } from "@react-three/drei";
 import { Canvas, type ThreeEvent } from "@react-three/fiber";
 import { Bloom, EffectComposer, N8AO, SMAA, Vignette } from "@react-three/postprocessing";
-import { type ReactNode, Suspense, useMemo, useState } from "react";
+import { type ReactNode, Suspense, useMemo, useRef, useState } from "react";
 import type { Exit, Floor, Hotspot, Venue } from "@/api/types";
 import type { ObjectChange } from "@/lib/venueDiff";
 import type { Replay } from "@/replay/useReplay";
@@ -11,6 +11,7 @@ import { CameraRig } from "./CameraRig";
 import { ChangeHighlights, DraftPreview, MoveGizmo } from "./EditTools";
 import { venueBounds } from "./geom";
 import { useScenePalette } from "./palette";
+import { LabelLayer } from "./SceneHtml";
 import { Agents, DensityLayer, Hotspots, Marshals, PlaybackClock, type MarshalNote } from "./ReplayLayers";
 import { ShowLights } from "./ShowLights";
 import { osmSite, SiteContext } from "./SiteContext";
@@ -55,9 +56,10 @@ export function SceneRoot(p: SceneProps) {
   const drawing = tool !== "select" && tool !== "block";
   const showAgents = layers.people && p.replay;
   const site = useMemo(() => osmSite(p.venue), [p.venue]);
+  const labelLayer = useRef<HTMLDivElement>(null);
 
   return (
-    <>
+    <LabelLayer.Provider value={labelLayer}>
     <Canvas
       shadows
       dpr={[1, 1.75]}
@@ -153,11 +155,13 @@ export function SceneRoot(p: SceneProps) {
         </EffectComposer>
       )}
     </Canvas>
+    {/* 3D labels (SceneHtml) live here: same origin and clipping as the canvas */}
+    <div ref={labelLayer} className="pointer-events-none absolute inset-0 overflow-hidden [&>*]:pointer-events-auto" />
     {site && (
       <span className="pointer-events-none absolute bottom-1 right-2 z-10 text-[10px] text-muted">
         Map and data © OpenStreetMap contributors
       </span>
     )}
-    </>
+    </LabelLayer.Provider>
   );
 }

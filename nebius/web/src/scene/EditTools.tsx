@@ -1,5 +1,5 @@
 /** Plan-mode editing in 3D: drag to move, draw barriers and zones, place exits, measure. */
-import { Html, Line, TransformControls } from "@react-three/drei";
+import { Line, TransformControls } from "@react-three/drei";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { Pt, Venue } from "@/api/types";
@@ -9,6 +9,7 @@ import type { ObjectChange } from "@/lib/venueDiff";
 import { useUi } from "@/state/ui";
 import { bbox, centroid, exitRectAt, floorY } from "./geom";
 import type { ScenePalette } from "./palette";
+import { SceneHtml } from "./SceneHtml";
 
 export interface EditCallbacks {
   onMove: (id: string, dx: number, dy: number) => void;
@@ -106,9 +107,9 @@ export function DraftPreview({ venue, exploded, palette, cursor }: {
           </mesh>
         ))}
         {tool === "measure" && pts.length >= 2 && (
-          <Html position={[last.x, last.y + 0.8, last.z]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
+          <SceneHtml position={[last.x, last.y + 0.8, last.z]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
             <div className="rounded-[3px] bg-ink px-1.5 py-0.5 text-2xs font-semibold text-plan tabular">{fmtNum(length, 1)} m</div>
-          </Html>
+          </SceneHtml>
         )}
       </group>
     );
