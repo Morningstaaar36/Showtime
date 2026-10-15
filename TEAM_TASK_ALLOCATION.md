@@ -241,3 +241,69 @@ Existing maps, templates, imports, plugins, diagnostics, and themes stay availab
 - Publish measured improvements under stated scenarios and assumptions. Do not label simulated success as universal event safety or promise that this allocation will win a prize.
 
 The intended result is one coherent product: an organizer can build and correct a venue, compare feasible changes using inspectable evidence, and export the exact selected operational plan.
+
+## 11. Generic venues push (15 October 2026)
+
+Added on branch `shahraz`. Names: Person 1 = Shahraz, Person 2 = Ridwan, Person 3 = Saif.
+Background, contract, verified results and how to try it: [GENERIC_VENUES.md](nebius/docs/GENERIC_VENUES.md).
+
+**Why:** an organizer testing the app found it template-bound. A building picked on the map
+came in as one ground floor; there were no rooms, no third floor, no hospital patients or
+marches, and no way to look at one floor of a replay. This push makes any building or site
+usable. It does not replace sections 3–5; it is added on top, with the same rules from section 10.
+
+### 11.1 Done (Shahraz, merged in `shahraz`)
+
+| Area | What exists now |
+| --- | --- |
+| Contract | `event_kind`, `routes`, zone `groups` / `pre_movement_s` / `route_id` (additive, schema 1) |
+| Building ops | add/remove floor, add/remove stair, add wall, add door, add room, set zone profile, add/remove route, set event kind; conformance tests; text-edit agent uses them live |
+| Validation | reachability through any number of stairs (was capped at five hops) |
+| Map buildings | every storey (map `building:levels` or chosen), two stair cores inside the outline, rooms and corridor grouped into wards, IBC occupant loads; `/places/at` gives levels and use; `/event-kinds` |
+| UI | map form: floors, used as, inside, event kind; floor switcher (all / spread / one floor) on every 3D view |
+| Review fixes | health detects a rejected or empty key; unknown routes and crashes use the error shape; sim container read-only, caps dropped, no pull, no pipe stall; Docker tests skip with a reason; designer slides features instead of dropping them; edit summaries use labels; rooms slide inside the outline |
+| Groundwork for others | tested op payload builders (`web/src/lib/venueOps.ts`), `useEventKinds`, `editFloor` state, geometry helpers for stairs, walls and routes, all UI copy under `editor.*` |
+
+### 11.2 Person 2 (Ridwan): simulation and backend
+
+| ID | Task | Points | Acceptance |
+| --- | --- | ---: | --- |
+| G2-01 | People groups in the simulator | 5 | Each zone's `groups` give per-agent speeds (wheelchair, bed with assisted speed, elderly, child, staff) with cited values in `docs/ASSUMPTIONS.md`; sim test shows a ward with beds empties slower than the same ward of adults. |
+| G2-02 | Pre-movement | 3 | `Zone.pre_movement_s` delays each agent's first step (JuPedSim API checked in the image); metrics count from the alarm; sim test proves no movement before the delay. |
+| G2-03 | Routes and marches | 5 | `route_id` makes agents walk the route's waypoints (JuPedSim journey stages) and then the nearest exit; new template `rally_street` (event kind march, a real street width with its source); sim test with a small crowd. |
+| G2-04 | `agents.json` and `GET /runs/{id}/agents` | 2 | Sim writes `{"schema": 1, "kinds": {"<agent id>": "<kind>"}}` for non-general agents; the endpoint returns `{"schema":1,"kinds":{}}` for older runs. Unblocks G3-03. |
+| G2-05 | Instant estimate with groups | 2 | `api/core/tier1.py` adds pre-movement and the slowest group's speed per zone; a hospital estimate is slower than the same building of adults. |
+| G2-06 | Surroundings of a building | 6 | `surroundings_m` (0–200) on `/venues/from-map`: F0 adds the outdoor ground around the building minus neighbours, outer walls with door gaps at entrances, exits where streets leave, an "Outside" zone with 0 people; validates for 3 real outlines. Unblocks G3-05. |
+| G2-07 | Red and blue teams per event kind | 4 | Venue features given to the agents include event kind, groups, routes and floors; incidents filtered by kind; blue team may propose `set_zone_profile` and staggered starts; recorded fixtures updated; every number still from simulations. |
+| G2-08 | Pre-movement defaults with sources | 2 | `/event-kinds` fills `default_pre_movement_s` only where a cited value exists (e.g. PD 7974-6 occupancy categories), with the source in ASSUMPTIONS. |
+| G2-09 | Multi-floor sim tests and rewind | 3 | `sim/tests`: 3- and 4-storey buildings with two stairs evacuate everyone; rewind either works for multi-floor or the UI says why not. Templates `hospital_3f` and `office_tower_6f` made with the generator. |
+| | **Total** | **32** | |
+
+### 11.3 Person 3 (Saif): screens, editor and replay
+
+| ID | Task | Points | Acceptance |
+| --- | --- | ---: | --- |
+| G3-01 | Building tools in the editor | 7 | Tool rail gets wall, door, room, stair, route and add/remove floor, acting on `editFloor`, using the tested `venueOps.ts` builders; undo/redo, autosave, keyboard, accessible names; one Playwright journey adds a floor, a stair and a room. |
+| G3-02 | Zone profile and event kind | 4 | Zone inspector edits groups (shares), pre-movement and route; the event kind control (with `useEventKinds`) on the check screen offers "Use the usual people mix in every area". |
+| G3-03 | Replay by people kind | 4 | Agents coloured and shaped by kind from G2-04 (colour never the only signal), with a legend; 3,000 people still ≥ 30 fps. |
+| G3-04 | Routes, stairs, walls and labels in 3D | 4 | Routes drawn as arrows (`routeMarks`), stairs as ramps between any floors (`stairRun`, `stairProfile`), thin walls crisp (`wallThickness`); labels only for the shown floor and decluttered on big sites. |
+| G3-05 | Surroundings option on the map screen | 2 | "Include the surroundings" with a distance slider (copy already in `en.json`), after G2-06. |
+| G3-06 | Scenario viewer and event markers | 6 | Your plan lists every tested scenario with its verdict; clicking one plays it; the timeline shows markers and captions ("South door blocked at 1:00"); people per floor over time. Also find and fix the intermittent guided-journey failure (once in two runs on 15 Oct, clicking "Test this plan" started nothing). |
+| G3-07 | Multi-storey browser journey | 3 | Playwright: draw an area → 4 floors, hospital, rooms → check → floor switcher → test → one-floor replay; screenshots in `docs/screenshots/`. |
+| | **Total** | **30** | |
+
+### 11.4 Person 1 (Shahraz)
+
+Merges the G2 and G3 branches into `shahraz`, re-tests live with the real model, keeps
+`GENERIC_VENUES.md` and `PROGRESS.md` current, and records the demo. Integration problems go
+back to the task owner (section 10).
+
+### 11.5 Order and handoffs
+
+- Start now, no waiting: G2-01, G2-02, G2-03, G2-05, G2-07, G2-08, G2-09; G3-01, G3-02, G3-04,
+  G3-06, G3-07.
+- G3-03 needs G2-04. G3-05 needs G2-06.
+- Shared files: `engine_jupedsim.py` is Person 2's; `web/src/scene/*` and `state/ui.ts` are
+  Person 3's. Contract changes stay additive and go through Person 1.
+- Branch from `shahraz`, small Conventional Commits, `make check` and vitest green before each
+  merge request.
