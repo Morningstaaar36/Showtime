@@ -1,6 +1,6 @@
 /** Orbit camera with smooth fit-to-venue and fly-to-hotspot. */
 import { CameraControls } from "@react-three/drei";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Venue } from "@/api/types";
 import { useUi } from "@/state/ui";
@@ -10,6 +10,11 @@ export function CameraRig({ venue, resetNonce, exploded }: { venue: Venue; reset
   const ref = useRef<CameraControls>(null);
   const flyTo = useUi((s) => s.flyTo);
   const shot = useUi((s) => s.shot);
+  // big open-air sites (parks, fields) need to zoom out further than a hall to fit in view
+  const maxDistance = useMemo(() => {
+    const [x0, y0, x1, y1] = venueBounds(venue);
+    return Math.max(700, 2.2 * Math.hypot(x1 - x0, y1 - y0));
+  }, [venue]);
 
   useEffect(() => {
     const c = ref.current;
@@ -38,7 +43,7 @@ export function CameraRig({ venue, resetNonce, exploded }: { venue: Venue; reset
   }, [shot?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <CameraControls ref={ref} makeDefault minDistance={4} maxDistance={700} maxPolarAngle={Math.PI * 0.48}
+    <CameraControls ref={ref} makeDefault minDistance={4} maxDistance={maxDistance} maxPolarAngle={Math.PI * 0.48}
                     dollyToCursor smoothTime={0.32} />
   );
 }

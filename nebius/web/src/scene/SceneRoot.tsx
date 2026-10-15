@@ -62,12 +62,12 @@ export function SceneRoot(p: SceneProps) {
       shadows
       dpr={[1, 1.75]}
       gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true, logarithmicDepthBuffer: true }}
-      camera={{ fov: 38, near: 0.5, far: 3000, position: [cx + span, span, -cy + span] }}
+      camera={{ fov: 38, near: 0.5, far: Math.max(3000, span * 6), position: [cx + span, span, -cy + span] }}
       onPointerMissed={() => useUi.getState().select(null)}
       aria-label="3D view of the venue"
     >
       <color attach="background" args={[palette.bg]} />
-      <fog attach="fog" args={[palette.bg, span * 2.2, span * 5]} />
+      <fog attach="fog" args={[palette.bg, span * 3.5, span * 8]} />
       <hemisphereLight args={[palette.dark ? "#9fb3c8" : "#ffffff", palette.dark ? "#1a2228" : "#c9d3da", palette.night ? 0.12 : palette.dark ? 0.55 : 0.85]} />
       <ambientLight intensity={palette.night ? 0.06 : palette.dark ? 0.15 : 0.25} />
       <directionalLight
