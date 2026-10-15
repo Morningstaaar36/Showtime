@@ -15,6 +15,7 @@ from api.core.geometry import validate_venue
 from api.core.osm_venue import Projector, _outline, venue_from_osm
 from api.core.scene import scene_snapshot
 from api.core.venue_builder import build_venue
+from api.models import Venue
 from api.models.venue_spec import VenueSpec
 
 HALL: dict[str, Any] = {
@@ -292,3 +293,82 @@ def test_wall_feature_slides_then_shortens_to_keep_an_exit_clear() -> None:
     spec.features[0].width_m = 8
     res = build_venue(spec)
     assert res.assumptions == []
+
+
+class _MapState:
+    """Just enough app state for `from_map`: map features and a time zone."""
+
+    def __init__(self, features: list[dict[str, Any]]) -> None:
+        feats = features
+
+        class Osm:
+            async def features(self, *bbox: float) -> dict[str, Any]:
+                return {"features": feats, "attribution": "© OpenStreetMap contributors"}
+
+        class Weather:
+            async def timezone_for(self, lat: float, lon: float) -> str:
+                return "Asia/Dhaka"
+
+        self.osm, self.weather = Osm(), Weather()
+
+
+HOSPITAL: list[dict[str, Any]] = [
+    {"id": "w9", "kind": "building", "name": "City hospital",
+     "tags": {"building": "hospital", "building:levels": "3"},
+     "coords": _ring(0, 0, 60, 22), "closed": True},
+    {"id": "n9", "kind": "entrance", "name": "", "tags": {"entrance": "main"},
+     "coords": [_ll(30, 0)], "closed": False},
+]  # fmt: skip
+
+
+async def test_a_mapped_building_becomes_every_storey_it_has() -> None:
+    from api.orchestrator.venue_sources import from_map
+
+    out = await from_map(
+        _MapState(HOSPITAL), HOSPITAL[0]["coords"], mode="indoor", name="City hospital",
+        people=None, selected_id="w9",
+    )  # fmt: skip
+    venue = Venue.model_validate(out["venue"])
+    assert [f.floor_id for f in venue.floors] == ["F0", "F1", "F2"]
+    assert venue.event_kind == "hospital"
+    assert venue.extensions["building"]["interior"] == "rooms"
+    assert len(venue.stairs) == 4  # two cores, two flights each
+    assert _errors(venue) == []
+    assert not any("ground floor was imported" in n for n in out["notes"])
+    assert sum("Assumed" in n for n in out["notes"]) == 1  # one estimate, for all floors
+
+
+async def test_organizer_choices_override_the_map() -> None:
+    from api.orchestrator.venue_sources import from_map
+
+    out = await from_map(
+        _MapState(HOSPITAL), HOSPITAL[0]["coords"], mode="indoor", name="Offices",
+        people=500, selected_id="w9", levels=5, use="office", interior="open",
+    )  # fmt: skip
+    venue = Venue.model_validate(out["venue"])
+    assert len(venue.floors) == 5 and venue.event_kind == "office"
+    assert venue.extensions["building"]["interior"] == "open"
+    assert venue.total_people() == 500
+
+
+async def test_an_open_area_records_what_happens_there() -> None:
+    from api.orchestrator.venue_sources import from_map
+
+    out = await from_map(
+        _MapState(FEATURES), _ring(0, 0, 100, 80), mode="outdoor", name="Rally ground",
+        people=2000, selected_id=None, event_kind="rally",
+    )  # fmt: skip
+    assert Venue.model_validate(out["venue"]).event_kind == "rally"
+
+
+async def test_clicking_a_building_reports_its_storeys_and_use() -> None:
+    from api.app.routes_places import place_at
+
+    class St:
+        class osm:
+            @staticmethod
+            async def at_point(lat: float, lon: float) -> dict[str, Any]:
+                return {"selection": dict(HOSPITAL[0]), "attribution": ""}
+
+    out = await place_at(lat=23.7, lon=90.4, st=St())  # type: ignore[arg-type]
+    assert out["selection"]["levels"] == 3 and out["selection"]["use"] == "hospital"

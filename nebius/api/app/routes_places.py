@@ -16,6 +16,8 @@ from api.agents.base import AgentUnavailable
 from api.app.errors import ApiException
 from api.app.routes_core import get_state
 from api.app.state import AppState
+from api.core.building_gen import infer_use, map_levels
+from api.models import EventKind
 from api.orchestrator import copilot, venue_sources
 
 router = APIRouter(prefix="/api/v1")
@@ -35,6 +37,14 @@ class FromMapIn(BaseModel):
     name: str = Field(default="", max_length=120)
     people: int | None = Field(default=None, ge=0, le=100_000)
     selected_id: str | None = Field(default=None, max_length=40)
+    # buildings: storeys (default: the map's building:levels, else 1), what the building is
+    # (default: from its map tags), rooms off a corridor or open floors, storey height
+    levels: int | None = Field(default=None, ge=1, le=40)
+    use: EventKind | None = None
+    interior: Literal["open", "rooms"] | None = None
+    floor_height_m: float = Field(default=3.5, ge=2.4, le=8.0)
+    # open areas: what happens there (a rally, a festival, ...)
+    event_kind: EventKind | None = None
 
 
 def _osm_error(exc: OsmUnavailable) -> ApiException:
@@ -93,11 +103,21 @@ async def place_at(
     lon: float = Query(ge=-180, le=180),
     st: AppState = Depends(get_state),
 ) -> dict[str, Any]:
-    """The building or open area under a clicked point (and the features around it)."""
+    """The building or open area under a clicked point (and the features around it).
+
+    A building also says how many storeys the map lists and what it is used for, so the
+    import form can start from them.
+    """
     try:
-        return await st.osm.at_point(lat, lon)
+        out = await st.osm.at_point(lat, lon)
     except OsmUnavailable as exc:
         raise _osm_error(exc) from exc
+    sel = out.get("selection")
+    if isinstance(sel, dict) and sel.get("kind") == "building":
+        tags = sel.get("tags") or {}
+        sel["levels"] = map_levels(tags)
+        sel["use"] = infer_use(tags)
+    return out
 
 
 @router.post("/venues/from-map")
@@ -111,6 +131,11 @@ async def venue_from_map(body: FromMapIn, st: AppState = Depends(get_state)) -> 
             name=body.name.strip() or "Venue from map",
             people=body.people,
             selected_id=body.selected_id,
+            levels=body.levels,
+            use=body.use,
+            interior=body.interior,
+            floor_height_m=body.floor_height_m,
+            event_kind=body.event_kind,
         )
     except OsmUnavailable as exc:
         raise _osm_error(exc) from exc
