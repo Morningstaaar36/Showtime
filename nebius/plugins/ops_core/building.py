@@ -152,8 +152,16 @@ def cut_door(line: list[Pt], x: float, y: float, width_m: float) -> list[list[Pt
 def snap_rect(
     x: float, y: float, w: float, d: float, walkable: list[Pt]
 ) -> tuple[float, float, float, float]:
-    """Room rectangle (x0, y0, x1, y1) with edges close to the outline's bounds moved onto them."""
+    """Room rectangle (x0, y0, x1, y1) with edges close to the outline's bounds moved onto them.
+
+    A room that sticks out past the outline's bounds but fits inside them slides back in
+    (a request for "a room in the north-east corner" rarely has exact coordinates).
+    """
     minx, miny, maxx, maxy = geo.to_polygon(walkable).bounds
+    if w <= maxx - minx:
+        x = min(max(x, minx), maxx - w)
+    if d <= maxy - miny:
+        y = min(max(y, miny), maxy - d)
     x0, y0, x1, y1 = x, y, x + w, y + d
     if abs(x0 - minx) <= SNAP_M:
         x0 = minx

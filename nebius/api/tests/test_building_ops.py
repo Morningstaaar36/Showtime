@@ -317,3 +317,13 @@ def test_edit_summaries_name_objects_not_ids(hall: Venue) -> None:
     assert "Added a floor (Gallery) on top" in text
     assert "from Mezzanine down to Ground floor" in text
     assert "door_e1" not in text and "audience" not in text
+
+
+def test_a_room_past_the_edge_slides_back_inside(registry: Registry, hall: Venue) -> None:
+    v = patch(registry, hall, {"op": "add_room", "floor_id": "F1", "id": "office", "x": 36,
+                               "y": 22, "width_m": 6, "depth_m": 4, "door_wall": "south",
+                               "people": 20})  # fmt: skip
+    walls = next(o for o in v.floors[1].obstacles if o.id.startswith("office"))
+    xs = [x for x, _ in walls.polygon]
+    ys = [y for _, y in walls.polygon]
+    assert max(xs) <= 40.11 and max(ys) <= 25.11  # walls straddle the edge by half a thickness
