@@ -41,12 +41,14 @@ export function StepIndicator({ step, projectId }: { step: JourneyStep; projectI
   );
 }
 
-export function JourneyShell({ step, projectId, title, back, children, wide }: {
+export function JourneyShell({ step, projectId, title, back, children, wide, fill }: {
   step: JourneyStep; projectId?: string; title?: string; back?: { to: string; label: string };
   children: React.ReactNode; wide?: boolean;
+  /** lock to the window height on desktop, so a long side panel scrolls instead of stretching the 3D view */
+  fill?: boolean;
 }) {
   return (
-    <div className="flex min-h-full flex-col">
+    <div className={cn("flex min-h-full flex-col", fill && "lg:h-dvh lg:overflow-hidden")}>
       <header className="sticky top-0 z-30 border-b border-border bg-surface/85 backdrop-blur-md">
         <div className={cn("mx-auto flex h-14 items-center gap-2 px-4 sm:gap-3", wide ? "max-w-none" : "max-w-6xl")}>
           {back ? (

@@ -109,7 +109,7 @@ export function CheckVenuePage() {
   });
 
   return (
-    <JourneyShell step="describe" projectId={p.id} title={p.name} back={{ to: "/", label: t("journey.home") }} wide>
+    <JourneyShell step="describe" projectId={p.id} title={p.name} back={{ to: "/", label: t("journey.home") }} wide fill>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <main id="main" className="relative h-[55vh] min-w-0 lg:h-auto lg:flex-1">
           <SceneRoot venue={previewing ? proposal.venue : venue} replay={null} hotspots={[]} marshals={[]}
@@ -155,7 +155,7 @@ export function CheckVenuePage() {
         </main>
 
         <aside aria-label={t("check.panel")} className="scrollbar-thin flex w-full shrink-0 flex-col border-t border-border bg-surface lg:w-[400px] lg:border-l lg:border-t-0 xl:w-[440px]">
-          <div className="flex-1 space-y-6 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
             <div>
               <h1 className="text-xl font-semibold tracking-tight">{t("check.title")}</h1>
               <p className="mt-1 text-base text-muted">{t("check.lead")}</p>
