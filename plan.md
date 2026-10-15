@@ -16,6 +16,9 @@
 > wheelchair users), pre-movement and march routes are in the contract; simulating them, a
 > building's surroundings, the editor tools and the scenario viewer are allocated in
 > [TEAM_TASK_ALLOCATION.md §11](TEAM_TASK_ALLOCATION.md#11-generic-venues-push-15-october-2026).
+> **Same day:** all remaining work is re-split: Shahraz does the Nebius work only (Token Factory,
+> Sandboxes, public demo); Ridwan and Saif share everything else, see
+> [TEAM_TASK_ALLOCATION.md §12](TEAM_TASK_ALLOCATION.md#12-all-remaining-work-split-on-15-october-2026).
 > Details and verified results: [nebius/docs/GENERIC_VENUES.md](nebius/docs/GENERIC_VENUES.md).
 
 ---
