@@ -1165,6 +1165,7 @@
     "verdict_higher": "The simulator let more people through than the real crowd did: its flow is {median}% higher (median over {n} widths).",
     "verdict_close": "The simulator's flow is within {median}% of the real crowd's (median over {n} widths).",
     "meaning_title": "What this means for your plan",
+    "meaning_close": "Through doors and narrow passages the simulated crowd gets through at about the same rate as these real people did, so evacuation times that are set by a bottleneck are realistic for a calm crowd like this one. Real crowds differ from these test participants: treat the times as a planning estimate, not as a safety margin.",
     "meaning_lower": "Through doors and narrow passages the simulated crowd is slower than these real people were, so evacuation times that are set by a bottleneck come out longer than in the experiment. That errs on the cautious side, but treat it as a known limit, not as a safety margin: real crowds differ from these test participants.",
     "meaning_higher": "Through doors and narrow passages the simulated crowd is faster than these real people were, so evacuation times that are set by a bottleneck may be too short. Add a margin.",
     "limits_title": "What this check does not cover",

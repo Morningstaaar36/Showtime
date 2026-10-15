@@ -203,7 +203,7 @@ export function SimulatorCheck({ data, chartWidth }: { data: SimulatorValidation
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-5">
           <h3 className="font-bold">{t("validation.meaning_title")}</h3>
-          <p className="mt-1 text-sm text-muted">{t(lower ? "validation.meaning_lower" : "validation.meaning_higher")}</p>
+          <p className="mt-1 text-sm text-muted">{t(Math.abs(data.mean_error_pct) < 5 ? "validation.meaning_close" : lower ? "validation.meaning_lower" : "validation.meaning_higher")}</p>
         </div>
         <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-5">
           <h3 className="font-bold">{t("validation.limits_title")}</h3>
