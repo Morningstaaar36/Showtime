@@ -78,6 +78,8 @@ test("help lists the keyboard shortcuts and unknown pages explain themselves", a
 });
 
 test("guided journey: template, correct and lock, test, review and accept", async ({ page }) => {
+  // a real model and simulator take minutes; the fake providers take seconds
+  test.setTimeout(600_000);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Plan a safe event in minutes" })).toBeVisible();
   await page.getByRole("button", { name: /Try a sample/ }).click();
@@ -99,9 +101,10 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
 
   await page.getByRole("button", { name: "Test this plan" }).click();
   await expect(page).toHaveURL(/\/work\?session=/);
-  await expect(page.getByText("Simulating the crowd")).toBeVisible();
+  // the visible step, not its screen-reader announcement
+  await expect(page.getByText("Simulating the crowd").and(page.locator(":not(.sr-only)"))).toBeVisible();
   // a test the organizer just started moves on to the plan by itself
-  await expect(page).toHaveURL(/\/p\/p_[^/]+\?session=/, { timeout: 170_000 });
+  await expect(page).toHaveURL(/\/p\/p_[^/]+\?session=/, { timeout: 560_000 });
   const verdict = page.getByRole("region", { name: "Verdict" });
   await expect(verdict).toBeVisible();
   await expect(verdict.getByText("Evacuation time (95%)")).toBeVisible();
