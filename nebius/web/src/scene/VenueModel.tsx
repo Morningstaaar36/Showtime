@@ -275,7 +275,9 @@ function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, o
   const color = isWater ? "#7fb2e0" : isWall ? palette.wall : isBarrier ? palette.barrier
     : obstacle.kind === "booth" || obstacle.kind === "bar" ? palette.booth : palette.obstacle;
   const [cx, cy] = centroid(obstacle.polygon as Pt[]);
-  const showLabel = labels && !ghost && (proposed || (!isWall && !isBarrier));
+  // map imports number unnamed buildings ("Building 19"); those labels only crowd out the exits
+  const generic = /^building \d+$/i.test(obstacle.label ?? "");
+  const showLabel = labels && !ghost && (proposed || selected || (!isWall && !isBarrier && !generic));
   const see = ghost || isWater || proposed;
   return (
     <group>
