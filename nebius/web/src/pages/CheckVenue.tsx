@@ -123,7 +123,7 @@ export function CheckVenuePage() {
             {!previewing && <DragBridge venue={venue} exploded={layers.exploded} />}
             {!previewing && <DragGhost venue={venue} exploded={layers.exploded} palette={palette} />}
           </SceneRoot>
-          <div className="pointer-events-none absolute inset-0">
+          <div className="pointer-events-none absolute inset-0 z-40">
             <div className="absolute left-3 top-3 flex flex-wrap items-start gap-2">
               <DropPalette disabled={previewing} onPlace={place} onMove={moveTo} />
               <button type="button" onClick={() => setResetNonce((n) => n + 1)} aria-label={t("check.reset_view")} title={t("check.reset_view")}

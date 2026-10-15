@@ -106,7 +106,7 @@ export function DraftPreview({ venue, exploded, palette, cursor }: {
           </mesh>
         ))}
         {tool === "measure" && pts.length >= 2 && (
-          <Html position={[last.x, last.y + 0.8, last.z]} center style={{ pointerEvents: "none" }}>
+          <Html position={[last.x, last.y + 0.8, last.z]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
             <div className="rounded-[3px] bg-ink px-1.5 py-0.5 text-2xs font-semibold text-plan tabular">{fmtNum(length, 1)} m</div>
           </Html>
         )}

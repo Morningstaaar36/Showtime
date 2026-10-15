@@ -341,7 +341,7 @@ export function WorkspacePage() {
               }}
             />
             </div>
-            <div className="pointer-events-none absolute inset-0">
+            <div className="pointer-events-none absolute inset-0 z-40">
               <div className="absolute left-3 top-3"><ToolRail mode={mode} onResetView={() => setResetNonce((n) => n + 1)} /></div>
               {!compareId && (
                 <div className="absolute right-3 top-3"><ViewMenu multiFloor={venue.floors.length > 1} tour={tour} /></div>
