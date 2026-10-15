@@ -13,6 +13,7 @@ isolation: the inputs and `script.py` go to `/work/<job_id>/` (read-only) and
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
@@ -260,6 +261,9 @@ def _acquire_lock(path: Path) -> Any:
 
     path.parent.mkdir(parents=True, exist_ok=True)
     fh = open(path, "a+")  # noqa: SIM115 - kept open while the lock is held
+    # the Docker stack's API runs as root; let host tools sharing runs/ open the same lock
+    with contextlib.suppress(OSError):
+        os.chmod(path, 0o666)
     fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
     return fh
 
@@ -454,6 +458,9 @@ class DockerRunner:
             (root / rel).write_bytes(data)
         if os.getuid() == 0:
             hand_over(work, self.sim_user)
+            # the shared code folder stays usable by host tools (the API may run as root)
+            with contextlib.suppress(OSError):
+                os.chmod(root, 0o777)
         name = f"showtime-code-{job.job_id}"
         cmd = [
             self._docker,
