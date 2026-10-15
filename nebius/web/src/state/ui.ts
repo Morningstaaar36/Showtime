@@ -4,7 +4,11 @@ import type { RunResult, VenuePatch } from "@/api/types";
 import type { Units } from "@/lib/format";
 
 export type Mode = "plan" | "simulate" | "redteam" | "report";
-export type Tool = "select" | "exit" | "barrier" | "zone" | "block" | "measure";
+export type Tool = "select" | "exit" | "barrier" | "zone" | "block" | "measure" | BuildTool;
+/** Building-editor tools (feat/editor): they act on `editFloor`. */
+export type BuildTool = "wall" | "door" | "room" | "stair" | "route";
+export const BUILD_TOOLS: readonly BuildTool[] = ["wall", "door", "room", "stair", "route"];
+export const isBuildTool = (t: Tool): t is BuildTool => (BUILD_TOOLS as readonly Tool[]).includes(t);
 export type Theme = "light" | "dark" | "system";
 
 export interface Selection {
@@ -63,6 +67,11 @@ interface UiState {
   flyToPoint: (x: number, y: number, floorId: string) => void;
   setInspectorOpen: (v: boolean) => void;
   resetForProject: () => void;
+
+  // --- building editor (feat/editor) ---
+  /** floor the building tools act on; null = the ground (lowest) floor */
+  editFloor: string | null;
+  setEditFloor: (floorId: string | null) => void;
 }
 
 const PREFS_KEY = "showtime.prefs.v1";
@@ -132,5 +141,9 @@ export const useUi = create<UiState>((set, get) => ({
   setInspectorOpen: (inspectorOpen) => set({ inspectorOpen }),
   resetForProject: () =>
     set({ selection: null, hover: null, activeRunId: null, compareRunId: null, blockedExits: [],
-          tier1Preview: null, draft: [], proposal: null, focusFloor: null, tool: "select" }),
+          tier1Preview: null, draft: [], proposal: null, focusFloor: null, tool: "select", editFloor: null }),
+
+  // --- building editor (feat/editor) ---
+  editFloor: null,
+  setEditFloor: (editFloor) => set({ editFloor, draft: [] }),
 }));
