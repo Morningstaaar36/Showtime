@@ -113,7 +113,7 @@ export function CheckVenuePage() {
     <JourneyShell step="describe" projectId={p.id} title={p.name} back={{ to: "/", label: t("journey.home") }} wide fill>
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <main id="main" className="relative h-[55vh] min-w-0 lg:h-auto lg:flex-1">
-          <FloorSwitch venue={venue} className="absolute left-3 top-3 z-20" />
+          <FloorSwitch venue={venue} className="absolute right-3 top-3 z-50" />
           <SceneRoot venue={previewing ? proposal.venue : venue} replay={null} hotspots={[]} marshals={[]}
                      editable={!previewing} resetNonce={resetNonce} quality="high"
                      highlights={previewing ? proposal.changes : undefined}

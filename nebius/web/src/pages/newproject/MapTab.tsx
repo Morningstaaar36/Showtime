@@ -194,7 +194,9 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
     setLooking(false);
     const n = Number(people.replace(/[, ]/g, ""));
     build.mutate(
-      { outline: sel.outline, mode, name: sel.name, people: people.trim() && Number.isFinite(n) ? Math.round(n) : null, selected_id: sel.id,
+      { outline: sel.outline, mode,
+        // a drawn box has no map name: call it what it is used as, when that is chosen
+        name: sel.kind === "box" && mode === "indoor" && use ? kinds.find((k) => k.id === use)?.label ?? sel.name : sel.name, people: people.trim() && Number.isFinite(n) ? Math.round(n) : null, selected_id: sel.id,
         ...(mode === "indoor"
           ? { levels, use: use || null, interior: interior || null }
           : { event_kind: eventKind || null }) },
