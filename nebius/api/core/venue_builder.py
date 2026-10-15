@@ -56,6 +56,7 @@ class BuildResult:
 
     venue: Venue
     notes: list[str] = field(default_factory=list)
+    assumptions: list[str] = field(default_factory=list)  # solver changes the organizer should know
 
 
 def _frame(stage_wall: Wall, inner: Rect, u0: float, u1: float, v0: float, v1: float) -> Rect:
@@ -181,19 +182,40 @@ def _place_exits(
     return exits
 
 
+SHRINK_STEPS = (1.0, 0.9, 0.8, 0.7, 0.6, 0.5)  # a feature may lose up to half its length
+
+
 def _place_feature(
     spec: VenueSpec, f: FeatureSpec, slot: tuple[int, int], inner: Rect, avoid: Polygon
+) -> tuple[Rect, float] | None:
+    """Slide the feature along its wall (or around its region) clear of `avoid`; if no
+    position fits, shorten it step by step down to half its length. Returns the rectangle
+    and the length factor used, or None when even the half-length feature does not fit."""
+    for factor in SHRINK_STEPS:
+        r = _slide_feature(spec, f, slot, inner, avoid, factor)
+        if r is not None:
+            return r, factor
+    return None
+
+
+def _slide_feature(
+    spec: VenueSpec,
+    f: FeatureSpec,
+    slot: tuple[int, int],
+    inner: Rect,
+    avoid: Polygon,
+    factor: float,
 ) -> Rect | None:
     """First position (from the preferred one outward) that overlaps nothing in `avoid`."""
     stage_wall: Wall = spec.stage.wall if spec.stage else "north"
-    along, depth = f.width_m, f.depth_m
+    along, depth = f.width_m * factor, f.depth_m
     if f.place in ("north", "south", "east", "west"):
         wall: Wall = f.place
         span = _wall_span(spec, wall)
         along = min(along, span - 2)
         n, k = slot
         prefer = span * (k + 1) / (n + 1)
-        cands = [prefer + s * dd for dd in range(0, int(span), 1) for s in (1, -1)]
+        cands = [prefer + s * dd * 0.5 for dd in range(0, int(2 * span)) for s in (1, -1)]
         rects = [_against(spec, wall, c, along, depth) for c in cands]
     else:
         rx0, ry0, rx1, ry1 = _frame(stage_wall, inner, *_REGIONS[f.place])
@@ -273,6 +295,7 @@ def _bounds(pts: list[tuple[float, float]]) -> Rect:
 def build_venue(spec: VenueSpec, venue_id: str = "draft") -> BuildResult:
     """Solve a spec into a venue. Never raises for layout problems; reports them in notes."""
     notes: list[str] = []
+    assumptions: list[str] = []
     W, D = spec.width_m, spec.depth_m
     walkable = geo.rect(0, 0, W, D)
     obstacles: list[Obstacle] = []
@@ -351,13 +374,19 @@ def build_venue(spec: VenueSpec, venue_id: str = "draft") -> BuildResult:
     for f in spec.features:
         k = seen[f.place]
         seen[f.place] += 1
-        r = _place_feature(
+        got = _place_feature(
             spec, f, (per_wall.get(f.place, 1), k), inner, unary_union([*placed, *exit_clear])
         )
         name = f.label or f.kind.replace("_", " ").capitalize()
-        if r is None:
+        if got is None:
             notes.append(f"Left out “{name}”: no free spot that keeps exits and walkways clear.")
             continue
+        r, factor = got
+        if factor < 1.0:
+            assumptions.append(
+                f"Shortened “{name}” from {f.width_m:g} m to {f.width_m * factor:.1f} m so it "
+                "keeps the exits and walkways clear."
+            )
         kind, height = _KIND[f.kind]
         base = f.kind if f.kind != "other" else "feature"
         n, oid = 1, f"{base}_1"
@@ -421,6 +450,8 @@ def build_venue(spec: VenueSpec, venue_id: str = "draft") -> BuildResult:
         floors=floors,
         stairs=[stair] if stair is not None else [],
         stage=stage_params,
-        extensions={"generated": {"from": "description", "assumptions": list(spec.assumptions)}},
+        extensions={
+            "generated": {"from": "description", "assumptions": [*spec.assumptions, *assumptions]}
+        },
     )
-    return BuildResult(venue=venue, notes=notes)
+    return BuildResult(venue=venue, notes=notes, assumptions=assumptions)
