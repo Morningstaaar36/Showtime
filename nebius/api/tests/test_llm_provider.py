@@ -143,3 +143,77 @@ async def test_hosted_failure_falls_back_to_the_local_model(tmp_path: Path) -> N
     none = LLMClient(_settings(tmp_path, llm_fallback="none"), transport=_Quota())
     with pytest.raises(LLMError):
         await none.chat("fast", [{"role": "user", "content": "hi"}])
+
+
+class _Unauthorized(Exception):
+    status_code = 401
+
+
+class _Probe:
+    """Stands in for AsyncOpenAI's auth-checked requests (models.list and get)."""
+
+    def __init__(self, fail: Exception | None = None, key_info: dict[str, Any] | None = None):
+        self.fail = fail
+        self.key_info = key_info or {"data": {"limit_remaining": None}}
+        self.calls: list[str] = []
+        self.models = SimpleNamespace(list=self._list)
+
+    async def _list(self) -> Any:
+        self.calls.append("models")
+        if self.fail:
+            raise self.fail
+        return SimpleNamespace(data=[SimpleNamespace(id="m")])
+
+    async def get(self, path: str, cast_to: Any = None) -> Any:
+        self.calls.append(path)
+        if self.fail:
+            raise self.fail
+        return SimpleNamespace(json=lambda: self.key_info)
+
+
+@pytest.mark.asyncio
+async def test_health_reports_a_rejected_key_and_caches_the_probe(tmp_path: Path) -> None:
+    secret = "sk-or-v1-0123456789abcdef"
+    s = _settings(
+        tmp_path,
+        openai_compat_base_url="https://openrouter.ai/api/v1",
+        openai_compat_api_key=secret,
+    )
+    probe = _Probe(fail=_Unauthorized(f"401 User not found for key {secret}"))
+    c = LLMClient(s, transport=probe)
+    h = await c.health()
+    assert not h["ok"] and h["auth"] is False
+    assert "rejected the API key" in h["detail"] and "OPENAI_COMPAT_API_KEY" in h["detail"]
+    assert probe.calls == ["/key"]  # OpenRouter: the auth-checked endpoint, not the open list
+    await c.health()
+    assert probe.calls == ["/key"]  # cached: no second request
+    assert secret not in json.dumps(h)
+
+
+@pytest.mark.asyncio
+async def test_health_ok_key_and_out_of_credit(tmp_path: Path) -> None:
+    s = _settings(tmp_path, openai_compat_base_url="https://openrouter.ai/api/v1")
+    ok = await LLMClient(s, transport=_Probe()).health()
+    assert ok["ok"] and ok["auth"] is True
+    broke = _Probe(key_info={"data": {"limit_remaining": 0}})
+    h = await LLMClient(s, transport=broke).health()
+    assert not h["ok"] and "no credit" in h["detail"]
+
+
+@pytest.mark.asyncio
+async def test_health_other_hosts_use_models_and_redact_errors(tmp_path: Path) -> None:
+    secret = "sk-abcdef0123456789"
+    s = _settings(tmp_path, openai_compat_api_key=secret)
+    probe = _Probe(fail=RuntimeError(f"connection refused (Bearer {secret})"))
+    h = await LLMClient(s, transport=probe).health()
+    assert probe.calls == ["models"]
+    assert not h["ok"] and secret not in h["detail"] and "***" in h["detail"]
+
+
+@pytest.mark.asyncio
+async def test_local_health_is_not_cached(tmp_path: Path) -> None:
+    probe = _Probe()
+    c = LLMClient(_settings(tmp_path, llm_provider="local"), transport=probe)
+    assert (await c.health())["ok"]
+    await c.health()
+    assert probe.calls == ["models", "models"]

@@ -29,6 +29,10 @@ from api.models import Usage
 log = logging.getLogger("showtime.llm")
 T = TypeVar("T", bound=BaseModel)
 THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+# key-shaped tokens (sk-..., sk-or-v1-..., Bearer ...) masked in errors shown to people
+KEY_RE = re.compile(r"\b(sk-|Bearer\s+)[A-Za-z0-9_\-.*]{6,}")
+HEALTH_TTL_OK_S = 300.0  # a working key is re-checked every 5 minutes
+HEALTH_TTL_FAIL_S = 60.0  # a failing one every minute (fixing .env needs a restart anyway)
 
 
 class LLMError(Exception):
@@ -151,6 +155,7 @@ class LLMClient:
         # request features a hosted model rejected once ("schema", "extra"), per model:
         # later calls leave them out instead of failing again
         self._unsupported: set[tuple[str, str]] = set()
+        self._health_cache: tuple[float, dict[str, Any]] | None = None
 
     @property
     def base_url(self) -> str:
@@ -207,7 +212,14 @@ class LLMClient:
         return ""
 
     async def health(self) -> dict[str, Any]:
-        """Ping /models (cheap)."""
+        """Is the provider usable? Local: ping /models. Hosted: an auth-checked request.
+
+        Some gateways (OpenRouter) list their models without a key, so a model listing alone
+        reports an expired or revoked key as healthy. Hosted providers are therefore probed with
+        a request that needs a valid key (OpenRouter: `GET /key`, others: `GET /models`), and
+        the answer is cached for a few minutes so the badge does not hit the API on every poll.
+        The detail never contains key material.
+        """
         if self.provider == "fake":
             return {"ok": True, "detail": "Fake LLM (tests)"}
         if self.provider == "nebius" and not self.settings.nebius_api_key:
@@ -219,28 +231,81 @@ class LLMClient:
                 "ok": False,
                 "detail": "OPENAI_COMPAT_BASE_URL and OPENAI_COMPAT_API_KEY must be set.",
             }
+        if self.provider == "local":
+            return await self._local_health()
+        now = time.monotonic()
+        if self._health_cache is not None and now < self._health_cache[0]:
+            out = dict(self._health_cache[1])
+        else:
+            out = await self._hosted_health()
+            ttl = HEALTH_TTL_OK_S if out["ok"] else HEALTH_TTL_FAIL_S
+            self._health_cache = (now + ttl, out)
+            out = dict(out)
+        if out["ok"] and self._primary_paused():
+            return {
+                "ok": True,
+                "fallback": True,
+                "detail": f"{self.settings.llm_label} paused ({self.fallback_reason}); "
+                "using the local model",
+            }
+        return out
+
+    async def _local_health(self) -> dict[str, Any]:
         try:
-            client = self._get_client()
-            models = await asyncio.wait_for(client.models.list(), timeout=5)
-            if self._primary_paused():
-                return {
-                    "ok": True,
-                    "fallback": True,
-                    "detail": f"{self.settings.llm_label} paused ({self.fallback_reason}); "
-                    "using the local model",
-                }
-            if self.provider != "local":  # hosted catalogs list hundreds; show what we use
-                detail = f"{self.settings.llm_label}: {self.model_for('main')}"
-                return {"ok": True, "detail": detail}
-            ids = [m.id for m in getattr(models, "data", [])][:5]
-            return {"ok": True, "detail": f"{self.provider}: {', '.join(ids) or 'ready'}"}
+            models = await asyncio.wait_for(self._get_client().models.list(), timeout=5)
         except Exception as exc:
-            hint = " Start it with: make llm-up" if self.provider == "local" else ""
             return {
                 "ok": False,
                 "detail": f"{self.where} is not reachable ({type(exc).__name__}: "
-                f"{str(exc)[:160]}).{hint}",
+                f"{self.redact(str(exc))[:160]}). Start it with: make llm-up",
             }
+        ids = [m.id for m in getattr(models, "data", [])][:5]
+        return {"ok": True, "detail": f"{self.provider}: {', '.join(ids) or 'ready'}"}
+
+    async def _hosted_health(self) -> dict[str, Any]:
+        label = self.settings.llm_label
+        client = self._get_client()
+        openrouter = "openrouter.ai" in self.base_url.lower()
+        try:
+            if openrouter:
+                import httpx
+
+                resp = await asyncio.wait_for(client.get("/key", cast_to=httpx.Response), 5)
+                info = _json_or_empty(resp).get("data") or {}
+                left = info.get("limit_remaining") if isinstance(info, dict) else None
+                if isinstance(left, int | float) and left <= 0:
+                    return {
+                        "ok": False,
+                        "auth": True,
+                        "detail": f"{label}: the API key has no credit left.",
+                    }
+            else:
+                await asyncio.wait_for(client.models.list(), timeout=5)
+        except Exception as exc:
+            status = getattr(exc, "status_code", None)
+            if status in (401, 403):
+                env = "NEBIUS_API_KEY" if self.provider == "nebius" else "OPENAI_COMPAT_API_KEY"
+                return {
+                    "ok": False,
+                    "auth": False,
+                    "detail": f"{label} rejected the API key (HTTP {status}). "
+                    f"Set a valid {env} in .env and restart.",
+                }
+            if status == 402:
+                return {"ok": False, "auth": True, "detail": f"{label}: out of credit (HTTP 402)."}
+            return {
+                "ok": False,
+                "detail": f"{self.where} is not reachable ({type(exc).__name__}: "
+                f"{self.redact(str(exc))[:160]}).",
+            }
+        return {"ok": True, "auth": True, "detail": f"{label}: {self.model_for('main')}"}
+
+    def redact(self, text: str) -> str:
+        """`text` with the configured keys and anything key-shaped masked."""
+        for key in (self.settings.nebius_api_key, self.settings.openai_compat_api_key):
+            if key and len(key) >= 6:
+                text = text.replace(key, "***")
+        return KEY_RE.sub(lambda m: m.group(1) + "***", text)
 
     async def chat(
         self,
@@ -486,7 +551,8 @@ class LLMClient:
                 resp = await asyncio.wait_for(call, self.settings.llm_timeout_s)
         except Exception as exc:
             raise LLMError(
-                f"The language model did not answer: {type(exc).__name__}: {str(exc)[:200]}"
+                "The language model did not answer: "
+                f"{type(exc).__name__}: {self.redact(str(exc))[:200]}"
             ) from exc
         self.calls += 1
         msg = resp.choices[0].message
@@ -611,6 +677,14 @@ def _response_format(schema: type[BaseModel]) -> dict[str, Any]:
         "type": "json_schema",
         "json_schema": {"name": schema.__name__, "schema": _schema_for(schema), "strict": True},
     }
+
+
+def _json_or_empty(resp: Any) -> dict[str, Any]:
+    try:
+        data = resp.json()
+    except Exception:  # not JSON: only the status mattered
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _short_error(exc: Exception) -> str:

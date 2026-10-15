@@ -16,6 +16,8 @@ from typing import Any
 
 import pytest
 
+from api.tests.docker_check import docker_unavailable
+
 ROOT = Path(__file__).resolve().parents[2]
 RUNS = ROOT / "runs" / "_simtests"
 pytestmark = pytest.mark.slow  # registered in api/pyproject.toml
@@ -34,15 +36,9 @@ SETTINGS = {
 }
 
 
-def _docker_ok() -> bool:
-    if shutil.which("docker") is None:
-        return False
-    r = subprocess.run(["docker", "image", "inspect", IMAGE], capture_output=True, check=False)
-    return r.returncode == 0
-
-
-if not _docker_ok():
-    pytest.skip("docker or showtime-sim image not available", allow_module_level=True)
+_REASON = docker_unavailable(IMAGE)
+if _REASON:
+    pytest.skip(_REASON, allow_module_level=True)
 
 
 def rect(x0: float, y0: float, x1: float, y1: float) -> list[list[float]]:
