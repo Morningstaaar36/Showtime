@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Column, Text
+from sqlalchemy import JSON, Column, ForeignKey, String, Text
 from sqlmodel import Field, SQLModel
 
 
@@ -148,3 +148,48 @@ class AutopilotEventRow(SQLModel, table=True):
     type: str
     ts: str
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+
+class LiveObservation(SQLModel, table=True):
+    """A manual day-of observation (N07): what the organizer saw, never a sensor reading.
+
+    Rows go when their project is deleted (ON DELETE CASCADE).
+    """
+
+    __tablename__ = "live_observation"
+
+    id: str = Field(primary_key=True)
+    project_id: str = Field(
+        sa_column=Column(
+            String, ForeignKey("project.id", ondelete="CASCADE"), index=True, nullable=False
+        )
+    )
+    kind: str  # exit_closed | exit_reopened | crowd_building | crowd_cleared | more_people | ...
+    at: datetime = Field(default_factory=utcnow)  # when it was observed
+    data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    note: str = Field(default="", sa_column=Column(Text, nullable=False))
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class ShareLink(SQLModel, table=True):
+    """A read-only link to a plan for permit offices (N09). Only the token's SHA-256 is stored.
+
+    Rows go when their project is deleted (ON DELETE CASCADE).
+    """
+
+    __tablename__ = "share_link"
+
+    id: str = Field(primary_key=True)
+    project_id: str = Field(
+        sa_column=Column(
+            String, ForeignKey("project.id", ondelete="CASCADE"), index=True, nullable=False
+        )
+    )
+    session_id: str | None = None  # the test whose evidence the link shows (None: the latest)
+    token_sha256: str = Field(sa_column=Column(String, unique=True, nullable=False))
+    label: str = ""
+    version: int = 0  # the plan version when the link was made
+    created_at: datetime = Field(default_factory=utcnow)
+    expires_at: datetime
+    revoked_at: datetime | None = None
