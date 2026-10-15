@@ -65,11 +65,14 @@ def out_of_bounds(before: Venue, after: Venue) -> list[str]:
     problems = []
     for f in after.floors:
         outline = geo.to_polygon(f.walkable)
+        # a wall drawn on the outline straddles it by half its thickness: that is not "outside"
+        wall_outline = outline.buffer(0.2, join_style="mitre")
         for item in [*f.obstacles, *f.zones]:
             if old.get(item.id) == item.polygon:
                 continue
             poly = geo.to_polygon(item.polygon)
-            outside = poly.difference(outline).area
+            edge = wall_outline if getattr(item, "kind", None) == "wall" else outline
+            outside = poly.difference(edge).area
             if poly.area > 0 and outside / poly.area > 0.05:
                 problems.append(
                     f"'{item.id}' would extend {outside:.0f} m² beyond the edge of "

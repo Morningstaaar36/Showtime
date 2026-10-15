@@ -327,3 +327,11 @@ def test_a_room_past_the_edge_slides_back_inside(registry: Registry, hall: Venue
     xs = [x for x, _ in walls.polygon]
     ys = [y for _, y in walls.polygon]
     assert max(xs) <= 40.11 and max(ys) <= 25.11  # walls straddle the edge by half a thickness
+
+
+def test_a_room_in_a_corner_is_not_out_of_bounds(registry: Registry, hall: Venue) -> None:
+    from api.agents.venue import out_of_bounds
+
+    after = patch(registry, hall, {"op": "add_room", "floor_id": "F1", "x": 34, "y": 21,
+                                   "width_m": 6, "depth_m": 4, "people": 20})  # fmt: skip
+    assert out_of_bounds(hall, after) == []
