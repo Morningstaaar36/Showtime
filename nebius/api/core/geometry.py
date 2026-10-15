@@ -242,12 +242,20 @@ def validate_venue(venue: Venue) -> ValidationReport:
         for t in top:
             stair_links.setdefault((s.from_floor, t), []).extend((s.to_floor, b) for b in bottom)
 
-    def reaches_exit(node: tuple[str, int], depth: int = 0) -> bool:
-        if exits_in.get(node):
-            return True
-        if depth > 5:
-            return False
-        return any(reaches_exit(n, depth + 1) for n in stair_links.get(node, []))
+    def reaches_exit(node: tuple[str, int]) -> bool:
+        # breadth-first through any number of stairs (a 40-storey tower is 39 hops); the
+        # visited set keeps stairs drawn in a loop from recursing forever
+        seen = {node}
+        queue = [node]
+        while queue:
+            here = queue.pop(0)
+            if exits_in.get(here):
+                return True
+            for nxt in stair_links.get(here, []):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    queue.append(nxt)
+        return False
 
     for f in venue.floors:
         parts = comps.get(f.floor_id, [])

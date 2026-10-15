@@ -269,3 +269,29 @@ def test_event_kind_is_set_and_validated(registry: Registry, hall: Venue) -> Non
     )
     with pytest.raises(PatchError):
         patch(registry, hall, {"op": "set_event_kind", "event_kind": "spaceport"})
+
+
+def test_people_nine_storeys_up_can_still_reach_an_exit(registry: Registry, hall: Venue) -> None:
+    """Reachability follows any number of stairs (it used to give up after five)."""
+    v = hall
+    for i in range(2, 9):
+        v = patch(registry, v, {"op": "add_floor", "floor_id": f"F{i}", "copy_walls": False})
+        v = patch(
+            registry,
+            v,
+            {"op": "add_stair", "id": f"stair_{i}", "from_floor": f"F{i}",
+             "to_floor": f"F{i - 1}", "x": 37.5 if i % 2 else 31.5, "y": 20, "run_m": 3,
+             "direction": "south"},
+        )  # fmt: skip
+    v = patch(
+        registry,
+        v,
+        {
+            "op": "add_zone",
+            "floor_id": "F8",
+            "id": "roof_bar",
+            "polygon": [[5, 17], [25, 17], [25, 23], [5, 23]],
+            "people": 30,
+        },
+    )
+    assert len(v.floors) == 9 and errors(v) == []
