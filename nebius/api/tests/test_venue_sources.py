@@ -5,13 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from shapely.geometry import Polygon
 
 from api.adapters.llm import FakeLLM
 from api.agents.base import AgentEnv
 from api.agents.venue_designer import design_venue
 from api.core.extensions import geometry as geo
 from api.core.geometry import validate_venue
-from api.core.osm_venue import Projector, venue_from_osm
+from api.core.osm_venue import Projector, _outline, venue_from_osm
+from api.core.scene import scene_snapshot
 from api.core.venue_builder import build_venue
 from api.models.venue_spec import VenueSpec
 
@@ -161,6 +163,29 @@ def test_water_is_not_walkable() -> None:
     usable = geo.to_polygon(f.zones[0].polygon).intersection(geo.free_space(f))
     assert usable.intersection(geo.to_polygon(f.obstacles[0].polygon)).area < 0.01
     assert _errors(imp.venue) == []
+
+
+def test_obstacle_outline_drops_hairline_spikes() -> None:
+    # closing the gap between a fence and the area's edge (as around Suhrawardy Udyan) left
+    # hairline spikes; simplified and rounded they folded into an invalid ring, and the scene
+    # check then refused the whole venue
+    sliver = Polygon([(0, 0), (3, 0), (3, 2), (0.00003, 2), (0.00003, 26), (0.00001, 26),
+                      (0.00001, 2), (0, 2)])  # fmt: skip
+    assert sliver.is_valid
+    outline = _outline(sliver, 0.2)
+    assert outline is not None
+    ring = Polygon(outline)
+    assert ring.is_valid and abs(ring.area - 6) < 0.01
+    assert _outline(Polygon([(0, 0), (0.5, 0), (0.5, 0.4)]), 0.2) is None  # a sliver: dropped
+
+
+def test_fenced_park_gives_a_valid_scene() -> None:
+    fence = {"id": "w7", "kind": "barrier", "name": "", "tags": {"barrier": "fence"},
+             "coords": [_ll(1.2, 10 + 7 * i) for i in range(16)], "closed": False}  # fmt: skip
+    imp = venue_from_osm([fence], _ring(0, 0, 200, 200), mode="outdoor", name="Park", people=100)
+    for o in imp.venue.floors[0].obstacles:
+        assert Polygon(o.polygon).is_valid, o.id
+    scene_snapshot(imp.venue)  # raises on an invalid polygon
 
 
 # --- event layout on a real site and the Copilot ------------------------------------------

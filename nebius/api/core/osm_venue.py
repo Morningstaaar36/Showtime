@@ -211,6 +211,25 @@ def _context(
     return [c for _, c in out[:MAX_CONTEXT]]
 
 
+def _outline(p: Polygon, tol: float) -> list[tuple[float, float]] | None:
+    """Simplified outline of an obstacle that stays a valid polygon, or None for a sliver.
+
+    A fence is a 0.3 m strip, and one along the area's edge leaves zero-width spikes; simplified
+    or rounded, such shapes fold into self-crossing, zero-area rings that the scene check rejects.
+    """
+    thin = 0.05
+    opened = p.buffer(-thin, join_style="mitre").buffer(thin, join_style="mitre")  # drops spikes
+    for q in (p.simplify(tol), p.simplify(tol / 4), p, opened.simplify(tol / 4)):
+        part = q if isinstance(q, Polygon) else max(_parts(q), key=lambda g: g.area, default=None)
+        if part is None or part.is_empty:
+            continue
+        pts = geo.to_points(orient(part, 1.0))
+        ring = Polygon(pts)
+        if ring.is_valid and ring.area >= max(0.8 * p.area, 0.5):
+            return pts
+    return None
+
+
 def _parts(geom: Any) -> list[Polygon]:
     if isinstance(geom, Polygon):
         return [geom] if not geom.is_empty else []
@@ -317,6 +336,9 @@ def venue_from_osm(
                 continue  # leftover of the edge band
             names = [nm for nm, _, _ in inside if nm]
             fence_only = all(k == "fence" for _, _, k in inside)
+            shape = _outline(p, 0.3 if all(k == "water" for _, _, k in inside) else 0.2)
+            if shape is None:
+                continue  # a sliver along the edge: nothing anyone could walk into
             if all(k == "water" for _, _, k in inside):
                 n = len(obstacles) + 1
                 obstacles.append(
@@ -325,7 +347,7 @@ def venue_from_osm(
                         kind="other",
                         label=inside[0][0],
                         height_m=0.2,
-                        polygon=geo.to_points(orient(p.simplify(0.3), 1.0)),
+                        polygon=shape,
                     )
                 )
                 continue
@@ -341,7 +363,7 @@ def venue_from_osm(
                     id=f"{'fence' if fence_only else 'building'}_{n}",
                     kind="fence" if fence_only else "other",
                     label=label,
-                    polygon=geo.to_points(orient(p.simplify(0.2), 1.0)),
+                    polygon=shape,
                     height_m=min(max((h for _, h, _ in inside), default=6.0), 60.0),
                 )
             )
