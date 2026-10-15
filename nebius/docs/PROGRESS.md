@@ -455,3 +455,13 @@ Built in parallel git worktrees, each feature on its own branch, merged with `--
   responses; stress test 8/8; `import socket` refused before running.
 - Known: rewind's "best" weighs overall risk, so a response can win on lower density while
   emptying a few seconds slower; multi-floor venues can't be rewound yet.
+
+## N10 Validation lab: simulator vs the Jülich 2006 bottleneck experiment
+
+- `make get-data` downloads the archive metadata and trajectories (DOI 10.34735/ped.2006.2,
+  CC BY 4.0, sha256-checked); `make validate` simulates the b-series (10 widths, 3 seeds, app
+  defaults, about 3 min) and measures both with the same PedPy code -> `api/data/validation.json`,
+  `GET /api/v1/validation`, Help › How good is the simulator?, one line in the HTML report.
+- Result: simulated bottleneck flow is 50–60% lower than measured at every width (median
+  |error| 55.4%; target 15% missed). Simulated specific flow is about 0.87 /(m·s), measured
+  1.8–2.2. The cause is the CFSM 1 s time gap. Details in `docs/VALIDATION.md`.
