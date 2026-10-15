@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.core.plan import PlanConflict, PlanError
 from api.core.venue_ops import PatchError
 from api.orchestrator.projects import NotFound
+
+log = logging.getLogger("showtime.api")
+_HTTP_CODES = {404: "not_found", 405: "method_not_allowed", 413: "too_large"}
 
 
 class ApiException(Exception):
@@ -76,6 +81,28 @@ def install(app: FastAPI) -> None:
     @app.exception_handler(PlanConflict)
     async def _conflict(_: Request, exc: PlanConflict) -> JSONResponse:
         return JSONResponse(_body("plan_version_conflict", str(exc)), 409)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:
+        # unknown routes and wrong methods: same body shape as every other error
+        code = _HTTP_CODES.get(exc.status_code, "http_error")
+        message = exc.detail if isinstance(exc.detail, str) else "The request failed."
+        return JSONResponse(
+            _body(code, message), exc.status_code, headers=getattr(exc, "headers", None)
+        )
+
+    @app.exception_handler(Exception)
+    async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
+        # a bug must still answer in the designed shape, without internals (logged instead)
+        log.exception("unhandled error on %s %s", request.method, request.url.path)
+        return JSONResponse(
+            _body(
+                "internal_error",
+                "Something went wrong on the server.",
+                "Try again; if it keeps happening, check logs/api.log.",
+            ),
+            500,
+        )
 
     @app.exception_handler(RequestValidationError)
     async def _val(_: Request, exc: RequestValidationError) -> JSONResponse:
