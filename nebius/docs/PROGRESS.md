@@ -465,3 +465,29 @@ Built in parallel git worktrees, each feature on its own branch, merged with `--
 - Result: simulated bottleneck flow is 50–60% lower than measured at every width (median
   |error| 55.4%; target 15% missed). Simulated specific flow is about 0.87 /(m·s), measured
   1.8–2.2. The cause is the CFSM 1 s time gap. Details in `docs/VALIDATION.md`.
+- Calibration (2026-10-15): one parameter, the time gap to the person ahead, fitted on widths
+  0.9/1.1/1.4/1.8/2.2 (0.25 s: mean -0.5%) and checked on the other five (median |error| 4.4%).
+  New default `AGENT_TIME_GAP=0.25`; published result over all 10 widths: median |error| 4.0%,
+  mean -0.3%. `AGENT_TIME_GAP=1.0` stays documented as the cautious option.
+
+## 2026-10-15 — Browser test as a new organizer: wedding hall (indoor), Suhrawardy Udyan (open air)
+
+Headless Chromium against the built stack (`make up`), screenshots after every step.
+- Indoor (Autopilot, 450 guests): verdict, AI-written scenario and fixes worked. Fixed: change
+  card hidden under 3D labels; designer ignored door walls and names (prompts v3/v4, not yet
+  re-tested live: the OpenRouter key expired).
+- Open air (map import, 566 x 757 m, 3,200 people): headcount, fence and crowd drops saved
+  (versions 1 -> 4); AI test on the rule-based fallback, 4 attacks, 7 min 16 s, "This plan
+  holds" (95% out in 6 min 5 s, peak 2.5 people per m²); stress test at scale 8/8, breaks 0;
+  checklist opens; the analyst says plainly that the AI is not answering.
+- Fixed on the way: the check screen grew to 2,300 px with 11 gates so the park was framed
+  below the fold (screen now fills the window, panel scrolls); camera zoom and fog limits grow
+  with the site; `removeChild` crash when leaving any 3D page (drei labels re-mounted during
+  teardown; one stable label layer now); mapped fences along the edge became invalid polygons
+  and the scene check refused the venue; numbered "Building N" labels hidden; Help text now
+  says the calibrated simulator matches; e2e journey picked a project menu instead of the
+  template.
+- Checks: `make check` (530 passed), vitest 110, Playwright 7/7 with fake providers.
+- Open: the AI parts need a new key to re-test live (designer door walls, Autopilot,
+  analyst). Projects imported before the fence fix keep their bad fences (re-import to clear);
+  `/scene` then returns 422 and the check list shows fewer details.
