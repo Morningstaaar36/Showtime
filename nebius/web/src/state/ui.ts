@@ -19,11 +19,15 @@ export interface Selection {
   y?: number;
 }
 
+/** Which floors the 3D view shows: all stacked, spread apart, or one floor alone (its id). */
+export type FloorView = "all" | "exploded" | (string & {});
+
 export interface Layers {
   people: boolean;
   heatmap: boolean;
   terrain: boolean;
   labels: boolean;
+  /** kept in step with `floorView === "exploded"` for older readers; set the floor view instead */
   exploded: boolean;
   zones: boolean;
   grid: boolean;
@@ -45,6 +49,7 @@ interface UiState {
   draft: [number, number][];
   proposal: VenuePatch | null;
   focusFloor: string | null;
+  floorView: FloorView;
   flyTo: { x: number; y: number; floorId: string; nonce: number } | null;
   /** cinematic camera move (tour): position and target in scene coordinates */
   shot: { pos: [number, number, number]; target: [number, number, number]; nonce: number } | null;
@@ -64,6 +69,7 @@ interface UiState {
   setDraft: (pts: [number, number][]) => void;
   setProposal: (p: VenuePatch | null) => void;
   setFocusFloor: (f: string | null) => void;
+  setFloorView: (v: FloorView) => void;
   flyToPoint: (x: number, y: number, floorId: string) => void;
   setInspectorOpen: (v: boolean) => void;
   resetForProject: () => void;
@@ -114,6 +120,7 @@ export const useUi = create<UiState>((set, get) => ({
   draft: [],
   proposal: null,
   focusFloor: null,
+  floorView: prefs.layers?.exploded ? "exploded" : "all",
   flyTo: null,
   shot: null,
   setShot: (pos, target) => set((s) => ({ shot: { pos, target, nonce: (s.shot?.nonce ?? 0) + 1 } })),
@@ -124,7 +131,12 @@ export const useUi = create<UiState>((set, get) => ({
   select: (selection) => set({ selection }),
   setHover: (hover) => set({ hover }),
   toggleLayer: (k, v) => {
-    set((s) => ({ layers: { ...s.layers, [k]: v ?? !s.layers[k] } }));
+    set((s) => {
+      const on = v ?? !s.layers[k];
+      const layers = { ...s.layers, [k]: on };
+      if (k !== "exploded") return { layers };
+      return { layers, floorView: on ? "exploded" : s.floorView === "exploded" ? "all" : s.floorView };
+    });
     savePrefs(get());
   },
   setActiveRun: (activeRunId) => set({ activeRunId }),
@@ -137,11 +149,17 @@ export const useUi = create<UiState>((set, get) => ({
   setDraft: (draft) => set({ draft }),
   setProposal: (proposal) => set({ proposal }),
   setFocusFloor: (focusFloor) => set({ focusFloor }),
+  setFloorView: (floorView) => {
+    set((s) => ({ floorView, layers: { ...s.layers, exploded: floorView === "exploded" } }));
+    savePrefs(get());
+  },
   flyToPoint: (x, y, floorId) => set({ flyTo: { x, y, floorId, nonce: Date.now() } }),
   setInspectorOpen: (inspectorOpen) => set({ inspectorOpen }),
   resetForProject: () =>
-    set({ selection: null, hover: null, activeRunId: null, compareRunId: null, blockedExits: [],
-          tier1Preview: null, draft: [], proposal: null, focusFloor: null, tool: "select", editFloor: null }),
+    set((s) => ({ selection: null, hover: null, activeRunId: null, compareRunId: null, blockedExits: [],
+          tier1Preview: null, draft: [], proposal: null, focusFloor: null, tool: "select", editFloor: null,
+          // a floor id belongs to one venue; the exploded preference carries over
+          floorView: s.floorView === "exploded" ? "exploded" : "all" })),
 
   // --- building editor (feat/editor) ---
   editFloor: null,
