@@ -18,8 +18,21 @@ ObstacleKind = Literal[
 # What kind of event or building this is; sets behaviour defaults (speeds, pre-movement,
 # which incidents the red team draws on). None means "not said" (generic crowd).
 EventKind = Literal[
-    "concert", "festival", "conference", "wedding", "rally", "march", "sports", "religious",
-    "hospital", "school", "office", "mall", "transit", "residential", "other",
+    "concert",
+    "festival",
+    "conference",
+    "wedding",
+    "rally",
+    "march",
+    "sports",
+    "religious",
+    "hospital",
+    "school",
+    "office",
+    "mall",
+    "transit",
+    "residential",
+    "other",
 ]
 
 # People who move differently from a general adult crowd. Speeds per kind are sim defaults
