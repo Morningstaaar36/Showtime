@@ -122,7 +122,8 @@ const DIR_VEC: Record<Direction, Pt> = { north: [0, 1], south: [0, -1], east: [1
 export function stairFootprint(x: number, y: number, direction: Direction, width: number, run: number): Pt[] {
   const [dx, dy] = DIR_VEC[direction];
   const [nx, ny] = [-dy * width / 2, dx * width / 2];
-  return [[x + nx, y + ny], [x + nx + dx * run, y + ny + dy * run], [x - nx + dx * run, y - ny + dy * run], [x - nx, y - ny]].map(pt);
+  const corners: Pt[] = [[x + nx, y + ny], [x + nx + dx * run, y + ny + dy * run], [x - nx + dx * run, y - ny + dy * run], [x - nx, y - ny]];
+  return corners.map(pt);
 }
 
 export function addStairOp(venue: Venue, floorId: string, x: number, y: number,
@@ -235,7 +236,8 @@ export function roomFromCorners(a: Pt, b: Pt): RoomSpec {
 }
 
 export function roomOutline(r: RoomSpec): Pt[] {
-  return [[r.x, r.y], [r.x + r.width_m, r.y], [r.x + r.width_m, r.y + r.depth_m], [r.x, r.y + r.depth_m]].map(pt);
+  const corners: Pt[] = [[r.x, r.y], [r.x + r.width_m, r.y], [r.x + r.width_m, r.y + r.depth_m], [r.x, r.y + r.depth_m]];
+  return corners.map(pt);
 }
 
 /** Where the door gap of a room sits (the middle of `side`). */

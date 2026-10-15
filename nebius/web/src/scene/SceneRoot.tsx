@@ -62,12 +62,11 @@ export function SceneRoot(p: SceneProps) {
   const floorView = useUi((s) => s.floorView);
   const view = resolveFloorView(p.venue, floorView);
   const onlyFloor = view === "all" || view === "exploded" ? null : view;
-  const shown = useMemo<Venue>(() => (onlyFloor ? {
-    ...p.venue,
-    floors: p.venue.floors.filter((f) => f.floor_id === onlyFloor),
-    stairs: [],
-    routes: (p.venue.routes ?? []).filter((r) => r.floor_id === onlyFloor),
-  } : p.venue), [p.venue, onlyFloor]);
+  const shown = useMemo<Venue>(() => {
+    const floor = onlyFloor ? p.venue.floors.find((f) => f.floor_id === onlyFloor) : undefined;
+    if (!floor) return p.venue;
+    return { ...p.venue, floors: [floor], stairs: [], routes: (p.venue.routes ?? []).filter((r) => r.floor_id === floor.floor_id) };
+  }, [p.venue, onlyFloor]);
   const hotspots = onlyFloor ? p.hotspots.filter((h) => h.floor_id === onlyFloor) : p.hotspots;
 
   return (
