@@ -1866,6 +1866,36 @@
    "title": "PatchOpIn",
    "type": "object"
   },
+  "PeopleGroup": {
+   "additionalProperties": false,
+   "description": "A share of a zone's headcount that moves differently; the rest are \"general\".",
+   "properties": {
+    "kind": {
+     "enum": [
+      "general",
+      "elderly",
+      "child",
+      "wheelchair",
+      "bed",
+      "staff"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "share": {
+     "exclusiveMinimum": 0,
+     "maximum": 1,
+     "title": "Share",
+     "type": "number"
+    }
+   },
+   "required": [
+    "kind",
+    "share"
+   ],
+   "title": "PeopleGroup",
+   "type": "object"
+  },
   "PerExit": {
    "description": "Load and flow through one exit.",
    "properties": {
@@ -2741,6 +2771,73 @@
     "kind"
    ],
    "title": "ResourcePool",
+   "type": "object"
+  },
+  "Route": {
+   "additionalProperties": false,
+   "description": "A walking route on one floor (a march, a procession, a queue line), in walking order.",
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "floor_id": {
+     "title": "Floor Id",
+     "type": "string"
+    },
+    "points": {
+     "items": {
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "items": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ]
+     },
+     "minItems": 2,
+     "title": "Points",
+     "type": "array"
+    },
+    "width_m": {
+     "anyOf": [
+      {
+       "exclusiveMinimum": 0,
+       "maximum": 100,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Width M"
+    },
+    "label": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Label"
+    }
+   },
+   "required": [
+    "floor_id",
+    "id",
+    "label",
+    "points",
+    "width_m"
+   ],
+   "title": "Route",
    "type": "object"
   },
   "RouteFacts": {
@@ -4237,6 +4334,35 @@
      "title": "Mode",
      "type": "string"
     },
+    "event_kind": {
+     "anyOf": [
+      {
+       "enum": [
+        "concert",
+        "festival",
+        "conference",
+        "wedding",
+        "rally",
+        "march",
+        "sports",
+        "religious",
+        "hospital",
+        "school",
+        "office",
+        "mall",
+        "transit",
+        "residential",
+        "other"
+       ],
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Event Kind"
+    },
     "floors": {
      "items": {
       "$ref": "#/definitions/Floor"
@@ -4250,6 +4376,13 @@
       "$ref": "#/definitions/Stair"
      },
      "title": "Stairs",
+     "type": "array"
+    },
+    "routes": {
+     "items": {
+      "$ref": "#/definitions/Route"
+     },
+     "title": "Routes",
      "type": "array"
     },
     "stage": {
@@ -4287,11 +4420,13 @@
    },
    "required": [
     "description",
+    "event_kind",
     "extensions",
     "floors",
     "location",
     "mode",
     "name",
+    "routes",
     "rules_profile",
     "schema_version",
     "stage",
@@ -4368,13 +4503,49 @@
      ],
      "default": null,
      "title": "Label"
+    },
+    "groups": {
+     "items": {
+      "$ref": "#/definitions/PeopleGroup"
+     },
+     "title": "Groups",
+     "type": "array"
+    },
+    "pre_movement_s": {
+     "anyOf": [
+      {
+       "maximum": 1800,
+       "minimum": 0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Pre Movement S"
+    },
+    "route_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Route Id"
     }
    },
    "required": [
+    "groups",
     "id",
     "label",
     "people",
-    "polygon"
+    "polygon",
+    "pre_movement_s",
+    "route_id"
    ],
    "title": "Zone",
    "type": "object"

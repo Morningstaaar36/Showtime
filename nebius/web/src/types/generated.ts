@@ -5,6 +5,25 @@ export type VenueId = string;
 export type Name = string;
 export type Description = string | null;
 export type Mode = "indoor" | "outdoor";
+export type EventKind =
+  | (
+      | "concert"
+      | "festival"
+      | "conference"
+      | "wedding"
+      | "rally"
+      | "march"
+      | "sports"
+      | "religious"
+      | "hospital"
+      | "school"
+      | "office"
+      | "mall"
+      | "transit"
+      | "residential"
+      | "other"
+    )
+  | null;
 /**
  * @minItems 1
  */
@@ -30,6 +49,11 @@ export type Id2 = string;
 export type Polygon2 = [number, number][];
 export type People = number;
 export type Label2 = string | null;
+export type Kind1 = "general" | "elderly" | "child" | "wheelchair" | "bed" | "staff";
+export type Share = number;
+export type Groups = PeopleGroup[];
+export type PreMovementS = number | null;
+export type RouteId = string | null;
 export type Zones = Zone[];
 export type Id3 = string;
 export type FromFloor = string;
@@ -39,7 +63,16 @@ export type BottomPolygon = [number, number][];
 export type WidthM1 = number;
 export type LengthM = number;
 export type Stairs = Stair[];
-export type WidthM2 = number;
+export type Id4 = string;
+export type FloorId1 = string;
+/**
+ * @minItems 2
+ */
+export type Points = [[number, number], [number, number], ...[number, number][]];
+export type WidthM2 = number | null;
+export type Label3 = string | null;
+export type Routes = Route[];
+export type WidthM3 = number;
 export type DepthM = number;
 export type RoofHeightM = number;
 export type RoofAreaM2 = number;
@@ -135,7 +168,7 @@ export type Operational =
       ScenarioEventIn
     ];
 export type ActionId = string;
-export type Label3 = string;
+export type Label4 = string;
 export type StartS = number;
 export type EndS = number;
 export type TargetIds = string[];
@@ -202,7 +235,7 @@ export type MeanFlowPps = number;
 export type FirstS = number | null;
 export type LastS = number | null;
 export type PerExit = PerExit1[];
-export type FloorId1 = string;
+export type FloorId2 = string;
 export type X = number;
 export type Y = number;
 export type PeakDensityPpm21 = number;
@@ -251,7 +284,7 @@ export type THazardIso = string | null;
 export type TLatestS = number | null;
 export type TLatestIso = string | null;
 export type RsetS = number | null;
-export type PreMovementS = number;
+export type PreMovementS1 = number;
 export type SafetyFactor = number;
 export type HazardSource = string | null;
 export type HazardExplanation = string;
@@ -271,13 +304,13 @@ export type Source1 = string;
 export type THazardS1 = number | null;
 export type THazardIso1 = string | null;
 export type Explanation = string;
-export type Label4 = string;
+export type Label5 = string;
 export type Code1 = string;
 export type Severity = "error" | "warning" | "info";
 export type Message1 = string;
 export type Hint1 = string;
 export type TargetIds1 = string[];
-export type FloorId2 = string | null;
+export type FloorId3 = string | null;
 export type X1 = number | null;
 export type Y1 = number | null;
 export type Ok = boolean;
@@ -286,7 +319,7 @@ export type VLimitMs = number;
 export type Governing = string;
 export type WindDirection = string;
 export type Assumptions = string[];
-export type Label5 = string;
+export type Label6 = string;
 export type Formula1 = string;
 export type RuleId = string;
 export type Status2 = "pass" | "fail" | "unknown";
@@ -353,9 +386,9 @@ export type Area = "m2";
 export type Distance = "m";
 export type Time = "s";
 export type CoordinateSystem = "local_cartesian";
-export type Id4 = string;
-export type Kind1 = "floor" | "obstacle" | "exit" | "zone" | "stair";
-export type FloorId3 = string | null;
+export type Id5 = string;
+export type Kind2 = "floor" | "obstacle" | "exit" | "zone" | "stair";
+export type FloorId4 = string | null;
 export type Basis = "unknown" | "assumed" | "imported" | "organizer_confirmed" | "measured";
 export type Source2 = string | null;
 export type RecordedAt = string | null;
@@ -364,7 +397,7 @@ export type Objects = SceneObject[];
 export type SchemaVersion7 = 1;
 export type SchemaVersion8 = 1;
 export type Basis1 = "computed_geometry";
-export type FloorId4 = string;
+export type FloorId5 = string;
 export type ElevationM1 = number;
 export type WalkableAreaM2 = number;
 export type ObstacleAreaWithinFloorM2 = number;
@@ -372,7 +405,7 @@ export type UsableAreaM2 = number;
 export type ComponentIds = string[];
 export type Floors1 = FloorFacts[];
 export type ComponentId = string;
-export type FloorId5 = string;
+export type FloorId6 = string;
 export type AreaM2 = number;
 export type Exterior = [number, number][];
 export type Holes = [number, number][][];
@@ -386,7 +419,7 @@ export type ReachableExitIds = string[];
 export type DownstreamComponentIds = string[];
 export type Components = ComponentFacts[];
 export type ExitId1 = string;
-export type FloorId6 = string;
+export type FloorId7 = string;
 export type Blocked1 = boolean;
 export type AvailableInGeometry = boolean;
 export type DeclaredWidthM = number;
@@ -406,7 +439,7 @@ export type DeclaredLengthM = number;
 export type Direction = "from_floor_to_to_floor";
 export type Stairs1 = StairFacts[];
 export type ZoneId = string;
-export type FloorId7 = string;
+export type FloorId8 = string;
 export type People2 = number;
 export type UsableAreaM22 = number;
 export type ExcludedAreaM2 = number;
@@ -437,7 +470,7 @@ export type Code2 = string;
 export type Severity1 = "error" | "warning" | "info";
 export type Message3 = string;
 export type TargetIds2 = string[];
-export type FloorId8 = string | null;
+export type FloorId9 = string | null;
 export type Issues = SpatialIssue[];
 export type RoutesComputed = boolean;
 export type RouteBudgetReason = string | null;
@@ -457,7 +490,7 @@ export type RequireStaffForMeasures = boolean;
 export type Status4 = "pending" | "approved" | "rejected";
 export type Source3 = string;
 export type RecordedBy = string;
-export type Kind2 = "staff" | "equipment";
+export type Kind3 = "staff" | "equipment";
 export type Count = number;
 export type AvailableFromS = number;
 export type AvailableUntilS = number;
@@ -499,7 +532,7 @@ export type Runs = EvidenceReference[];
 export type Text = string | null;
 export type ProjectId3 = string | null;
 export type Depth = "quick" | "thorough";
-export type Id5 = string;
+export type Id6 = string;
 export type Status5 = "queued" | "running" | "finished" | "stopped" | "failed";
 export type Depth1 = "quick" | "thorough";
 export type Text1 = string | null;
@@ -507,7 +540,7 @@ export type ProjectId4 = string | null;
 export type ProjectName1 = string | null;
 export type SessionId1 = string | null;
 export type Key = "understand" | "venue" | "capacity" | "simulate" | "attack" | "fix" | "confirm" | "deliver";
-export type Label6 = string;
+export type Label7 = string;
 export type Status6 = "pending" | "running" | "done" | "skipped" | "failed";
 export type StartedAt = string | null;
 export type FinishedAt = string | null;
@@ -580,8 +613,10 @@ export interface Venue {
   name: Name;
   description: Description;
   mode: Mode;
+  event_kind: EventKind;
   floors: Floors;
   stairs: Stairs;
+  routes: Routes;
   stage: StageParams | null;
   location: Location | null;
   rules_profile: RulesProfile;
@@ -640,6 +675,19 @@ export interface Zone {
   polygon: Polygon2;
   people: People;
   label: Label2;
+  groups: Groups;
+  pre_movement_s: PreMovementS;
+  route_id: RouteId;
+}
+/**
+ * A share of a zone's headcount that moves differently; the rest are "general".
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "PeopleGroup".
+ */
+export interface PeopleGroup {
+  kind: Kind1;
+  share: Share;
 }
 /**
  * A stair connecting an upper floor (top) to a lower floor (bottom).
@@ -657,13 +705,26 @@ export interface Stair {
   length_m: LengthM;
 }
 /**
+ * A walking route on one floor (a march, a procession, a queue line), in walking order.
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "Route".
+ */
+export interface Route {
+  id: Id4;
+  floor_id: FloorId1;
+  points: Points;
+  width_m: WidthM2;
+  label: Label3;
+}
+/**
  * Temporary stage structure used by the wind screening check.
  *
  * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
  * via the `definition` "StageParams".
  */
 export interface StageParams {
-  width_m: WidthM2;
+  width_m: WidthM3;
   depth_m: DepthM;
   roof_height_m: RoofHeightM;
   roof_area_m2: RoofAreaM2;
@@ -777,7 +838,7 @@ export interface Fix {
  */
 export interface PlanAction {
   action_id: ActionId;
-  label: Label3;
+  label: Label4;
   event: ScenarioEventIn | null;
   start_s: StartS;
   end_s: EndS;
@@ -914,7 +975,7 @@ export interface Extra {
  * via the `definition` "Hotspot".
  */
 export interface Hotspot {
-  floor_id: FloorId1;
+  floor_id: FloorId2;
   x: X;
   y: Y;
   peak_density_ppm2: PeakDensityPpm21;
@@ -969,7 +1030,7 @@ export interface Countdown {
   t_latest_s: TLatestS;
   t_latest_iso: TLatestIso;
   rset_s: RsetS;
-  pre_movement_s: PreMovementS;
+  pre_movement_s: PreMovementS1;
   safety_factor: SafetyFactor;
   hazard_source: HazardSource;
   hazard_explanation: HazardExplanation;
@@ -1021,7 +1082,7 @@ export interface HazardResult {
   t_hazard_iso: THazardIso1;
   explanation: Explanation;
   details: Details1;
-  label: Label4;
+  label: Label5;
   [k: string]: unknown;
 }
 export interface Details1 {
@@ -1039,7 +1100,7 @@ export interface Check {
   message: Message1;
   hint: Hint1;
   target_ids: TargetIds1;
-  floor_id: FloorId2;
+  floor_id: FloorId3;
   x: X1;
   y: Y1;
   [k: string]: unknown;
@@ -1067,7 +1128,7 @@ export interface StageCheckResult {
   limits_ms: LimitsMs;
   wind_direction: WindDirection;
   assumptions: Assumptions;
-  label: Label5;
+  label: Label6;
   formula: Formula1;
   [k: string]: unknown;
 }
@@ -1226,9 +1287,9 @@ export interface SceneUnits {
  * via the `definition` "SceneObject".
  */
 export interface SceneObject {
-  id: Id4;
-  kind: Kind1;
-  floor_id: FloorId3;
+  id: Id5;
+  kind: Kind2;
+  floor_id: FloorId4;
   provenance: InputProvenance;
   fields: Fields;
 }
@@ -1288,7 +1349,7 @@ export interface SceneFacts {
  * via the `definition` "FloorFacts".
  */
 export interface FloorFacts {
-  floor_id: FloorId4;
+  floor_id: FloorId5;
   elevation_m: ElevationM1;
   walkable_area_m2: WalkableAreaM2;
   obstacle_area_within_floor_m2: ObstacleAreaWithinFloorM2;
@@ -1301,7 +1362,7 @@ export interface FloorFacts {
  */
 export interface ComponentFacts {
   component_id: ComponentId;
-  floor_id: FloorId5;
+  floor_id: FloorId6;
   area_m2: AreaM2;
   geometry: PolygonSurface;
   representative_point: RepresentativePoint;
@@ -1323,7 +1384,7 @@ export interface PolygonSurface {
  */
 export interface ExitFacts {
   exit_id: ExitId1;
-  floor_id: FloorId6;
+  floor_id: FloorId7;
   blocked: Blocked1;
   available_in_geometry: AvailableInGeometry;
   declared_width_m: DeclaredWidthM;
@@ -1353,7 +1414,7 @@ export interface StairFacts {
  */
 export interface ZoneFacts {
   zone_id: ZoneId;
-  floor_id: FloorId7;
+  floor_id: FloorId8;
   people: People2;
   usable_area_m2: UsableAreaM22;
   excluded_area_m2: ExcludedAreaM2;
@@ -1398,7 +1459,7 @@ export interface SpatialIssue {
   severity: Severity1;
   message: Message3;
   target_ids: TargetIds2;
-  floor_id: FloorId8;
+  floor_id: FloorId9;
 }
 /**
  * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
@@ -1460,7 +1521,7 @@ export interface Resources1 {
  * via the `definition` "ResourcePool".
  */
 export interface ResourcePool {
-  kind: Kind2;
+  kind: Kind3;
   count: Count;
   available_from_s: AvailableFromS;
   available_until_s: AvailableUntilS;
@@ -1549,7 +1610,7 @@ export interface AutopilotRequest {
  * via the `definition` "AutopilotRun".
  */
 export interface AutopilotRun {
-  id: Id5;
+  id: Id6;
   status: Status5;
   depth: Depth1;
   text: Text1;
@@ -1576,7 +1637,7 @@ export interface AutopilotRun {
  */
 export interface AutopilotStep {
   key: Key;
-  label: Label6;
+  label: Label7;
   status: Status6;
   started_at: StartedAt;
   finished_at: FinishedAt;

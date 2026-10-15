@@ -15,6 +15,17 @@ ObstacleKind = Literal[
     "stage", "wall", "barrier", "fence", "booth", "seating", "column", "bar", "other"
 ]
 
+# What kind of event or building this is; sets behaviour defaults (speeds, pre-movement,
+# which incidents the red team draws on). None means "not said" (generic crowd).
+EventKind = Literal[
+    "concert", "festival", "conference", "wedding", "rally", "march", "sports", "religious",
+    "hospital", "school", "office", "mall", "transit", "residential", "other",
+]
+
+# People who move differently from a general adult crowd. Speeds per kind are sim defaults
+# documented in docs/ASSUMPTIONS.md; "bed" and "wheelchair" need staff help to move.
+PeopleKind = Literal["general", "elderly", "child", "wheelchair", "bed", "staff"]
+
 
 def _check_polygon(poly: list[Point], what: str) -> list[Point]:
     if len(poly) < 3:
@@ -57,6 +68,13 @@ class Exit(_Strict):
         return _check_polygon(v, "exit")
 
 
+class PeopleGroup(_Strict):
+    """A share of a zone's headcount that moves differently; the rest are "general"."""
+
+    kind: PeopleKind
+    share: float = Field(gt=0, le=1)
+
+
 class Zone(_Strict):
     """A starting area with a headcount."""
 
@@ -64,11 +82,25 @@ class Zone(_Strict):
     polygon: Polygon
     people: int = Field(ge=0, le=100_000)
     label: str | None = None
+    groups: list[PeopleGroup] = Field(default_factory=list)
+    # seconds before people here start moving (alarm to first step); None = the run default
+    pre_movement_s: float | None = Field(default=None, ge=0, le=1800)
+    # people walk this route (a march or procession) before heading to an exit
+    route_id: str | None = None
 
     @field_validator("polygon")
     @classmethod
     def check_polygon(cls, v: list[Point]) -> list[Point]:
         return _check_polygon(v, "zone")
+
+    @field_validator("groups")
+    @classmethod
+    def check_groups(cls, v: list[PeopleGroup]) -> list[PeopleGroup]:
+        if sum(g.share for g in v) > 1.0 + 1e-6:
+            raise ValueError("people group shares add up to more than 100%")
+        if len({g.kind for g in v}) != len(v):
+            raise ValueError("each people group kind may appear once per zone")
+        return v
 
 
 class Floor(_Strict):
@@ -98,6 +130,21 @@ class Stair(_Strict):
     bottom_polygon: Polygon
     width_m: float = Field(gt=0)
     length_m: float = Field(gt=0)
+
+
+class Route(_Strict):
+    """A walking route on one floor (a march, a procession, a queue line), in walking order."""
+
+    id: str
+    floor_id: str
+    points: list[Point] = Field(min_length=2)
+    width_m: float | None = Field(default=None, gt=0, le=100)
+    label: str | None = None
+
+    @field_validator("points")
+    @classmethod
+    def check_points(cls, v: list[Point]) -> list[Point]:
+        return [(round(float(x), 4), round(float(y), 4)) for x, y in v]
 
 
 class StageParams(_Strict):
@@ -131,8 +178,10 @@ class Venue(_Strict):
     name: str
     description: str | None = None
     mode: Literal["indoor", "outdoor"]
+    event_kind: EventKind | None = None
     floors: list[Floor] = Field(min_length=1)
     stairs: list[Stair] = Field(default_factory=list)
+    routes: list[Route] = Field(default_factory=list)
     stage: StageParams | None = None
     location: Location | None = None
     rules_profile: str = "default"
@@ -162,4 +211,6 @@ class Venue(_Strict):
                 out[z.id] = "zone"
         for s in self.stairs:
             out[s.id] = "stair"
+        for r in self.routes:
+            out[r.id] = "route"
         return out
