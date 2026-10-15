@@ -9,6 +9,15 @@
 > **Written:** 2026-10-09 (Friday). **Hackathon deadline:** 2026-10-30 23:00 GMT+6 (17:00 UTC).
 > **Our submission target:** 2026-10-29 18:00 GMT+6. 2026-10-30 is reserve only.
 
+> **Update 2026-10-15 (branch `shahraz`): generic venues.** Organizer testing showed the app was
+> template-bound. Any building picked on the map now becomes every storey it has (stairs, rooms
+> or open floors, occupant loads), venues can be built and edited floor by floor (11 new edit
+> operations), and every 3D view can show one floor alone. People groups (patients, children,
+> wheelchair users), pre-movement and march routes are in the contract; simulating them, a
+> building's surroundings, the editor tools and the scenario viewer are allocated in
+> [TEAM_TASK_ALLOCATION.md §11](TEAM_TASK_ALLOCATION.md#11-generic-venues-push-15-october-2026).
+> Details and verified results: [nebius/docs/GENERIC_VENUES.md](nebius/docs/GENERIC_VENUES.md).
+
 ---
 
 ## Contents
