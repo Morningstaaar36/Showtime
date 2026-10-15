@@ -370,11 +370,18 @@ class DockerRunner:
             "--rm",
             "--name",
             name,
+            "--pull=never",
             "--network=none",
             f"--memory={self.mem_limit}",
+            f"--memory-swap={self.mem_limit}",
             f"--cpus={self.cpus}",
             "--pids-limit=256",
             "--security-opt=no-new-privileges",
+            "--cap-drop=ALL",
+            # scenario scripts run in here: only /work (this run's folder) and /tmp writable
+            "--read-only",
+            "--tmpfs",
+            "/tmp:rw,noexec,nosuid,size=256m",
             "--label",
             "com.showtime.project=true",
             "--user",
@@ -391,39 +398,54 @@ class DockerRunner:
         cmd += [self.image, "python", "/app/run_sim.py", "/work"]
         t0 = time.monotonic()
         try:
+            # stdout is not used; stderr is drained as it comes so a chatty sim can never
+            # fill the pipe and stall until the wall-clock limit
             proc = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+                *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
             )
         except OSError as exc:
             return failed_result(job, self.provider, f"The simulation couldn't start: {exc}")
+        assert proc.stderr is not None
+        err_reader = asyncio.ensure_future(_read_tail(proc.stderr, STDERR_KEEP))
         deadline = t0 + req.max_wall_s + 30
         progress_file = work / "progress.json"
         last_seen = ""
-        while True:
-            try:
-                await asyncio.wait_for(proc.wait(), timeout=1.0)
-                break
-            except TimeoutError:
-                pass
-            if on_progress and progress_file.exists():
+        try:
+            while True:
                 try:
-                    txt = progress_file.read_text()
-                    if txt and txt != last_seen:
-                        last_seen = txt
-                        on_progress(json.loads(txt))
-                except (OSError, json.JSONDecodeError):
+                    await asyncio.wait_for(proc.wait(), timeout=1.0)
+                    break
+                except TimeoutError:
                     pass
-            if time.monotonic() > deadline:
-                await self._kill(name)
-                await proc.wait()
-                return failed_result(
-                    job,
-                    self.provider,
-                    f"Stopped after {req.max_wall_s:.0f} s of wall-clock time.",
-                    status="timeout",
-                    runtime=time.monotonic() - t0,
-                )
-        stderr = (await proc.stderr.read()).decode()[-800:] if proc.stderr else ""
+                if on_progress and progress_file.exists():
+                    try:
+                        txt = progress_file.read_text()
+                        if txt and txt != last_seen:
+                            last_seen = txt
+                            on_progress(json.loads(txt))
+                    except (OSError, json.JSONDecodeError):
+                        pass
+                if time.monotonic() > deadline:
+                    err_reader.cancel()
+                    await self._kill(name)
+                    await proc.wait()
+                    return failed_result(
+                        job,
+                        self.provider,
+                        f"Stopped after {req.max_wall_s:.0f} s of wall-clock time.",
+                        status="timeout",
+                        runtime=time.monotonic() - t0,
+                    )
+        except asyncio.CancelledError:
+            # the run was cancelled from anywhere (session stop, shutdown): never leave
+            # the container running on its own
+            err_reader.cancel()
+            await asyncio.shield(self._kill(name))
+            raise
+        try:
+            stderr = (await asyncio.wait_for(err_reader, timeout=5))[-800:]
+        except TimeoutError:
+            stderr = ""
         if not (work / "result.json").exists():
             hint = "out of memory" if proc.returncode == 137 else stderr.strip()[-300:]
             return failed_result(
@@ -468,6 +490,7 @@ class DockerRunner:
             "--rm",
             "--name",
             name,
+            "--pull=never",
             "--network=none",
             f"--memory={job.mem}",
             f"--memory-swap={job.mem}",
