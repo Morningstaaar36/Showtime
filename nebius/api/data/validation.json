@@ -25,8 +25,9 @@
     "engine": "JuPedSim 1.4.2 via the Showtime sim image (Tier 3)",
     "model": "collision-free speed model (app default), with the app's squeeze and unstick rules active",
     "pedpy_version": "1.5.1",
-    "sim_image": "showtime-sim:validation",
+    "sim_image": "showtime-sim:latest",
     "agent_radius_m": 0.22,
+    "agent_time_gap_s": 0.25,
     "walk_speed": "normal(1.34, 0.26) m/s clipped to 0.6-2.0; 5% slow walkers at 0.7 m/s",
     "sim_dt_s": 0.025,
     "frame_hz": 4.0,
@@ -36,13 +37,14 @@
       3
     ],
     "app_defaults": true,
-    "generated_at": "2026-10-14T23:22:55+00:00",
+    "generated_at": "2026-10-15T01:02:39+00:00",
     "assumptions": [
       "Geometry from the archive metadata (wkt_geometry and parameters): corridor 7 m wide in front of the bottleneck, bottleneck b x l, walls 5 cm thick; coordinates in the archive's frame (entrance on y = 0).",
       "The holding area is not specified in the metadata or papers: it spans the corridor width and ends 4 m before the entrance ('bottleneck_distance'); its depth gives an initial density of 3.3 persons/m2 (the value of the group's 2005 series, Seyfried et al. 2009), e.g. 7.36 m for 170 people.",
       "Behind the bottleneck: an open area 8 m wide and 1 m deep (the metadata's bounding box), whose far edge is the exit, so the exit never limits the flow.",
       "Everyone starts walking at t = 0 (no reaction-time spread); the participants were soldiers told to walk normally, the simulation uses the app's adult walking speeds.",
-      "Real trajectories are head positions at 25 fps; simulated positions are body centres at 4 fps (app default output rate)."
+      "Real trajectories are head positions at 25 fps; simulated positions are body centres at 4 fps (app default output rate).",
+      "Time gap 0.25 s was chosen on widths 0.9, 1.1, 1.4, 1.8 and 2.2 m (seed 1; candidates 0.2-0.6 s and the model default 1.0 s, which gave -55% median error); widths 1.0, 1.2, 1.6, 2.0 and 2.5 m were held out and gave a median absolute error of 4.4%."
     ],
     "experimental_repeat": "Run l4 repeats the b120 setup (b = 1.2 m, l = 4 m, 178 people): 2.36 /s measured with the same method"
   },
@@ -59,44 +61,44 @@
         93.28
       ],
       "simulated_flow_ps": {
-        "median": 0.814,
-        "min": 0.7843,
-        "max": 0.8736,
+        "median": 1.6138,
+        "min": 1.5909,
+        "max": 1.8543,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_1bd020635d67",
-            "flow_ps": 0.814,
+            "run_id": "r_b2bdf0842bec",
+            "flow_ps": 1.8543,
             "crossings": 170,
             "window_s": [
-              10.5,
-              182.5
+              6.25,
+              81.75
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_3bdcee74e12b",
-            "flow_ps": 0.7843,
+            "run_id": "r_5676e1eb7872",
+            "flow_ps": 1.6138,
             "crossings": 170,
             "window_s": [
-              10.0,
-              188.5
+              6.75,
+              93.5
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_445c9d5c4c20",
-            "flow_ps": 0.8736,
+            "run_id": "r_d65e3ba2902c",
+            "flow_ps": 1.5909,
             "crossings": 170,
             "window_s": [
-              9.75,
-              170.0
+              6.25,
+              94.25
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.9044,
-      "error_pct": -49.8
+      "simulated_specific_flow": 1.7931,
+      "error_pct": -0.5
     },
     {
       "run_name": "b100",
@@ -110,44 +112,44 @@
         86.84
       ],
       "simulated_flow_ps": {
-        "median": 0.8602,
-        "min": 0.8046,
-        "max": 0.9003,
+        "median": 1.931,
+        "min": 1.7891,
+        "max": 1.958,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_b5c757e33753",
-            "flow_ps": 0.9003,
+            "run_id": "r_3a64ef6b9fde",
+            "flow_ps": 1.958,
             "crossings": 178,
             "window_s": [
-              9.5,
-              165.0
+              5.75,
+              77.25
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_bb6b75f45491",
-            "flow_ps": 0.8046,
+            "run_id": "r_26a6f2820a95",
+            "flow_ps": 1.931,
             "crossings": 178,
             "window_s": [
-              9.5,
-              183.5
+              5.75,
+              78.25
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_843e657500ab",
-            "flow_ps": 0.8602,
+            "run_id": "r_02dff14fd38f",
+            "flow_ps": 1.7891,
             "crossings": 178,
             "window_s": [
-              8.75,
-              171.5
+              6.0,
+              84.25
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.8602,
-      "error_pct": -55.4
+      "simulated_specific_flow": 1.931,
+      "error_pct": 0.0
     },
     {
       "run_name": "b110",
@@ -161,44 +163,44 @@
         78.76
       ],
       "simulated_flow_ps": {
-        "median": 0.9211,
-        "min": 0.9106,
-        "max": 1.0127,
+        "median": 2.0818,
+        "min": 2.0664,
+        "max": 2.1456,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_1d1cf39a8fb3",
-            "flow_ps": 0.9211,
+            "run_id": "r_8ea6dab5c86b",
+            "flow_ps": 2.0818,
             "crossings": 179,
             "window_s": [
-              7.75,
-              159.75
+              5.75,
+              73.0
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_0d47d773ae26",
-            "flow_ps": 1.0127,
+            "run_id": "r_fe00ac58aaa9",
+            "flow_ps": 2.0664,
             "crossings": 179,
             "window_s": [
-              8.25,
-              146.5
+              5.5,
+              73.25
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_a2594dd4ba28",
-            "flow_ps": 0.9106,
+            "run_id": "r_ffdd1d1a7874",
+            "flow_ps": 2.1456,
             "crossings": 179,
             "window_s": [
-              8.0,
-              161.75
+              5.75,
+              71.0
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.8374,
-      "error_pct": -56.0
+      "simulated_specific_flow": 1.8925,
+      "error_pct": -0.5
     },
     {
       "run_name": "b120",
@@ -212,44 +214,44 @@
         63.12
       ],
       "simulated_flow_ps": {
-        "median": 1.0256,
-        "min": 0.9705,
-        "max": 1.0916,
+        "median": 2.2951,
+        "min": 2.2764,
+        "max": 2.3237,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_94cc360d678b",
-            "flow_ps": 1.0256,
+            "run_id": "r_2c688c09f9a7",
+            "flow_ps": 2.2951,
             "crossings": 178,
             "window_s": [
-              8.25,
-              144.75
+              5.5,
+              66.5
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_ccc8f89eb5a0",
-            "flow_ps": 0.9705,
+            "run_id": "r_96da225fb051",
+            "flow_ps": 2.2764,
             "crossings": 178,
             "window_s": [
-              7.5,
-              151.75
+              5.5,
+              67.0
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_432d08e0e221",
-            "flow_ps": 1.0916,
+            "run_id": "r_e8cc819b089f",
+            "flow_ps": 2.3237,
             "crossings": 178,
             "window_s": [
-              7.75,
-              136.0
+              5.75,
+              66.0
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.8547,
-      "error_pct": -57.3
+      "simulated_specific_flow": 1.9126,
+      "error_pct": -4.4
     },
     {
       "run_name": "b140",
@@ -263,44 +265,44 @@
         67.04
       ],
       "simulated_flow_ps": {
-        "median": 1.2584,
-        "min": 1.1814,
-        "max": 1.267,
+        "median": 2.6923,
+        "min": 2.5806,
+        "max": 2.7184,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_59093763f5eb",
-            "flow_ps": 1.1814,
+            "run_id": "r_eecc4e67f714",
+            "flow_ps": 2.6923,
             "crossings": 176,
             "window_s": [
-              7.25,
-              125.75
+              5.0,
+              57.0
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_599e2a9492a2",
-            "flow_ps": 1.2584,
+            "run_id": "r_549421662c08",
+            "flow_ps": 2.5806,
             "crossings": 176,
             "window_s": [
-              7.0,
-              118.25
+              5.0,
+              59.25
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_7541871c047c",
-            "flow_ps": 1.267,
+            "run_id": "r_a0163342171d",
+            "flow_ps": 2.7184,
             "crossings": 176,
             "window_s": [
-              7.5,
-              118.0
+              5.25,
+              56.75
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.8989,
-      "error_pct": -55.2
+      "simulated_specific_flow": 1.9231,
+      "error_pct": -4.2
     },
     {
       "run_name": "b160",
@@ -314,44 +316,44 @@
         52.24
       ],
       "simulated_flow_ps": {
-        "median": 1.3659,
-        "min": 1.2933,
-        "max": 1.3725,
+        "median": 3.2,
+        "min": 3.1818,
+        "max": 3.2184,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_b76a46f862db",
-            "flow_ps": 1.3659,
+            "run_id": "r_3e093b4698b5",
+            "flow_ps": 3.1818,
             "crossings": 178,
             "window_s": [
-              6.5,
-              109.0
+              4.75,
+              48.75
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_d9506f249628",
-            "flow_ps": 1.2933,
+            "run_id": "r_13c88850b787",
+            "flow_ps": 3.2184,
             "crossings": 178,
             "window_s": [
-              6.25,
-              114.5
+              4.75,
+              48.25
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_083398feb4f9",
-            "flow_ps": 1.3725,
+            "run_id": "r_cebf334922e5",
+            "flow_ps": 3.2,
             "crossings": 178,
             "window_s": [
-              7.0,
-              109.0
+              5.0,
+              48.75
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.8537,
-      "error_pct": -54.7
+      "simulated_specific_flow": 2.0,
+      "error_pct": 6.2
     },
     {
       "run_name": "b180",
@@ -365,44 +367,44 @@
         42.72
       ],
       "simulated_flow_ps": {
-        "median": 1.5819,
-        "min": 1.5556,
-        "max": 1.5819,
+        "median": 3.6129,
+        "min": 3.6129,
+        "max": 3.7086,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_ec4786a11726",
-            "flow_ps": 1.5819,
+            "run_id": "r_0d80a5db5b22",
+            "flow_ps": 3.7086,
             "crossings": 176,
             "window_s": [
-              6.5,
-              95.0
+              4.75,
+              42.5
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_66cdebbaaaf5",
-            "flow_ps": 1.5556,
+            "run_id": "r_fefaeb81a044",
+            "flow_ps": 3.6129,
             "crossings": 176,
             "window_s": [
-              6.25,
-              96.25
+              4.5,
+              43.25
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_eb2e8e28c710",
-            "flow_ps": 1.5819,
+            "run_id": "r_9cea63a5b726",
+            "flow_ps": 3.6129,
             "crossings": 176,
             "window_s": [
-              7.0,
-              95.5
+              5.0,
+              43.75
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.8788,
-      "error_pct": -58.0
+      "simulated_specific_flow": 2.0072,
+      "error_pct": -4.0
     },
     {
       "run_name": "b200",
@@ -416,44 +418,44 @@
         43.28
       ],
       "simulated_flow_ps": {
-        "median": 1.7891,
-        "min": 1.7555,
-        "max": 1.8361,
+        "median": 4.0,
+        "min": 3.8356,
+        "max": 4.058,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_37c4522883fe",
-            "flow_ps": 1.7891,
+            "run_id": "r_c53dc844b6b9",
+            "flow_ps": 4.0,
             "crossings": 178,
             "window_s": [
-              5.75,
-              84.0
+              4.5,
+              39.5
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_8fd2fad1d2f1",
-            "flow_ps": 1.7555,
+            "run_id": "r_a17c87ccfae6",
+            "flow_ps": 3.8356,
             "crossings": 178,
             "window_s": [
-              6.0,
-              85.75
+              4.75,
+              41.25
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_084e3b17d275",
-            "flow_ps": 1.8361,
+            "run_id": "r_479cb451602f",
+            "flow_ps": 4.058,
             "crossings": 178,
             "window_s": [
-              6.5,
-              82.75
+              4.75,
+              39.25
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.8945,
-      "error_pct": -52.6
+      "simulated_specific_flow": 2.0,
+      "error_pct": 6.1
     },
     {
       "run_name": "b220",
@@ -467,44 +469,44 @@
         37.56
       ],
       "simulated_flow_ps": {
-        "median": 1.9788,
-        "min": 1.9649,
-        "max": 2.0072,
+        "median": 4.5528,
+        "min": 4.3077,
+        "max": 4.6281,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_42c7e0dffa8f",
-            "flow_ps": 1.9788,
+            "run_id": "r_e20de010da91",
+            "flow_ps": 4.5528,
             "crossings": 177,
             "window_s": [
-              5.5,
-              76.25
+              4.5,
+              35.25
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_6dc912dcd32c",
-            "flow_ps": 1.9649,
+            "run_id": "r_4b450fe034a9",
+            "flow_ps": 4.3077,
             "crossings": 177,
             "window_s": [
-              5.75,
-              77.0
+              4.5,
+              37.0
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_64ed4f185d39",
-            "flow_ps": 2.0072,
+            "run_id": "r_4489485e4297",
+            "flow_ps": 4.6281,
             "crossings": 177,
             "window_s": [
-              5.75,
-              75.5
+              4.5,
+              34.75
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.8995,
-      "error_pct": -55.4
+      "simulated_specific_flow": 2.0695,
+      "error_pct": 2.5
     },
     {
       "run_name": "b250",
@@ -518,46 +520,46 @@
         109.64
       ],
       "simulated_flow_ps": {
-        "median": 2.179,
-        "min": 2.1053,
-        "max": 2.2047,
+        "median": 5.2336,
+        "min": 4.9123,
+        "max": 5.3846,
         "runs": [
           {
             "seed": 1,
-            "run_id": "r_a14d91ce5eb1",
-            "flow_ps": 2.1053,
+            "run_id": "r_68c08a3d5a78",
+            "flow_ps": 5.2336,
             "crossings": 176,
             "window_s": [
-              5.25,
-              71.75
+              4.25,
+              31.0
             ]
           },
           {
             "seed": 2,
-            "run_id": "r_04d3bd8ae3c5",
-            "flow_ps": 2.179,
+            "run_id": "r_9a1046478a8d",
+            "flow_ps": 4.9123,
             "crossings": 176,
             "window_s": [
-              5.5,
-              69.75
+              4.25,
+              32.75
             ]
           },
           {
             "seed": 3,
-            "run_id": "r_0ea5bb3fd0c0",
-            "flow_ps": 2.2047,
+            "run_id": "r_f84b74509e33",
+            "flow_ps": 5.3846,
             "crossings": 176,
             "window_s": [
-              5.75,
-              69.25
+              4.5,
+              30.5
             ]
           }
         ]
       },
-      "simulated_specific_flow": 0.8716,
-      "error_pct": -60.0
+      "simulated_specific_flow": 2.0934,
+      "error_pct": -4.0
     }
   ],
-  "median_abs_error_pct": 55.4,
-  "mean_error_pct": -55.4
+  "median_abs_error_pct": 4.0,
+  "mean_error_pct": -0.3
 }

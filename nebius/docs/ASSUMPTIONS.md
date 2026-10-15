@@ -8,6 +8,7 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | --- | --- | --- | --- |
 | Free walking speed | 1.34 ± 0.26 m/s, 5% slow walkers at 0.7 m/s | Weidmann (1993); SFPE Handbook of Fire Protection Engineering, ch. 59 (Gwynne & Rosenbaum) | `WALK_SPEED_MEAN`, `WALK_SPEED_SD` |
 | Body radius | 0.22 m | Calibrated: at 0.22 m the model's jam density matches Weidmann's 5.4 people/m² and door flow is 1.1–1.5 people/m/s (measured, `docs/PROGRESS.md`) | `AGENT_RADIUS` |
+| Time gap to the person ahead | 0.25 s | Calibrated on the Jülich 2006 bottleneck series (widths 0.9, 1.1, 1.4, 1.8, 2.2 m), held-out median absolute error 4.4%; the model default 1.0 s gave −55% flow (`docs/VALIDATION.md`) | `AGENT_TIME_GAP` |
 | Door/gate capacity (instant estimate) | 1.3 people per metre per second | SFPE maximum specific flow for doors and corridors | `SPECIFIC_FLOW` |
 | Stair travel and throughput | 0.6 m/s along the stair, 1.0 people/m/s | Conservative values below SFPE stair flows; stairs are a FIFO queue (approximation) | `STAIR_SPEED`, `STAIR_FLOW` |
 | Warning density | 3.5 people/m² | Fruin level of service F begins near 2.2/m²; 3.5 marks dense, restricted movement | `DENSITY_WARN_PPM2` |

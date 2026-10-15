@@ -1,9 +1,10 @@
 # Simulator validation: Jülich bottleneck experiment (2006)
 
-**Result: at every bottleneck width, the simulator lets about half as many people per second
-through as the real crowd did. The median error is 55% (range −50% to −60%).** The error is in
-the cautious direction: evacuation times that a bottleneck controls come out longer than in the
-experiment. The app has not been tuned to close the gap; this is the simulator as shipped.
+**Result: with the calibrated time gap (0.25 s, now the app default) the simulator's flow through
+a bottleneck is within about 6% of the real crowd's at every width; median absolute error
+4.0%. On the widths held out from calibration the median absolute error is 4.4%.**
+With the model's out-of-the-box time gap (1.0 s) the simulator let only about half as many people
+through (median error −55%); that first result is kept below for the record.
 
 ## What was compared
 
@@ -45,25 +46,58 @@ for b120 with the same method, a difference of about 2%.
 
 ## Results
 
+### Calibration (time gap to the person ahead)
+
+The collision-free speed model keeps a time gap to the person in front; JuPedSim's default is
+1.0 s. Calibrated on five widths (0.9, 1.1, 1.4, 1.8, 2.2 m; seed 1), then tested on the other
+five (1.0, 1.2, 1.6, 2.0, 2.5 m; seeds 1–3):
+
+| time gap | calibration widths: median error | held-out widths: median absolute error |
+| --- | --- | --- |
+| 1.0 s (model default) | −55% (all widths) | — |
+| 0.6 s | −40.0% | — |
+| 0.5 s | −32.2% | — |
+| 0.4 s | −23.2% | — |
+| 0.3 s | −8.6% | — |
+| **0.25 s (chosen)** | **−0.5%** (median abs 2.5%) | **4.4%** |
+| 0.2 s | +10.1% | — |
+
+### With the calibrated default (published in `api/data/validation.json`, seeds 1–3)
+
 | b (m) | run | people | measured (1/s) | measured J_s (1/(m·s)) | simulated median (min–max) (1/s) | simulated J_s | error |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0.9 | b090 | 170 | 1.62 | 1.80 | 0.81 (0.78–0.87) | 0.90 | −49.8% |
-| 1.0 | b100 | 178 | 1.93 | 1.93 | 0.86 (0.80–0.90) | 0.86 | −55.4% |
-| 1.1 | b110 | 179 | 2.09 | 1.90 | 0.92 (0.91–1.01) | 0.84 | −56.0% |
-| 1.2 | b120 | 178 | 2.40 | 2.00 | 1.03 (0.97–1.09) | 0.85 | −57.3% |
-| 1.4 | b140 | 176 | 2.81 | 2.01 | 1.26 (1.18–1.27) | 0.90 | −55.2% |
-| 1.6 | b160 | 178 | 3.01 | 1.88 | 1.37 (1.29–1.37) | 0.85 | −54.7% |
-| 1.8 | b180 | 176 | 3.76 | 2.09 | 1.58 (1.56–1.58) | 0.88 | −58.0% |
-| 2.0 | b200 | 178 | 3.77 | 1.89 | 1.79 (1.76–1.84) | 0.89 | −52.6% |
-| 2.2 | b220 | 177 | 4.44 | 2.02 | 1.98 (1.96–2.01) | 0.90 | −55.4% |
-| 2.5 | b250 | 176 | 5.45 | 2.18 | 2.18 (2.11–2.20) | 0.87 | −60.0% |
+| 0.9 | b090 | 170 | 1.62 | 1.80 | 1.61 (1.59–1.85) | 1.79 | -0.5% |
+| 1 | b100 | 178 | 1.93 | 1.93 | 1.93 (1.79–1.96) | 1.93 | +0.0% |
+| 1.1 | b110 | 179 | 2.09 | 1.90 | 2.08 (2.07–2.15) | 1.89 | -0.5% |
+| 1.2 | b120 | 178 | 2.40 | 2.00 | 2.30 (2.28–2.32) | 1.91 | -4.4% |
+| 1.4 | b140 | 176 | 2.81 | 2.01 | 2.69 (2.58–2.72) | 1.92 | -4.2% |
+| 1.6 | b160 | 178 | 3.01 | 1.88 | 3.20 (3.18–3.22) | 2.00 | +6.2% |
+| 1.8 | b180 | 176 | 3.76 | 2.09 | 3.61 (3.61–3.71) | 2.01 | -4.0% |
+| 2 | b200 | 178 | 3.77 | 1.89 | 4.00 (3.84–4.06) | 2.00 | +6.1% |
+| 2.2 | b220 | 177 | 4.44 | 2.02 | 4.55 (4.31–4.63) | 2.07 | +2.5% |
+| 2.5 | b250 | 176 | 5.45 | 2.18 | 5.23 (4.91–5.38) | 2.09 | -4.0% |
 
-Median |error| **55.4%**; mean error −55.4%. The brief's target was a median error of 15% or
-less; **the target is missed**. Full numbers, including each seed's run id, are in
-`api/data/validation.json`. They are served at `GET /api/v1/validation` and shown in
-Help › *How good is the simulator?*.
+Median |error| **4.0%**; mean error -0.3%. The brief's target (median error ≤ 15%)
+is met. Each seed's run id is in `api/data/validation.json`, served at `GET /api/v1/validation`
+and shown in Help › *How good is the simulator?*.
+
+### First result, model default (time gap 1.0 s)
+
+| b (m) | measured (1/s) | simulated median (1/s) | error |
+| --- | --- | --- | --- |
+| 0.9 | 1.62 | 0.81 | −49.8% |
+| 1.0 | 1.93 | 0.86 | −55.4% |
+| 1.2 | 2.40 | 1.03 | −57.3% |
+| 1.6 | 3.01 | 1.37 | −54.7% |
+| 2.0 | 3.77 | 1.79 | −52.6% |
+| 2.5 | 5.45 | 2.18 | −60.0% |
 
 ## Interpretation
+
+- **Calibration fixed a constant factor, not the shape.** Both the real and the simulated flow grow
+  linearly with width; the default time gap scaled the simulated flow down by about 2.2. One
+  parameter, chosen on half the widths and checked on the other half, closes the gap. It is still
+  one experiment with one population; other crowds (hurried, mixed ages) may differ.
 
 - **The measured flows are plausible.** The specific flow is 1.8–2.2 people/(m·s), close to
   the J = 1.9·b line that Liddle et al. report for this series, and both grow roughly linearly
