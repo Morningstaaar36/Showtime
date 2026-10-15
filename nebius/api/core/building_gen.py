@@ -52,6 +52,15 @@ ROOM_W: dict[str, float] = {"hospital": 7.0, "school": 8.0, "office": 6.0, "resi
 DEFAULT_ROOM_W = 6.0
 DOOR_W: dict[str, float] = {"hospital": 1.4}  # bed doors; others 1.0 m
 ROOMS_BY_DEFAULT = {"hospital", "school", "office", "residential"}
+# Rooms are grouped into a few areas per floor (each side of the corridor in up to this many
+# runs of neighbouring rooms) so a long wing gives "Ward A" to "Ward F", not 40 one-person rooms.
+AREAS_PER_SIDE = 3
+AREA_WORD: dict[str, str] = {
+    "hospital": "Ward",
+    "school": "Classrooms",
+    "office": "Offices",
+    "residential": "Flats",
+}
 
 # Who is inside, by use (shares of each room's headcount). The simulator gives each group its
 # own walking speed (docs/ASSUMPTIONS.md); the rest are general adults.
@@ -213,6 +222,29 @@ def _room_walls(
     return fr.to_world(walls).intersection(foot), fr.to_world(band).intersection(foot)
 
 
+def _group_rooms(fr: _Frame, rooms: list[Polygon], allowed: Any) -> list[Polygon]:
+    """Neighbouring rooms on each side of the corridor merged into a few areas.
+
+    An area's outline spans its rooms and the walls between them; the simulator places people
+    only where the floor is walkable, so nobody stands inside a wall.
+    """
+    out: list[Polygon] = []
+    for side in (1, -1):
+        mine = [p for p in rooms if (fr.to_local(p.centroid).y > 0) == (side > 0)]
+        mine.sort(key=lambda p: fr.to_local(p.centroid).x)
+        if not mine:
+            continue
+        n = min(AREAS_PER_SIDE, len(mine))
+        size = math.ceil(len(mine) / n)
+        for k in range(0, len(mine), size):
+            run = mine[k : k + size]
+            hull = unary_union(run).convex_hull.intersection(allowed)
+            parts = sorted(_parts(hull), key=lambda p: -p.area)
+            if parts:
+                out.append(parts[0])
+    return out
+
+
 def _wall_obstacles(floor_id: str, walls: Any, height: float) -> list[Obstacle]:
     out: list[Obstacle] = []
     for p in sorted(_parts(walls), key=lambda p: (p.centroid.x, p.centroid.y)):
@@ -300,9 +332,15 @@ def _storeys(
         free = free.difference(band.buffer(0.3)) if band is not None else free.buffer(-1.0)
         if core_area is not None:
             free = free.difference(core_area)
-        for p in _parts(free):
-            if p.area >= 6:
-                zone_shapes.append((i, orient(p.simplify(0.2), 1.0)))
+        rooms = [p for p in _parts(free) if p.area >= 6]
+        if band is not None:  # the floor without the corridor, stairs and courtyards
+            allowed = foot.buffer(-0.4).difference(band.buffer(0.3))
+            if solid is not None:
+                allowed = allowed.difference(solid.buffer(0.5))
+            if core_area is not None:
+                allowed = allowed.difference(core_area)
+            rooms = _group_rooms(fr, rooms, allowed)
+        zone_shapes += [(i, orient(p.simplify(0.2), 1.0)) for p in rooms]
         floors.append(
             Floor(
                 floor_id=fid,
@@ -329,15 +367,16 @@ def _storeys(
         )
     left = people
     groups = _groups(use)
-    rooms_per_floor: dict[int, int] = {}
+    word = AREA_WORD.get(use or "", "Rooms") if band is not None else "Floor area"
+    per_floor: dict[int, int] = {}
     for k, (fi, p) in enumerate(zone_shapes):
         share = left if k == len(zone_shapes) - 1 else round(people * p.area / area)
         share = max(0, min(share, left))
         left -= share
-        n = rooms_per_floor[fi] = rooms_per_floor.get(fi, 0) + 1
-        label = ("Room" if band is not None else "Floor area") + f" {n}"
+        n = per_floor[fi] = per_floor.get(fi, 0) + 1
+        label = f"{word} {chr(64 + n) if n <= 26 else n}"
         if fi > 0:
-            label += f" ({floor_name(fi)})"
+            label += f" · {floor_name(fi)}"
         floors[fi].zones.append(
             Zone(
                 id=f"f{fi}_zone_{n}",

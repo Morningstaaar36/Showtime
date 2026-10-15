@@ -11,6 +11,7 @@ from api.core.building_gen import (
     infer_use,
     map_levels,
 )
+from api.core.extensions import geometry as geo
 from api.core.geometry import validate_venue
 from api.models import Exit, Floor, Venue
 
@@ -71,7 +72,10 @@ def test_rooms_have_walls_doors_and_people(block: Venue) -> None:
     f0 = v.floors[0]
     walls = [o for o in f0.obstacles if o.kind == "wall"]
     assert len(walls) >= 4
-    assert len(f0.zones) >= 6, "rooms on both sides of the corridor"
+    assert 2 <= len(f0.zones) <= 6, "rooms grouped into a few areas on both sides"
+    room = 7.0 * 8  # one 7 m wide room, about 8 m deep
+    assert all(geo.to_polygon(z.polygon).area > 2 * room for z in f0.zones), "areas span rooms"
+    assert f0.zones[0].label == "Ward A" and v.floors[1].zones[0].label == "Ward A · 1st floor"
     assert v.extensions["building"]["interior"] == "rooms"
     kinds = {g.kind for g in f0.zones[0].groups}
     assert {"bed", "staff"} <= kinds
