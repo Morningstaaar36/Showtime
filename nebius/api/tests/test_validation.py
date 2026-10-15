@@ -1,4 +1,4 @@
-"""Simulator validation exhibit (T-N10-1, T-N10-3): the shipped JSON, the venue, the batch script."""
+"""Simulator validation (T-N10-1, T-N10-3): the shipped JSON, the venue, the batch script."""
 
 from __future__ import annotations
 

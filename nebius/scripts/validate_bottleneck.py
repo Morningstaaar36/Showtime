@@ -46,7 +46,9 @@ from api.models.validation import SimulatorValidation  # noqa: E402
 from api.orchestrator.runs import RunService  # noqa: E402
 
 DATA = ROOT_DIR / "data" / "validation" / "bottleneck2006"
-SERIES = re.compile(r"^b\d{3}$")  # the width series (l = 4 m); l0/l2/l4 and n/d/bfl runs vary others
+SERIES = re.compile(
+    r"^b\d{3}$"
+)  # the width series (l = 4 m); l0/l2/l4 and n/d/bfl runs vary others
 DEFAULT_SEEDS = [1, 2, 3]
 
 MEASURE = """

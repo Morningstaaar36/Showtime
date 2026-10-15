@@ -73,9 +73,7 @@ def line_flow(
         "people": int(df["id"].nunique()),
         "crossings": n,
         "window": [lo, hi],
-        "window_s": [round(float(times[lo - 1]), 2), round(float(times[hi - 1]), 2)]
-        if n
-        else [],
+        "window_s": [round(float(times[lo - 1]), 2), round(float(times[hi - 1]), 2)] if n else [],
         "flow_ps": round(flow, 4) if flow is not None else None,
         "specific_flow": round(flow / width_m, 4) if flow is not None else None,
         "crossing_times_s": [round(float(t), 2) for t in times],

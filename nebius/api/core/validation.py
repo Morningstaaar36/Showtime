@@ -80,7 +80,7 @@ def bottleneck_venue(
     return Venue(
         venue_id=f"validation_{run_name}",
         name=f"Jülich bottleneck 2006 {run_name} (b = {b:g} m)",
-        description="Validation venue built from the Jülich archive metadata (DOI 10.34735/ped.2006.2).",
+        description="Validation venue from the Jülich archive metadata (DOI 10.34735/ped.2006.2).",
         mode="indoor",
         floors=[floor],
     )

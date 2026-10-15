@@ -1,4 +1,4 @@
-"""Simulator validation exhibit (`api/data/validation.json`, written by scripts/validate_bottleneck.py).
+"""Simulator validation exhibit: `api/data/validation.json` (scripts/validate_bottleneck.py).
 
 Measured flow through a real bottleneck experiment next to the simulated flow for the same
 geometry and headcount, both measured with the same PedPy method. Nothing here is tuned.
