@@ -68,6 +68,7 @@ def sim_settings(settings: Settings, tier: int) -> dict[str, Any]:
         "walk_speed_sd": settings.walk_speed_sd,
         "slow_walker_fraction": settings.slow_walker_fraction,
         "agent_radius": settings.agent_radius,
+        "agent_time_gap": settings.agent_time_gap,
         "specific_flow": settings.specific_flow,
         "stair_speed": settings.stair_speed,
         "stair_flow": settings.stair_flow,

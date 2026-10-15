@@ -89,6 +89,7 @@ class FloorRun:
         self.dt = float(settings.get("dt", 0.05))
         self.frame_dt = float(settings.get("frame_dt", 0.25))
         self.radius = float(settings.get("agent_radius", 0.22))
+        self.time_gap = float(settings.get("agent_time_gap", 1.0))
         self.rejected = 0
         self.out = FloorOutput(floor_id=self.floor_id)
         self.t = 0.0
@@ -269,6 +270,7 @@ class FloorRun:
                     stage_id=jid_stage[1],
                     desired_speed=speed * self.global_speed_factor,
                     radius=self.radius,
+                    **({"time_gap": self.time_gap} if self.model_name != "avm" else {}),
                 )
             )
         except Exception:

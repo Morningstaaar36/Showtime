@@ -106,6 +106,8 @@ async def measure(runner: DockerRunner, job_id: str, inputs: dict[str, bytes], c
 
 async def main(args: argparse.Namespace) -> None:
     st = get_settings()
+    if args.time_gap:
+        st = st.model_copy(update={"agent_time_gap": args.time_gap})
     migrate()
     host = load_plugins(ROOT_DIR)
     runner = DockerRunner(
@@ -249,12 +251,13 @@ async def main(args: argparse.Namespace) -> None:
             "pedpy_version": pedpy_version,
             "sim_image": st.sim_image,
             "agent_radius_m": st.agent_radius,
+            "agent_time_gap_s": st.agent_time_gap,
             "walk_speed": f"normal({st.walk_speed_mean}, {st.walk_speed_sd}) m/s clipped to "
             f"0.6-2.0; {st.slow_walker_fraction:.0%} slow walkers at 0.7 m/s",
             "sim_dt_s": dt,
             "frame_hz": frame_hz,
             "seeds": list(args.seeds),
-            "app_defaults": True,
+            "app_defaults": not args.time_gap,
             "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
             "assumptions": [
                 "Geometry from the archive metadata (wkt_geometry and parameters): corridor "
@@ -272,7 +275,8 @@ async def main(args: argparse.Namespace) -> None:
                 "walking speeds.",
                 "Real trajectories are head positions at 25 fps; simulated positions are body "
                 f"centres at {frame_hz:g} fps (app default output rate).",
-            ],
+            ]
+            + ([args.note] if args.note else []),
             "experimental_repeat": repeat,
         },
         "widths": widths,
@@ -292,6 +296,8 @@ def parse(argv: list[str]) -> argparse.Namespace:
     ap.add_argument("--seeds", nargs="*", type=int, default=DEFAULT_SEEDS)
     ap.add_argument("--people", type=int, default=0, help="override the headcount (tests)")
     ap.add_argument("--out", default="", help="output path (default api/data/validation.json)")
+    ap.add_argument("--time-gap", type=float, default=0.0, help="override AGENT_TIME_GAP (s)")
+    ap.add_argument("--note", default="", help="extra line for meta.assumptions")
     return ap.parse_args(argv)
 
 

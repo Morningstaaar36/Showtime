@@ -121,6 +121,9 @@ class Settings(BaseSettings):
     walk_speed_sd: float = 0.26
     slow_walker_fraction: float = 0.05
     agent_radius: float = 0.22
+    # collision-free speed model: time gap each person keeps to the one ahead (s); 0.25 s is
+    # calibrated on the Juelich 2006 bottleneck series (docs/VALIDATION.md); 1.0 is the model default
+    agent_time_gap: float = Field(default=0.25, gt=0.05, le=3.0)
     sim_dt_s: float = 0.05
     danger_min_duration_s: float = 5.0
     # planning targets for 'everyone out' when no hazard time is known (labelled as targets)

@@ -76,6 +76,7 @@ class ValidationMeta(_Strict):
     pedpy_version: str
     sim_image: str
     agent_radius_m: float
+    agent_time_gap_s: float = 1.0
     walk_speed: str
     sim_dt_s: float
     frame_hz: float
