@@ -89,6 +89,9 @@ async def test_report_of_a_confirmed_plan(make_state: Callable[..., Any]) -> Non
     assert f"<td>Full simulations</td><td>{cost['sims']['full_sims']}</td>" in html
     assert "<td>Wall time</td>" in html and "<td>Simulation compute time</td>" in html
     assert "consultant" not in html.lower()
+    # the simulator check from api/data/validation.json, pointing to Help
+    assert "Simulator check: against a published bottleneck experiment" in html
+    assert "See Help › How good is the simulator?" in html
 
 
 async def test_report_of_a_timed_out_confirmation(make_state: Callable[..., Any]) -> None:

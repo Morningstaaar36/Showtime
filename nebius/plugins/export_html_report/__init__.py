@@ -470,6 +470,14 @@ def render(b: ReportBundle) -> str:
             f"simulation {dur(c.get('tier3_p95_s'))} (ratio {c['ratio_p95']:.2f}). Instant estimates are "
             "screening values; decisions use simulation results.</p>"
         )
+    val = b.extras.get("validation") or {}
+    if val.get("widths"):
+        calib += (
+            f"<p class='muted'>Simulator check: against a published bottleneck experiment with real "
+            f"people (DOI {e(str(val.get('dataset_doi', '')))}), the simulated flow was "
+            f"{float(val['median_abs_error_pct']):.0f}% {e(str(val.get('direction', '')))} "
+            f"(median over {int(val['widths'])} widths). See Help › How good is the simulator?</p>"
+        )
     map_svg = b.extras.get("map_svg", "")
     measures = b.extras.get("measures") or []
     measures_html = (

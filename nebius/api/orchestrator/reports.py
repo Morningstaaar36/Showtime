@@ -17,6 +17,7 @@ from api.core.extensions import ReportBundle
 from api.core.extensions.geometry import display_names
 from api.core.plan import plan_hash
 from api.core.settings import ROOT_DIR
+from api.core.validation import load_validation
 from api.db.models import Run, SessionEventRow
 from api.db.session import db_session
 from api.models import Attack, Countdown, Fix, RunResult, Venue
@@ -37,6 +38,19 @@ def _calibration(template_id: str | None) -> dict[str, Any]:
         return {}
     data = json.loads(path.read_text())
     return dict(data.get(template_id, {}))
+
+
+def _validation_summary() -> dict[str, Any]:
+    """Headline of the simulator check (api/data/validation.json) for the report."""
+    v = load_validation()
+    if v is None:
+        return {}
+    return {
+        "median_abs_error_pct": v.median_abs_error_pct,
+        "direction": "lower" if v.mean_error_pct < 0 else "higher",
+        "widths": len(v.widths),
+        "dataset_doi": v.meta.dataset_doi,
+    }
 
 
 def humanizer(*venues: Venue | None) -> Callable[[str], str]:
@@ -202,6 +216,7 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
             # before/after results of each kept fix, and the plan selected for handover
             "fix_evidence": fix_evidence(summary, nodes),
             "handover": _handover(st, project_id, session, summary, venue, plan_venue, plan),
+            "validation": _validation_summary(),
         },
     )
 
