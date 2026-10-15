@@ -7,7 +7,7 @@ API := cd api &&
 
 .PHONY: help setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
         types check lint typecheck test test-sim test-web e2e smoke smoke-nebius use-nebius use-openrouter use-local demo-precompute \
-        clean mem plugins new-plugin calibrate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
+        clean mem plugins new-plugin calibrate validate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[1m%-20s\033[0m %s\n", $$1, $$2}'
@@ -22,7 +22,7 @@ get-llm: ## Download the prebuilt llama.cpp CUDA server into .tools/
 get-model: ## Download Nemotron Nano 9B v2 (Q4_K_M GGUF) into ./models
 	@./scripts/get_model.sh
 
-get-data: ## Download the crowd-accident dataset into ./data
+get-data: ## Download the crowd-accident and validation datasets into ./data
 	@$(ENV) ./scripts/get_data.sh
 
 probe: ## Check GPU, Docker, LLM (chat + JSON), sim image, weather, search
@@ -130,6 +130,9 @@ demo-precompute: ## Precompute the three demo projects (runs simulations and age
 
 calibrate: ## Compare instant estimates with simulations on every template
 	@$(ENV) $(API) uv run python ../scripts/calibrate_tier1.py
+
+validate: ## Simulator vs the Jülich 2006 bottleneck experiment -> api/data/validation.json (needs get-data)
+	@$(ENV) $(API) uv run python ../scripts/validate_bottleneck.py
 
 screenshots: ## Screenshot every screen into docs/screenshots (app must be running)
 	@$(ENV) cd web && node e2e/screens.mjs ../docs/screenshots

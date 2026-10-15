@@ -29,3 +29,21 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | Real-place narrow gaps | Gaps under 1.2 m between buildings, fences, water and the edge are closed; pockets without an exit are filled | Nobody plans egress through a 1 m slot between buildings; the crowd model would route people into it | `GAP_CLOSE_M` |
 | Designed venues | Margins 1.5 m (less in small rooms), 2 m clear in front of a stage, features ≥ 3 m from exits, balcony 4.5 m up with a 9 m stair | Solver defaults; every value the AI assumed is listed in the preview | `api/core/venue_builder.py` |
 | T-alley template | Alley 3.2 m wide, 45 m long | Wikipedia, "Seoul Halloween crowd crush" (sources vary 3.2–4 m; we use 3.2 m) | template |
+
+## Simulator validation (`make validate`, `docs/VALIDATION.md`)
+
+The validation against the Jülich 2006 bottleneck experiment uses **the app defaults above,
+unchanged** (radius 0.22 m, walking speed 1.34 ± 0.26 m/s with 5% slow walkers, Tier 3 Δt 0.025 s,
+4 frames/s output, collision-free speed model with the squeeze and sidestep rules). No parameter
+was tuned to fit the experiment, so there is no before/after pair to report: the published error
+(median 55% lower flow than measured) is the app as shipped. If a parameter is ever changed to
+improve the fit, record it here with the error before and after.
+
+Assumptions that apply only to the validation venue (also listed in `api/data/validation.json`):
+
+| Item | Value | Why |
+| --- | --- | --- |
+| Holding area | Full corridor width (7 m), ending 4 m before the entrance, depth for 3.3 people/m² (7.3–7.7 m) | Size not given in the metadata or the 2006 papers; 3.3/m² is the initial density of the same group's 2005 series (Seyfried et al. 2009) |
+| After the bottleneck | Open area 8 m × 1 m, exit along its far edge | The metadata's bounding box; the exit must not limit the flow |
+| Start | Everyone starts walking at t = 0 | Reaction times were not published; the steady-state window skips the first 9 people |
+| Positions | Experiment: head positions at 25 fps; simulation: body centres at 4 fps | Archive format and app default output rate |

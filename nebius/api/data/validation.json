@@ -1,0 +1,563 @@
+{
+  "schema_version": 1,
+  "meta": {
+    "dataset": "Jülich pedestrian dynamics archive: Bottleneck, Caserne (Düsseldorf, 2006)",
+    "dataset_doi": "10.34735/ped.2006.2",
+    "dataset_licence": "CC BY 4.0",
+    "funding": "DFG projects KL 1873/1-1 and SE 1789/1-1",
+    "papers": [
+      {
+        "label": "Seyfried, Rupprecht, Passon, Steffen, Klingsch, Boltes: New insights into pedestrian flow through bottlenecks. Transportation Science 43 (2009) 395-406",
+        "url": "https://doi.org/10.1287/trsc.1090.0263"
+      },
+      {
+        "label": "Seyfried et al.: Enhanced empirical data for the fundamental diagram and the flow through bottlenecks. PED 2008 (Springer 2010)",
+        "url": "https://arxiv.org/abs/0810.1945"
+      },
+      {
+        "label": "Liddle et al.: An experimental study of pedestrian congestions: influence of bottleneck width and length (arXiv 2009)",
+        "url": "https://arxiv.org/abs/0911.4350"
+      }
+    ],
+    "method": "PedPy compute_n_t on a measurement line; flow = (k1 - k0) / (t_k1 - t_k0) over the crossings ranked k0..k1 (1 / mean time gap); specific flow = flow / b. Same code (sim/bottleneck_flow.py) for the experiment and the simulation.",
+    "measurement_line": "bottleneck entrance, y = 0, from x = -b/2 to x = b/2",
+    "steady_window": "crossings 10 to 150: skips the first 9 people (start-up) and ends at the 150th person like Liddle et al. (2009)",
+    "engine": "JuPedSim 1.4.2 via the Showtime sim image (Tier 3)",
+    "model": "collision-free speed model (app default), with the app's squeeze and unstick rules active",
+    "pedpy_version": "1.5.1",
+    "sim_image": "showtime-sim:validation",
+    "agent_radius_m": 0.22,
+    "walk_speed": "normal(1.34, 0.26) m/s clipped to 0.6-2.0; 5% slow walkers at 0.7 m/s",
+    "sim_dt_s": 0.025,
+    "frame_hz": 4.0,
+    "seeds": [
+      1,
+      2,
+      3
+    ],
+    "app_defaults": true,
+    "generated_at": "2026-10-14T23:22:55+00:00",
+    "assumptions": [
+      "Geometry from the archive metadata (wkt_geometry and parameters): corridor 7 m wide in front of the bottleneck, bottleneck b x l, walls 5 cm thick; coordinates in the archive's frame (entrance on y = 0).",
+      "The holding area is not specified in the metadata or papers: it spans the corridor width and ends 4 m before the entrance ('bottleneck_distance'); its depth gives an initial density of 3.3 persons/m2 (the value of the group's 2005 series, Seyfried et al. 2009), e.g. 7.36 m for 170 people.",
+      "Behind the bottleneck: an open area 8 m wide and 1 m deep (the metadata's bounding box), whose far edge is the exit, so the exit never limits the flow.",
+      "Everyone starts walking at t = 0 (no reaction-time spread); the participants were soldiers told to walk normally, the simulation uses the app's adult walking speeds.",
+      "Real trajectories are head positions at 25 fps; simulated positions are body centres at 4 fps (app default output rate)."
+    ],
+    "experimental_repeat": "Run l4 repeats the b120 setup (b = 1.2 m, l = 4 m, 178 people): 2.36 /s measured with the same method"
+  },
+  "widths": [
+    {
+      "run_name": "b090",
+      "b_m": 0.9,
+      "l_m": 4.0,
+      "n_people": 170,
+      "measured_flow_ps": 1.6211,
+      "measured_specific_flow": 1.8012,
+      "measured_window_s": [
+        6.92,
+        93.28
+      ],
+      "simulated_flow_ps": {
+        "median": 0.814,
+        "min": 0.7843,
+        "max": 0.8736,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_1bd020635d67",
+            "flow_ps": 0.814,
+            "crossings": 170,
+            "window_s": [
+              10.5,
+              182.5
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_3bdcee74e12b",
+            "flow_ps": 0.7843,
+            "crossings": 170,
+            "window_s": [
+              10.0,
+              188.5
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_445c9d5c4c20",
+            "flow_ps": 0.8736,
+            "crossings": 170,
+            "window_s": [
+              9.75,
+              170.0
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.9044,
+      "error_pct": -49.8
+    },
+    {
+      "run_name": "b100",
+      "b_m": 1.0,
+      "l_m": 4.0,
+      "n_people": 178,
+      "measured_flow_ps": 1.9305,
+      "measured_specific_flow": 1.9305,
+      "measured_window_s": [
+        14.32,
+        86.84
+      ],
+      "simulated_flow_ps": {
+        "median": 0.8602,
+        "min": 0.8046,
+        "max": 0.9003,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_b5c757e33753",
+            "flow_ps": 0.9003,
+            "crossings": 178,
+            "window_s": [
+              9.5,
+              165.0
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_bb6b75f45491",
+            "flow_ps": 0.8046,
+            "crossings": 178,
+            "window_s": [
+              9.5,
+              183.5
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_843e657500ab",
+            "flow_ps": 0.8602,
+            "crossings": 178,
+            "window_s": [
+              8.75,
+              171.5
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.8602,
+      "error_pct": -55.4
+    },
+    {
+      "run_name": "b110",
+      "b_m": 1.1,
+      "l_m": 4.0,
+      "n_people": 179,
+      "measured_flow_ps": 2.0933,
+      "measured_specific_flow": 1.903,
+      "measured_window_s": [
+        11.88,
+        78.76
+      ],
+      "simulated_flow_ps": {
+        "median": 0.9211,
+        "min": 0.9106,
+        "max": 1.0127,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_1d1cf39a8fb3",
+            "flow_ps": 0.9211,
+            "crossings": 179,
+            "window_s": [
+              7.75,
+              159.75
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_0d47d773ae26",
+            "flow_ps": 1.0127,
+            "crossings": 179,
+            "window_s": [
+              8.25,
+              146.5
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_a2594dd4ba28",
+            "flow_ps": 0.9106,
+            "crossings": 179,
+            "window_s": [
+              8.0,
+              161.75
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.8374,
+      "error_pct": -56.0
+    },
+    {
+      "run_name": "b120",
+      "b_m": 1.2,
+      "l_m": 4.0,
+      "n_people": 178,
+      "measured_flow_ps": 2.4005,
+      "measured_specific_flow": 2.0005,
+      "measured_window_s": [
+        4.8,
+        63.12
+      ],
+      "simulated_flow_ps": {
+        "median": 1.0256,
+        "min": 0.9705,
+        "max": 1.0916,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_94cc360d678b",
+            "flow_ps": 1.0256,
+            "crossings": 178,
+            "window_s": [
+              8.25,
+              144.75
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_ccc8f89eb5a0",
+            "flow_ps": 0.9705,
+            "crossings": 178,
+            "window_s": [
+              7.5,
+              151.75
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_432d08e0e221",
+            "flow_ps": 1.0916,
+            "crossings": 178,
+            "window_s": [
+              7.75,
+              136.0
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.8547,
+      "error_pct": -57.3
+    },
+    {
+      "run_name": "b140",
+      "b_m": 1.4,
+      "l_m": 4.0,
+      "n_people": 176,
+      "measured_flow_ps": 2.809,
+      "measured_specific_flow": 2.0064,
+      "measured_window_s": [
+        17.2,
+        67.04
+      ],
+      "simulated_flow_ps": {
+        "median": 1.2584,
+        "min": 1.1814,
+        "max": 1.267,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_59093763f5eb",
+            "flow_ps": 1.1814,
+            "crossings": 176,
+            "window_s": [
+              7.25,
+              125.75
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_599e2a9492a2",
+            "flow_ps": 1.2584,
+            "crossings": 176,
+            "window_s": [
+              7.0,
+              118.25
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_7541871c047c",
+            "flow_ps": 1.267,
+            "crossings": 176,
+            "window_s": [
+              7.5,
+              118.0
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.8989,
+      "error_pct": -55.2
+    },
+    {
+      "run_name": "b160",
+      "b_m": 1.6,
+      "l_m": 4.0,
+      "n_people": 178,
+      "measured_flow_ps": 3.0146,
+      "measured_specific_flow": 1.8842,
+      "measured_window_s": [
+        5.8,
+        52.24
+      ],
+      "simulated_flow_ps": {
+        "median": 1.3659,
+        "min": 1.2933,
+        "max": 1.3725,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_b76a46f862db",
+            "flow_ps": 1.3659,
+            "crossings": 178,
+            "window_s": [
+              6.5,
+              109.0
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_d9506f249628",
+            "flow_ps": 1.2933,
+            "crossings": 178,
+            "window_s": [
+              6.25,
+              114.5
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_083398feb4f9",
+            "flow_ps": 1.3725,
+            "crossings": 178,
+            "window_s": [
+              7.0,
+              109.0
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.8537,
+      "error_pct": -54.7
+    },
+    {
+      "run_name": "b180",
+      "b_m": 1.8,
+      "l_m": 4.0,
+      "n_people": 176,
+      "measured_flow_ps": 3.7634,
+      "measured_specific_flow": 2.0908,
+      "measured_window_s": [
+        5.52,
+        42.72
+      ],
+      "simulated_flow_ps": {
+        "median": 1.5819,
+        "min": 1.5556,
+        "max": 1.5819,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_ec4786a11726",
+            "flow_ps": 1.5819,
+            "crossings": 176,
+            "window_s": [
+              6.5,
+              95.0
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_66cdebbaaaf5",
+            "flow_ps": 1.5556,
+            "crossings": 176,
+            "window_s": [
+              6.25,
+              96.25
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_eb2e8e28c710",
+            "flow_ps": 1.5819,
+            "crossings": 176,
+            "window_s": [
+              7.0,
+              95.5
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.8788,
+      "error_pct": -58.0
+    },
+    {
+      "run_name": "b200",
+      "b_m": 2.0,
+      "l_m": 4.0,
+      "n_people": 178,
+      "measured_flow_ps": 3.7716,
+      "measured_specific_flow": 1.8858,
+      "measured_window_s": [
+        6.16,
+        43.28
+      ],
+      "simulated_flow_ps": {
+        "median": 1.7891,
+        "min": 1.7555,
+        "max": 1.8361,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_37c4522883fe",
+            "flow_ps": 1.7891,
+            "crossings": 178,
+            "window_s": [
+              5.75,
+              84.0
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_8fd2fad1d2f1",
+            "flow_ps": 1.7555,
+            "crossings": 178,
+            "window_s": [
+              6.0,
+              85.75
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_084e3b17d275",
+            "flow_ps": 1.8361,
+            "crossings": 178,
+            "window_s": [
+              6.5,
+              82.75
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.8945,
+      "error_pct": -52.6
+    },
+    {
+      "run_name": "b220",
+      "b_m": 2.2,
+      "l_m": 4.0,
+      "n_people": 177,
+      "measured_flow_ps": 4.4416,
+      "measured_specific_flow": 2.0189,
+      "measured_window_s": [
+        6.04,
+        37.56
+      ],
+      "simulated_flow_ps": {
+        "median": 1.9788,
+        "min": 1.9649,
+        "max": 2.0072,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_42c7e0dffa8f",
+            "flow_ps": 1.9788,
+            "crossings": 177,
+            "window_s": [
+              5.5,
+              76.25
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_6dc912dcd32c",
+            "flow_ps": 1.9649,
+            "crossings": 177,
+            "window_s": [
+              5.75,
+              77.0
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_64ed4f185d39",
+            "flow_ps": 2.0072,
+            "crossings": 177,
+            "window_s": [
+              5.75,
+              75.5
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.8995,
+      "error_pct": -55.4
+    },
+    {
+      "run_name": "b250",
+      "b_m": 2.5,
+      "l_m": 4.0,
+      "n_people": 176,
+      "measured_flow_ps": 5.4517,
+      "measured_specific_flow": 2.1807,
+      "measured_window_s": [
+        83.96,
+        109.64
+      ],
+      "simulated_flow_ps": {
+        "median": 2.179,
+        "min": 2.1053,
+        "max": 2.2047,
+        "runs": [
+          {
+            "seed": 1,
+            "run_id": "r_a14d91ce5eb1",
+            "flow_ps": 2.1053,
+            "crossings": 176,
+            "window_s": [
+              5.25,
+              71.75
+            ]
+          },
+          {
+            "seed": 2,
+            "run_id": "r_04d3bd8ae3c5",
+            "flow_ps": 2.179,
+            "crossings": 176,
+            "window_s": [
+              5.5,
+              69.75
+            ]
+          },
+          {
+            "seed": 3,
+            "run_id": "r_0ea5bb3fd0c0",
+            "flow_ps": 2.2047,
+            "crossings": 176,
+            "window_s": [
+              5.75,
+              69.25
+            ]
+          }
+        ]
+      },
+      "simulated_specific_flow": 0.8716,
+      "error_pct": -60.0
+    }
+  ],
+  "median_abs_error_pct": 55.4,
+  "mean_error_pct": -55.4
+}
