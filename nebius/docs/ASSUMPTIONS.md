@@ -30,6 +30,46 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | Real-place narrow gaps | Gaps under 1.2 m between buildings, fences, water and the edge are closed; pockets without an exit are filled | Nobody plans egress through a 1 m slot between buildings; the crowd model would route people into it | `GAP_CLOSE_M` |
 | Designed venues | Margins 1.5 m (less in small rooms), 2 m clear in front of a stage, features ≥ 3 m from exits, balcony 4.5 m up with a 9 m stair | Solver defaults; every value the AI assumed is listed in the preview | `api/core/venue_builder.py` |
 | T-alley template | Alley 3.2 m wide, 45 m long | Wikipedia, "Seoul Halloween crowd crush" (sources vary 3.2–4 m; we use 3.2 m) | template |
+| Sensitivity: headcount | Every zone × 0.8 and × 1.2 | Planning bracket set by the team (R-02 in `TEAM_TASK_ALLOCATION.md`), not a published forecast error: headcounts on the day differ from the plan both ways | `api/orchestrator/sensitivity.py` (`VARIANTS`) |
+| Sensitivity: walking speed | Free walking speeds × 0.85 and × 1.15 (level mean and spread, stairs) | Planning bracket set by the team (R-02). It stays inside the spread of the default itself (1.34 ± 0.26 m/s, about ±19%, Weidmann) | `api/orchestrator/sensitivity.py` (`VARIANTS`) |
+
+## Sensitivity: how sure Your plan's numbers are
+
+The headcount and the walking speed are estimates, so a single run is one answer to inputs that
+could be different on the day. **Check the range** on Your plan repeats the run the verdict rests
+on four more times, changing one assumption at a time:
+
+| Run | What changes | What stays |
+| --- | --- | --- |
+| As tested | nothing (reused when it can be rebuilt exactly) | — |
+| 20% fewer / 20% more people | every zone's headcount (`scale_people`, total kept exact) | seed, layout, attack, fixes, walking speed |
+| Walking 15% slower / faster | `walk_speed_mean`, `walk_speed_sd` and `stair_speed`, from the start | seed, layout, attack, fixes, headcount, door and stair flow capacities |
+
+- **Which run is repeated.** The after-fixes run under the worst attack; the run of the chosen
+  changes together when only some were accepted (see below); the baseline when nothing was kept.
+- **What the range covers.** Min–max and median of evacuation time (95%), peak density and people
+  still inside, over the runs that finished, the plan as tested included. Runs that did not finish
+  stay listed with their reason and are left out, with a note.
+- **Verdicts.** Each run is judged by the red team's break rules (`break_reasons`: evacuation time
+  × safety factor against the target, sustained danger density, people trapped or still inside).
+  "Holds under every assumption tested" is only said when all five runs finished and none broke.
+- **Limits.** One assumption changes at a time (no combined worst case); surges and counterflows in
+  an attack keep their own numbers; the exit plan is recomputed for the new headcount. Speed
+  changes apply from the start; slowdowns *during* the event are attack events, not this check.
+
+## Accepting only some changes: tested together first
+
+A test confirms the complete set of kept changes under its worst attack. A subset was never
+simulated as a whole, and changes interact (a wider door and marshals sending people to it), so
+accepting a subset starts one more run: the tested venue with only the chosen change bundles and
+their operational measures, under the same worst attack, tier and seed as the after-fixes run.
+
+- Until that run finishes as a simulation the version stays **not tested together** (Your plan and
+  the handover checklist say so). A failed run, or a preview from the mock sandbox, keeps it that
+  way with the reason, and can be started again.
+- Once it ran, the version is **tested together** and the run's evaluation compares it with the
+  test's before run by the session rules: *confirmed* only when both are full simulations that ran
+  to the end, *partly confirmed* when one stopped early.
 
 ## Simulator validation (`make validate`, `docs/VALIDATION.md`)
 

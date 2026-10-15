@@ -592,3 +592,51 @@ export function useStartStress(projectId: string) {
     },
   });
 }
+
+// --- How sure the plan's numbers are (P2-04) -----------------------------------------------------
+import type { SensitivityRecord, TogetherCheck } from "@/journey/plan/range";
+import type { AppliedRecord } from "./types";
+
+export const useSensitivity = (sessionId: string | null | undefined) =>
+  useQuery({ queryKey: ["sensitivity", sessionId], enabled: !!sessionId,
+             queryFn: () => api.get<SensitivityRecord>(`/sessions/${sessionId}/sensitivity`),
+             refetchInterval: (q) => (q.state.data?.status === "running" ? POLL_MS : false) });
+
+export function useStartSensitivity(sessionId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<SensitivityRecord>(`/sessions/${sessionId}/sensitivity`, {}),
+    onSuccess: (rec) => qc.setQueryData(["sensitivity", sessionId], rec),
+  });
+}
+
+export interface TogetherOut {
+  session_id: string;
+  status: "none" | "not_started" | TogetherCheck["status"];
+  record: AppliedRecord | null;
+}
+
+/** The latest subset version's check; polls while it runs and refreshes the session after. */
+export function useTogether(sessionId: string | null | undefined, enabled: boolean) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: ["together", sessionId], enabled: !!sessionId && enabled,
+    queryFn: async () => {
+      const out = await api.get<TogetherOut>(`/sessions/${sessionId}/together`);
+      if (out.status !== "running" && sessionId) void qc.invalidateQueries({ queryKey: qk.session(sessionId) });
+      return out;
+    },
+    refetchInterval: (q) => (q.state.data?.status === "running" ? POLL_MS : false),
+  });
+}
+
+export function useStartTogether(sessionId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<TogetherOut>(`/sessions/${sessionId}/together`, {}),
+    onSuccess: (out) => {
+      qc.setQueryData(["together", sessionId], out);
+      if (sessionId) void qc.invalidateQueries({ queryKey: qk.session(sessionId) });
+    },
+  });
+}

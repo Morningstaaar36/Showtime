@@ -178,11 +178,14 @@ class RunService:
         extra: list[ScenarioEventIn] | None = None,
         checkpoint_at_s: float | None = None,
         resume_from: str | None = None,
+        speed_factor: float | None = None,
     ) -> SimJob:
         """Everything the sandbox needs; the exit plan comes from Tier 1.
 
         `checkpoint_at_s` asks the run to write checkpoint.json at that simulated time;
         `resume_from` starts the run from the checkpoint of that run (rewind branches).
+        `speed_factor` scales every free walking speed (level mean and spread, stairs) from
+        the start; exit and stair flow capacities stay as set (sensitivity runs).
         """
         st = self.settings
         patched = self.apply_fix(venue, fix)
@@ -217,6 +220,9 @@ class RunService:
             parent_events = self._events(venue, attack, None, None, extra)
             plan = run_tier1(venue, parent_events, self.registry, st).extensions.get("plan", {})
         settings_payload = sim_settings(st, tier)
+        if speed_factor is not None and abs(speed_factor - 1.0) > 1e-9:
+            for k in ("walk_speed_mean", "walk_speed_sd", "stair_speed"):
+                settings_payload[k] = round(float(settings_payload[k]) * speed_factor, 4)
         max_sim = st.tier2_max_sim_s if tier == 2 else st.max_sim_s
         validate_run_horizon(patched, max_sim, self.registry)
         payload = {

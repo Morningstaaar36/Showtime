@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -16,9 +17,11 @@ from api.app.routes_projects import _after_edit
 from api.app.state import AppState
 from api.core.venue_ops import PatchError
 from api.models import RunResult, ScenarioEventIn, Venue
+from api.orchestrator import together
 from api.orchestrator.session import FixConflict, FixSelectionError, StalePlan
 
 router = APIRouter(prefix="/api/v1")
+log = logging.getLogger("showtime.api")
 
 
 class EditIn(BaseModel):
@@ -179,13 +182,16 @@ class ApplyIn(BaseModel):
 
 
 @router.post("/sessions/{session_id}/apply")
-def apply_session(
+async def apply_session(
     session_id: str, body: ApplyIn | None = None, st: AppState = Depends(get_state)
 ) -> dict[str, Any]:
     """Save the session's fixed plan, or only the chosen kept fixes, as a new version.
 
     The response's `applied` says which fixes the new version contains and whether they
-    were tested together (a subset was not: test it again before relying on it).
+    were tested together. A subset was not, so this starts simulating it together under the
+    worst attack (`applied.together`; follow it at GET /sessions/{id}/together).
+
+    Async on purpose: that run starts as a task on the server's event loop.
     """
     try:
         row = st.sessions.apply_final(session_id, body.fix_ids if body else None)
@@ -201,6 +207,11 @@ def apply_session(
         raise ApiException(409, "no_plan", str(exc)) from exc
     srow = st.sessions.get(session_id)
     records = ((srow.summary or {}) if srow else {}).get("applied") or [None]
+    if records[-1] and not records[-1].get("tested_together"):
+        try:
+            records[-1] = together.start_together_check(st, srow)["record"]
+        except together.TogetherCheckError as exc:
+            log.info("together check for %s not started: %s", session_id, exc)
     return _after_edit(st, row.project_id, row, {"applied": records[-1]})
 
 

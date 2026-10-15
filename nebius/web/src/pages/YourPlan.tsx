@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { api } from "@/api/client";
-import { useApplyFixes, usePlan, useProject, useRun, useRunVenue, useSession, useSessions, useSettings, useStartSession, useUndo, useVersions } from "@/api/queries";
+import { useApplyFixes, usePlan, useProject, useRun, useRunVenue, useSession, useSessions, useSettings, useStartSession, useStartTogether, useTogether, useUndo, useVersions } from "@/api/queries";
 import type { Countdown, Fix, RunOut } from "@/api/types";
 import { useSessionStream } from "@/api/useSessionStream";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import { CostCard } from "@/journey/plan/CostCard";
 import { FixChooser } from "@/journey/plan/FixChooser";
 import { acceptBody, evacValue, fixDependencies, toggleFix } from "@/journey/plan/fixes";
 import { NextActions } from "@/journey/plan/NextActions";
+import { RangePanel } from "@/journey/plan/RangePanel";
 import { RewindPanel } from "@/journey/plan/RewindPanel";
 import { SavedActions } from "@/journey/plan/SavedActions";
 import { planState } from "@/journey/plan/state";
@@ -75,7 +76,13 @@ export function YourPlanPage() {
 
   useEffect(() => { useUi.getState().resetForProject(); usePlayback.getState().reset(); }, [projectId]);
 
-  const afterId = summary?.final_run_id ?? null;
+  // a version holding only some kept fixes rests on its own run once they were simulated together
+  const currentHash = project.data?.version.plan_hash;
+  const subsetRecord = [...(summary?.applied ?? [])].reverse().find((r) => r.plan_hash === currentHash && r.together) ?? null;
+  const subsetRun = subsetRecord?.together?.status === "done" ? subsetRecord.together.run_id : null;
+  const togetherCheck = useTogether(sessionId, !!summary?.applied?.some((r) => !r.tested_together || r.together));
+  const startTogether = useStartTogether(sessionId);
+  const afterId = subsetRun ?? summary?.final_run_id ?? null;
   const worstNode = summary?.worst_attack_id ? view.nodes[`atk:${summary.worst_attack_id}`]?.run_id : undefined;
   const beforeId = view.nodes["final:before"]?.run_id ?? worstNode ?? summary?.baseline_run_id ?? null;
   const after = useRun(afterId);
@@ -230,11 +237,13 @@ export function YourPlanPage() {
         {status === "stopped" && <p role="status" className="rounded-[10px] border border-caution/40 bg-caution-soft p-3 text-sm">{t("yourplan.partial", { reason: summary?.stopped_reason ?? "" })}</p>}
 
         <VerdictBanner level={verdictRun ? verdict.level : "unknown"} headline={verdictRun ? verdict.headline : t("yourplan.no_result")}
-                       under={under} reasons={verdict.reasons} evaluation={summary?.evaluation} judge={judge} numbers={numbers} />
+                       under={under} reasons={verdict.reasons} evaluation={subsetRun ? subsetRecord?.together?.evaluation : summary?.evaluation} judge={judge} numbers={numbers} />
 
         <FixChooser kept={kept} selected={selected} deps={deps} onToggle={toggle} nodes={view.nodes} loading={!view.ended}
                     venue={venue} state={state} record={record} attackTitle={attackTitle} name={label} human={human}
-                    onAccept={accept} accepting={apply.isPending} onTestAgain={testAgain} testing={start.isPending} />
+                    onAccept={accept} accepting={apply.isPending} onTestAgain={testAgain} testing={start.isPending}
+                    together={togetherCheck.data?.record?.plan_hash === record?.plan_hash ? togetherCheck.data?.record?.together : record?.together}
+                    onTogether={() => startTogether.mutate(undefined, { onError: (e) => toast.error(e.message) })} togetherBusy={startTogether.isPending} />
 
         <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
           <section aria-label={t("yourplan.replay")} className="relative h-[50vh] min-h-80 overflow-hidden rounded-[10px] border border-border">
@@ -293,6 +302,8 @@ export function YourPlanPage() {
             <AskAnything project={p} context="plan" sessionId={sessionId} onPreview={setProposal} className="max-w-none" />
           </section>
         </div>
+
+        <RangePanel sessionId={sessionId} />
 
         <div className="grid min-w-0 gap-4"><RewindPanel sessionId={sessionId} worstTitle={worst ? human(worst.title) : null} canRewind={(summary?.attacks?.length ?? 0) > 0} /><StressPanel projectId={p.id} hasTest /></div>
 
