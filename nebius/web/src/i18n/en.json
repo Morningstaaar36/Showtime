@@ -195,6 +195,237 @@
     "exit_hint": "Click on an outer wall to place an exit.",
     "block_hint": "Click an exit to block or reopen it. The instant estimate updates immediately."
   },
+  "editor": {
+    "tools": {
+      "wall": "Draw wall",
+      "door": "Add door in a wall",
+      "room": "Add room",
+      "stair": "Add stairs",
+      "route": "Draw walking route",
+      "group": "Building"
+    },
+    "hints": {
+      "wall": "Click to add corners. Double-click or press Enter to finish. Backspace removes the last corner.",
+      "door": "Click an inner wall to cut a door in it.",
+      "room": "Click one corner of the room, then the opposite corner.",
+      "room_second": "Now click the opposite corner.",
+      "stair": "Click where the stairs start on this floor.",
+      "route": "Click along the route in walking order. Double-click or press Enter to finish."
+    },
+    "points": "{n} corners",
+    "finish": "Finish",
+    "undo_point": "Remove last corner",
+    "cancel": "Cancel",
+    "on_floor": "On {name}",
+    "floor": {
+      "label": "Floor",
+      "switcher": "Floor to edit",
+      "more": "More floors",
+      "add": "Add floor",
+      "add_title": "Add a floor",
+      "add_lead": "The new floor goes on top. Add stairs afterwards so people can reach it.",
+      "name": "Name",
+      "height": "Height above the floor below",
+      "copy_walls": "Copy the walls from the floor below",
+      "copy_walls_hint": "Start from the same rooms and corridors.",
+      "remove": "Remove this floor",
+      "remove_title": "Remove {name}?",
+      "remove_body": "Its walls, rooms, exits and crowd areas go too, with the stairs and routes that touch it. You can undo this.",
+      "last": "A venue needs at least one floor.",
+      "msg_added": "Added {name}",
+      "msg_removed": "Removed {name}",
+      "ground": "Ground floor",
+      "count": "{n} floors",
+      "one": "1 floor"
+    },
+    "errors": {
+      "door_no_wall": "Click on an inner wall to add a door. Draw a wall first if there is none.",
+      "door_outer_wall": "That is the outer wall. A way out is an exit: use Add exit.",
+      "door_wall_short": "That wall is shorter than the door. Make the door narrower.",
+      "room_too_small": "A room needs at least 1.5 m on each side.",
+      "room_door_wide": "The door is wider than that side of the room.",
+      "stair_needs_floor": "Stairs connect two floors. Add a floor first.",
+      "route_short": "A route needs at least two points.",
+      "wall_short": "A wall needs at least two corners."
+    },
+    "options": {
+      "title": "Options",
+      "door_side": "Door on the",
+      "door_width": "Door width",
+      "width": "Width",
+      "run": "Length",
+      "direction": "Runs towards",
+      "north": "North",
+      "south": "South",
+      "east": "East",
+      "west": "West",
+      "people": "People inside (optional)",
+      "name": "Name (optional)",
+      "route_width": "Route width (optional)",
+      "x": "East (m)",
+      "y": "North (m)",
+      "room_width": "Width, east–west (m)",
+      "room_depth": "Depth, north–south (m)",
+      "typed_room": "Or type the south-west corner and the size",
+      "typed_stair": "Or type where the stairs start",
+      "add_room": "Add room",
+      "add_stair": "Add stairs",
+      "stair_connects": "Connects {from} and {to}."
+    },
+    "msg": {
+      "wall": "Added a wall",
+      "door": "Added a door",
+      "room": "Added {name}",
+      "room_default": "Room",
+      "stair": "Added stairs",
+      "stair_removed": "Removed the stairs",
+      "route": "Added {name}",
+      "route_removed": "Removed {name}"
+    },
+    "routes": {
+      "title": "Walking routes",
+      "empty": "No routes yet. Draw one with the route tool to plan a march or a procession.",
+      "default": "March route",
+      "remove": "Remove {name}",
+      "length": "{floor} · {m} m long",
+      "used_by": "Walked by {n} areas"
+    },
+    "stair": {
+      "title": "Stairs",
+      "between": "From {from} down to {to}",
+      "size": "{w} m wide · {l} m long",
+      "remove": "Remove stairs"
+    },
+    "profile": {
+      "title": "Who is here",
+      "lead": "Everyone not in a group below is a general adult.",
+      "general": "General adults",
+      "add_group": "Add a group",
+      "share": "Share of {name}",
+      "remove_group": "Remove {name}",
+      "over": "The groups add up to more than 100%. Lower one of them.",
+      "rest": "The other {p}% are general adults.",
+      "save": "Save people mix",
+      "saved": "Saved who is in {name}",
+      "start_title": "When people start moving",
+      "start_default": "Default for the run",
+      "start_custom": "After a delay",
+      "start_seconds": "Seconds before they move",
+      "start_usual": "Usual for this kind of event: {s} s.",
+      "start_saved": "Saved when {name} starts moving",
+      "route_title": "Route they walk",
+      "route_none": "No route: they head for the nearest exit",
+      "route_saved": "Saved the route of {name}",
+      "no_routes": "Draw a walking route on this floor to make this crowd follow it."
+    },
+    "kinds": {
+      "label": "Kind of event",
+      "hint": "It sets who is in the crowd and how soon people start moving.",
+      "none": "Not set",
+      "saved": "Event kind set to {name}",
+      "cleared": "Event kind cleared",
+      "offline": "Showing the built-in list; the server list is unavailable.",
+      "apply_mix": "Use the usual people mix in every area",
+      "apply_mix_done": "Applied the usual people mix to {n} areas",
+      "usual_mix": "Usually: {mix}.",
+      "usual_start": "People usually start moving after {s} s."
+    },
+    "people": {
+      "general": "General adults",
+      "elderly": "Older people",
+      "child": "Children",
+      "wheelchair": "Wheelchair users",
+      "bed": "Patients in beds",
+      "staff": "Staff"
+    },
+    "event": {
+      "concert": {
+        "label": "Concert",
+        "description": "A standing or seated crowd facing a stage."
+      },
+      "festival": {
+        "label": "Festival",
+        "description": "Several stages and stalls; people move around all day."
+      },
+      "conference": {
+        "label": "Conference",
+        "description": "Seated audiences in halls and rooms."
+      },
+      "wedding": {
+        "label": "Wedding",
+        "description": "Guests of all ages, including older people and children."
+      },
+      "rally": {
+        "label": "Rally",
+        "description": "A dense standing crowd in an open space."
+      },
+      "march": {
+        "label": "March",
+        "description": "A crowd walking a route in order."
+      },
+      "sports": {
+        "label": "Sports",
+        "description": "Seated stands that empty at the same moment."
+      },
+      "religious": {
+        "label": "Religious gathering",
+        "description": "Large crowds at fixed times, often with older people."
+      },
+      "hospital": {
+        "label": "Hospital",
+        "description": "Patients, some in beds or wheelchairs, with staff who help."
+      },
+      "school": {
+        "label": "School",
+        "description": "Children in classrooms with teachers."
+      },
+      "office": {
+        "label": "Office",
+        "description": "Adults at desks and in meeting rooms."
+      },
+      "mall": {
+        "label": "Shopping mall",
+        "description": "Shoppers spread over shops and corridors."
+      },
+      "transit": {
+        "label": "Station",
+        "description": "Passengers with luggage on platforms and concourses."
+      },
+      "residential": {
+        "label": "Homes",
+        "description": "Residents of all ages, some asleep at night."
+      },
+      "other": {
+        "label": "Other",
+        "description": "General adults."
+      }
+    },
+    "map": {
+      "building": "Building options",
+      "floors": "Floors",
+      "floors_from_map": "From the map",
+      "floors_not_on_map": "Not on the map. Check the number.",
+      "fewer": "One floor fewer",
+      "more": "One floor more",
+      "use": "Used as",
+      "use_guess": "Guess from the map",
+      "interior": "Inside",
+      "interior_open": "Open floor",
+      "interior_rooms": "Rooms and corridors",
+      "surroundings": "Include the surroundings",
+      "surroundings_hint": "Also analyse the street and open ground around the building: a rally outside, people leaving onto the street.",
+      "distance": "Distance around the building",
+      "event": "Kind of event",
+      "rooms_badge": "Rooms inside",
+      "surroundings_badge": "Surroundings {m} m",
+      "floor_tabs": "Floor plans"
+    },
+    "building": {
+      "title": "Floors and rooms",
+      "lead": "Add floors here. Draw rooms, walls, doors and stairs in Expert view.",
+      "open_expert": "Edit rooms and stairs"
+    }
+  },
   "inspector": {
     "title": "Inspector",
     "nothing": "Select something in the 3D view to see and edit it.",
