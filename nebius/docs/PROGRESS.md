@@ -491,3 +491,28 @@ Headless Chromium against the built stack (`make up`), screenshots after every s
 - Open: the AI parts need a new key to re-test live (designer door walls, Autopilot,
   analyst). Projects imported before the fence fix keep their bad fences (re-import to clear);
   `/scene` then returns 422 and the check list shows fewer details.
+
+## 2026-10-15 — Generic venues (branch `shahraz`)
+
+Organizer feedback: the app was template-bound (map buildings arrived as one ground floor, no
+rooms, no third floor, no patients or marches, no per-floor replay). Full write-up:
+`docs/GENERIC_VENUES.md`; remaining work allocated in `TEAM_TASK_ALLOCATION.md` §11.
+- New OpenRouter key installed in `.env` (masked, never committed); live model checks: the
+  designer puts doors on the named walls, text edits apply or ask, the analyst answers with
+  computed numbers. Health now detects a rejected or empty key.
+- Merged into `shahraz`: `ui/simple-organizer`, review fixes (error shape, sandbox hardening,
+  Docker-test skips, key masking), building ops (11, with conformance tests), designer feature
+  sliding, editor and replay groundwork.
+- Added: building generator (storeys, stair cores, rooms grouped into wards, IBC occupant
+  loads), map import options and `/places/at` levels/use, `/event-kinds`, map form controls,
+  floor switcher and one-floor view, label-based edit summaries.
+- Bugs fixed: reachability gave up after five stair hops (people above the sixth storey "could
+  not leave"); L-shaped buildings put stairs outside the outline; long wings gave 40 one-person
+  rooms per floor; rooms in a corner were refused (walls straddle the edge); the floor switcher
+  sat under the toolbar and over the before/after toggle; `/event-kinds` 404.
+- Verified: 4-storey hospital drawn on the map → live AI test "This plan holds, confirmed by
+  full simulations" with floor-aware attacks; three-floor hall built by ops simulated in the
+  hardened Docker sandbox (1,260 people, all out). Checks: 580 Python, 129 vitest, 18 sim,
+  Playwright 7/7 with the real model (guided journey intermittent once, see G3-06).
+- Open: Overpass servers were down all afternoon (building clicks fail, "Draw an area" works);
+  groups, pre-movement and routes are not simulated yet (G2-01..03).
