@@ -295,3 +295,25 @@ def test_people_nine_storeys_up_can_still_reach_an_exit(registry: Registry, hall
         },
     )
     assert len(v.floors) == 9 and errors(v) == []
+
+
+def test_edit_summaries_name_objects_not_ids(hall: Venue) -> None:
+    from api.agents.context import explain_patch
+
+    text = explain_patch(
+        hall,
+        VenuePatch.model_validate(
+            {"ops": [
+                {"op": "add_exit", "floor_id": "F0", "id": "door_e1", "wall": "east",
+                 "width_m": 2.0},
+                {"op": "set_people", "zone_id": "audience", "people": 950},
+                {"op": "add_floor", "name": "Gallery"},
+                {"op": "add_stair", "from_floor": "F1", "to_floor": "F0", "x": 5, "y": 20},
+            ]}
+        ),
+    )  # fmt: skip
+    assert text.startswith("Added a 2 m exit on the east wall;")
+    assert "Set Audience to 950 people" in text
+    assert "Added a floor (Gallery) on top" in text
+    assert "from Mezzanine down to Ground floor" in text
+    assert "door_e1" not in text and "audience" not in text

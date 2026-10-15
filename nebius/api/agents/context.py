@@ -248,46 +248,92 @@ def _dir(dx: float, dy: float) -> str:
     return " and ".join(parts) or "0 m"
 
 
+def _labels(venue: Venue) -> dict[str, str]:
+    """Organizer-facing name of every object (its label, else a readable id)."""
+    out: dict[str, str] = {}
+    for f in venue.floors:
+        out[f.floor_id] = f.name or f.floor_id
+        for item in (*f.obstacles, *f.exits, *f.zones):
+            out[item.id] = item.label or item.id.replace("_", " ")
+    for st in venue.stairs:
+        out[st.id] = "the stair " + st.id.replace("_", " ")
+    for r in venue.routes:
+        out[r.id] = r.label or "the route " + r.id.replace("_", " ")
+    return out
+
+
 def explain_patch(venue: Venue, patch: VenuePatch) -> str:
-    """Plain-language description of a patch, generated from the ops (not by the LLM)."""
+    """Plain-language description of a patch, generated from the ops (not by the LLM).
+
+    Objects are named by their labels ("South door 1"), never by machine ids alone.
+    """
+    names = _labels(venue)
+
+    def n(oid: str) -> str:
+        return names.get(oid, oid.replace("_", " "))
+
     out: list[str] = []
     for op in patch.ops:
         d = op.model_dump()
         k = op.op
         if k == "move":
-            out.append(f"Moved {d['target']} {_dir(d.get('dx', 0), d.get('dy', 0))}")
+            out.append(f"Moved {n(d['target'])} {_dir(d.get('dx', 0), d.get('dy', 0))}")
         elif k == "resize":
             dims = []
             if d.get("width_m"):
                 dims.append(f"{_fmt(d['width_m'])} m wide")
             if d.get("depth_m"):
                 dims.append(f"{_fmt(d['depth_m'])} m deep")
-            out.append(f"Resized {d['target']} to {' and '.join(dims)}")
+            out.append(f"Resized {n(d['target'])} to {' and '.join(dims)}")
         elif k == "add_exit":
-            where = (
-                f" on the {d['wall']} wall at {_fmt(d['center'])} m"
-                if d.get("wall") and d.get("center") is not None
-                else ""
-            )
-            out.append(f"Added a {_fmt(d['width_m'])} m exit {d['id']}{where}")
+            where = f" on the {d['wall']} wall" if d.get("wall") else ""
+            if d.get("wall") and d.get("center") is not None:
+                where += f" at {_fmt(d['center'])} m"
+            out.append(f"Added a {_fmt(d['width_m'])} m exit{where}")
         elif k == "remove_exit":
-            out.append(f"Removed exit {d['exit_id']}")
+            out.append(f"Removed {n(d['exit_id'])}")
         elif k == "block_exit":
-            out.append(f"{'Blocked' if d.get('blocked', True) else 'Opened'} exit {d['exit_id']}")
+            out.append(f"{'Blocked' if d.get('blocked', True) else 'Opened'} {n(d['exit_id'])}")
         elif k == "add_obstacle":
-            out.append(f"Added {d.get('kind', 'object')} {d['id']}")
+            out.append(f"Added {d.get('label') or 'a ' + str(d.get('kind') or 'object')}")
         elif k == "remove_obstacle":
-            out.append(f"Removed {d['obstacle_id']}")
+            out.append(f"Removed {n(d['obstacle_id'])}")
         elif k == "add_barrier_line":
-            out.append(f"Added a {d.get('kind', 'barrier')} line {d['id']}")
+            out.append(f"Added a {d.get('kind') or 'barrier'} line")
         elif k == "set_people":
-            out.append(f"Set zone {d['zone_id']} to {d['people']:,} people")
+            out.append(f"Set {n(d['zone_id'])} to {d['people']:,} people")
         elif k == "add_zone":
-            out.append(f"Added zone {d['id']} with {d['people']:,} people")
+            out.append(f"Added {d.get('label') or 'an area'} with {d['people']:,} people")
         elif k == "remove_zone":
-            out.append(f"Removed zone {d['zone_id']}")
+            out.append(f"Removed {n(d['zone_id'])}")
         elif k == "set_stage_param":
             out.append(f"Set stage {d['param'].replace('_', ' ')} to {_fmt(d['value'])}")
+        elif k == "add_floor":
+            out.append(f"Added a floor{' (' + d['name'] + ')' if d.get('name') else ''} on top")
+        elif k == "remove_floor":
+            out.append(f"Removed {n(d['floor_id'])}")
+        elif k == "add_stair":
+            out.append(f"Added a stair from {n(d['from_floor'])} down to {n(d['to_floor'])}")
+        elif k == "remove_stair":
+            out.append(f"Removed {n(d['stair_id'])}")
+        elif k == "add_wall":
+            out.append(f"Added a wall on {n(d['floor_id'])}")
+        elif k == "add_door":
+            out.append(f"Cut a {_fmt(d.get('width_m') or 1.0)} m door in {n(d['wall_id'])}")
+        elif k == "add_room":
+            room = f"{_fmt(d['width_m'])} × {_fmt(d['depth_m'])} m room"
+            label = f" ({d['label']})" if d.get("label") else ""
+            people = f" for {d['people']:,} people" if d.get("people") else ""
+            out.append(f"Added a {room}{label}{people} on {n(d['floor_id'])}")
+        elif k == "set_zone_profile":
+            out.append(f"Updated who is in {n(d['zone_id'])} and when they start moving")
+        elif k == "add_route":
+            out.append(f"Added {d.get('label') or 'a walking route'}")
+        elif k == "remove_route":
+            out.append(f"Removed {n(d['route_id'])}")
+        elif k == "set_event_kind":
+            kind = d.get("event_kind")
+            out.append(f"Set the event kind to {kind}" if kind else "Cleared the event kind")
         else:
-            out.append(f"Applied {k}")
+            out.append(f"Applied {k.replace('_', ' ')}")
     return "; ".join(out) + "." if out else "No change."
