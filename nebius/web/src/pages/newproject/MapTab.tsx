@@ -1,7 +1,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import * as maplibregl from "maplibre-gl";
 import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
-import { Building2, Loader2, MapPin, MousePointerClick, Search, Square, Trees } from "lucide-react";
+import { Building2, Loader2, MapPin, Minus, MousePointerClick, Plus, Search, Square, Trees } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/api/client";
@@ -10,6 +10,8 @@ import type { OsmFeature, Place, VenueDraft } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { ErrorState } from "@/components/ui/states";
+import { t } from "@/i18n";
+import { useEventKinds } from "@/lib/eventKinds";
 import { cn } from "@/lib/utils";
 import { DraftPreview } from "./DraftPreview";
 
@@ -17,7 +19,18 @@ import { DraftPreview } from "./DraftPreview";
 maplibregl.setWorkerUrl(workerUrl);
 
 type LatLon = [number, number];
-interface Selection { id: string | null; name: string; outline: LatLon[]; kind: "building" | "area" | "box" }
+interface Selection {
+  id: string | null;
+  name: string;
+  outline: LatLon[];
+  kind: "building" | "area" | "box";
+  /** buildings: storeys and use from the map, when it lists them */
+  levels?: number | null;
+  use?: string | null;
+}
+
+const MAX_LEVELS = 40;
+const SELECT_CLS = "h-9 rounded-[var(--radius-control)] border border-border bg-surface px-2 text-sm";
 
 /** OpenFreeMap: free vector tiles with 3D buildings, no key (https://openfreemap.org). */
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
@@ -48,6 +61,11 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
   const [sel, setSel] = useState<Selection | null>(null);
   const [mode, setMode] = useState<"indoor" | "outdoor">("outdoor");
   const [people, setPeople] = useState("");
+  const [levels, setLevels] = useState(1);
+  const [use, setUse] = useState(""); // "" = guess from the map
+  const [interior, setInterior] = useState<"" | "open" | "rooms">(""); // "" = usual for the use
+  const [eventKind, setEventKind] = useState("");
+  const { kinds } = useEventKinds();
   const [mapError, setMapError] = useState<string | null>(null);
   const [found, setFound] = useState(false); // the map shows the searched place
   const build = useVenueFromMap();
@@ -56,6 +74,9 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
     lookSeq.current += 1;
     setSel(s);
     setMode(s.kind === "building" ? "indoor" : "outdoor");
+    setLevels(s.levels ?? 1);
+    setUse(s.use ?? "");
+    setInterior("");
     build.reset();
     onDraft(null);
   };
@@ -136,7 +157,8 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
         return;
       }
       const fallback = f.kind === "building" ? "Building" : f.tags.leisure ?? f.tags.amenity ?? f.tags.landuse ?? "Open area";
-      select({ id: f.id, name: f.name || fallback.charAt(0).toUpperCase() + fallback.slice(1), kind: f.kind as "building" | "area", outline: f.coords });
+      select({ id: f.id, name: f.name || fallback.charAt(0).toUpperCase() + fallback.slice(1), kind: f.kind as "building" | "area",
+               outline: f.coords, levels: f.levels ?? null, use: f.use ?? null });
     } catch (e) {
       if (seq === lookSeq.current) toast.error((e as Error).message, { description: "You can always use “Draw an area”." });
     } finally {
@@ -172,7 +194,10 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
     setLooking(false);
     const n = Number(people.replace(/[, ]/g, ""));
     build.mutate(
-      { outline: sel.outline, mode, name: sel.name, people: people.trim() && Number.isFinite(n) ? Math.round(n) : null, selected_id: sel.id },
+      { outline: sel.outline, mode, name: sel.name, people: people.trim() && Number.isFinite(n) ? Math.round(n) : null, selected_id: sel.id,
+        ...(mode === "indoor"
+          ? { levels, use: use || null, interior: interior || null }
+          : { event_kind: eventKind || null }) },
       { onSuccess: (d) => onDraft(d.venue ? d : null) },
     );
   };
@@ -237,7 +262,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
       </div>
 
       {sel ? (
-        <div className="grid gap-3 rounded-[var(--radius-panel)] border-2 border-signal/40 bg-surface p-3 shadow-sm sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
+        <div className="grid gap-3 rounded-[var(--radius-panel)] border-2 border-signal/40 bg-surface p-3 shadow-sm sm:flex sm:flex-wrap sm:items-end [&>*:first-child]:min-w-[10rem] [&>*:first-child]:flex-1">
           <div className="min-w-0">
             <p className="text-xs text-muted">Selected</p>
             <p className="truncate font-medium">{sel.name}</p>
@@ -254,6 +279,45 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
               ))}
             </div>
           </div>
+          {mode === "indoor" ? (
+            <>
+              <div className="grid gap-1">
+                <Label htmlFor="mfloors">{t("editor.map.floors")}</Label>
+                <div className="inline-flex items-center gap-1">
+                  <Button variant="secondary" size="icon" aria-label={t("editor.map.fewer")} disabled={levels <= 1}
+                          onClick={() => setLevels((n) => Math.max(1, n - 1))}><Minus /></Button>
+                  <Input id="mfloors" inputMode="numeric" className="w-14 text-center tabular-nums" value={levels}
+                         onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setLevels(Math.max(1, Math.min(MAX_LEVELS, Math.round(n)))); }} />
+                  <Button variant="secondary" size="icon" aria-label={t("editor.map.more")} disabled={levels >= MAX_LEVELS}
+                          onClick={() => setLevels((n) => Math.min(MAX_LEVELS, n + 1))}><Plus /></Button>
+                </div>
+                <p className="text-[11px] text-muted">{sel.levels ? t("editor.map.floors_from_map") : t("editor.map.floors_not_on_map")}</p>
+              </div>
+              <div className="grid gap-1">
+                <Label htmlFor="muse">{t("editor.map.use")}</Label>
+                <select id="muse" className={SELECT_CLS} value={use} onChange={(e) => setUse(e.target.value)}>
+                  <option value="">{t("editor.map.use_guess")}</option>
+                  {kinds.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+                </select>
+              </div>
+              <div className="grid gap-1">
+                <Label htmlFor="minterior">{t("editor.map.interior")}</Label>
+                <select id="minterior" className={SELECT_CLS} value={interior} onChange={(e) => setInterior(e.target.value as "" | "open" | "rooms")}>
+                  <option value="">{t("editor.map.use_guess")}</option>
+                  <option value="rooms">{t("editor.map.interior_rooms")}</option>
+                  <option value="open">{t("editor.map.interior_open")}</option>
+                </select>
+              </div>
+            </>
+          ) : (
+            <div className="grid gap-1">
+              <Label htmlFor="mevent">{t("editor.map.event")}</Label>
+              <select id="mevent" className={SELECT_CLS} value={eventKind} onChange={(e) => setEventKind(e.target.value)}>
+                <option value="">{t("editor.kinds.none")}</option>
+                {kinds.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+              </select>
+            </div>
+          )}
           <div className="grid gap-1">
             <Label htmlFor="mpeople">People (optional)</Label>
             <Input id="mpeople" inputMode="numeric" placeholder="auto" value={people} onChange={(e) => setPeople(e.target.value)} className="w-28" />

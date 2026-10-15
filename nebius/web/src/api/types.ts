@@ -343,6 +343,9 @@ export interface OsmFeature {
   tags: Record<string, string>;
   coords: [number, number][];
   closed: boolean;
+  /** buildings (GET /places/at): storeys the map lists and the use its tags suggest */
+  levels?: number | null;
+  use?: string | null;
 }
 
 /** Organizer estimates (GET /projects/{id}/estimates): planning ratios + instant egress model. */

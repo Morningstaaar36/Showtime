@@ -323,10 +323,22 @@ export function useDesignVenue() {
 }
 
 /** A selected building or area on the map → venue preview (not saved yet). */
+/** POST /venues/from-map: a building becomes every storey it has; an area records its event. */
+export interface FromMapBody {
+  outline: [number, number][];
+  mode: "indoor" | "outdoor";
+  name: string;
+  people?: number | null;
+  selected_id?: string | null;
+  levels?: number | null;
+  use?: string | null;
+  interior?: "open" | "rooms" | null;
+  event_kind?: string | null;
+}
+
 export function useVenueFromMap() {
   return useMutation({
-    mutationFn: (body: { outline: [number, number][]; mode: "indoor" | "outdoor"; name: string; people?: number | null; selected_id?: string | null }) =>
-      api.post<VenueDraft>("/venues/from-map", body),
+    mutationFn: (body: FromMapBody) => api.post<VenueDraft>("/venues/from-map", body),
   });
 }
 
