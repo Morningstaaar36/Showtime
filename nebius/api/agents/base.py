@@ -102,6 +102,7 @@ class AgentCall(Generic[T]):
     error: str | None = None
     model: str = ""
     escalated: bool = False  # retried on the `main` model after the `fast` one stayed invalid
+    first_problems: int = 0  # problems the validators found in the first answer (before repair)
 
 
 def _merge(a: Usage | None, b: Usage | None) -> Usage | None:
@@ -191,6 +192,7 @@ async def _attempt(
         repaired = reply.repaired
         out: T | None = reply.parsed
         problems = validate(out) if (validate and out is not None) else []
+        first_problems = len(problems)
         if problems:
             fix_msgs = [
                 *messages,
@@ -218,7 +220,12 @@ async def _attempt(
                 out, problems = out2, problems2
                 repaired = True
         return AgentCall(
-            output=out, ok=not problems, usage=usage, problems=problems, repaired=repaired
+            output=out,
+            ok=not problems,
+            usage=usage,
+            problems=problems,
+            repaired=repaired,
+            first_problems=first_problems,
         )
     except LLMOutputError as exc:
         usage = _merge(usage, exc.usage)
@@ -272,6 +279,7 @@ async def _escalate(
             problems=problems,
             repaired=first.repaired or reply.repaired,
             escalated=True,
+            first_problems=first.first_problems,
         )
     first.usage = _merge(first.usage, reply.usage)  # the fast answer stays: its model is reported
     return first
@@ -309,6 +317,10 @@ def _finish(
         "repaired": res.repaired,
         "escalated": res.escalated,
         "cached": bool(u and u.cached),
+        # what the validators rejected (unknown ids, geometry), kept for the evaluation (S-01)
+        "problems": len(res.problems),
+        "problems_first": res.first_problems,
+        "problem_texts": [p[:160] for p in res.problems[:3]],
     }
     if env.emit is not None:
         env.emit("agent_call", payload)

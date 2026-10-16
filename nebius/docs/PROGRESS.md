@@ -714,3 +714,19 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
   camera tour mentions the floors, adds a stairs shot ("2 stairs join the floors; the narrowest
   is 1.2 metres wide. People per floor: …") and who is in the crowd when areas have groups
   (`Tour.test.ts`, 2 cases). vitest 167.
+
+## 2026-10-17 — Saif: agent evaluation harness (S-01, partly done)
+
+- `config.agents` on Red Team Night sessions: `hybrid` (default, unchanged behaviour), `rules`
+  (rule attacks and standard fixes only, no red/blue model calls), `model` (the agents' proposals
+  only: no rule attacks, no example script, no standard responses). Small additive change in
+  `api/orchestrator/session.py` (`_attacks`, `_fixes`): **Ridwan, please review** (your file).
+- `agent_call` events now carry `problems` (validation problems left), `problems_first` (in the
+  first answer, before repair) and up to three problem texts (`api/agents/base.py`).
+- `api/tests/test_agent_modes.py` (4 cases, FakeLLM): default and unknown modes are hybrid, rules
+  never asks the model, model adds no rule proposals, problems are reported.
+- `scripts/evaluate_agents.py` runs venues × arms through the API with the same config and seed
+  and tabulates the stream; method and metrics in `docs/EVALUATION.md`.
+- Run 1, rules only, on three venues: done (table in `docs/EVALUATION.md`). **Model-only and
+  hybrid arms not run: no OpenRouter key in this machine's `.env`.** At the reduced headcounts no
+  attack broke the plan, so the next run needs headcounts that break.

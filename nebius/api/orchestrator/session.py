@@ -60,6 +60,9 @@ from api.models import (
 )
 from api.orchestrator.fallbacks import rule_attacks, rule_fixes
 
+# who proposes attacks and fixes in a session (`config["agents"]`)
+AGENT_MODES = ("hybrid", "rules", "model")
+
 log = logging.getLogger("showtime.session")
 
 
@@ -333,8 +336,13 @@ class SessionManager:
             "max_tokens": s.session_max_tokens,
             # independent branches of a step run at once (the runner bounds how many)
             "parallel_branches": True,
+            # who proposes attacks and fixes (S-01 evaluation arms): "hybrid" = the model plus
+            # the rule-based ones (the product), "rules" = rules only, "model" = model only
+            "agents": "hybrid",
         }
         cfg.update({k: v for k, v in (config or {}).items() if k in cfg and v is not None})
+        if cfg["agents"] not in AGENT_MODES:
+            cfg["agents"] = "hybrid"
         sid = f"s_{uuid.uuid4().hex[:10]}"
         row = RedTeamSession(
             id=sid,
@@ -622,6 +630,7 @@ class SessionManager:
                     seen,
                     len(attacks_all),
                     live.tested,
+                    mode=str(cfg.get("agents", "hybrid")),
                 )
                 if not attacks:
                     reason = "no new attacks"
@@ -751,7 +760,13 @@ class SessionManager:
                         sev = severity(r)
                     self._status(live, "blue_team", rnd, f"Blue team is fixing “{a.title}”")
                     fixes = await self._fixes(
-                        env, working, a, r, int(cfg["fixes_per_attack"]), f"F{len(fixes_all) + 1}_"
+                        env,
+                        working,
+                        a,
+                        r,
+                        int(cfg["fixes_per_attack"]),
+                        f"F{len(fixes_all) + 1}_",
+                        mode=str(cfg.get("agents", "hybrid")),
                     )
                     # every candidate is checked against the same plan (it changes only when
                     # a fix is kept, which ends this attack), so the checks and the
@@ -953,7 +968,10 @@ class SessionManager:
         seen: set[str],
         offset: int,
         tested: list[str],
+        mode: str = "hybrid",
     ) -> list[Attack]:
+        if mode == "rules":
+            return rule_attacks(venue, baseline, incidents, n, seen, offset)
         try:
             out = await red_team(
                 env, self.st.registry, venue, baseline, incidents, n, seen, offset, tested=tested
@@ -968,6 +986,8 @@ class SessionManager:
                     },
                 )
             out = []
+        if mode == "model":
+            return out
         if not out:
             out = rule_attacks(venue, baseline, incidents, n, seen, offset)
             if out and env.emit:
@@ -990,12 +1010,23 @@ class SessionManager:
         return out
 
     async def _fixes(
-        self, env: AgentEnv, venue: Venue, attack: Attack, result: RunResult, n: int, prefix: str
+        self,
+        env: AgentEnv,
+        venue: Venue,
+        attack: Attack,
+        result: RunResult,
+        n: int,
+        prefix: str,
+        mode: str = "hybrid",
     ) -> list[Fix]:
+        if mode == "rules":
+            return rule_fixes(self.st.registry, venue, attack, result, n, prefix + "R")
         try:
             out = await blue_team(env, self.st.registry, venue, attack, result, n, prefix)
         except AgentUnavailable:
             out = []
+        if mode == "model":
+            return out
         # Standard engineering responses compete with the AI's ideas; the simulation decides.
         rules = rule_fixes(self.st.registry, venue, attack, result, n + 2, prefix + "R")
         kinds = {
