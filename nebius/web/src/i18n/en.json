@@ -1439,5 +1439,8 @@
     "label": "Floors to show",
     "all": "All floors",
     "exploded": "Spread apart"
+  },
+  "replay": {
+    "people_legend": "Who is in the crowd"
   }
 }

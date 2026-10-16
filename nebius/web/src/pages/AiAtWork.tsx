@@ -23,6 +23,7 @@ import { useReplay } from "@/replay/useReplay";
 import { SceneRoot } from "@/scene/SceneRoot";
 import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
+import { PeopleLegend } from "@/panels/Overlays";
 import { FloorSwitch } from "@/panels/FloorSwitch";
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -174,6 +175,7 @@ export function AiAtWorkPage() {
                          resetNonce={0} quality="low" onExitClick={() => {}} onObjectClick={() => {}} onFloorClick={() => {}}
                          onFloorDoubleClick={() => {}} onMove={() => {}} onHotspot={() => {}} />
             ) : <Skeleton className="m-4 h-[calc(100%-2rem)]" />}
+            <PeopleLegend replay={replay.data} className="absolute bottom-3 left-3 z-40 w-52" />
             <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-surface/95 px-3 py-1 text-sm shadow-sm">
               {replay.data ? t("work.showing_latest") : t("work.waiting_sim")}
             </span>

@@ -587,3 +587,24 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
 - The tier chip moves below the floor switcher on multi-floor venues (they overlapped).
 - Checked on the conference hall + a third floor, a stair to it, a wall and a route: stacked,
   spread apart and one-floor views (screenshots reviewed). vitest 151, lint, `tsc -b`.
+
+## 2026-10-17 — Saif: replay by people kind (G3-03)
+
+- `useReplay` also asks `GET /runs/{id}/agents` (the G2-04 contract,
+  `{"schema": 1, "kinds": {"<agent id>": "<kind>"}}`). Agent ids are traj.bin's uint16 ids, read
+  into a lookup table (`replay/kinds.ts`). A 404 (older runs, or a server without G2-04) or an
+  empty map keeps the plain replay.
+- People are drawn with one instanced mesh per kind present, each with its own shape and a
+  colour-blind-safe colour that avoids the safety colours (`scene/peopleLook.ts`): pill =
+  general adult, hexagonal post = older person, ball = child, wheel = wheelchair user, flat slab =
+  patient in a bed, square post = staff. The density tint still applies; the shape keeps the kind.
+- "Who is in the crowd" legend (shape, colour, count) next to the density legend in Expert
+  view, on Your plan's replay and on the AI-at-work screen; hidden when everyone is a general adult.
+- Performance: the frame loop is O(n) with one lookup per person and at most six draw calls; a
+  vitest case samples 3,000 people with ids over 300 frames and requires < 8 ms of JS per
+  frame (well under the 33 ms of 30 fps). GPU frame rate was not measurable here: headless
+  Chromium renders with SwiftShader.
+- Checked: a real Docker simulation of the school wing (400 people) with the `/agents` answer
+  stubbed in the browser (one in three people given a kind) — shapes, colours and legend counts
+  correct, no console errors. **Not yet checked against Ridwan's G2-04 endpoint** (not on any
+  branch on 17 Oct); re-check once it lands.

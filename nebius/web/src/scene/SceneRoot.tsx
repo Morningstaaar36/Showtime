@@ -143,7 +143,7 @@ export function SceneRoot(p: SceneProps) {
         {p.replay && p.clock !== false && <PlaybackClock />}
         {showAgents && p.replay && (
           <Agents traj={p.replay.traj} density={p.replay.density} venue={p.venue} exploded={layers.exploded} palette={palette}
-                  onlyFloor={onlyFloor} />
+                  onlyFloor={onlyFloor} kinds={p.replay.kinds} />
         )}
         {p.replay?.density && (layers.heatmap || layers.terrain) && (
           <DensityLayer density={p.replay.density} venue={p.venue} exploded={layers.exploded} palette={palette}

@@ -91,9 +91,9 @@ export class Trajectory {
 
   /**
    * Interpolated positions at time t written into `out` as [x, y, floorIndex] triples (venue metres).
-   * Returns the number of people.
+   * Returns the number of people. `ids`, when given, receives each person's agent id.
    */
-  sample(t: number, out: Float32Array): number {
+  sample(t: number, out: Float32Array, ids?: Uint16Array): number {
     const k = this.frameAt(t);
     const a = this.frame(k);
     const times = this.index.times;
@@ -117,6 +117,7 @@ export class Trajectory {
       out[i * 3] = ox + x * sc;
       out[i * 3 + 1] = oy + y * sc;
       out[i * 3 + 2] = a.floors[i];
+      if (ids) ids[i] = a.ids[i];
     }
     if (b) for (let j = 0; j < b.n; j++) this.slot[b.ids[j]] = -1;
     return n;

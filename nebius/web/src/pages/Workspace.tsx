@@ -16,7 +16,7 @@ import { shortId } from "@/lib/utils";
 import { AskDialog } from "@/panels/AskDialog";
 import { CommandBar } from "@/panels/CommandBar";
 import { PlanInspector } from "@/panels/Inspector";
-import { DensityLegend, PlanCompass, TierChip } from "@/panels/Overlays";
+import { DensityLegend, PeopleLegend, PlanCompass, TierChip } from "@/panels/Overlays";
 import { useTour } from "@/panels/Tour";
 import { RedTeamPanel, useRedTeamSession } from "@/panels/RedTeamPanel";
 import { ReportView } from "@/panels/ReportView";
@@ -402,6 +402,7 @@ export function WorkspacePage() {
               )}
               <div className="absolute bottom-3 left-3 flex flex-col items-start gap-2">
                 {mode !== "plan" && replay.data?.density && <DensityLegend warn={th.warn} danger={th.danger} />}
+                {mode !== "plan" && <PeopleLegend replay={replay.data} className="w-64" />}
                 <PlanCompass span={span} />
               </div>
               <div className="absolute inset-x-0 bottom-3 flex justify-center px-40">

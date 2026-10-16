@@ -5,12 +5,14 @@ import * as THREE from "three";
 import type { Hotspot, Venue } from "@/api/types";
 import { fmtClock, fmtNum } from "@/lib/format";
 import type { DensityGrid } from "@/replay/density";
+import { type AgentKinds, kindsPresent, PEOPLE_KINDS, type PeopleKindId } from "@/replay/kinds";
 import type { Trajectory } from "@/replay/trajectory";
 import { usePlayback } from "@/state/playback";
 import { textHumanizer } from "@/lib/venueText";
 import { CIVIDIS } from "./colormaps";
 import { floorY } from "./geom";
 import type { ScenePalette } from "./palette";
+import { PEOPLE_LOOK } from "./peopleLook";
 import { SceneHtml } from "./SceneHtml";
 
 export const DENSITY_MAX = 7; // colormap range (people per m²)
@@ -47,17 +49,31 @@ function useFloorYs(venue: Venue, floors: string[], exploded: boolean): number[]
   return useMemo(() => floors.map((fid) => floorY(venue, fid, exploded)), [venue, floors, exploded]);
 }
 
-export function Agents({ traj, density, venue, exploded, palette, onlyFloor = null }: {
+export function Agents({ traj, density, venue, exploded, palette, onlyFloor = null, kinds = null }: {
   traj: Trajectory; density: DensityGrid | null; venue: Venue; exploded: boolean; palette: ScenePalette;
   /** draw only the people on this floor (one-floor view) */
   onlyFloor?: string | null;
+  /** who each person is: shape and colour per kind; null = everyone as a general adult */
+  kinds?: AgentKinds | null;
 }) {
   const max = Math.min(Math.max(traj.index.max_agents, 1), 9000);
-  const mesh = useRef<THREE.InstancedMesh>(null);
+  // one instanced mesh per kind present (general adults only: a single mesh, as before)
+  const shown = useMemo<PeopleKindId[]>(() => (kinds ? kindsPresent(kinds) : ["general"]), [kinds]);
+  const meshes = useRef<(THREE.InstancedMesh | null)[]>([]);
   const buf = useMemo(() => new Float32Array(max * 3), [max]);
+  const ids = useMemo(() => new Uint16Array(max), [max]);
+  const written = useMemo(() => new Int32Array(PEOPLE_KINDS.length), []);
+  const slotOf = useMemo(() => {
+    // kind code -> index in `shown` (or 0, the general mesh)
+    const a = new Int8Array(PEOPLE_KINDS.length);
+    PEOPLE_KINDS.forEach((k, i) => { a[i] = Math.max(0, shown.indexOf(k)); });
+    return a;
+  }, [shown]);
   const ys = useFloorYs(venue, traj.index.floors, exploded);
   const dummy = useMemo(() => new THREE.Object3D(), []);
-  const base = useMemo(() => new THREE.Color(palette.agent), [palette.agent]);
+  const bases = useMemo(() => shown.map((k) => new THREE.Color(PEOPLE_LOOK[k].color ?? palette.agent)), [shown, palette.agent]);
+  const geometries = useMemo(() => shown.map((k) => PEOPLE_LOOK[k].geometry()), [shown]);
+  useEffect(() => () => geometries.forEach((g) => g.dispose()), [geometries]);
   const tmp = useMemo(() => new THREE.Color(), []);
   const only = onlyFloor ? traj.index.floors.indexOf(onlyFloor) : -1;
   const densFloor = useMemo(() => {
@@ -67,46 +83,57 @@ export function Agents({ traj, density, venue, exploded, palette, onlyFloor = nu
   }, [traj, density]);
 
   useEffect(() => {
-    const m = mesh.current;
-    if (!m) return;
-    for (let i = 0; i < max; i++) m.setColorAt(i, base);
-    if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }, [max, base]);
+    meshes.current.forEach((m, s) => {
+      if (!m) return;
+      for (let i = 0; i < max; i++) m.setColorAt(i, bases[s]);
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    });
+  }, [max, bases]);
 
   useFrame(() => {
-    const m = mesh.current;
-    if (!m) return;
+    const ms = meshes.current;
+    if (!ms[0]) return;
     const t = usePlayback.getState().t;
-    const n = traj.sample(t, buf);
+    const n = traj.sample(t, buf, kinds ? ids : undefined);
     const frame = density ? density.pairAt(t)[0] : -1;
-    let k = 0; // instances written (people on hidden floors are skipped)
+    written.fill(0); // instances written per mesh (people on hidden floors are skipped)
     for (let j = 0; j < n; j++) {
       const x = buf[j * 3];
       const y = buf[j * 3 + 1];
       const f = buf[j * 3 + 2] | 0;
       if (only >= 0 && f !== only) continue;
-      const i = k++;
-      dummy.position.set(x, (ys[f] ?? 0) + 0.56, -y);
+      const s = kinds ? slotOf[kinds.lookup[ids[j]]] : 0;
+      const m = ms[s];
+      if (!m) continue;
+      const i = written[s]++;
+      dummy.position.set(x, (ys[f] ?? 0) + 0.02, -y);
       dummy.updateMatrix();
       m.setMatrixAt(i, dummy.matrix);
       if (density && frame >= 0 && densFloor[f] >= 0) {
         const d = density.at(frame, densFloor[f], x, y);
         const k = Math.min(1, Math.max(0, (d - 1.0) / 2.5));
         const lut = LUT_COLORS[Math.min(255, Math.round((d / DENSITY_MAX) * 255))];
-        tmp.copy(base).lerp(lut, k);
+        // with people kinds the shape carries the kind, so a crush still tints every marker
+        tmp.copy(bases[s]).lerp(lut, k);
         m.setColorAt(i, tmp);
       }
     }
-    m.count = k;
-    m.instanceMatrix.needsUpdate = true;
-    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    ms.forEach((m, s) => {
+      if (!m) return;
+      m.count = written[s];
+      m.instanceMatrix.needsUpdate = true;
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    });
   });
 
   return (
-    <instancedMesh ref={mesh} args={[undefined, undefined, max]} frustumCulled={false}>
-      <capsuleGeometry args={[0.18, 0.72, 2, 10]} />
-      <meshStandardMaterial roughness={0.55} metalness={0.05} />
-    </instancedMesh>
+    <group>
+      {shown.map((k, s) => (
+        <instancedMesh key={k} ref={(m) => { meshes.current[s] = m; }} args={[geometries[s], undefined, max]} frustumCulled={false}>
+          <meshStandardMaterial roughness={0.55} metalness={0.05} />
+        </instancedMesh>
+      ))}
+    </group>
   );
 }
 

@@ -38,6 +38,7 @@ import { SceneRoot } from "@/scene/SceneRoot";
 import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import { QUICK_TEST } from "./CheckVenue";
+import { PeopleLegend } from "@/panels/Overlays";
 import { FloorSwitch } from "@/panels/FloorSwitch";
 
 export function countdownText(c: Countdown | null | undefined): string {
@@ -252,6 +253,7 @@ export function YourPlanPage() {
                 ))}
               </div>
             )}
+            {!previewing && <PeopleLegend replay={replay.data} className="absolute right-3 top-14 z-40 w-52" />}
             {!previewing && <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-surface/95 px-3 py-1 text-xs shadow-sm">{shown ? runBasisLabel(shown.result) : t("evidence.basis.unknown")}</span>}
           </section>
 

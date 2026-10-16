@@ -2,11 +2,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { DensityGrid, type DensityIndex } from "./density";
+import { type AgentKinds, parseAgentKinds } from "./kinds";
 import { Trajectory, type TrajIndex } from "./trajectory";
 
 export interface Replay {
   traj: Trajectory;
   density: DensityGrid | null;
+  /** who each person is (G2-04); null for older runs and runs of general adults only */
+  kinds: AgentKinds | null;
 }
 
 export function useReplay(runId: string | null | undefined, enabled = true) {
@@ -17,9 +20,11 @@ export function useReplay(runId: string | null | undefined, enabled = true) {
     gcTime: 90_000, // keep at most a couple of runs in memory
     retry: false,
     queryFn: async ({ signal }): Promise<Replay> => {
-      const [tIdx, tBuf] = await Promise.all([
+      const [tIdx, tBuf, kinds] = await Promise.all([
         api.get<TrajIndex>(`/runs/${runId}/trajectory/index`, signal),
         api.binary(`/runs/${runId}/trajectory`, signal),
+        // an older server has no /agents: everyone is drawn as a general adult
+        api.get<unknown>(`/runs/${runId}/agents`, signal).then(parseAgentKinds, () => null),
       ]);
       let density: DensityGrid | null = null;
       try {
@@ -31,7 +36,7 @@ export function useReplay(runId: string | null | undefined, enabled = true) {
       } catch {
         density = null;
       }
-      return { traj: new Trajectory(tIdx, tBuf), density };
+      return { traj: new Trajectory(tIdx, tBuf), density, kinds };
     },
   });
 }
