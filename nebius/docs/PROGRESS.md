@@ -534,3 +534,32 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
   Playwright 7/7 with the real model and Docker.
 - Work split updated (TEAM_TASK_ALLOCATION.md §12): seed check backend done; its screen is
   Saif's S-09; Ridwan takes the real-life examples (R-01).
+
+## 2026-10-16 — P2-04: chosen fixes tested together, and the range of Your plan's numbers
+
+Branch `worktree-ridwan+r-02-fixes-together-sensitivity` (R-02 in `TEAM_TASK_ALLOCATION.md`).
+How to test: [P2_04_TESTING.md](P2_04_TESTING.md); method and limits: ASSUMPTIONS.md.
+
+- **Tested together.** Accepting only some kept fixes simulates exactly those under the worst
+  attack (same tier and seed as the after-fixes run). The version is "tested together", and can
+  be confirmed, only after that run finished as a simulation (`/sessions/{id}/together`).
+- **Sensitivity.** "How sure are these numbers?" on Your plan: the key run again with headcount
+  × 0.8 / × 1.2 and walking speed × 0.85 / × 1.15 (`/sessions/{id}/sensitivity`).
+- Checks (API image, case-sensitive Linux copy for the web): ruff, format, import contracts, mypy
+  clean; pytest fast suite 595 passed / 1 skipped, then the P2-04 subset 39 passed after the last
+  changes; tsc -b and eslint clean; vitest 133/134 — the one failure is `ValidationChart` timing out
+  at 5 s under Docker load, 32/32 with a 60 s timeout (`range.test.ts` 5/5).
+- **Live on the M1, real JuPedSim, no AI key (rules attacks and fixes).** School wing, 400 people,
+  both stair exits narrowed to 0.9 m: the test kept two fixes (2.5 m exits north and south),
+  evaluation confirmed. Accepting only the north exit started run `r_764b1c643db3` under the worst
+  attack (counterflow through the west stair): completed simulation, 95% out in 67.1 s, peak
+  3.76 people per m², nobody inside (both fixes: 65.1 s, 3.31); the version became tested together,
+  evaluation confirmed. The range on that subset: 95% out 61.1–78.0 s, peak 3.57–5.35 people per
+  m², nobody inside in any run; holds under every assumption.
+- Open issues seen live: with 20% fewer people the evacuation time was slightly *longer* (69.0 s vs
+  67.1 s): one seed per assumption, so a single run's placement can outweigh a small change; the
+  seed check is the tool for that spread. At 20% more people the peak reached 5.35 per m² but stayed
+  above 5 for under the 5 s persistence filter, so it is not a break. Everything is slow on this
+  Mac (x86 simulator under emulation, several stacks running): the test took 4.5 h, the range 2.2 h.
+- The 120- and 400-person School wing tests with normal exits never broke, so they kept nothing:
+  there a subset can't exist, and the range repeats the baseline (120 people: 24.0–31.3 s).
