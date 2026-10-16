@@ -608,3 +608,17 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
   stubbed in the browser (one in three people given a kind) — shapes, colours and legend counts
   correct, no console errors. **Not yet checked against Ridwan's G2-04 endpoint** (not on any
   branch on 17 Oct); re-check once it lands.
+
+## 2026-10-17 — Saif: surroundings option on the map screen (G3-05)
+
+- Map screen, building (indoor) mode: "Include the surroundings" switch with the copy from
+  `en.json`, and a "Distance around the building" slider (10–200 m in 10 m steps, 50 m by
+  default, keyboard operable). When on, `POST /venues/from-map` carries `surroundings_m`; when off
+  nothing is sent. Open-air areas do not show it.
+- The preview shows a "Surroundings {m} m" badge when the venue records
+  `extensions.building.surroundings_m`; if the option was on but the server did not add them, it
+  says so and suggests drawing the area around the building instead.
+- Playwright `e2e/surroundings.spec.ts` (draw a box → building → switch on → 80 m with the
+  arrow keys → the request carries `surroundings_m: 80`) passes.
+- **Waits on G2-06** (Ridwan): today's server ignores the field. For the badge, please record the
+  distance used as `extensions.building.surroundings_m` on the venue.

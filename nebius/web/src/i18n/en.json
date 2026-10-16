@@ -421,7 +421,8 @@
       "event": "Kind of event",
       "rooms_badge": "Rooms inside",
       "surroundings_badge": "Surroundings {m} m",
-      "floor_tabs": "Floor plans"
+      "floor_tabs": "Floor plans",
+      "surroundings_missing": "The surroundings were not added: this server builds the building alone. Draw the area around it instead to include the street."
     },
     "building": {
       "title": "Floors and rooms",

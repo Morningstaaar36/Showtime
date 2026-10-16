@@ -333,6 +333,8 @@ export interface FromMapBody {
   levels?: number | null;
   use?: string | null;
   interior?: "open" | "rooms" | null;
+  /** the street and open ground around a building, in metres (G2-06) */
+  surroundings_m?: number | null;
   event_kind?: string | null;
 }
 

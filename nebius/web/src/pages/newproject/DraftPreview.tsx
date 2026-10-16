@@ -1,14 +1,22 @@
-import { AlertTriangle, CheckCircle2, Info, Layers, Users } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Layers, Trees, Users } from "lucide-react";
 import type { Pt, VenueDraft } from "@/api/types";
 import { VenueThumb } from "@/components/VenueThumb";
 import { Badge } from "@/components/ui/badge";
 import { bbox } from "@/scene/geom";
+import { t } from "@/i18n";
 import { fmtInt } from "@/lib/format";
 
+/** Metres of surroundings the server added around a building (extensions.building.surroundings_m). */
+export function surroundingsOf(v: NonNullable<VenueDraft["venue"]>): number {
+  const b = (v.extensions as Record<string, unknown> | undefined)?.building as { surroundings_m?: unknown } | undefined;
+  return typeof b?.surroundings_m === "number" && b.surroundings_m > 0 ? b.surroundings_m : 0;
+}
+
 /** What a generated venue looks like before it becomes a project: plan, numbers, what was assumed. */
-export function DraftPreview({ draft }: { draft: VenueDraft }) {
+export function DraftPreview({ draft, surroundingsAsked = 0 }: { draft: VenueDraft; surroundingsAsked?: number }) {
   const v = draft.venue;
   if (!v) return null;
+  const surroundings = surroundingsOf(v);
   const [x0, y0, x1, y1] = bbox(v.floors.flatMap((f) => f.walkable as Pt[]));
   const people = v.floors.reduce((n, f) => n + f.zones.reduce((m, z) => m + z.people, 0), 0);
   const exits = v.floors.reduce((n, f) => n + f.exits.length, 0);
@@ -33,8 +41,12 @@ export function DraftPreview({ draft }: { draft: VenueDraft }) {
             <Badge tone="neutral"><Users />{fmtInt(people)}</Badge>
             <Badge tone="neutral">{exits} exits</Badge>
             {v.floors.length > 1 && <Badge tone="neutral"><Layers />{v.floors.length} floors</Badge>}
+            {surroundings > 0 && <Badge tone="neutral"><Trees />{t("editor.map.surroundings_badge", { m: fmtInt(surroundings) })}</Badge>}
           </div>
         </div>
+        {surroundingsAsked > 0 && surroundings === 0 && (
+          <p className="flex items-start gap-1.5 text-muted"><Info className="mt-0.5 size-4 shrink-0" />{t("editor.map.surroundings_missing")}</p>
+        )}
         {errors.length === 0 ? (
           <p className="flex items-start gap-1.5 text-egress"><CheckCircle2 className="mt-0.5 size-4 shrink-0" />
             Passes the geometry checks: every crowd area reaches an exit.</p>
