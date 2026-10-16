@@ -40,6 +40,7 @@ import { PeopleLegend } from "@/panels/Overlays";
 import { Timeline } from "@/panels/Timeline";
 import { floorNamer } from "@/panels/FloorMenu";
 import { FloorChart, ReplayCaption, ScenarioList } from "@/journey/plan/ScenarioViewer";
+import { SeedPanel } from "@/journey/plan/SeedPanel";
 import { type ScenarioRow, scenarioMarkers, scenarioRows } from "@/journey/plan/scenarios";
 import { FloorSwitch } from "@/panels/FloorSwitch";
 
@@ -303,7 +304,7 @@ export function YourPlanPage() {
           </section>
         </div>
 
-        <div className="grid min-w-0 gap-4"><RewindPanel sessionId={sessionId} worstTitle={worst ? human(worst.title) : null} canRewind={(summary?.attacks?.length ?? 0) > 0} /><StressPanel projectId={p.id} hasTest /></div>
+        <div className="grid min-w-0 gap-4"><SeedPanel sessionId={sessionId} human={human} /><RewindPanel sessionId={sessionId} worstTitle={worst ? human(worst.title) : null} canRewind={(summary?.attacks?.length ?? 0) > 0} /><StressPanel projectId={p.id} hasTest /></div>
 
         <NextActions reportUrl={api.url(`/sessions/${sessionId}/report`)} checklistUrl={api.url(`/sessions/${sessionId}/checklist`)}
                      projectId={p.id} onTestAgain={testAgain} testing={start.isPending} primary={primary} />

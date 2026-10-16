@@ -594,3 +594,25 @@ export function useStartStress(projectId: string) {
     },
   });
 }
+
+// --- Seed check (S-09): the plan's key run with more seeds ------------------------------------
+
+import type { SeedCheck } from "./types";
+
+export function useSeedCheck(sessionId: string | null) {
+  return useQuery({
+    queryKey: ["seeds", sessionId],
+    enabled: !!sessionId,
+    queryFn: () => api.get<SeedCheck>(`/sessions/${sessionId}/seeds`),
+    // follow the runs while any is still going
+    refetchInterval: (q) => (q.state.data?.status === "running" ? 2500 : false),
+  });
+}
+
+export function useStartSeedCheck(sessionId: string | null) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (n?: number) => api.post<SeedCheck>(`/sessions/${sessionId}/seeds`, n ? { n } : {}),
+    onSuccess: (d) => qc.setQueryData(["seeds", sessionId], d),
+  });
+}

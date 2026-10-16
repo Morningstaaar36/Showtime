@@ -676,3 +676,16 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
   the three headlines and the four badges.
 - The guided journey asserts the line and the link. Whether organizers understand it is for the
   S-06 sessions.
+
+## 2026-10-17 — Saif: seed range on Your plan (S-09)
+
+- "Check with more seeds" card on Your plan: says which run it repeats (the kept fixes under the
+  worst attack, else the baseline), lets the organizer pick 1–5 more seeds (default from the
+  server: 3 locally, 5 on Nebius), calls `POST /sessions/{id}/seeds` and follows
+  `GET …/seeds` every 2.5 s while runs go. It shows "95% out in 4 min 29 s – 4 min 42 s over 4
+  seeds", the peak density range, people still inside (or "Everyone got out in all N runs"),
+  what the range rests on ("3 × full simulation"), the server's notes (runs left out, settings
+  changed), and each run with its seed and basis. Repeating reuses the runs already there.
+- Text helpers in `journey/plan/seeds.ts` (3 vitest cases); Playwright `e2e/seed-check.spec.ts`
+  (quick session → 2 more seeds → range over 3 seeds with bases and the run list) passes in the
+  Docker sandbox; it skips with the fake sandbox.

@@ -1498,5 +1498,25 @@
   },
   "replay": {
     "people_legend": "Who is in the crowd"
+  },
+  "seeds": {
+    "title": "Check with more seeds",
+    "lead": "One simulation is one random crowd: who walks how fast, who starts where. This repeats the run the verdict rests on with other random crowds, to show how much the numbers move.",
+    "repeats": "Repeats: {label}",
+    "how_many": "More seeds",
+    "start": "Check with more seeds",
+    "again": "Add more seeds",
+    "running": "Simulating: {done} of {total} runs done",
+    "range_evac": "95% out in {range} over {n} seeds",
+    "range_peak": "Peak density {range} people per m² over {n} seeds",
+    "range_all_out": "Everyone got out in all {n} runs",
+    "range_inside": "{range} people still inside at the end over {n} seeds",
+    "based_on": "Based on {bases}.",
+    "runs": "Each run",
+    "seed": "Seed {seed}",
+    "original": "the plan's own run",
+    "run_line": "95% out in {evac} · peak {peak} per m² · {inside} still inside",
+    "unavailable": "Not available yet: {reason}",
+    "none": "No extra seeds checked yet."
   }
 }
