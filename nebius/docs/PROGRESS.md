@@ -556,3 +556,17 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
 - Checks: eslint 0 warnings, `tsc -b`, vitest 140; Playwright `e2e/building-tools.spec.ts`
   (add floor → stairs → room → undo → redo, checked through the API) passes against the app
   with fake providers.
+
+## 2026-10-17 — Saif: zone profile and event kind (G3-02)
+
+- A crowd area's card (check screen and Expert view) edits who is there: groups with shares in
+  percent (older people, children, wheelchair users, patients in beds, staff), the rest shown as
+  general adults, a refusal above 100%; when they start moving (run default or a delay in
+  seconds, with the event kind's usual delay when one is cited); and the route they walk (routes
+  on the area's floor, or none). Each save is a `set_zone_profile` patch.
+- The check screen has "Kind of event" (`useEventKinds`, offline fallback noted) with the usual
+  mix and "Use the usual people mix in every area", which patches only areas with people that
+  differ, in one version.
+- Helpers in `web/src/lib/zoneProfile.ts` (7 vitest cases). Playwright `e2e/zone-profile.spec.ts`
+  (hospital kind → usual mix on 2 areas → shares, delay and route on one area, checked through
+  the API) passes against the app with fake providers.

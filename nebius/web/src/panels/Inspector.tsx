@@ -27,6 +27,7 @@ import type { CountdownOut } from "@/api/types";
 import { annotationOf } from "@/lib/annotations";
 import { removeStairOp } from "@/lib/venueOps";
 import { floorNamer } from "./FloorMenu";
+import { ZoneProfileEditor } from "./ZoneProfile";
 import { displayNames } from "@/lib/venueText";
 export { textHumanizer } from "@/lib/venueText";
 
@@ -236,6 +237,7 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
         <NumberField label={t("inspector.people")} unit="people" value={zone.people} step={50}
                      onCommit={(v) => run([{ op: "set_people", zone_id: zone.id, people: Math.round(v) } as PatchOpIn])} />
         <p className="text-sm text-muted">{t("inspector.people_per_m2", { n: fmtNum(zone.people / Math.max(area, 1), 1) })} · {fmtInt(area)} m²</p>
+        <ZoneProfileEditor project={project} zoneId={zone.id} />
         <Button variant="danger-ghost" size="sm" onClick={() => { run([{ op: "remove_zone", zone_id: zone.id } as PatchOpIn]); select(null); }}><Trash2 />{t("inspector.remove")}</Button>
       </section>
     );
