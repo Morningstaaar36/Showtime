@@ -386,7 +386,7 @@ export function WorkspacePage() {
                 </div>
               )}
               {shownRun && !compareId && (
-                <div className="absolute left-1/2 top-3 -translate-x-1/2"><TierChip label={tierLabel(shownRun)} tone={tone} /></div>
+                <div className={`absolute left-1/2 -translate-x-1/2 ${venue.floors.length > 1 ? "top-14" : "top-3"}`}><TierChip label={tierLabel(shownRun)} tone={tone} /></div>
               )}
               {compareId && (
                 <button type="button" onClick={() => ui.setCompareRun(null)}

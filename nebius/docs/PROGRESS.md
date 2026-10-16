@@ -570,3 +570,20 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
 - Helpers in `web/src/lib/zoneProfile.ts` (7 vitest cases). Playwright `e2e/zone-profile.spec.ts`
   (hospital kind → usual mix on 2 areas → shares, delay and route on one area, checked through
   the API) passes against the app with fake providers.
+
+## 2026-10-17 — Saif: routes, stairs, walls and labels in 3D (G3-04)
+
+- Walking routes (`venue.routes`) are drawn on their floor: a band as wide as `width_m`, a
+  dashed centre line and instanced chevrons in walking order (`routeMarks`, about 40 per route,
+  at least 2 m apart), with the route's name at its start (`scene/RouteLayer.tsx`).
+- Stairs are one extruded ramp from `stairProfile` along `stairRun` (bottom landing to top
+  landing), so they join any two floors, stacked or spread apart. With one floor shown alone,
+  its stairs show as landings marked "Stairs down" / "Stairs up" and stay selectable.
+- Inner walls with a centreline are straight boxes at their own thickness (`wallThickness`)
+  instead of a buffered outline, so thin partitions stay crisp.
+- Labels (`scene/labels.ts`, 4 vitest cases): one floor alone labels only that floor; three or
+  more stacked floors label the edit floor (ground by default) plus every exit; sites with 40+
+  labelled objects keep the 30 widest exits, 16 fullest areas and 10 largest features.
+- The tier chip moves below the floor switcher on multi-floor venues (they overlapped).
+- Checked on the conference hall + a third floor, a stair to it, a wall and a route: stacked,
+  spread apart and one-floor views (screenshots reviewed). vitest 151, lint, `tsc -b`.

@@ -11,6 +11,7 @@ import { CameraRig } from "./CameraRig";
 import { ChangeHighlights, DraftPreview, MoveGizmo } from "./EditTools";
 import { resolveFloorView, venueBounds } from "./geom";
 import { useScenePalette } from "./palette";
+import { labelledIds } from "./labels";
 import { LabelLayer } from "./SceneHtml";
 import { Agents, DensityLayer, Hotspots, Marshals, PlaybackClock, type MarshalNote } from "./ReplayLayers";
 import { ShowLights } from "./ShowLights";
@@ -70,6 +71,11 @@ export function SceneRoot(p: SceneProps) {
     if (!floor) return p.venue;
     return { ...p.venue, floors: [floor], stairs: [], routes: (p.venue.routes ?? []).filter((r) => r.floor_id === floor.floor_id) };
   }, [p.venue, onlyFloor]);
+  // one floor alone: its stairs show as landings ("Stairs down", "Stairs up")
+  const stubStairs = useMemo(() => (onlyFloor ? (p.venue.stairs ?? []).filter((s) => s.from_floor === onlyFloor || s.to_floor === onlyFloor) : []),
+    [p.venue, onlyFloor]);
+  const editFloor = useUi((s) => s.editFloor);
+  const labelled = useMemo(() => labelledIds(p.venue, view, editFloor), [p.venue, view, editFloor]);
   const hotspots = onlyFloor ? p.hotspots.filter((h) => h.floor_id === onlyFloor) : p.hotspots;
 
   return (
@@ -121,6 +127,8 @@ export function SceneRoot(p: SceneProps) {
           onMap={!!site}
           exploded={layers.exploded}
           labels={layers.labels}
+          labelled={labelled}
+          stubStairs={stubStairs}
           showZones={layers.zones && !showAgents}
           selectedId={selection?.id ?? null}
           blocked={blocked}

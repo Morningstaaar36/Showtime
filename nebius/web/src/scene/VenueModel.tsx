@@ -14,11 +14,15 @@ import {
   FENCE_M,
   floorY,
   shapeOf,
+  stairProfile,
+  stairRun,
+  wallThickness,
   WALL_INDOOR_M,
   WALL_T,
   wallPieces,
 } from "./geom";
 import type { ScenePalette } from "./palette";
+import { RouteLayer } from "./RouteLayer";
 import { SceneHtml } from "./SceneHtml";
 
 export interface ModelHandlers {
@@ -43,7 +47,13 @@ interface Props extends ModelHandlers {
   peopleOverride?: Record<string, number>;
   /** venue sits on a street map: draw the ground floor see-through so the map shows */
   onMap?: boolean;
+  /** ids allowed a label (see `labelledIds`); null or absent = every object */
+  labelled?: Set<string> | null;
+  /** stairs whose other floor is not drawn (one floor alone): shown as a stairwell outline */
+  stubStairs?: Stair[];
 }
+
+const may = (p: Props, id: string) => p.labels && (!p.labelled || p.labelled.has(id));
 
 const OBSTACLE_HEIGHT: Record<string, number> = {
   wall: WALL_INDOOR_M, booth: 2.6, bar: 2.4, seating: 0.55, column: 3.0, barrier: 1.1,
@@ -59,12 +69,22 @@ export function VenueModel(props: Props) {
       ))}
       {(venue.stairs ?? []).map((s) => (
         <StairMesh key={s.id} stair={s} venue={venue} palette={props.palette} exploded={exploded}
-                   selected={props.selectedId === s.id} labels={props.labels}
+                   selected={props.selectedId === s.id} labels={may(props, s.id)}
                    onClick={(e) => {
                      const fl = venue.floors.find((f) => f.floor_id === s.from_floor);
                      if (fl) props.onObjectClick?.("stair", s.id, fl, e);
                    }} />
       ))}
+      {(props.stubStairs ?? []).map((s) => {
+        const floor = venue.floors.find((f) => f.floor_id === s.from_floor || f.floor_id === s.to_floor);
+        if (!floor) return null;
+        return (
+          <StairStub key={s.id} stair={s} floor={floor} y={floorY(venue, floor.floor_id, exploded)} palette={props.palette}
+                     selected={props.selectedId === s.id} labels={may(props, s.id)}
+                     onClick={(e) => props.onObjectClick?.("stair", s.id, floor, e)} />
+        );
+      })}
+      <RouteLayer venue={venue} palette={props.palette} exploded={exploded} labels={props.labels} />
     </group>
   );
 }
@@ -86,18 +106,18 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
       {floor.obstacles.map((o) => (
         o.kind === "stage" ? (
           <StageModel key={o.id} obstacle={o} stage={venue.stage ?? null} palette={palette}
-                      selected={props.selectedId === o.id} labels={props.labels} venue={venue}
+                      selected={props.selectedId === o.id} labels={may(props, o.id)} venue={venue}
                       onClick={(e) => props.onObjectClick?.("stage", o.id, floor, e)}
                       onGrab={props.onObjectPointerDown && ((e) => props.onObjectPointerDown?.("stage", o.id, floor, e))} />
         ) : (
           <ObstacleMesh key={o.id} obstacle={o} palette={palette} selected={props.selectedId === o.id}
-                        labels={props.labels} proposed={isProposed(venue, o.id)} locked={locked.has(o.id)}
+                        labels={may(props, o.id)} proposed={isProposed(venue, o.id)} locked={locked.has(o.id)}
                         onClick={(e) => props.onObjectClick?.("obstacle", o.id, floor, e)}
                         onGrab={props.onObjectPointerDown && ((e) => props.onObjectPointerDown?.("obstacle", o.id, floor, e))} />
         )
       ))}
       {floor.zones.map((z) => (
-        <ZonePatch key={z.id} zone={z} palette={palette} selected={props.selectedId === z.id} labels={props.labels}
+        <ZonePatch key={z.id} zone={z} palette={palette} selected={props.selectedId === z.id} labels={may(props, z.id)}
                    visible={props.showZones}
                    people={props.peopleOverride?.[z.id] ?? z.people}
                    onClick={(e) => props.onObjectClick?.("zone", z.id, floor, e)}
@@ -107,7 +127,7 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
         <ExitGate key={e.id} exit={e} floor={floor} palette={palette} outdoor={venue.mode === "outdoor"}
                   blocked={!!e.blocked || props.blocked.includes(e.id)} selected={props.selectedId === e.id}
                   proposed={isProposed(venue, e.id)} locked={locked.has(e.id)}
-                  labels={props.labels} onClick={(ev) => props.onExitClick?.(e, floor, ev)}
+                  labels={may(props, e.id)} onClick={(ev) => props.onExitClick?.(e, floor, ev)}
                   onGrab={props.onObjectPointerDown && ((ev) => props.onObjectPointerDown?.("exit", e.id, floor, ev))} />
       ))}
     </group>
@@ -279,6 +299,9 @@ function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, o
   const generic = /^building \d+$/i.test(obstacle.label ?? "");
   const showLabel = labels && !ghost && (proposed || selected || (!isWall && !isBarrier && !generic));
   const see = ghost || isWater || proposed;
+  if (isWall && obstacle.line && obstacle.line.length >= 2) {
+    return <LineWall obstacle={obstacle} height={h} palette={palette} selected={selected} proposed={proposed} onClick={onClick} onGrab={onGrab} />;
+  }
   return (
     <group>
       <mesh geometry={geo} castShadow receiveShadow onClick={(e) => { e.stopPropagation(); onClick(e); }}
@@ -302,6 +325,41 @@ function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, o
           </div>
         </SceneHtml>
       )}
+    </group>
+  );
+}
+
+/** An inner wall drawn along its centreline: one straight box per segment at the wall's own
+ * thickness, so thin partitions stay crisp instead of a buffered outline with rounded joints. */
+function LineWall({ obstacle, height, palette, selected, proposed, onClick, onGrab }: {
+  obstacle: Obstacle; height: number; palette: ScenePalette; selected: boolean; proposed: boolean;
+  onClick: (e: ThreeEvent<MouseEvent>) => void; onGrab?: (e: ThreeEvent<PointerEvent>) => void;
+}) {
+  const line = obstacle.line as Pt[];
+  const thick = wallThickness(obstacle.polygon as Pt[], line);
+  const pieces = useMemo(() => line.slice(1).map((b, i) => {
+    const a = line[i];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    return { mx: (a[0] + b[0]) / 2, my: (a[1] + b[1]) / 2, len, rot: Math.atan2(b[1] - a[1], b[0] - a[0]) };
+  }).filter((p) => p.len > 1e-3), [line]);
+  return (
+    <group onClick={(e) => { e.stopPropagation(); onClick(e); }}
+           onPointerDown={onGrab && ((e) => { e.stopPropagation(); onGrab(e); })}>
+      {pieces.map((p, i) => (
+        <group key={i} position={[p.mx, 0, -p.my]} rotation={[0, p.rot, 0]}>
+          <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
+            {/* overlap the joints by the thickness so corners close */}
+            <boxGeometry args={[p.len + thick, height, thick]} />
+            <meshStandardMaterial color={palette.wall} roughness={0.85} transparent={proposed} opacity={proposed ? 0.45 : 1}
+                                  emissive={selected ? palette.signal : "#000000"} emissiveIntensity={selected ? 0.25 : 0} />
+            <Edges color={selected ? palette.signal : palette.edge} threshold={20} />
+          </mesh>
+          <mesh position={[0, height + 0.012, 0]}>
+            <boxGeometry args={[p.len + thick, 0.02, thick + 0.002]} />
+            <meshBasicMaterial color={palette.wallCut} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }
@@ -518,32 +576,63 @@ function StairMesh({ stair, venue, palette, exploded, selected, labels, onClick 
   stair: Stair; venue: Venue; palette: ScenePalette; exploded: boolean; selected: boolean; labels: boolean;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
 }) {
-  const [tx, ty] = centroid(stair.top_polygon as Pt[]);
-  const [bx, by] = centroid(stair.bottom_polygon as Pt[]);
   const yTop = floorY(venue, stair.from_floor, exploded);
   const yBot = floorY(venue, stair.to_floor, exploded);
-  const dx = tx - bx, dy = ty - by;
-  const run = Math.hypot(dx, dy) || 1;
-  const steps = 16;
-  const rot = Math.atan2(dy, dx);
+  const rise = yTop - yBot;
+  const climb = useMemo(() => stairRun(stair.top_polygon as Pt[], stair.bottom_polygon as Pt[]), [stair.top_polygon, stair.bottom_polygon]);
+  // the flight's side profile (steps over a soffit) extruded across the stair's width
+  const geo = useMemo(() => {
+    const g = new THREE.ExtrudeGeometry(shapeOf(stairProfile(climb.run, rise)), { depth: stair.width_m, bevelEnabled: false });
+    g.translate(0, 0, -stair.width_m / 2);
+    return g;
+  }, [climb.run, rise, stair.width_m]);
   return (
-    <group position={[bx, yBot, -by]} rotation={[0, rot, 0]}
+    <group position={[climb.bx, yBot, -climb.by]} rotation={[0, climb.angle, 0]}
            onClick={(e) => { e.stopPropagation(); onClick(e); }}>
-      {Array.from({ length: steps }, (_, i) => (
-        <mesh key={i} position={[(run * (i + 0.5)) / steps, ((yTop - yBot) * (i + 1)) / steps - 0.06, 0]} castShadow receiveShadow>
-          <boxGeometry args={[run / steps + 0.02, 0.12, stair.width_m]} />
-          <meshStandardMaterial color={selected ? palette.signal : palette.stair} roughness={0.8} />
-        </mesh>
-      ))}
+      <mesh geometry={geo} castShadow receiveShadow>
+        <meshStandardMaterial color={selected ? palette.signal : palette.stair} roughness={0.8} />
+        <Edges color={selected ? palette.signal : palette.edge} threshold={30} />
+      </mesh>
       {[-1, 1].map((s) => (
         <Line key={s} points={[new THREE.Vector3(0, 1.0, (s * stair.width_m) / 2),
-                               new THREE.Vector3(run, yTop - yBot + 1.0, (s * stair.width_m) / 2)]}
+                               new THREE.Vector3(climb.run, rise + 1.0, (s * stair.width_m) / 2)]}
               color={palette.edge} lineWidth={1.5} />
       ))}
       {labels && (
-        <SceneHtml position={[run / 2, (yTop - yBot) / 2 + 1.6, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
+        <SceneHtml position={[climb.run / 2, rise / 2 + 1.6, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs text-muted shadow-sm">
             Stair · {fmtNum(stair.width_m, 1)} m
+          </div>
+        </SceneHtml>
+      )}
+    </group>
+  );
+}
+
+/** A stair seen from one floor alone: its landing on this floor, with an arrow up or down. */
+function StairStub({ stair, floor, y, palette, selected, labels, onClick }: {
+  stair: Stair; floor: Floor; y: number; palette: ScenePalette; selected: boolean; labels: boolean;
+  onClick: (e: ThreeEvent<MouseEvent>) => void;
+}) {
+  const down = stair.from_floor === floor.floor_id;
+  const poly = (down ? stair.top_polygon : stair.bottom_polygon) as Pt[];
+  const geo = useMemo(() => {
+    const g = new THREE.ShapeGeometry(shapeOf(poly));
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }, [poly]);
+  const [cx, cy] = centroid(poly);
+  const color = selected ? palette.signal : palette.stair;
+  return (
+    <group position={[0, y + 0.03, 0]}>
+      <mesh geometry={geo} onClick={(e) => { e.stopPropagation(); onClick(e); }}>
+        <meshStandardMaterial color={color} roughness={0.8} transparent opacity={0.85} />
+      </mesh>
+      <Line points={[...poly, poly[0]].map((p) => new THREE.Vector3(p[0], 0.02, -p[1]))} color={palette.edge} lineWidth={1.5} />
+      {labels && (
+        <SceneHtml position={[cx, 1.0, -cy]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
+          <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs text-muted shadow-sm">
+            {down ? "Stairs down" : "Stairs up"} · {fmtNum(stair.width_m, 1)} m
           </div>
         </SceneHtml>
       )}
