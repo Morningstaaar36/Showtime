@@ -648,3 +648,19 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
 - Playwright `e2e/scenario-viewer.spec.ts` (quick session on the school wing in the Docker
   sandbox → list with verdicts → play an attack → seek to its marker → caption) passes.
 - Full Playwright suite: 12/12 passed (fake model, Docker sandbox), guided journey included.
+
+## 2026-10-17 — Saif: multi-storey browser journey (G3-07)
+
+- Playwright `e2e/multi-storey.spec.ts`: Home → "Pick it on the map" → Draw an area → Building
+  (indoor), 4 floors, Used as Hospital, Rooms and corridors → Build venue → Use this venue →
+  check screen with all, spread apart and the four floors in the switcher, one floor alone →
+  Test this plan → Your plan → the replay's floor switcher on one floor, "People on each floor".
+  Passed twice (9.2 min, 6.7 min) with the fake model and the Docker sandbox.
+- Screenshots in `docs/screenshots/`: `map-hospital-4f`, `check-hospital-4f`,
+  `check-hospital-one-floor`, `plan-hospital-one-floor` (`SHOTS=0` skips them).
+- The journey types 60 people (`PEOPLE=` overrides). The sim image is amd64: on an ARM Mac it
+  runs emulated, and the generated 250-person, four-storey baseline alone took 10 min 19 s, so
+  the first attempt timed out in "Trying what could go wrong".
+- For Ridwan (backend): deleting a project while its red-team session runs leaves the session
+  running in memory (it keeps starting simulations), and `POST /sessions/{id}/stop` answers 404
+  because the row is gone. Found when the first attempt's clean-up deleted the project.
