@@ -78,7 +78,10 @@
     "samples_title": "Three ready-made examples",
     "samples_lead": "Each one opens with a finished red-team session you can replay instantly.",
     "checklist_lead": "Showtime runs on this computer. These parts need to be ready.",
-    "hint_samples": "Install them with: make demo-precompute"
+    "hint_samples": "Install them with: make demo-precompute",
+    "buildings_title": "Any building, any number of floors",
+    "buildings_lead": "Pick your building on the map and say how many floors it has and what it is used as: a hospital, a school, an office tower. Showtime adds the stairs and the rooms; you say who is in each area (patients in beds, children, staff). Add floors, rooms and stairs yourself in Expert view.",
+    "buildings_go": "Pick a building on the map"
   },
   "projects": {
     "title": "Projects",

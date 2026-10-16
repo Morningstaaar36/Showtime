@@ -350,12 +350,12 @@ export function WorkspacePage() {
                            editable={false} resetNonce={resetNonce} quality="low" clock={false}
                            onExitClick={() => {}} onObjectClick={() => {}} onFloorClick={() => {}}
                            onFloorDoubleClick={() => {}} onMove={() => {}} onHotspot={() => {}} />
-                <span className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-danger px-3 py-1 text-xs font-semibold text-white shadow dark:text-plan">Before fixes</span>
+                <span className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-danger-strong px-3 py-1 text-xs font-semibold text-on-strong shadow">Before fixes</span>
               </div>
             )}
             <div className={compareId && compareReplay.data ? "absolute inset-y-0 right-0 w-1/2" : "absolute inset-0"}>
             {compareId && compareReplay.data && (
-              <span className="pointer-events-none absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full bg-egress px-3 py-1 text-xs font-semibold text-white shadow dark:text-plan">After fixes</span>
+              <span className="pointer-events-none absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full bg-egress-strong px-3 py-1 text-xs font-semibold text-on-strong shadow">After fixes</span>
             )}
             <SceneRoot
               venue={mode !== "plan" && runVenue.data ? runVenue.data : venue}

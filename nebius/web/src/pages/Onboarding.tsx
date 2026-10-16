@@ -1,6 +1,6 @@
 /** First run (route `/welcome`): is everything ready on this computer, then open a sample or plan
  * your own event. */
-import { CheckCircle2, CircleDashed, CircleMinus, Sparkles } from "lucide-react";
+import { Building2, CheckCircle2, CircleDashed, CircleMinus, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { useHealth, useProjects } from "@/api/queries";
 import { AppShell } from "@/app/AppHeader";
@@ -56,6 +56,11 @@ export function OnboardingPage() {
             <Row label={t("onboarding.check_search")} state={health.isLoading ? "loading" : h?.search.live ? "ok" : "off"} hint={t("onboarding.hint_search")} />
             <Row label={t("onboarding.check_samples")} state={projects.isLoading ? "loading" : samples.length ? "ok" : "missing"} hint={t("onboarding.hint_samples")} />
           </ul>
+        </section>
+        <section aria-labelledby="build-h" className="mt-6 rounded-[var(--radius-panel)] border border-border bg-surface p-5 shadow-sm">
+          <h2 id="build-h" className="flex items-center gap-2 text-lg font-bold"><Building2 className="size-5 text-signal" aria-hidden />{t("onboarding.buildings_title")}</h2>
+          <p className="mt-1 max-w-prose text-sm text-muted">{t("onboarding.buildings_lead")}</p>
+          <Button asChild variant="secondary" className="mt-3"><Link to="/new/place">{t("onboarding.buildings_go")}</Link></Button>
         </section>
         <div className="mt-6 flex flex-wrap gap-2">
           <Button variant="primary" size="lg" disabled={!samples.length}

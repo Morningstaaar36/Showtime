@@ -259,7 +259,7 @@ export function YourPlanPage() {
                     venue={venue} state={state} record={record} attackTitle={attackTitle} name={label} human={human}
                     onAccept={accept} accepting={apply.isPending} onTestAgain={testAgain} testing={start.isPending} />
 
-        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
           <div className="min-w-0 space-y-2">
           <section aria-label={t("yourplan.replay")} className="relative h-[50vh] min-h-80 overflow-hidden rounded-[10px] border border-border">
             <FloorSwitch venue={venue} className="absolute bottom-12 left-3 z-50" />
@@ -296,7 +296,7 @@ export function YourPlanPage() {
           </div>
         </div>
 
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
           <CostCard cost={summary?.cost} tokens={session.data?.tokens ?? 0} costUsd={session.data?.cost_usd ?? 0} />
           <section aria-labelledby="ask-h" className="space-y-2 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
             <h2 id="ask-h" className="font-semibold">{t("ask.label")}</h2>

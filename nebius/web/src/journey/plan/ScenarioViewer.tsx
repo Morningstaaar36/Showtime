@@ -91,8 +91,8 @@ export function ReplayCaption({ markers, className }: { markers: TimelineMarker[
   return (
     <div aria-live="polite" className={cn("pointer-events-none", className)}>
       {hit && (
-        <p className={cn("rounded-full px-3 py-1 text-sm font-semibold text-white shadow-[var(--shadow-float)]",
-                         hit.tone === "danger" ? "bg-danger" : hit.tone === "caution" ? "bg-caution" : hit.tone === "egress" ? "bg-egress" : "bg-signal")}>
+        <p className={cn("rounded-full px-3 py-1 text-sm font-semibold shadow-[var(--shadow-float)]",
+                         hit.tone === "danger" ? "bg-danger-strong text-on-strong" : hit.tone === "caution" ? "bg-caution-strong text-on-strong" : hit.tone === "egress" ? "bg-egress-strong text-on-strong" : "bg-signal text-signal-ink")}>
           {hit.label}
         </p>
       )}

@@ -223,7 +223,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
                 className={cn("flex items-center gap-2 rounded-[var(--radius-control)] border px-3 py-2 text-sm transition",
                   stage === i + 1 ? "border-signal bg-signal-soft font-semibold text-ink" : stage > i + 1 ? "border-egress/40 bg-egress-soft text-ink" : "border-border bg-surface text-muted")}>
               <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold",
-                stage === i + 1 ? "bg-signal text-signal-ink" : stage > i + 1 ? "bg-egress text-white" : "bg-surface-3")}>{stage > i + 1 ? "✓" : i + 1}</span>
+                stage === i + 1 ? "bg-signal text-signal-ink" : stage > i + 1 ? "bg-egress-strong text-on-strong" : "bg-surface-3")}>{stage > i + 1 ? "✓" : i + 1}</span>
               {label}
             </li>
           ))}

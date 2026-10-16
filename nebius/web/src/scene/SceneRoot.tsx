@@ -86,6 +86,7 @@ export function SceneRoot(p: SceneProps) {
       gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true, logarithmicDepthBuffer: true }}
       camera={{ fov: 38, near: 0.5, far: Math.max(3000, span * 6), position: [cx + span, span, -cy + span] }}
       onPointerMissed={() => useUi.getState().select(null)}
+      role="img"
       aria-label="3D view of the venue"
     >
       <color attach="background" args={[palette.bg]} />

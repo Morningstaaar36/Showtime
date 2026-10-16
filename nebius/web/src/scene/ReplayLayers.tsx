@@ -328,7 +328,7 @@ export function Hotspots({ hotspots, venue, exploded, palette, labels, selectedK
                 <button
                   type="button"
                   onClick={() => onSelect(h, key)}
-                  className={`whitespace-nowrap rounded-[4px] px-1.5 py-0.5 text-2xs font-semibold text-white shadow tabular ${h.level === "danger" ? "bg-danger" : "bg-caution"}`}
+                  className={`whitespace-nowrap rounded-[4px] px-1.5 py-0.5 text-2xs font-semibold text-on-strong shadow tabular ${h.level === "danger" ? "bg-danger-strong" : "bg-caution-strong"}`}
                 >
                   {fmtNum(h.peak_density_ppm2, 1)} people per m² · {fmtClock(h.t_s)}
                 </button>

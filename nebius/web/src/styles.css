@@ -27,6 +27,12 @@
   --danger-soft: #ffe3e6;
   --sky: #0a9fe0;
   --sky-soft: #ddf3ff;
+  /* solid fills that carry small text (labels, badges, captions): AA contrast with --on-strong */
+  --egress-strong: #0a7a46;
+  --caution-strong: #9a5b00;
+  --danger-strong: #c42433;
+  --sky-strong: #0a6c9c;
+  --on-strong: #ffffff;
   --pink: #e8458f;
   --pink-soft: #ffe4f1;
   --orange: #f2711c;
@@ -63,6 +69,11 @@
   --danger-soft: #3d1820;
   --sky: #4cc3ff;
   --sky-soft: #13304a;
+  --egress-strong: #3bd38a;
+  --caution-strong: #ffb53d;
+  --danger-strong: #ff6b78;
+  --sky-strong: #4cc3ff;
+  --on-strong: #0f0e24;
   --pink: #ff74b3;
   --pink-soft: #3d1830;
   --orange: #ff9a4d;
@@ -93,6 +104,11 @@
   --color-signal-soft: var(--signal-soft);
   --color-egress: var(--egress);
   --color-egress-soft: var(--egress-soft);
+  --color-egress-strong: var(--egress-strong);
+  --color-caution-strong: var(--caution-strong);
+  --color-danger-strong: var(--danger-strong);
+  --color-sky-strong: var(--sky-strong);
+  --color-on-strong: var(--on-strong);
   --color-caution: var(--caution);
   --color-caution-soft: var(--caution-soft);
   --color-danger: var(--danger);

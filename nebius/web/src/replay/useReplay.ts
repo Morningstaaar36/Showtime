@@ -1,6 +1,7 @@
 /** Load a run's trajectory and density grid as binary ArrayBuffers (never as large JSON). */
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
+import type { Venue } from "@/api/types";
 import { DensityGrid, type DensityIndex } from "./density";
 import { type AgentKinds, parseAgentKinds } from "./kinds";
 import { Trajectory, type TrajIndex } from "./trajectory";
@@ -12,13 +13,17 @@ export interface Replay {
   kinds: AgentKinds | null;
 }
 
-/** A server without GET /runs/{id}/agents (before G2-04) answers 404: ask once per page load, not
- * once per run, so the console stays clean. */
+/** Who each person is. Only a venue with people groups has anyone but general adults, so other
+ * runs never ask; a server without GET /runs/{id}/agents (before G2-04) answers 404, after which
+ * this page load stops asking. */
 let agentsUnsupported = false;
+
+const hasGroups = (v: Venue) => v.floors.some((f) => f.zones.some((z) => (z.groups ?? []).some((g) => g.kind !== "general" && g.share > 0)));
 
 async function agentKinds(runId: string, signal: AbortSignal): Promise<AgentKinds | null> {
   if (agentsUnsupported) return null;
   try {
+    if (!hasGroups(await api.get<Venue>(`/runs/${runId}/venue`, signal))) return null;
     return parseAgentKinds(await api.get<unknown>(`/runs/${runId}/agents`, signal));
   } catch (e) {
     // the run itself exists (its trajectory just loaded), so a 404 means the route is missing

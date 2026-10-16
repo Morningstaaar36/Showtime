@@ -509,7 +509,7 @@ function ExitGate({ exit, floor, palette, outdoor, blocked, selected, proposed, 
       )}
       {labels && (
         <SceneHtml position={[0, h + 0.7, 0]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
-          <div className={`whitespace-nowrap rounded-[3px] px-1.5 py-0.5 text-2xs font-semibold shadow-sm tabular ${blocked ? "bg-danger text-white" : "bg-egress text-white"}`}>
+          <div className={`whitespace-nowrap rounded-[3px] px-1.5 py-0.5 text-2xs font-semibold shadow-sm tabular ${blocked ? "bg-danger-strong text-on-strong" : "bg-egress-strong text-on-strong"}`}>
             {exitName(floor, exit)} · {fmtNum(exit.width_m, 1)} m{blocked ? " · blocked" : ""}{proposed ? " · proposed" : ""}{locked ? " · locked" : ""}
           </div>
         </SceneHtml>

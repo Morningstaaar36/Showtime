@@ -5,22 +5,45 @@ import type { Pt, RunResult, Venue, WhatIfOut } from "@/api/types";
 import { t } from "@/i18n";
 import { fmtInt } from "@/lib/format";
 import { exitName } from "@/lib/venueText";
-import { bbox, centroid, floorY, venueBounds } from "@/scene/geom";
+import { bbox, centroid, floorsBottomUp, floorY, venueBounds } from "@/scene/geom";
 import { useUi } from "@/state/ui";
 
 interface Shot { pos: [number, number, number]; target: [number, number, number]; caption: string; ms?: number }
 
 const mmss = (s: number) => `${Math.floor(s / 60)} minutes ${Math.round(s % 60)} seconds`;
 
-function buildShots(venue: Venue, run: RunResult | null | undefined, what: WhatIfOut | null): Shot[] {
+export function buildShots(venue: Venue, run: RunResult | null | undefined, what: WhatIfOut | null): Shot[] {
   const [x0, y0, x1, y1] = venueBounds(venue);
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, span = Math.max(x1 - x0, y1 - y0, 20);
   const people = venue.floors.reduce((n, f) => n + f.zones.reduce((m, z) => m + z.people, 0), 0);
   const exits = venue.floors.flatMap((f) => f.exits.map((e) => ({ f, e })));
   const shots: Shot[] = [{
     pos: [cx - span * 0.35, span * 0.95, -cy + span * 0.95], target: [cx, 0, -cy],
-    caption: `${venue.name}. An ${venue.mode === "indoor" ? "indoor" : "open-air"} plan for ${fmtInt(people)} people, with ${exits.length} exits.`,
+    caption: `${venue.name}. An ${venue.mode === "indoor" ? "indoor" : "open-air"} plan for ${fmtInt(people)} people, with ${exits.length} ${exits.length === 1 ? "exit" : "exits"}${
+      venue.floors.length > 1 ? ` on ${venue.floors.length} floors` : ""}.`,
   }];
+  // a building: how the floors are joined, and how many people are on each
+  const stairs = venue.stairs ?? [];
+  if (venue.floors.length > 1 && stairs.length) {
+    const narrow = [...stairs].sort((a, b) => a.width_m - b.width_m)[0];
+    const [sx, sy] = centroid(narrow.top_polygon as Pt[]);
+    const y = floorY(venue, narrow.to_floor, false);
+    const perFloor = floorsBottomUp(venue).map((f) => `${f.name || f.floor_id} ${fmtInt(f.zones.reduce((n, z) => n + z.people, 0))}`).join(", ");
+    shots.push({
+      pos: [sx + 16, y + 16, -sy + 16], target: [sx, y + 2, -sy],
+      caption: `${stairs.length} ${stairs.length === 1 ? "stair joins" : "stairs join"} the floors; the narrowest is ${narrow.width_m.toFixed(1)} metres wide. People per floor: ${perFloor}.`,
+      ms: 5200,
+    });
+  }
+  // who is in the crowd, when the plan says (patients, children, wheelchair users…)
+  const mix = new Map<string, number>();
+  for (const f of venue.floors) for (const z of f.zones) for (const g of z.groups ?? []) {
+    if (g.kind !== "general" && g.share > 0) mix.set(g.kind, (mix.get(g.kind) ?? 0) + Math.round(g.share * z.people));
+  }
+  if (mix.size) {
+    const who = [...mix.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${fmtInt(n)} ${t(`editor.people.${k}`).toLowerCase()}`).join(", ");
+    shots.push({ pos: [cx - span * 0.5, span * 0.7, -cy + span * 0.5], target: [cx, 0, -cy], caption: `Among them: ${who}. They move at their own pace in the simulation.` });
+  }
   for (const f of venue.floors) {
     const stage = f.obstacles.find((o) => o.kind === "stage");
     if (!stage) continue;

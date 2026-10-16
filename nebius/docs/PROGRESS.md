@@ -689,3 +689,28 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
 - Text helpers in `journey/plan/seeds.ts` (3 vitest cases); Playwright `e2e/seed-check.spec.ts`
   (quick session → 2 more seeds → range over 3 seeds with bases and the run list) passes in the
   Docker sandbox; it skips with the fake sandbox.
+
+## 2026-10-17 — Saif: frontend release quality (S-02)
+
+- New `e2e/release-quality.spec.ts` (with `@axe-core/playwright` 4.10.2, dev only): no console
+  errors on 15 pages (home, projects, welcome, settings, help, map, 404, the three simple
+  screens, the four Expert modes, scripts); axe WCAG 2.0/2.1/2.2 A+AA on the three simple
+  screens plus home and the map page, light and dark (the 3D canvas and the map tiles are
+  excluded: they are pictures with text next to them); Tab reaches each simple screen's primary
+  action with a visible focus; no sideways scroll at 320, 375 and 414 px on seven screens.
+  5/5 pass.
+- Fixed on the way:
+  - Contrast: white text on the bright safety colours was 2.9–3.4:1 (exit labels in 3D,
+    hotspot labels, journey step circles, replay captions, before/after chips, the danger
+    button). New tokens `--egress-strong`, `--caution-strong`, `--danger-strong`,
+    `--sky-strong` with `--on-strong` text (white in light, near-black in dark), all ≥ 5:1.
+  - The 3D view's container had `aria-label` without a role; it is `role="img"` now.
+  - Run pages logged a 404 for `/runs/{id}/agents` (G2-04 not merged): it is now asked only when
+    the run's venue has people groups, and at most once per page load.
+  - Sideways scroll: Home's header at 320 px (the wordmark hides below 360 px), Your plan's
+    grids (`grid-cols-1` so tracks can shrink), the replay timeline (shrinkable), and the
+    "Scenario written as code" badge (wraps).
+- Onboarding (`/welcome`) has "Any building, any number of floors" with a way to the map. The
+  camera tour mentions the floors, adds a stairs shot ("2 stairs join the floors; the narrowest
+  is 1.2 metres wide. People per floor: …") and who is in the crowd when areas have groups
+  (`Tour.test.ts`, 2 cases). vitest 167.
