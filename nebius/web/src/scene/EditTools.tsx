@@ -4,6 +4,9 @@ import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { Pt, Venue } from "@/api/types";
 import { lockedIds } from "@/lib/annotations";
+import { stairWell } from "@/lib/buildTools";
+import { nearestWall, roomFromCorners, roomOutline } from "@/lib/venueOps";
+import { useBuild } from "@/state/build";
 import { fmtNum } from "@/lib/format";
 import type { ObjectChange } from "@/lib/venueDiff";
 import { useUi } from "@/state/ui";
@@ -69,6 +72,7 @@ export function DraftPreview({ venue, exploded, palette, cursor }: {
 }) {
   const tool = useUi((s) => s.tool);
   const draft = useUi((s) => s.draft);
+  const opts = useBuild((s) => s.opts);
   const floorId = cursor?.floorId ?? venue.floors[0].floor_id;
   const y = floorY(venue, floorId, exploded) + 0.06;
   const pts = useMemo(() => {
@@ -91,15 +95,36 @@ export function DraftPreview({ venue, exploded, palette, cursor }: {
       </group>
     );
   }
-  if ((tool === "barrier" || tool === "zone" || tool === "measure") && pts.length >= 1) {
+  const outline = (poly: Pt[], color: string) => (
+    <Line points={[...poly, poly[0]].map((p) => new THREE.Vector3(p[0], y + 0.02, -p[1]))} color={color} lineWidth={3} dashed dashSize={0.5} gapSize={0.3} />
+  );
+  if (tool === "room" && draft.length === 1 && cursor) {
+    return outline(roomOutline(roomFromCorners(draft[0], [cursor.x, cursor.y])), palette.signal);
+  }
+  if (tool === "stair" && cursor) {
+    return outline(stairWell(cursor.x, cursor.y, opts.stairDirection, opts.stairWidth, opts.stairRun), palette.signal);
+  }
+  if (tool === "door" && cursor) {
+    const floor = venue.floors.find((f) => f.floor_id === cursor.floorId);
+    const hit = floor ? nearestWall(floor, cursor.x, cursor.y) : null;
+    if (!hit || hit.dist > 1.5) return null;
+    const [a, b] = hit.segment;
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const [ux, uy] = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    const half = opts.doorWidth / 2;
+    const gap = [[hit.point[0] - ux * half, hit.point[1] - uy * half], [hit.point[0] + ux * half, hit.point[1] + uy * half]] as Pt[];
+    return <Line points={gap.map((p) => new THREE.Vector3(p[0], y + 0.4, -p[1]))} color={palette.egress} lineWidth={6} />;
+  }
+  if ((tool === "barrier" || tool === "zone" || tool === "measure" || tool === "wall" || tool === "route") && pts.length >= 1) {
     const closed = tool === "zone" && pts.length >= 3 ? [...pts, pts[0]] : pts;
     let length = 0;
     for (let i = 1; i < pts.length; i++) length += pts[i].distanceTo(pts[i - 1]);
     const last = pts[pts.length - 1];
-    const color = tool === "barrier" ? palette.ink : tool === "zone" ? palette.zone : palette.signal;
+    const solid = tool === "barrier" || tool === "wall";
+    const color = solid ? palette.ink : tool === "zone" ? palette.zone : palette.signal;
     return (
       <group>
-        {closed.length >= 2 && <Line points={closed} color={color} lineWidth={tool === "barrier" ? 4 : 2} dashed={tool !== "barrier"} dashSize={0.6} gapSize={0.35} />}
+        {closed.length >= 2 && <Line points={closed} color={color} lineWidth={solid ? 4 : 2} dashed={!solid} dashSize={0.6} gapSize={0.35} />}
         {pts.map((p, i) => (
           <mesh key={i} position={p}>
             <sphereGeometry args={[0.18, 12, 12]} />

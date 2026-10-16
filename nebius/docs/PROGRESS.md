@@ -534,3 +534,25 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
   Playwright 7/7 with the real model and Docker.
 - Work split updated (TEAM_TASK_ALLOCATION.md §12): seed check backend done; its screen is
   Saif's S-09; Ridwan takes the real-life examples (R-01).
+
+## 2026-10-17 — Saif: building tools in the editor (G3-01)
+
+- Expert view › Plan: the tool rail has a Building group (wall W, door D, room O, stairs S,
+  walking route P) and a floor button (floor to edit, add a floor on top, remove a floor). Tools
+  act on `editFloor`; on a multi-storey venue the 3D view shows that floor alone while a tool is
+  active, and picking a floor in the floor switcher makes it the edit floor.
+- Rules for each click live in `web/src/lib/buildTools.ts` (pure, 11 vitest cases) on top of the
+  tested `venueOps.ts` builders. Walls and routes: click corners, Enter or double-click to
+  finish, Backspace removes a corner. Rooms: two corners, or typed south-west corner and size.
+  Stairs: click the middle, or type it; the panel says which floors they connect. Clicks on
+  doors, walls and crowd areas count as clicks on the floor while a building tool is active.
+- Right-hand panel shows the hint, the tool's options (door width, room door side, stair
+  width/length/direction, route width and name) and the typed forms. Selected stairs show
+  their floors and size with "Remove stairs". The simple check screen has a "Floors and
+  rooms" card (add or remove a floor, link to the drawing tools). Help lists the new keys.
+- Every change is a patch: a new version, a toast with Undo, Ctrl+Z / Ctrl+Shift+Z.
+- Also: `ScriptCode.tsx`/`scriptCode.ts` and `AskAnything.tsx`/`askAnything.ts` clashed on
+  case-insensitive disks (macOS `tsc -b` failed); helpers renamed `scriptSource.ts`, `askModel.ts`.
+- Checks: eslint 0 warnings, `tsc -b`, vitest 140; Playwright `e2e/building-tools.spec.ts`
+  (add floor → stairs → room → undo → redo, checked through the API) passes against the app
+  with fake providers.

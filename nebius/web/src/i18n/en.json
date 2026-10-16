@@ -209,7 +209,7 @@
       "door": "Click an inner wall to cut a door in it.",
       "room": "Click one corner of the room, then the opposite corner.",
       "room_second": "Now click the opposite corner.",
-      "stair": "Click where the stairs start on this floor.",
+      "stair": "Click where the middle of the stairs goes on this floor.",
       "route": "Click along the route in walking order. Double-click or press Enter to finish."
     },
     "points": "{n} corners",
@@ -236,7 +236,9 @@
       "msg_removed": "Removed {name}",
       "ground": "Ground floor",
       "count": "{n} floors",
-      "one": "1 floor"
+      "one": "1 floor",
+      "summary": "{n} people · {w} walls",
+      "remove_named": "Remove {name}"
     },
     "errors": {
       "door_no_wall": "Click on an inner wall to add a door. Draw a wall first if there is none.",
@@ -267,10 +269,11 @@
       "room_width": "Width, east–west (m)",
       "room_depth": "Depth, north–south (m)",
       "typed_room": "Or type the south-west corner and the size",
-      "typed_stair": "Or type where the stairs start",
+      "typed_stair": "Or type where the middle of the stairs goes",
       "add_room": "Add room",
       "add_stair": "Add stairs",
-      "stair_connects": "Connects {from} and {to}."
+      "stair_connects": "Connects {from} and {to}.",
+      "thickness": "Wall thickness"
     },
     "msg": {
       "wall": "Added a wall",
@@ -728,7 +731,14 @@
     "tech_wind_body": "Pynite frame model of the stage roof with ASCE 7 wind pressure q = 0.613·Kz·Kzt·Kd·V². Gust speed at which ballast stops resisting uplift, sliding or overturning. A screening estimate, not a structural design.",
     "tech_latest": "Latest safe time to start evacuating",
     "tech_latest_body": "T_hazard − (pre-movement + evacuation time × safety factor). The hazard is the first forecast gust above the wind limit (Open-Meteo) or the scenario time when a route is lost.",
-    "tech_glossary": "Full technical glossary"
+    "tech_glossary": "Full technical glossary",
+    "sc_wall": "Draw wall",
+    "sc_door": "Add door in a wall",
+    "sc_room": "Add room",
+    "sc_stair": "Add stairs",
+    "sc_route": "Draw walking route",
+    "sc_finish": "Finish a wall or route",
+    "sc_undo_point": "Remove the last corner"
   },
   "copilot": {
     "label": "Describe your event",

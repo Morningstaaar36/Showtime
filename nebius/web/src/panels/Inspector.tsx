@@ -25,6 +25,8 @@ import { WindPanel } from "./WindPanel";
 import type { CountdownOut } from "@/api/types";
 
 import { annotationOf } from "@/lib/annotations";
+import { removeStairOp } from "@/lib/venueOps";
+import { floorNamer } from "./FloorMenu";
 import { displayNames } from "@/lib/venueText";
 export { textHumanizer } from "@/lib/venueText";
 
@@ -196,6 +198,21 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
   const exit = floor.exits.find((e) => e.id === selection.id);
   const zone = floor.zones.find((z) => z.id === selection.id);
   const obstacle = floor.obstacles.find((o) => o.id === selection.id);
+  const stair = (venue.stairs ?? []).find((x) => x.id === selection.id);
+
+  if (stair) {
+    const name = floorNamer(venue);
+    return (
+      <section className="space-y-3">
+        <PanelTitle action={<Badge tone="outline">{t("editor.stair.title")}</Badge>}>{stair.id}</PanelTitle>
+        <p className="text-sm">{t("editor.stair.between", { from: name(stair.from_floor), to: name(stair.to_floor) })}</p>
+        <p className="text-sm text-muted">{t("editor.stair.size", { w: fmtNum(stair.width_m, 1), l: fmtNum(stair.length_m, 1) })}</p>
+        <Button variant="danger-ghost" size="sm" onClick={() => { run([removeStairOp(stair.id)], t("editor.msg.stair_removed")); select(null); }}>
+          <Trash2 />{t("editor.stair.remove")}
+        </Button>
+      </section>
+    );
+  }
 
   if (exit) {
     return (

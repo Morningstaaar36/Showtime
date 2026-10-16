@@ -6,7 +6,7 @@ import { type ReactNode, Suspense, useMemo, useRef, useState } from "react";
 import type { Exit, Floor, Hotspot, Venue } from "@/api/types";
 import type { ObjectChange } from "@/lib/venueDiff";
 import type { Replay } from "@/replay/useReplay";
-import { useUi } from "@/state/ui";
+import { isBuildTool, useUi } from "@/state/ui";
 import { CameraRig } from "./CameraRig";
 import { ChangeHighlights, DraftPreview, MoveGizmo } from "./EditTools";
 import { resolveFloorView, venueBounds } from "./geom";
@@ -54,6 +54,9 @@ export function SceneRoot(p: SceneProps) {
   const cx = (x0 + x1) / 2;
   const cy = (y0 + y1) / 2;
   const drawing = tool !== "select" && tool !== "block";
+  // building tools draw over doors, walls and crowd areas: a click on them is a click on the floor there
+  const building = p.editable && isBuildTool(tool);
+  const asFloorClick = (f: Floor, e: ThreeEvent<MouseEvent>) => p.onFloorClick(f, e.point.x, -e.point.z);
   const showAgents = layers.people && p.replay;
   const site = useMemo(() => osmSite(p.venue), [p.venue]);
   const labelLayer = useRef<HTMLDivElement>(null);
@@ -122,8 +125,8 @@ export function SceneRoot(p: SceneProps) {
           selectedId={selection?.id ?? null}
           blocked={blocked}
           peopleOverride={p.peopleOverride}
-          onExitClick={(e, f, ev: ThreeEvent<MouseEvent>) => { ev.stopPropagation(); p.onExitClick(e, f); }}
-          onObjectClick={(k, id, f) => p.onObjectClick(k, id, f)}
+          onExitClick={(e, f, ev: ThreeEvent<MouseEvent>) => { ev.stopPropagation(); if (building) asFloorClick(f, ev); else p.onExitClick(e, f); }}
+          onObjectClick={(k, id, f, ev) => { if (building) asFloorClick(f, ev); else p.onObjectClick(k, id, f); }}
           onFloorClick={(f, x, y) => p.onFloorClick(f, x, y)}
           onFloorDoubleClick={(f, x, y) => p.onFloorDoubleClick(f, x, y)}
           onFloorMove={drawing ? (f, x, y) => setCursor({ floorId: f.floor_id, x, y }) : undefined}

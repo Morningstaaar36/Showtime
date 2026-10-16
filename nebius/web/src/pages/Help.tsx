@@ -39,6 +39,8 @@ const SHORTCUTS: [string[], string][] = [
   [["Ctrl", "Z"], "sc_undo"], [["Ctrl", "Shift", "Z"], "sc_redo"], [["Space"], "sc_play"],
   [["R"], "sc_stress"], [["/"], "sc_type"], [["V"], "sc_select"], [["E"], "sc_exit"],
   [["B"], "sc_barrier"], [["Z"], "sc_zone"], [["M"], "sc_measure"], [["X"], "sc_block"], [["Esc"], "sc_cancel"],
+  [["W"], "sc_wall"], [["D"], "sc_door"], [["O"], "sc_room"], [["S"], "sc_stair"], [["P"], "sc_route"],
+  [["Enter"], "sc_finish"], [["Backspace"], "sc_undo_point"],
   [["1"], "sc_plan"], [["2"], "sc_simulate"], [["3"], "sc_redteam"], [["4"], "sc_report"],
 ];
 
