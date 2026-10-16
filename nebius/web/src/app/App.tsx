@@ -49,7 +49,9 @@ export function App() {
         <Route path="/help" element={<HelpPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <Toaster position="bottom-right" closeButton toastOptions={{
+      {/* bottom-left: the primary actions ("Test this plan", "Run stress test") sit on the right, and a
+          "saved as version N" toast over them swallowed the click (G3-06) */}
+      <Toaster position="bottom-left" closeButton toastOptions={{
         className: "!rounded-[10px] !border !border-border !bg-surface !text-ink !shadow-[var(--shadow-float)] !font-sans",
       }} />
     </TooltipProvider>

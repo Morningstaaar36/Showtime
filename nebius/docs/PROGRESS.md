@@ -622,3 +622,29 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
   arrow keys → the request carries `surroundings_m: 80`) passes.
 - **Waits on G2-06** (Ridwan): today's server ignores the field. For the badge, please record the
   distance used as `extensions.building.surroundings_m` on the venue.
+
+## 2026-10-17 — Saif: scenario viewer, event markers, "Test this plan" fix (G3-06)
+
+- Your plan: "Every scenario the AI tested" replaces the top-3 risks list: the plan as drawn,
+  each attack (with its source and AI-written code), the fixes tried under it (kept or not), the
+  attack re-run with the changes kept so far, and the final before/after checks, each with its
+  verdict (holds, breaks, preview, not confirmed, running, did not finish) and its 95% time and
+  peak density. Clicking a row plays that run; "Back to before and after" returns to the pair.
+- The replay has a timeline under it with markers for the scenario's events (attack events and
+  the fixes' operational steps) and a caption over the replay while each happens, e.g. "South
+  door 1 blocked at 1:00", "1,200 more people into Audience at 0:30". Captions come from the
+  attack and fix definitions (`journey/plan/scenarios.ts`, 6 vitest cases): the sim's event log
+  records the time but not the exit or zone.
+- Multi-storey replays get "People on each floor" (one line per floor, with a text summary).
+- **The intermittent "Test this plan" failure** (once in two runs on 15 Oct): the "saved as
+  version N" toasts of the edits just made opened bottom-right, on top of the button. A
+  two-line toast (the door-width message) covered the button's centre, so the click landed on
+  the toast and nothing started; shorter messages or toasts already gone let it work, hence
+  "intermittent". Reproduced with `elementFromPoint` after the guided journey's edits. Toasts
+  now open bottom-left (the primary actions are on the right). `e2e/test-plan-click.spec.ts`
+  checks the toast column against the button: it fails with bottom-right, passes now.
+- `/runs/{id}/agents` (G3-03) is asked once per page load on servers without it, so the console
+  shows at most one 404 until G2-04 lands.
+- Playwright `e2e/scenario-viewer.spec.ts` (quick session on the school wing in the Docker
+  sandbox → list with verdicts → play an attack → seek to its marker → caption) passes.
+- Full Playwright suite: 12/12 passed (fake model, Docker sandbox), guided journey included.

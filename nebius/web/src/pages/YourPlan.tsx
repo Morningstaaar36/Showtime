@@ -2,7 +2,7 @@
  * tests show, the AI's tested changes to choose from, the before/after replay, how the plan was
  * made, a box to ask or change anything, and the next steps. Every number comes from a run of a
  * known venue version and says what it is based on. */
-import { ExternalLink, RotateCcw, ShieldQuestion } from "lucide-react";
+import { RotateCcw, ShieldQuestion } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -10,12 +10,10 @@ import { api } from "@/api/client";
 import { useApplyFixes, usePlan, useProject, useRun, useRunVenue, useSession, useSessions, useSettings, useStartSession, useUndo, useVersions } from "@/api/queries";
 import type { Countdown, Fix, RunOut } from "@/api/types";
 import { useSessionStream } from "@/api/useSessionStream";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton, Spinner } from "@/components/ui/misc";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
-import { ScriptCode } from "@/journey/ScriptCode";
 import { AskAnything } from "@/journey/AskAnything";
 import type { ProposalPreview } from "@/journey/AskChange";
 import { JourneyShell } from "@/journey/JourneyShell";
@@ -28,7 +26,7 @@ import { SavedActions } from "@/journey/plan/SavedActions";
 import { planState } from "@/journey/plan/state";
 import { StressPanel } from "@/journey/plan/StressPanel";
 import { type KeyNumber, VerdictBanner } from "@/journey/plan/VerdictBanner";
-import { runBasisLabel, runOutcome } from "@/lib/evidence";
+import { runBasisLabel } from "@/lib/evidence";
 import { fmtDuration, fmtHM, fmtInt, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { displayNames, textHumanizer } from "@/lib/venueText";
@@ -39,6 +37,10 @@ import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import { QUICK_TEST } from "./CheckVenue";
 import { PeopleLegend } from "@/panels/Overlays";
+import { Timeline } from "@/panels/Timeline";
+import { floorNamer } from "@/panels/FloorMenu";
+import { FloorChart, ReplayCaption, ScenarioList } from "@/journey/plan/ScenarioViewer";
+import { type ScenarioRow, scenarioMarkers, scenarioRows } from "@/journey/plan/scenarios";
 import { FloorSwitch } from "@/panels/FloorSwitch";
 
 export function countdownText(c: Countdown | null | undefined): string {
@@ -73,6 +75,8 @@ export function YourPlanPage() {
   const [proposal, setProposal] = useState<ProposalPreview | null>(null);
   // the organizer's choice of kept fixes, per session (default: all of them)
   const [choice, setChoice] = useState<{ sid: string | null; ids: Set<string> } | null>(null);
+  // a scenario picked from the list replays instead of the before/after pair
+  const [picked, setPicked] = useState<{ sid: string | null; row: ScenarioRow } | null>(null);
 
   useEffect(() => { useUi.getState().resetForProject(); usePlayback.getState().reset(); }, [projectId]);
 
@@ -83,7 +87,9 @@ export function YourPlanPage() {
   const before = useRun(beforeId);
   const hasAfter = usable(after.data);
   const shownSide = hasAfter && side === "after" ? "after" : "before";
-  const shown = shownSide === "after" ? after.data : before.data;
+  const pickedRow = picked && picked.sid === sessionId ? picked.row : null;
+  const pickedRun = useRun(pickedRow?.runId ?? null);
+  const shown = pickedRow ? pickedRun.data : shownSide === "after" ? after.data : before.data;
   const shownId = usable(shown) ? shown!.id : null;
   const replay = useReplay(shownId, true);
   const shownVenue = useRunVenue(shownId);
@@ -110,6 +116,8 @@ export function YourPlanPage() {
     return (summary?.accepted_fixes ?? []).map((id) => fixes.find((f) => f.fix_id === id)).filter((f): f is Fix => !!f);
   }, [summary]);
   const deps = useMemo(() => fixDependencies(kept), [kept]);
+  const rows = useMemo(() => scenarioRows(view.nodes, view.runs, summary?.attacks ?? [], summary?.fixes ?? [], human),
+    [view.nodes, view.runs, summary, human]);
 
   if (project.isError) {
     const missing = (project.error as { status?: number }).status === 404;
@@ -132,6 +140,7 @@ export function YourPlanPage() {
   }
 
   const label = (id: string) => names.get(id) ?? id;
+  const floorName = floorNamer(venue);
   const testAgain = () => start.mutate({ project_id: p.id, config: QUICK_TEST }, {
     onSuccess: (s) => navigate(`/p/${p.id}/work?session=${s.id}&live=1`),
     onError: (e) => toast.error(e.message),
@@ -208,7 +217,19 @@ export function YourPlanPage() {
   const under = `${worst ? t("yourplan.under", { attack: human(worst.title) }) : t("yourplan.under_baseline")}${hasAfter ? ` ${t("yourplan.with_changes")}` : ""}${subset}`;
   const judge = summary?.judge_text ? `${human(summary.judge_text)}${summary.numbers_checked ? ` ${t("yourplan.numbers_checked")}` : ""}` : null;
   const attackTitle = (id: string) => summary?.attacks?.find((a) => a.attack_id === id)?.title ?? id;
-  const risks = (summary?.attacks ?? []).slice(0, 3);
+  const allFixes = summary?.fixes ?? [];
+  const markers = (() => {
+    if (pickedRow) {
+      const atk = summary?.attacks?.find((a) => a.attack_id === pickedRow.attackId);
+      const parent = pickedRow.kind === "fix" ? rows.find((r) => r.children.some((c) => c.key === pickedRow.key)) : undefined;
+      const attackOf = atk ?? summary?.attacks?.find((a) => a.attack_id === parent?.attackId);
+      const fixesOf = pickedRow.kind === "fix" ? allFixes.filter((f) => f.fix_id === pickedRow.fixId)
+        : pickedRow.key === "final:after" || pickedRow.key.includes(":current:") ? kept : [];
+      return scenarioMarkers(attackOf, fixesOf, label);
+    }
+    return scenarioMarkers(worst, shownSide === "after" ? kept : [], label);
+  })();
+  const pick = (row: ScenarioRow) => { setPicked({ sid: sessionId, row }); usePlayback.getState().setT(0); };
   const deciding = state === "pending" && kept.length > 0;
   const primary = deciding || state === "accepted_subset" ? null : state === "stale" ? "test" : "report";
   const previewing = !!proposal;
@@ -238,12 +259,13 @@ export function YourPlanPage() {
                     onAccept={accept} accepting={apply.isPending} onTestAgain={testAgain} testing={start.isPending} />
 
         <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+          <div className="min-w-0 space-y-2">
           <section aria-label={t("yourplan.replay")} className="relative h-[50vh] min-h-80 overflow-hidden rounded-[10px] border border-border">
             <FloorSwitch venue={venue} className="absolute bottom-12 left-3 z-50" />
             <SceneRoot venue={previewing ? proposal.venue : shownVenue.data ?? venue} replay={previewing ? null : replay.data ?? null} hotspots={[]} marshals={[]}
                        editable={false} resetNonce={0} quality="low" highlights={previewing ? proposal.changes : undefined}
                        onExitClick={noop} onObjectClick={noop} onFloorClick={noop} onFloorDoubleClick={noop} onMove={noop} onHotspot={noop} />
-            {!previewing && hasAfter && usable(before.data) && (
+            {!previewing && !pickedRow && hasAfter && usable(before.data) && (
               <div role="group" aria-label={t("yourplan.before_after")} className="absolute left-1/2 top-3 flex -translate-x-1/2 rounded-[8px] bg-surface p-0.5 shadow-[var(--shadow-float)]">
                 {(["before", "after"] as const).map((s) => (
                   <button key={s} type="button" aria-pressed={shownSide === s} onClick={() => setSide(s)}
@@ -253,37 +275,22 @@ export function YourPlanPage() {
                 ))}
               </div>
             )}
+            {!previewing && pickedRow && (
+              <div className="absolute inset-x-3 top-3 z-40 flex items-start justify-between gap-2">
+                <p className="min-w-0 truncate rounded-full bg-surface/95 px-3 py-1 text-sm font-medium shadow-sm">{pickedRow.title}</p>
+                <Button size="sm" className="shrink-0 shadow-sm" onClick={() => setPicked(null)}>{t("yourplan.sc_back")}</Button>
+              </div>
+            )}
+            {!previewing && replay.data && <ReplayCaption markers={markers} className="absolute inset-x-0 top-16 z-40 flex justify-center px-3" />}
             {!previewing && <PeopleLegend replay={replay.data} className="absolute right-3 top-14 z-40 w-52" />}
             {!previewing && <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-surface/95 px-3 py-1 text-xs shadow-sm">{shown ? runBasisLabel(shown.result) : t("evidence.basis.unknown")}</span>}
           </section>
+          {!previewing && replay.data && <Timeline markers={markers} />}
+          {!previewing && replay.data && venue.floors.length > 1 && <FloorChart traj={replay.data.traj} floorName={floorName} />}
+          </div>
 
           <div className="space-y-4">
-            <section aria-labelledby="risks-h" className="space-y-2 rounded-[10px] border border-border bg-surface p-4">
-              <h2 id="risks-h" className="font-semibold">{t("yourplan.risks")}</h2>
-              {risks.length === 0 ? <p className="text-sm text-muted">{t("yourplan.no_risks")}</p> : (
-                <ul className="space-y-2">
-                  {risks.map((a) => {
-                    const node = view.nodes[`atk:${a.attack_id}`];
-                    const r = node ? view.runs[node.run_id] : undefined;
-                    const outcome = r ? runOutcome(r) : null;
-                    return (
-                      <li key={a.attack_id} className="rounded-[8px] border border-border p-2.5 text-sm">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-medium">{human(a.title)}</p>
-                          {outcome && (outcome === "break" ? <Badge tone="danger">{t("work.breaks")}</Badge> : outcome === "holds" ? <Badge tone="egress">{t("work.holds")}</Badge> : <Badge tone="neutral">{t(outcome === "preview" ? "work.preview" : "work.unknown")}</Badge>)}
-                        </div>
-                        {a.inspired_by?.source_url && (
-                          <a href={a.inspired_by.source_url} target="_blank" rel="noreferrer" className="mt-1 flex min-h-11 items-center gap-1 text-xs text-signal hover:underline">
-                            <ExternalLink className="size-3" />{t("work.inspired_by", { what: `${a.inspired_by.incident}${a.inspired_by.year ? ` (${a.inspired_by.year})` : ""}` })}
-                          </a>
-                        )}
-                        <ScriptCode attack={a} />
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
+            <ScenarioList rows={rows} pickedRun={pickedRow?.runId ?? null} onPick={pick} attacks={summary?.attacks ?? []} />
             {selectedPlan.data && <SavedActions actions={selectedPlan.data.plan.actions} version={selectedPlan.data.version} projectId={p.id} name={label} />}
           </div>
         </div>

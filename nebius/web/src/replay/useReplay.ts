@@ -12,6 +12,21 @@ export interface Replay {
   kinds: AgentKinds | null;
 }
 
+/** A server without GET /runs/{id}/agents (before G2-04) answers 404: ask once per page load, not
+ * once per run, so the console stays clean. */
+let agentsUnsupported = false;
+
+async function agentKinds(runId: string, signal: AbortSignal): Promise<AgentKinds | null> {
+  if (agentsUnsupported) return null;
+  try {
+    return parseAgentKinds(await api.get<unknown>(`/runs/${runId}/agents`, signal));
+  } catch (e) {
+    // the run itself exists (its trajectory just loaded), so a 404 means the route is missing
+    if ((e as { status?: number }).status === 404) agentsUnsupported = true;
+    return null;
+  }
+}
+
 export function useReplay(runId: string | null | undefined, enabled = true) {
   return useQuery({
     queryKey: ["replay", runId],
@@ -24,7 +39,7 @@ export function useReplay(runId: string | null | undefined, enabled = true) {
         api.get<TrajIndex>(`/runs/${runId}/trajectory/index`, signal),
         api.binary(`/runs/${runId}/trajectory`, signal),
         // an older server has no /agents: everyone is drawn as a general adult
-        api.get<unknown>(`/runs/${runId}/agents`, signal).then(parseAgentKinds, () => null),
+        agentKinds(runId!, signal),
       ]);
       let density: DensityGrid | null = null;
       try {
