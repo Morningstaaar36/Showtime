@@ -46,8 +46,14 @@ const SHORTCUTS: [string[], string][] = [
 
 const TECH = ["tech_instant", "tech_sim", "tech_density", "tech_evac", "tech_wind", "tech_latest"];
 
-const SECTIONS = ["how", "numbers", "validation", "limits", "glossary", "shortcuts"];
+const SECTIONS = ["how", "numbers", "verdict", "validation", "limits", "glossary", "shortcuts"];
 const sectionLabel = (s: string) => (s === "validation" ? t("validation.nav") : t(`help.${s}`));
+
+/** The verdict headline (what the numbers show) and the badge next to it (how sure they are). */
+const VERDICT_TERMS = [
+  ["v_holds", "border-t-egress"], ["v_at_risk", "border-t-caution"], ["v_fails", "border-t-danger"],
+  ["v_confirmed", "border-t-egress"], ["v_partly", "border-t-caution"], ["v_unconfirmed", "border-t-line"], ["v_failed", "border-t-danger"],
+] as const;
 
 const VALIDATION_LIMITS = ["limit_forces", "limit_motivation", "limit_density", "limit_scope"];
 
@@ -81,6 +87,17 @@ export function HelpPage() {
             ))}
           </ol>
           <Button asChild variant="primary" size="lg" className="mt-5"><Link to="/">{t("help.start")}</Link></Button>
+        </Section>
+
+        <Section id="verdict" title={t("help.verdict")} lead={t("help.verdict_lead")}>
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {VERDICT_TERMS.map(([k, tone]) => (
+              <div key={k} className={cn("rounded-[var(--radius-panel)] border border-t-4 border-border bg-surface p-4 shadow-sm", tone)}>
+                <dt className="font-bold">{t(`help.${k}`)}</dt>
+                <dd className="mt-1 text-sm text-muted">{t(`help.${k}_body`)}</dd>
+              </div>
+            ))}
+          </dl>
         </Section>
 
         <Section id="numbers" title={t("help.numbers_title")} lead={t("help.numbers_lead")}>

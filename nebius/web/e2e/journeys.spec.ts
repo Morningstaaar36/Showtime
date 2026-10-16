@@ -110,6 +110,9 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
   await expect(verdict.getByText("Evacuation time (95%)")).toBeVisible();
   // what the tests show is the evaluation's own label: never "confirmed" unless it is
   await expect(verdict).toContainText(/Not confirmed|Partly confirmed|Confirmation failed|Confirmed by full simulations/);
+  // S-05: the badge says why in one line, with a link to Help
+  await expect(verdict.getByTestId("verdict-why")).toContainText(/\w+\./);
+  await expect(verdict.getByRole("link", { name: "What this means" })).toHaveAttribute("href", "/help#verdict");
   await expect(page.getByRole("heading", { name: "How this plan was made" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Download report" })).toBeVisible();
   const checklist = page.getByRole("link", { name: "Download checklist" });

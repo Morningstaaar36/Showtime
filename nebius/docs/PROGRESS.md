@@ -664,3 +664,15 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
 - For Ridwan (backend): deleting a project while its red-team session runs leaves the session
   running in memory (it keeps starting simulations), and `POST /sessions/{id}/stop` answers 404
   because the row is gone. Found when the first attempt's clean-up deleted the project.
+
+## 2026-10-17 — Saif: explain the verdict badges (S-05)
+
+- Under "This plan holds · Not confirmed" (and every other headline and badge) Your plan now
+  says in one line why the badge reads as it does, from the session evaluation and what its
+  confirmation runs rest on (`evaluationReason` in `lib/evidence.ts`, 2 vitest cases): e.g.
+  "Only quick simulations of the first minutes checked it…", "The simulator was not running, so
+  these numbers are a preview…", "No full simulation of the final plan with its changes has
+  run…". "What this means" links to the new Help section "Reading the verdict", which explains
+  the three headlines and the four badges.
+- The guided journey asserts the line and the link. Whether organizers understand it is for the
+  S-06 sessions.

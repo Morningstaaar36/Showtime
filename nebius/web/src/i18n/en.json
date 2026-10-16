@@ -739,7 +739,23 @@
     "sc_stair": "Add stairs",
     "sc_route": "Draw walking route",
     "sc_finish": "Finish a wall or route",
-    "sc_undo_point": "Remove the last corner"
+    "sc_undo_point": "Remove the last corner",
+    "verdict": "Reading the verdict",
+    "verdict_lead": "Your plan says two things: what the numbers show, and how sure they are.",
+    "v_holds": "This plan holds",
+    "v_holds_body": "No tested scenario pushed the crowd past the danger density, and everyone got out.",
+    "v_at_risk": "This plan is at risk",
+    "v_at_risk_body": "The crowd got close to the danger density, or above the warning level for a while.",
+    "v_fails": "This plan fails",
+    "v_fails_body": "In at least one scenario the crowd reached the danger density or people could not get out.",
+    "v_confirmed": "Confirmed by full simulations",
+    "v_confirmed_body": "The plan was simulated in full, before and after the changes, until everyone was out.",
+    "v_partly": "Partly confirmed",
+    "v_partly_body": "Full simulations ran but stopped at their time limit; the last part of the evacuation is estimated.",
+    "v_unconfirmed": "Not confirmed",
+    "v_unconfirmed_body": "The verdict rests on quick simulations, the instant estimate or a preview. Run the test again with the simulator on, or keep the changes and test again, to confirm it.",
+    "v_failed": "Confirmation failed",
+    "v_failed_body": "The full simulations did not finish (time limit or an error); the numbers shown are estimates."
   },
   "copilot": {
     "label": "Describe your event",
@@ -1281,6 +1297,18 @@
       "partially_confirmed": "Partly confirmed: the simulations stopped before everyone was out",
       "unconfirmed": "Not confirmed",
       "failed": "Confirmation failed: the simulations didn't finish"
+    },
+    "why": {
+      "confirmed": "Full simulations of the plan, before and after the changes, ran until everyone was out.",
+      "partially_confirmed": "The full simulations reached their time limit before everyone was out, so the end of the evacuation is estimated.",
+      "failed": "The full simulations meant to check this plan did not finish, so the numbers come from estimates.",
+      "untested": "No test has checked this plan yet.",
+      "preview": "The simulator was not running, so these numbers are a preview, not a simulation.",
+      "estimate": "The final check used the instant estimate (a formula), not a full simulation.",
+      "quick": "Only quick simulations of the first minutes checked it; no full simulation ran to the end.",
+      "unfinished": "The final simulation did not finish, so nothing confirms the result.",
+      "no_final": "No full simulation of the final plan with its changes has run, so nothing confirms the result yet.",
+      "help": "What this means"
     }
   },
   "analyst": {

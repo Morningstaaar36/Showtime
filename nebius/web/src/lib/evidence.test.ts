@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { basisLabel, evaluationLabel, isResultBasis, runBasisLabel, runOutcome } from "@/lib/evidence";
+import { basisLabel, evaluationLabel, evaluationReason, isResultBasis, runBasisLabel, runOutcome } from "@/lib/evidence";
 
 describe("runOutcome with the backend basis", () => {
   it("only a finished simulation can hold", () => {
@@ -79,5 +79,22 @@ describe("evaluationLabel", () => {
     expect(evaluationLabel(undefined)).toBe("Not confirmed");
     expect(evaluationLabel(null)).toBe("Not confirmed");
     expect(evaluationLabel({ status: "something-else" })).toBe("Not confirmed");
+  });
+});
+
+describe("why the verdict badge reads as it does", () => {
+  const ev = (status: string, after: string | null, before: string | null = null) =>
+    ({ status, after_basis: after, before_basis: before, reasons: [] }) as unknown as Parameters<typeof evaluationReason>[0];
+  it("explains confirmed, partly confirmed and failed", () => {
+    expect(evaluationReason(ev("confirmed", "completed_simulation"))).toMatch(/^Full simulations .* ran until everyone was out\.$/);
+    expect(evaluationReason(ev("partially_confirmed", "partial_simulation"))).toMatch(/time limit/);
+    expect(evaluationReason(ev("failed", "unknown"))).toMatch(/did not finish/);
+  });
+  it("says what a result that is not confirmed rests on", () => {
+    expect(evaluationReason(ev("unconfirmed", "preview"))).toMatch(/simulator was not running/);
+    expect(evaluationReason(ev("unconfirmed", "instant_estimate"))).toMatch(/instant estimate/);
+    expect(evaluationReason(ev("unconfirmed", "partial_simulation"))).toMatch(/quick simulations/);
+    expect(evaluationReason(ev("unconfirmed", null, "completed_simulation"))).toMatch(/No full simulation of the final plan/);
+    expect(evaluationReason(null)).toBe("No test has checked this plan yet.");
   });
 });
