@@ -17,9 +17,10 @@ const generic = (label: string | null | undefined) => /^building \d+$/i.test(lab
 /** Ids allowed a label, or null for "all". `view` is the resolved floor view; `focusFloor` is the
  * floor whose labels show when several floors are stacked ("all"). */
 export function labelledIds(venue: Venue, view: string, focusFloor: string | null, budget: LabelBudget = LABEL_BUDGET): Set<string> | null {
-  // two stacked floors (a hall and its mezzanine) read fine; from three storeys up the names of
-  // every floor pile on top of each other, so only the focus floor keeps its labels (and every exit)
-  const stacked = view === "all" && venue.floors.length >= STACKED_FROM;
+  // two floors (a hall and its mezzanine) read fine; from three storeys up the names of every
+  // floor pile on top of each other, stacked or spread apart, so only the focus floor keeps its
+  // labels (and every exit)
+  const stacked = (view === "all" || view === "exploded") && venue.floors.length >= STACKED_FROM;
   const focus = venue.floors.some((f) => f.floor_id === focusFloor) ? focusFloor : floorsBottomUp(venue)[0]?.floor_id;
   const floors = stacked ? venue.floors.filter((f) => f.floor_id === focus)
     : view === "all" || view === "exploded" ? venue.floors : venue.floors.filter((f) => f.floor_id === view);

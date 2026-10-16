@@ -95,6 +95,6 @@ describe("why the verdict badge reads as it does", () => {
     expect(evaluationReason(ev("unconfirmed", "instant_estimate"))).toMatch(/instant estimate/);
     expect(evaluationReason(ev("unconfirmed", "partial_simulation"))).toMatch(/quick simulations/);
     expect(evaluationReason(ev("unconfirmed", null, "completed_simulation"))).toMatch(/No full simulation of the final plan/);
-    expect(evaluationReason(null)).toBe("No test has checked this plan yet.");
+    expect(evaluationReason(null)).toMatch(/^This test was made before/);
   });
 });

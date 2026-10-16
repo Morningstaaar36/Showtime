@@ -1305,13 +1305,13 @@
       "confirmed": "Full simulations of the plan, before and after the changes, ran until everyone was out.",
       "partially_confirmed": "The full simulations reached their time limit before everyone was out, so the end of the evacuation is estimated.",
       "failed": "The full simulations meant to check this plan did not finish, so the numbers come from estimates.",
-      "untested": "No test has checked this plan yet.",
       "preview": "The simulator was not running, so these numbers are a preview, not a simulation.",
       "estimate": "The final check used the instant estimate (a formula), not a full simulation.",
       "quick": "Only quick simulations of the first minutes checked it; no full simulation ran to the end.",
       "unfinished": "The final simulation did not finish, so nothing confirms the result.",
       "no_final": "No full simulation of the final plan with its changes has run, so nothing confirms the result yet.",
-      "help": "What this means"
+      "help": "What this means",
+      "legacy": "This test was made before Showtime recorded how its results were confirmed, so it counts as not confirmed. Test again to know."
     }
   },
   "analyst": {

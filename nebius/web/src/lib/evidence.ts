@@ -128,7 +128,8 @@ export function evaluationReason(evaluation: Evaluation | null | undefined): str
   if (status === "failed") return t("evidence.why.failed");
   // not confirmed: say what the numbers rest on instead
   const basis = evaluation?.after_basis ?? evaluation?.before_basis ?? null;
-  if (!evaluation) return t("evidence.why.untested");
+  // the banner shows tested plans only: no evaluation means a test from before it was recorded
+  if (!evaluation) return t("evidence.why.legacy");
   if (basis === "preview") return t("evidence.why.preview");
   if (basis === "instant_estimate") return t("evidence.why.estimate");
   if (basis === "partial_simulation") return t("evidence.why.quick");

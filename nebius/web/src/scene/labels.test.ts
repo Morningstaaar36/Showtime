@@ -27,8 +27,10 @@ describe("3D labels", () => {
     expect(labelledIds(v, "all", "F2")!.has("F0z0")).toBe(false);
     // a hall and its mezzanine read fine together
     expect(labelledIds(venue([floor("F0", 0), floor("F1", 3.5)]), "all", null)).toBeNull();
-    // spread apart: each floor has room for its own labels
-    expect(labelledIds(v, "exploded", null)).toBeNull();
+    // spread apart, the same: the floors' names would still overlap
+    expect(labelledIds(v, "exploded", "F2")!.has("F2z0")).toBe(true);
+    expect(labelledIds(v, "exploded", "F2")!.has("F0z0")).toBe(false);
+    expect(labelledIds(venue([floor("F0", 0), floor("F1", 3.5)]), "exploded", null)).toBeNull();
   });
   it("keeps the widest exits, fullest areas and largest features on a big site", () => {
     const v = venue([floor("F0", 0, { exits: 40, zones: 30, features: 20 })]);

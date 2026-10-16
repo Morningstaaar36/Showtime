@@ -730,3 +730,22 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
 - Run 1, rules only, on three venues: done (table in `docs/EVALUATION.md`). **Model-only and
   hybrid arms not run: no OpenRouter key in this machine's `.env`.** At the reduced headcounts no
   attack broke the plan, so the next run needs headcounts that break.
+
+## 2026-10-17 — Saif: screenshots (S-07)
+
+- `make screenshots` (`web/e2e/screens.mjs`) now also takes the three simple screens in light and
+  dark (`home`, `check`, `plan-simple` and their `-dark`), the empty plan (`plan-untested`), the
+  map, Help's verdict section, the building tools (`building-tools`) and a 4-storey hospital
+  (`hospital-check`, `hospital-spread`, `hospital-check-dark`). Samples are preferred when picking
+  projects by name (an evaluation project called "…t_alley…" was picked over the alley sample).
+  Error states: `missing-project`, `not-found` (its 404 is the only console error, expected).
+- All 29 shots refreshed and reviewed. The README table gains the check screen, Your plan, the
+  hospital and the building tools.
+- Found and fixed while reviewing: (1) a sample's session from before evaluations were recorded
+  said "No test has checked this plan yet" under the badge; it now says the test predates the
+  confirmation record and counts as not confirmed. (2) Four floors spread apart labelled every
+  ward on every floor and the labels piled up; from three floors, spread apart follows the
+  stacked rule (focus floor plus every exit). (3) A Docker Desktop quirk made
+  `docker image inspect showtime-sim:latest` answer "No such image" while the image ran fine,
+  so health said "make build-sim"; re-tagging the same image id fixed it (environment, not code).
+- Not shot: an empty project list (needs an empty database; the samples are always installed).

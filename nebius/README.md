@@ -35,6 +35,10 @@ measured improvements, down to **the latest safe time to start evacuating**.
 | ![Site](docs/screenshots/site-3d.png) | ![Map](docs/screenshots/map-select.png) |
 | **Red Team Night** | **Crowd replay with density heatmap** |
 | ![Red team](docs/screenshots/redteam.png) | ![Simulate](docs/screenshots/simulate.png) |
+| **Check your venue** (step 1 of the simple view) | **Your plan**: the verdict, why, and what was tested |
+| ![Check your venue](docs/screenshots/check.png) | ![Your plan](docs/screenshots/plan-simple.png) |
+| **Any building**: a 4-storey hospital drawn on the map, floors spread apart | **Building tools**: walls, doors, rooms, stairs, routes, floors |
+| ![Hospital, 4 floors](docs/screenshots/hospital-spread.png) | ![Building tools](docs/screenshots/building-tools.png) |
 
 ## Why
 
