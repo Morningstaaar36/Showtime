@@ -1,5 +1,10 @@
-"""Build the three demo projects with real simulations and the local Nemotron, then save
-them as packs in cache/demos/ (installed automatically as sample projects).
+"""Build the demo projects with real simulations and the configured model, then save them as
+packs in cache/demos/ (installed automatically as sample projects).
+
+`hospital_4f` is a building drawn on the map (the outline below, OpenStreetMap for the
+surroundings): four storeys of wards off a corridor, two stair cores, patients in beds,
+wheelchair users, older people and staff (S-08). A march demo waits for routes in the simulator
+(G2-03).
 
 Usage: make demo-precompute        (takes ~30-40 min; one simulation at a time)
        ... precompute_demos.py t_alley   (one demo)
@@ -26,8 +31,10 @@ os.environ.setdefault(
 )
 
 from api.app.state import build_state
+from api.core.building_gen import DEFAULT_GROUPS
 from api.core.settings import get_settings
 from api.core.templates import get_template
+from api.orchestrator import venue_sources
 from api.orchestrator.demos import DEMO_DIR
 from api.orchestrator.session import SessionManager
 
@@ -60,6 +67,30 @@ DEMOS = {
             "fix_targets": 1,
         },
     },
+    "hospital_4f": {
+        "map": {
+            # a drawn box (about 54 × 33 m) on a city block; not a real hospital
+            "outline": [
+                [23.7265, 90.392],
+                [23.7265, 90.3925],
+                [23.7268, 90.3925],
+                [23.7268, 90.392],
+                [23.7265, 90.392],
+            ],
+            "levels": 4,
+            "use": "hospital",
+            "interior": "rooms",
+            "people": 600,
+        },
+        "name": "Riverside General · 4-storey ward block",
+        "description": "600 people on four floors of wards, two stair cores; a quarter in beds.",
+        "config": {
+            "max_rounds": 1,
+            "attacks_per_round": 3,
+            "fixes_per_attack": 2,
+            "fix_targets": 1,
+        },
+    },
     "festival": {
         "template": "festival_field",
         "name": "Waterfront Spring Festival · Wellington",
@@ -82,9 +113,40 @@ DEMOS = {
 }
 
 
+async def from_map(st, spec: dict) -> object:  # type: ignore[no-untyped-def]
+    """A venue drawn on the map, with the usual people mix of its use in every ward."""
+    m = spec["map"]
+    draft = await venue_sources.from_map(
+        st,
+        m["outline"],
+        mode="indoor",
+        name=spec["name"],
+        people=m["people"],
+        selected_id=None,
+        levels=m["levels"],
+        use=m["use"],
+        interior=m["interior"],
+        floor_height_m=3.5,
+        event_kind=None,
+    )
+    venue = draft["venue"] if isinstance(draft, dict) else draft.venue
+    data = venue if isinstance(venue, dict) else venue.model_dump()
+    usual = [{"kind": k, "share": v} for k, v in DEFAULT_GROUPS.get(m["use"], [])]
+    for f in data["floors"]:
+        for z in f["zones"]:
+            if z["people"] > 0 and not z.get("groups"):
+                z["groups"] = usual
+    data["event_kind"] = m["use"]
+    return data
+
+
 async def build(st, key: str) -> None:
     spec = DEMOS[key]
-    venue = get_template(spec["template"])
+    if "map" in spec:
+        data = await from_map(st, spec)
+        venue = type(get_template("school_wing")).model_validate(data)
+    else:
+        venue = get_template(spec["template"])
     data = venue.model_dump()
     if "location" in spec:
         data["location"] = spec["location"]
@@ -110,7 +172,7 @@ async def build(st, key: str) -> None:
     venue = type(venue).model_validate(data)
     p = st.projects.create(
         spec["name"],
-        template_id=spec["template"],
+        template_id=spec.get("template"),
         venue=venue,
         description=spec["description"],
         sample=True,

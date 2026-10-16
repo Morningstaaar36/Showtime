@@ -749,3 +749,22 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
   `docker image inspect showtime-sim:latest` answer "No such image" while the image ran fine,
   so health said "make build-sim"; re-tagging the same image id fixed it (environment, not code).
 - Not shot: an empty project list (needs an empty database; the samples are always installed).
+
+## 2026-10-17 — Saif: demo projects (S-08, hospital done; march blocked), S-06 and S-10 prepared
+
+- `scripts/precompute_demos.py hospital_4f` builds "Riverside General · 4-storey ward block"
+  (fictional; a drawn box on a Dhaka city block, OpenStreetMap surroundings) through the map
+  importer: 4 storeys of wards, two stair cores, 600 people with the hospital's usual mix. One
+  session in the Docker sandbox (174 s): 4 of 4 attacks broke the plan, a rule fix ("Open a
+  2.5 m exit on the west side") was kept, "This plan fails · Partly confirmed". Pack:
+  `cache/demos/hospital_4f.showtime.zip` (1.7 MB), installed as a sample; it replays offline
+  with fake providers (checked: scenarios, replay, people per floor).
+- Made **without a model** (no OpenRouter key here): the attacks and the kept fix are
+  rule-based and the judge text is the template. Re-run with Nemotron before filming
+  (`make use-nebius`, then `precompute_demos.py hospital_4f`).
+- **March demo: blocked on G2-03** (routes and the `rally_street` template are not in the
+  simulator yet; routes are drawn but nobody walks them).
+- S-06: `docs/ORGANIZER_EXERCISES.md` (task, timings, what to record, issue list, correction
+  round). **Not run: needs 3–5 real organizers.**
+- S-10: `docs/VIDEO_SCRIPT.md` (shot list ≤ 3 min, voice-over, evidence table for N-04 run ids).
+  **Not recorded or published: needs Shahraz's live Nebius runs and a person to film/upload.**
