@@ -1,7 +1,7 @@
 import { Code } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { t } from "@/i18n";
-import { scriptOf, type WithEvents } from "@/journey/scriptCode";
+import { scriptOf, type WithEvents } from "@/journey/scriptSource";
 import { cn } from "@/lib/utils";
 
 /** "AI-written scenario" badge plus the code behind "Show the code". Renders nothing for menu attacks. */

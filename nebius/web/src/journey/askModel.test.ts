@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ApiError } from "@/api/client";
 import type { AskIntent, AskWhatIf, WhatIfParams } from "@/api/queries";
 import type { WhatIfOut } from "@/api/types";
-import { askError, cappedNote, intentMeta, navAction, retryWithExit, whatIfChips, whatIfRows } from "@/journey/askAnything";
+import { askError, cappedNote, intentMeta, navAction, retryWithExit, whatIfChips, whatIfRows } from "@/journey/askModel";
 
 const INTENTS: AskIntent[] = ["edit", "question", "what_if", "analyse", "navigate", "other"];
 
