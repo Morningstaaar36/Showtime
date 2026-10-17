@@ -6,6 +6,8 @@ import { useTextEdit } from "@/api/queries";
 import type { EditOut } from "@/api/types";
 import { Kbd, Spinner } from "@/components/ui/misc";
 import { t } from "@/i18n";
+import { isTypingTarget } from "@/lib/keyboard";
+import { UNDO_TOAST_ID } from "@/lib/utils";
 
 const EXAMPLES = [
   "Move the stage 5 m back",
@@ -24,8 +26,7 @@ export function CommandBar({ projectId, onUndo }: { projectId: string; onUndo: (
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
+      if (e.key === "/" && !isTypingTarget(e.target)) {
         e.preventDefault();
         ref.current?.focus();
       }
@@ -42,7 +43,7 @@ export function CommandBar({ projectId, onUndo }: { projectId: string; onUndo: (
         setResult(r);
         if (r.status === "applied") {
           setText("");
-          toast.success(r.explanation || "Change applied", { action: { label: t("common.undo"), onClick: onUndo } });
+          toast.success(r.explanation || "Change applied", { id: UNDO_TOAST_ID, action: { label: t("common.undo"), onClick: onUndo } });
         } else if (r.status === "failed") toast.error(r.explanation || "The change couldn't be made.");
       },
       onError: (e) => {

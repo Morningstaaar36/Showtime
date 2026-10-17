@@ -33,4 +33,13 @@ describe("evidence labels", () => {
     result.metrics.time_above_danger_s = 10;
     expect(verdictOf(result, thresholds, (id) => id).level).toBe("fails");
   });
+  it("words an unfinished evacuation without a stray percent sign", () => {
+    const none = run();
+    none.metrics.agents_total = 1000;
+    expect(verdictOf(none, thresholds, (id) => id).sentences[0]).toBe("Not all of 1,000 people got out within the simulated time.");
+    const some = run();
+    some.metrics.agents_total = 1000;
+    some.metrics.extra = { evacuated_fraction: 0.874 };
+    expect(verdictOf(some, thresholds, (id) => id).sentences[0]).toBe("87% of 1,000 people got out within the simulated time.");
+  });
 });

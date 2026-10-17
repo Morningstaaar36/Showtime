@@ -1,7 +1,7 @@
 /** The static venue in 3D: an architectural model look (section-cut walls, ink edges). */
 import { Edges, Line } from "@react-three/drei";
 import type { ThreeEvent } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { Exit, Floor, Obstacle, Pt, StageParams, Stair, Venue, Zone } from "@/api/types";
 import { isProposed, lockedIds } from "@/lib/annotations";
@@ -152,6 +152,7 @@ function Slab({ floor, palette, outdoor, upper, onClick, onMove, onDouble, dim, 
     g.translate(0, 0.005, 0);
     return g;
   }, [floor.walkable, upper]);
+  useEffect(() => () => geo.dispose(), [geo]);
   const outline = useMemo(() => [...(floor.walkable as Pt[]), floor.walkable[0] as Pt]
     .map((p) => new THREE.Vector3(p[0], 0.012, -p[1])), [floor.walkable]);
   const toVenue = (e: ThreeEvent<MouseEvent | PointerEvent>): [number, number] => [e.point.x, -e.point.z];
@@ -283,11 +284,13 @@ function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, o
     g.rotateX(-Math.PI / 2);
     return g;
   }, [obstacle.polygon, h]);
+  useEffect(() => () => geo.dispose(), [geo]);
   const capGeo = useMemo(() => {
     const g = new THREE.ShapeGeometry(shapeOf(obstacle.polygon as Pt[]));
     g.rotateX(-Math.PI / 2);
     return g;
   }, [obstacle.polygon]);
+  useEffect(() => () => capGeo.dispose(), [capGeo]);
   const ghost = (obstacle.label ?? obstacle.id).toLowerCase().includes("stair");
   const isWater = obstacle.id.startsWith("water_");
   const isWall = obstacle.kind === "wall";
@@ -376,6 +379,7 @@ function StageModel({ obstacle, stage, palette, selected, labels, venue, onClick
     g.rotateX(-Math.PI / 2);
     return g;
   }, [poly, deckH]);
+  useEffect(() => () => deckGeo.dispose(), [deckGeo]);
   // which side faces the audience: the bbox side nearest the venue centre
   const [vx0, vy0, vx1, vy1] = bbox(venue.floors[0].walkable as Pt[]);
   const vcy = (vy0 + vy1) / 2;
@@ -530,6 +534,7 @@ function ExitArrow({ width, color, outward, rot }: { width: number; color: strin
     g.rotateX(-Math.PI / 2); // arrow now points along local -Z
     return g;
   }, [width]);
+  useEffect(() => () => geo.dispose(), [geo]);
   // outward normal (venue) -> world (nx, 0, -ny) -> gate frame (rotated by `rot` about Y)
   const lx = outward.nx * Math.cos(rot) + outward.ny * Math.sin(rot);
   const lz = outward.nx * Math.sin(rot) - outward.ny * Math.cos(rot);
@@ -550,6 +555,7 @@ function ZonePatch({ zone, palette, selected, labels, people, onClick, onGrab, v
     g.rotateX(-Math.PI / 2);
     return g;
   }, [zone.polygon]);
+  useEffect(() => () => geo.dispose(), [geo]);
   const pts = useMemo(() => [...(zone.polygon as Pt[]), zone.polygon[0] as Pt]
     .map((p) => new THREE.Vector3(p[0], 0.03, -p[1])), [zone.polygon]);
   const [cx, cy] = centroid(zone.polygon as Pt[]);
@@ -586,6 +592,7 @@ function StairMesh({ stair, venue, palette, exploded, selected, labels, onClick 
     g.translate(0, 0, -stair.width_m / 2);
     return g;
   }, [climb.run, rise, stair.width_m]);
+  useEffect(() => () => geo.dispose(), [geo]);
   return (
     <group position={[climb.bx, yBot, -climb.by]} rotation={[0, climb.angle, 0]}
            onClick={(e) => { e.stopPropagation(); onClick(e); }}>
@@ -621,6 +628,7 @@ function StairStub({ stair, floor, y, palette, selected, labels, onClick }: {
     g.rotateX(-Math.PI / 2);
     return g;
   }, [poly]);
+  useEffect(() => () => geo.dispose(), [geo]);
   const [cx, cy] = centroid(poly);
   const color = selected ? palette.signal : palette.stair;
   return (

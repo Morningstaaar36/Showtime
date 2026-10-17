@@ -1,5 +1,6 @@
 /** Follows a red-team session's SSE stream and folds events into view state. */
 import { useEffect, useReducer, useRef } from "react";
+import { reconnectDelay } from "./reconnect";
 import type { Attack, Countdown, Fix, SessionEvent } from "./types";
 
 export interface RunInfo {
@@ -140,10 +141,12 @@ export function useSessionStream(sessionId: string | null | undefined): SessionV
     let es: EventSource | null = null;
     let closed = false;
     let retry: number | undefined;
+    let failures = 0;
     const open = () => {
       es = new EventSource(`/api/v1/sessions/${sessionId}/events?after=${lastSeq.current}`);
-      es.onopen = () => dispatch({ kind: "conn", v: true });
+      es.onopen = () => { failures = 0; dispatch({ kind: "conn", v: true }); };
       es.onmessage = (m) => {
+        failures = 0;
         try {
           dispatch({ kind: "event", ev: JSON.parse(m.data) as SessionEvent });
         } catch {
@@ -158,7 +161,8 @@ export function useSessionStream(sessionId: string | null | undefined): SessionV
       es.onerror = () => {
         es?.close();
         dispatch({ kind: "conn", v: false });
-        if (!closed) retry = window.setTimeout(open, 2000);
+        const wait = closed ? null : reconnectDelay(++failures);
+        if (wait != null) retry = window.setTimeout(open, wait);
       };
     };
     open();

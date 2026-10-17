@@ -60,6 +60,8 @@ function NumberInput({ id, label, unit, value, step, min, disabled, onCommit }: 
   const sent = useRef<number | null>(null);
   useEffect(() => { setV(String(value)); sent.current = null; }, [value]);
   const commit = () => {
+    // an emptied field means "never mind", not 0
+    if (!v.trim()) { setV(String(value)); return; }
     const n = Number(v);
     if (n === sent.current) return;
     if (Number.isFinite(n) && n !== value && (min == null || n >= min)) { sent.current = n; onCommit(n); }
@@ -275,6 +277,7 @@ function PeopleInput({ id, name, value, disabled, onCommit }: { id: string; name
   const sent = useRef<number | null>(null);
   useEffect(() => { setV(String(value)); sent.current = null; }, [value]);
   const commit = () => {
+    if (!v.trim()) { setV(String(value)); return; }
     const n = Math.round(Number(v));
     if (n === sent.current) return;
     if (Number.isFinite(n) && n >= 0 && n !== value) { sent.current = n; onCommit(n); } else setV(String(value));

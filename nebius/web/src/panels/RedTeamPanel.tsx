@@ -1,6 +1,6 @@
 import * as Tabs from "@radix-ui/react-tabs";
 import { Activity, ArrowRight, Bot, Check, Columns2, ExternalLink, Eye, GitBranch, History, Settings2, ShieldAlert, ShieldCheck, Square, Swords, Wrench, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { qk, useApplySession, useSession, useSessions, useStartRun, useStartSession, useStopSession } from "@/api/queries";
@@ -57,10 +57,13 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
     void qc.invalidateQueries({ queryKey: qk.session(sessionId) });
   }, [view.ended, sessionId, project.id, qc]);
 
-  // show the newest finished run in 3D while the session is live
+  // show the newest finished run in 3D while the session is live, but only when a new one
+  // finishes: other streamed events must not pull the view off a run the user picked
+  const autoRun = useRef<string | null>(null);
   useEffect(() => {
     const done = Object.values(view.nodes).filter((n) => n.status !== "running" && n.status !== "pending");
-    if (running && done.length) setActive(done[done.length - 1].run_id);
+    const newest = done.length ? done[done.length - 1].run_id : null;
+    if (running && newest && newest !== autoRun.current) { autoRun.current = newest; setActive(newest); }
   }, [view.lastSeq]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (view.ended) void session.refetch();

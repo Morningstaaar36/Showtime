@@ -29,7 +29,7 @@ import { StressPanel } from "@/journey/plan/StressPanel";
 import { type KeyNumber, VerdictBanner } from "@/journey/plan/VerdictBanner";
 import { runBasisLabel } from "@/lib/evidence";
 import { fmtDuration, fmtHM, fmtInt, fmtNum } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn, UNDO_TOAST_ID } from "@/lib/utils";
 import { displayNames, textHumanizer } from "@/lib/venueText";
 import { type Thresholds, verdictOf } from "@/panels/verdict";
 import { useReplay } from "@/replay/useReplay";
@@ -198,6 +198,7 @@ export function YourPlanPage() {
   const toggle = (id: string) => setChoice({ sid: sessionId, ids: toggleFix(selected, id, deps) });
   const accept = () => sessionId && apply.mutate({ sessionId, ...acceptBody(selected, keptIds) }, {
     onSuccess: (r) => toast.success(t("yourplan.accepted", { n: r.version.version }), {
+      id: UNDO_TOAST_ID,
       description: r.applied && !r.applied.tested_together ? t("yourplan.subset_note") : undefined,
       action: { label: t("common.undo"), onClick: () => undo.mutate() },
     }),

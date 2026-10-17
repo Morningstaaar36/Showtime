@@ -1,5 +1,5 @@
 import { ExternalLink, MessageCircleQuestion, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAsk } from "@/api/queries";
 import type { AskOut, Hotspot } from "@/api/types";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,11 @@ export function AskDialog({ open, onOpenChange, projectId, runId, hotspot }: {
   const [answer, setAnswer] = useState<AskOut | null>(null);
   const ask = useAsk();
   const fly = useUi((s) => s.flyToPoint);
+  // closing, or asking about another spot, drops any answer still on its way so it cannot
+  // show up (or move the camera) for the wrong hotspot
+  const resetAsk = ask.reset;
+  const spot = hotspot ? `${hotspot.floor_id}:${hotspot.x}:${hotspot.y}:${hotspot.t_s}` : "";
+  useEffect(() => { resetAsk(); setAnswer(null); }, [open, spot, runId, resetAsk]);
   const submit = (question: string) => {
     if (!question.trim()) return;
     setAnswer(null);
