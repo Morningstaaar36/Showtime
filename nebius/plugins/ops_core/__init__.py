@@ -485,6 +485,8 @@ class AddZoneParams(_P):
     people: int = Field(ge=0, le=100_000)
     label: str | None = None
     index: int | None = Field(default=None, ge=0)  # position in the list (used by undo)
+    # used by undo: the whole removed zone, so its people mix, start delay and route come back
+    restore: dict[str, Any] | None = None
 
 
 class AddZoneOp:
@@ -503,11 +505,14 @@ class AddZoneOp:
         v = venue.model_copy(deep=True)
         fi = _floor_index(v, params.floor_id)
         assert fi is not None
-        _insert(
-            v.floors[fi].zones,
-            params.index,
-            Zone(id=params.id, polygon=params.polygon, people=params.people, label=params.label),
+        zone = (
+            Zone.model_validate(params.restore)
+            if params.restore is not None
+            else Zone(
+                id=params.id, polygon=params.polygon, people=params.people, label=params.label
+            )
         )
+        _insert(v.floors[fi].zones, params.index, zone)
         return v
 
     def invert(self, before: Venue, params: AddZoneParams) -> list[PatchOpIn]:
@@ -549,6 +554,7 @@ class RemoveZoneOp:
                 people=z.people,
                 label=z.label,
                 index=ii,
+                restore=z.model_dump(mode="json"),
             ),
             *_restore_annotations(before, z.id),
         ]
@@ -621,6 +627,7 @@ class SetEventParams(_P):
     kind: str | None = Field(default=None, max_length=60)
     start: str | None = Field(default=None, max_length=25, description="local ISO time")
     restore: dict[str, Any] | None = None  # used by undo: the whole previous event record
+    clear_start: bool = False  # used by undo: the venue had no start time before
 
 
 class SetEventOp:
@@ -648,14 +655,18 @@ class SetEventOp:
                 event[key] = val
         rest = {k: val for k, val in v.extensions.items() if k != "event"}
         v.extensions = {**rest, "event": event} if event else rest
-        if params.start is not None and v.location is not None:
-            v.location = v.location.model_copy(update={"event_start": params.start})
+        if v.location is not None and (params.start is not None or params.clear_start):
+            start = None if params.clear_start else params.start
+            v.location = v.location.model_copy(update={"event_start": start})
         return v
 
     def invert(self, before: Venue, params: SetEventParams) -> list[PatchOpIn]:
         back: dict[str, Any] = {"restore": dict(before.extensions.get("event") or {})}
         if params.start is not None and before.location is not None:
-            back["start"] = before.location.event_start
+            if before.location.event_start is None:
+                back["clear_start"] = True
+            else:
+                back["start"] = before.location.event_start
         return [_op("set_event", **back)]
 
 

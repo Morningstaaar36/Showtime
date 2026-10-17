@@ -17,15 +17,22 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlmodel import col, select
 
-from api.adapters.llm import Budget, BudgetExceeded
+from api.adapters.llm import Budget, BudgetExceeded, LLMError
 from api.agents.base import AgentEnv, AgentUnavailable, audit_decision
 from api.agents.blue_team import blue_team
 from api.agents.judge import judge
-from api.agents.red_team import incident_query, is_script_attack, red_team, venue_features
+from api.agents.red_team import (
+    incident_query,
+    is_script_attack,
+    red_team,
+    signature,
+    venue_features,
+)
 from api.core.annotations import carry_annotations
-from api.core.countdown import compute_countdown
+from api.core.countdown import choose_hazard, compute_countdown
 from api.core.evidence import (
     CostMeter,
     attempt_id,
@@ -68,6 +75,72 @@ log = logging.getLogger("showtime.session")
 
 class StopSession(Exception):
     """A budget or the user ended the session."""
+
+
+class SessionConfigError(ValueError):
+    """A session setting from the request has the wrong type or is out of range."""
+
+    def __init__(self, message: str, errors: list[dict[str, Any]]) -> None:
+        super().__init__(message)
+        self.errors = errors
+
+
+class SessionConfigIn(BaseModel):
+    """The session settings a caller may choose; other keys are ignored. The budgets (runs,
+    wall clock, tokens) can only be lowered: values above the Settings caps are capped."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    max_rounds: int | None = Field(default=None, ge=1, le=10)
+    attacks_per_round: int | None = Field(default=None, ge=1, le=10)
+    fixes_per_attack: int | None = Field(default=None, ge=1, le=10)
+    fix_targets: int | None = Field(default=None, ge=1, le=10)
+    seed: int | None = Field(default=None, ge=0, le=2**31 - 1)
+    confirm_tier3: bool | None = None
+    max_runs: int | None = Field(default=None, ge=1)
+    max_wall_s: float | None = Field(default=None, gt=0)
+    max_tokens: int | None = Field(default=None, ge=1)
+    parallel_branches: bool | None = None
+    agents: str | None = None  # an unknown mode falls back to "hybrid"
+
+
+def session_config(settings: Any, config: dict[str, Any] | None) -> dict[str, Any]:
+    """Validated session settings over the defaults (raises SessionConfigError)."""
+    try:
+        given = SessionConfigIn.model_validate(config or {}).model_dump(exclude_none=True)
+    except ValidationError as exc:
+        errs = [
+            {"loc": [str(x) for x in e.get("loc", [])], "msg": e.get("msg", "")}
+            for e in exc.errors()
+        ]
+        first = errs[0]
+        raise SessionConfigError(f"{'.'.join(first['loc'])}: {first['msg']}", errs) from exc
+    caps = {
+        "max_runs": settings.session_max_runs,
+        "max_wall_s": settings.session_max_wall_s,
+        "max_tokens": settings.session_max_tokens,
+    }
+    for key, cap in caps.items():
+        if key in given:
+            given[key] = min(given[key], cap)
+    cfg = {
+        "max_rounds": settings.max_rounds,
+        "attacks_per_round": settings.attacks_per_round,
+        "fixes_per_attack": settings.fixes_per_attack,
+        "fix_targets": settings.fix_targets,
+        "seed": settings.default_seed,
+        "confirm_tier3": True,
+        **caps,
+        # independent branches of a step run at once (the runner bounds how many)
+        "parallel_branches": True,
+        # who proposes attacks and fixes (S-01 evaluation arms): "hybrid" = the model plus
+        # the rule-based ones (the product), "rules" = rules only, "model" = model only
+        "agents": "hybrid",
+        **given,
+    }
+    if cfg["agents"] not in AGENT_MODES:
+        cfg["agents"] = "hybrid"
+    return cfg
 
 
 class StalePlan(PlanConflict):
@@ -228,7 +301,8 @@ class Branches:
     The runner bounds how many sandboxes actually run at once. With `parallel` off each
     simulation starts only when it is read (the sequential behaviour). A stop request ends a
     wait at once. Leaving the block cancels every unfinished branch, its sandbox run
-    included, and closes the tree node of every branch that was started but not read.
+    included unless another caller still waits for that run, and closes the tree node of
+    every branch that was started but not read.
     """
 
     def __init__(
@@ -274,16 +348,14 @@ class Branches:
         return task.result()
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
-        live, runs = self.live, self.mgr.st.runs
+        live = self.live
         pending: list[asyncio.Task[RunResult]] = []
         # a branch whose wait was cut short by a stop was never used either
         self.read = {i for i in self.read if (t := self.tasks[i]) is not None and t.done()}
-        for i, task in enumerate(self.tasks):
+        for task in self.tasks:
             if task is None or task.done():
                 continue
-            node_id = self.makers[i][0]
-            if node_id in live.inflight and node_id in live.branch_runs:
-                await runs.cancel(live.branch_runs[node_id])
+            # its wait ends; the sandbox run stops too unless another caller still waits for it
             task.cancel()
             pending.append(task)
         if pending:
@@ -321,28 +393,11 @@ class SessionManager:
 
     # ------------------------------------------------------------------ API
     def start(self, project_id: str, config: dict[str, Any] | None = None) -> RedTeamSession:
-        """Create a session row and launch the loop in the background."""
+        """Create a session row and launch the loop in the background.
+
+        Raises SessionConfigError for a setting of the wrong type or out of range."""
+        cfg = session_config(self.st.settings, config)
         p = self.st.projects.get(project_id)
-        s = self.st.settings
-        cfg = {
-            "max_rounds": s.max_rounds,
-            "attacks_per_round": s.attacks_per_round,
-            "fixes_per_attack": s.fixes_per_attack,
-            "fix_targets": s.fix_targets,
-            "seed": s.default_seed,
-            "confirm_tier3": True,
-            "max_runs": s.session_max_runs,
-            "max_wall_s": s.session_max_wall_s,
-            "max_tokens": s.session_max_tokens,
-            # independent branches of a step run at once (the runner bounds how many)
-            "parallel_branches": True,
-            # who proposes attacks and fixes (S-01 evaluation arms): "hybrid" = the model plus
-            # the rule-based ones (the product), "rules" = rules only, "model" = model only
-            "agents": "hybrid",
-        }
-        cfg.update({k: v for k, v in (config or {}).items() if k in cfg and v is not None})
-        if cfg["agents"] not in AGENT_MODES:
-            cfg["agents"] = "hybrid"
         sid = f"s_{uuid.uuid4().hex[:10]}"
         row = RedTeamSession(
             id=sid,
@@ -379,6 +434,22 @@ class SessionManager:
                     .order_by(col(RedTeamSession.created_at).desc())
                 )
             )
+
+    def recover_interrupted(self) -> int:
+        """At server start: sessions left running by the previous process are stopped
+        (returns how many)."""
+        with db_session() as db:
+            rows = list(db.exec(select(RedTeamSession).where(RedTeamSession.status == "running")))
+            rows = [r for r in rows if r.id not in self.live]
+            for row in rows:
+                row.status = "stopped"
+                row.error = "Stopped when the server restarted."
+                row.finished_at = datetime.now(UTC)
+                db.add(row)
+            db.commit()
+        if rows:
+            log.warning("marked %d interrupted sessions as stopped", len(rows))
+        return len(rows)
 
     def stop(self, sid: str) -> bool:
         live = self.live.get(sid)
@@ -903,20 +974,46 @@ class SessionManager:
             self.emit(live, "log", {"level": "error", "message": f"Session error: {exc}"})
             reason = f"error: {type(exc).__name__}"
         live.final_venue = working
-        await self._finish(
-            live,
-            env,
-            venue,
-            working,
-            baseline,
-            worst,
-            attacks_all,
-            fixes_all,
-            results,
-            accepted,
-            scoreboard,
-            reason,
-        )
+        try:
+            await self._finish(
+                live,
+                env,
+                venue,
+                working,
+                baseline,
+                worst,
+                attacks_all,
+                fixes_all,
+                results,
+                accepted,
+                scoreboard,
+                reason,
+            )
+        except Exception as exc:  # the row must never stay "running"
+            log.exception("session %s could not finish", live.id)
+            self._fail(live, exc)
+        finally:
+            live.finished = True
+            await self._notify(live)
+
+    def _fail(self, live: LiveSession, exc: Exception) -> None:
+        """Mark a session that could not write its summary as failed (status, error, end)."""
+        message = f"{type(exc).__name__}: {exc}"[:500]
+        b = live.budget
+        try:
+            with db_session() as db:
+                row = db.get(RedTeamSession, live.id)
+                if row is not None:
+                    row.status = "failed"
+                    row.error = message
+                    row.tokens = b.used if b else 0
+                    row.cost_usd = round(b.cost_usd, 6) if b else 0.0
+                    row.finished_at = datetime.now(UTC)
+                    db.add(row)
+                    db.commit()
+        except Exception:
+            log.exception("could not mark session %s failed", live.id)
+        self._status(live, "done", 0, f"The session failed: {message}", status="failed")
 
     def _target(self, venue: Venue) -> float:
         s = self.st.settings
@@ -976,7 +1073,7 @@ class SessionManager:
             out = await red_team(
                 env, self.st.registry, venue, baseline, incidents, n, seen, offset, tested=tested
             )
-        except AgentUnavailable as exc:
+        except (AgentUnavailable, LLMError) as exc:  # LLMError: e.g. a replay-cache miss
             if env.emit:
                 env.emit(
                     "log",
@@ -997,7 +1094,11 @@ class SessionManager:
             extra = rule_attacks(venue, baseline, incidents, n, set(seen), offset + len(out))
             example = [a for a in extra if is_script_attack(a)][:1]
             if example:
-                out.append(example[0])
+                # the next id in sequence (its id from `extra` skips ahead), and remembered so
+                # later rounds neither repeat it nor reuse its id
+                ex = example[0].model_copy(update={"attack_id": f"A{offset + len(out) + 1}"})
+                seen.add(signature([e.model_dump() for e in ex.events]))
+                out.append(ex)
                 if env.emit:
                     env.emit(
                         "log",
@@ -1023,7 +1124,7 @@ class SessionManager:
             return rule_fixes(self.st.registry, venue, attack, result, n, prefix + "R")
         try:
             out = await blue_team(env, self.st.registry, venue, attack, result, n, prefix)
-        except AgentUnavailable:
+        except (AgentUnavailable, LLMError):
             out = []
         if mode == "model":
             return out
@@ -1261,7 +1362,7 @@ class SessionManager:
         self._status(live, "judging", len(scoreboard), "Judge is checking every number")
         try:
             text, recs, checked = await judge(env, facts_for_judge, template, computed_summary=True)
-        except (AgentUnavailable, BudgetExceeded):
+        except (AgentUnavailable, BudgetExceeded, LLMError):
             text, recs, checked = template, [], False
         summary = {
             "baseline_run_id": baseline.run_id if baseline else None,
@@ -1301,8 +1402,6 @@ class SessionManager:
             self.st.host.pm.hook.on_session_finished(session_id=live.id, summary=summary)
         except Exception:
             log.exception("plugin hook on_session_finished failed")
-        live.finished = True
-        await self._notify(live)
 
     def _attack_fact(
         self, a: Attack, results: dict[str, RunResult], target: float
@@ -1407,12 +1506,7 @@ class SessionManager:
                 continue
             if h is not None:
                 hazards.append(h)
-        timed = [h for h in hazards if h.t_hazard_s is not None]
-        chosen = (
-            min(timed, key=lambda h: h.t_hazard_s or 0.0)
-            if timed
-            else (hazards[0] if hazards else None)
-        )
+        chosen = choose_hazard(hazards)
         # the wording follows the run's basis; it never claims more than that run shows
         source = f"{scenario} ({describe_run(run)})" if run else ""
         return compute_countdown(
@@ -1421,7 +1515,6 @@ class SessionManager:
             s.pre_movement_s,
             s.safety_factor,
             source,
-            venue.location.event_start if venue.location else None,
         )
 
     def apply_final(self, sid: str, fix_ids: list[str] | None = None) -> Any:

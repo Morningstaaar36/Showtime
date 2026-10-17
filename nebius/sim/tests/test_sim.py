@@ -184,6 +184,18 @@ def test_blocking_exit_increases_rset() -> None:
     assert blocked["metrics"]["evac_time_p95_s"] > open_res["metrics"]["evac_time_p95_s"]
 
 
+def test_every_exit_blocked_counts_people_as_not_evacuated() -> None:
+    venue = room(40)
+    venue["floors"][0]["exits"][0]["blocked"] = True
+    res, _ = run(venue)
+    m = res["metrics"]
+    assert res["status"] == "partial", res
+    assert m["agents_total"] == 40
+    assert m["agents_evacuated"] == 0
+    assert m["agents_not_evacuated"] == 40
+    assert m["extra"]["trapped"] == 40
+
+
 def test_same_seed_same_result_different_seed_small_variation() -> None:
     a, _ = run(room(60), seed=7)
     b, _ = run(room(60), seed=7)

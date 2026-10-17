@@ -65,6 +65,15 @@ def _merge_frames(
     return times, frames  # type: ignore[return-value]
 
 
+def position_scale(x0: float, y0: float, bounds: list[float]) -> float:
+    """Metres per int16 step: POS_SCALE, coarser only when the site is too big for it.
+
+    int16 at 2 cm reaches about 655 m from the origin; a map import can be 1 km across.
+    """
+    extent = max(bounds[2] - x0, bounds[3] - y0) + GRID_MARGIN_M
+    return max(POS_SCALE, math.ceil(extent / 32000 / 0.01) * 0.01)
+
+
 def write_trajectory(
     work: Path,
     times: list[float],
@@ -75,14 +84,15 @@ def write_trajectory(
     bounds: list[float],
 ) -> int:
     """traj.bin: per frame [u32 count][u16 ids][i16 x][i16 y][u8 floor][pad to 4 bytes]."""
+    scale = position_scale(x0, y0, bounds)
     offsets: list[int] = []
     pos = 0
     with open(work / "traj.bin", "wb") as fh:
         for ids, xs, ys, fl in frames:
             n = len(ids)
             offsets.append(pos)
-            xq = np.clip(np.round((xs - x0) / POS_SCALE), -32767, 32767).astype("<i2")
-            yq = np.clip(np.round((ys - y0) / POS_SCALE), -32767, 32767).astype("<i2")
+            xq = np.clip(np.round((xs - x0) / scale), -32767, 32767).astype("<i2")
+            yq = np.clip(np.round((ys - y0) / scale), -32767, 32767).astype("<i2")
             buf = (
                 np.asarray([n], dtype="<u4").tobytes()
                 + ids.astype("<u2").tobytes()
@@ -101,7 +111,7 @@ def write_trajectory(
                 "offsets": offsets,
                 "bytes": pos,
                 "origin": [x0, y0],
-                "scale": POS_SCALE,
+                "scale": scale,
                 "floors": floors,
                 "bounds": bounds,
                 "max_agents": int(max((len(f[0]) for f in frames), default=0)),

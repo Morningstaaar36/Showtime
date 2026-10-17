@@ -18,7 +18,12 @@ from api.app.state import AppState
 from api.core.venue_ops import PatchError
 from api.models import RunResult, ScenarioEventIn, Venue
 from api.orchestrator import together
-from api.orchestrator.session import FixConflict, FixSelectionError, StalePlan
+from api.orchestrator.session import (
+    FixConflict,
+    FixSelectionError,
+    SessionConfigError,
+    StalePlan,
+)
 
 router = APIRouter(prefix="/api/v1")
 log = logging.getLogger("showtime.api")
@@ -133,7 +138,24 @@ async def start_session(body: SessionIn, st: AppState = Depends(get_state)) -> d
     ]
     if running:
         return session_out(running[0])
-    return session_out(st.sessions.start(body.project_id, body.config))
+    try:
+        return session_out(st.sessions.start(body.project_id, body.config))
+    except SessionConfigError as exc:
+        raise ApiException(
+            422,
+            "invalid_config",
+            f"Red team can't start: {exc}",
+            "Use whole numbers in range for rounds, attacks, fixes and budgets.",
+            {"errors": exc.errors},
+        ) from exc
+
+
+def _live_status(st: AppState, row: Any) -> Any:
+    """A session stored as running that this server is not running stopped with a restart."""
+    live = st.sessions.live.get(row.id)
+    if row.status == "running" and (live is None or live.finished):
+        row.status = "stopped"  # server restarted mid-session
+    return row
 
 
 @router.get("/sessions/{session_id}")
@@ -141,14 +163,12 @@ def get_session(session_id: str, st: AppState = Depends(get_state)) -> dict[str,
     row = st.sessions.get(session_id)
     if row is None:
         raise ApiException(404, "not_found", f"Session {session_id} does not exist.")
-    if row.status == "running" and session_id not in st.sessions.live:
-        row.status = "stopped"  # server restarted mid-session
-    return session_out(row)
+    return session_out(_live_status(st, row))
 
 
 @router.get("/projects/{project_id}/sessions")
 def list_sessions(project_id: str, st: AppState = Depends(get_state)) -> list[dict[str, Any]]:
-    return [session_out(s) for s in st.sessions.list_sessions(project_id)]
+    return [session_out(_live_status(st, s)) for s in st.sessions.list_sessions(project_id)]
 
 
 @router.get("/sessions/{session_id}/events")

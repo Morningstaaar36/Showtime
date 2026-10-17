@@ -40,6 +40,13 @@ def first_crossing(
         (datetime.fromisoformat(t), g) for t, g in zip(times, gusts, strict=False) if g is not None
     ]
     for (t0, g0), (t1, g1) in itertools.pairwise(pts):
+        # already at the limit when the window opens between two hourly values
+        if t0 <= start <= t1:
+            frac = (start - t0) / (t1 - t0) if t1 > t0 else 0.0
+            if g0 + (g1 - g0) * frac >= limit:
+                return start
+            break
+    for (t0, g0), (t1, g1) in itertools.pairwise(pts):
         if t1 < start or t0 > end:
             continue
         if g0 >= limit and t0 >= start:
@@ -134,7 +141,12 @@ class WindHazard:
         hit = first_crossing(fc.get("times", []), fc.get("gust_ms", []), start, end, limit)
         window = f"{start:%H:%M}–{end:%H:%M}"
         if hit is None:
-            peak = max((g for g in fc.get("gust_ms", []) if g is not None), default=0.0)
+            in_window = [
+                g
+                for t, g in zip(fc.get("times", []), fc.get("gust_ms", []), strict=False)
+                if g is not None and start <= datetime.fromisoformat(t) <= end
+            ]
+            peak = max(in_window, default=0.0)
             return HazardResult(
                 source=self.id,
                 explanation=(

@@ -78,7 +78,7 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
             (
                 x
                 for x in st.sessions.list_sessions(project_id)
-                if x.status in ("finished", "stopped")
+                if x.status in ("finished", "stopped") and x.summary
             ),
             None,
         )
@@ -94,7 +94,21 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
             )
         )
     by_id = {r.id: r for r in runs}
-    baseline = _result(by_id.get(summary.get("baseline_run_id", "")))
+
+    def run_row(rid: str | None) -> Run | None:
+        """A run the session names, also one another project owns: run ids are content
+        hashes, so an imported project's sessions name the original project's runs."""
+        if not rid:
+            return None
+        if rid not in by_id:
+            with db_session() as db:
+                row = db.get(Run, rid)
+            if row is None:
+                return None
+            by_id[rid] = row
+        return by_id[rid]
+
+    baseline = _result(run_row(summary.get("baseline_run_id")))
     if baseline is None:
         stress = next(
             (
@@ -108,7 +122,7 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
             None,
         )
         baseline = _result(stress)
-    final = _result(by_id.get(summary.get("final_run_id") or ""))
+    final = _result(run_row(summary.get("final_run_id")))
     # runs of this session come from its event log (cached runs may belong to an earlier session)
     run_info: dict[str, dict[str, Any]] = {}
     nodes: dict[str, dict[str, Any]] = {}
@@ -140,7 +154,7 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
     if countdown is not None and countdown.rset_source.startswith("run "):
         # sessions saved before the label existed: their countdown used the worst attack;
         # say what that run actually is instead of assuming it was a finished simulation
-        used = _result(by_id.get(countdown.rset_source[4:].strip()))
+        used = _result(run_row(countdown.rset_source[4:].strip()))
         what = describe_run(used) if used is not None else countdown.rset_source
         countdown.rset_source = f"the worst red-team attack ({what})"
     fixed_venue = (

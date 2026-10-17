@@ -21,6 +21,20 @@ class WeatherUnavailable(Exception):
     """Forecast could not be fetched (offline, API error); the UI offers manual gust input."""
 
 
+FORECAST_TTL = timedelta(hours=3)
+
+
+def _fresh(entry: dict[str, Any]) -> bool:
+    """A cached forecast younger than FORECAST_TTL (entries without a fetch time are kept)."""
+    fetched = entry.get("fetched_at")
+    if not fetched:
+        return True
+    try:
+        return datetime.now() - datetime.fromisoformat(str(fetched)) < FORECAST_TTL
+    except ValueError:
+        return True
+
+
 class OpenMeteoWeather:
     """Hourly `wind_gusts_10m` and `wind_speed_10m` in m/s for a location and date range."""
 
@@ -86,7 +100,8 @@ class OpenMeteoWeather:
         }
         key = cache_key("open_meteo", url, params)
         cached = self.cache.get(key)
-        if cached is not None:
+        # past weather never changes; a forecast is refreshed once it is a few hours old
+        if cached is not None and (use_archive or self.offline or _fresh(cached)):
             return dict(cached, cached=True)
         if self.offline:
             raise WeatherUnavailable("Live weather is off (offline mode).")
@@ -99,7 +114,11 @@ class OpenMeteoWeather:
                     f"Open-Meteo returned {resp.status_code}: {resp.text[:200]}"
                 )
             data = resp.json()
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, WeatherUnavailable) as exc:
+            if cached is not None:  # an older forecast beats none; it is labelled with its time
+                return dict(cached, cached=True)
+            if isinstance(exc, WeatherUnavailable):
+                raise
             raise WeatherUnavailable(f"Open-Meteo could not be reached: {exc}") from exc
         hourly = data.get("hourly") or {}
         out = {

@@ -544,6 +544,10 @@ class DockerRunner:
             await proc.wait()
             out, err = await readers
             return parse_code_output(None, out, err, time.monotonic() - t0, timed_out=True)
+        except asyncio.CancelledError:
+            # stop the container before the caller's cleanup removes its mounted inputs
+            await asyncio.shield(self._kill(name))
+            raise
         return parse_code_output(code, out, err, time.monotonic() - t0)
 
     async def cancel(self, run_id: str) -> None:

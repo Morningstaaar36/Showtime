@@ -86,6 +86,9 @@ def create_app(state: AppState | None = None, settings: Settings | None = None) 
             from api.orchestrator.session import SessionManager
 
             st.sessions = SessionManager(st)
+        # work of a previous process ended with it: never show it as queued or running
+        st.runs.recover_interrupted()
+        st.sessions.recover_interrupted()
         log.info("Showtime API ready", extra={"path": str(settings.root_dir)})
         yield
         await st.runner.close()

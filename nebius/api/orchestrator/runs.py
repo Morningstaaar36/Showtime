@@ -16,6 +16,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from sqlmodel import col, select
+
 from api.adapters.sandbox import SandboxRunner, SimJob, failed_result
 from api.core.evidence import fallback_estimate
 from api.core.extensions import Registry
@@ -38,6 +40,7 @@ from api.db.session import db_session
 from api.models import Attack, Fix, RunRequest, RunResult, ScenarioEventIn, Venue
 
 log = logging.getLogger("showtime.runs")
+RESTARTED = "Stopped when the server restarted. Run it again."
 Listener = Callable[[str, dict[str, Any]], None]
 
 
@@ -103,7 +106,13 @@ class RunService:
         self.runner = runner
         self.db_url = db_url
         self.hooks = hooks
+        # runs in flight only: a finished run leaves (its result stays in the database)
         self.tasks: dict[str, asyncio.Task[RunResult]] = {}
+        # Run ids are content hashes, so callers share one run. `waiters` counts the calls of
+        # `run()` waiting for it, and `detached` holds runs someone started to follow over the
+        # API (`submit()`); a waiter that is cancelled stops the run only when neither is left.
+        self.waiters: dict[str, int] = {}
+        self.detached: set[str] = set()
         self.progress: dict[str, dict[str, Any]] = {}
         self.listeners: list[Listener] = []
 
@@ -303,16 +312,40 @@ class RunService:
         session_id: str | None = None,
         label: str = "",
     ) -> str:
-        """Start (or attach to) a run in the background; returns the run id."""
+        """Start (or attach to) a run in the background; returns the run id.
+
+        The run is followed over the API, so a cancelled waiter of the same run (another
+        caller's `run()`) never stops it; only `cancel()` does."""
         rid = job.request.run_id
-        if rid in self.tasks and not self.tasks[rid].done():
-            return rid
+        if self._start(job, project_id, venue_version, session_id, label) is not None:
+            self.detached.add(rid)
+        return rid
+
+    def _start(
+        self,
+        job: SimJob,
+        project_id: str | None,
+        venue_version: int | None,
+        session_id: str | None,
+        label: str,
+    ) -> asyncio.Task[RunResult] | None:
+        """The task of the run in flight (started now if needed); None for a cached result."""
+        rid = job.request.run_id
+        task = self.tasks.get(rid)
+        if task is not None and not task.done():
+            return task
         if self.cached(rid) is not None:
             self._touch(rid, project_id, session_id, label)
-            return rid
+            return None
         self._upsert(job, project_id, venue_version, session_id, label)
-        self.tasks[rid] = asyncio.create_task(self._execute(job))
-        return rid
+        task = self.tasks[rid] = asyncio.create_task(self._execute(job))
+        task.add_done_callback(lambda t: self._forget(rid, t))
+        return task
+
+    def _forget(self, rid: str, task: asyncio.Task[RunResult]) -> None:
+        if self.tasks.get(rid) is task:
+            del self.tasks[rid]
+            self.detached.discard(rid)
 
     async def run(
         self,
@@ -329,10 +362,22 @@ class RunService:
         """
         rid = job.request.run_id
         prior = self.tasks.get(rid)
-        self.submit(job, project_id, venue_version, session_id, label)
-        task = self.tasks.get(rid)
+        task = self._start(job, project_id, venue_version, session_id, label)
         if task is not None:
-            result = await task
+            self.waiters[rid] = self.waiters.get(rid, 0) + 1
+            released = False
+            try:
+                # shielded: cancelling this caller must not cancel a run others still wait for
+                result = await asyncio.shield(task)
+            except asyncio.CancelledError:
+                released = True
+                self._release(rid)
+                if not task.done() and not self._held(rid):
+                    await self._stop(rid, task)
+                raise
+            finally:
+                if not released:
+                    self._release(rid)
             return _reused(result) if task is prior else result
         cached = self.cached(rid)
         assert cached is not None
@@ -350,7 +395,8 @@ class RunService:
 
         The runner bounds how many sandboxes run together (SANDBOX_MAX_PARALLEL). A job that
         raises gives a failed result instead of stopping the others. `on_done(index, result)`
-        is called as each one finishes. Cancelling the caller cancels every unfinished run.
+        is called as each one finishes. Cancelling the caller cancels every unfinished run
+        nobody else is waiting for.
         """
 
         async def one(i: int, job: SimJob, label: str) -> RunResult:
@@ -369,8 +415,7 @@ class RunService:
         try:
             return list(await asyncio.gather(*tasks))
         except BaseException:
-            for job, _ in jobs:
-                await self.cancel(job.request.run_id)
+            # each cancelled wait stops its run unless another caller still waits for it
             for t in tasks:
                 t.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
@@ -467,15 +512,35 @@ class RunService:
         return result
 
     async def cancel(self, run_id: str) -> bool:
-        """Cancel a running job."""
+        """Cancel a running job for everyone (the organizer's Cancel). Callers that only stop
+        waiting cancel their own `run()` instead, which keeps a run others still need."""
         task = self.tasks.get(run_id)
         if task is None or task.done():
             return False
+        await self._stop(run_id, task)
+        return True
+
+    def _release(self, rid: str) -> None:
+        n = self.waiters.get(rid, 0) - 1
+        if n > 0:
+            self.waiters[rid] = n
+        else:
+            self.waiters.pop(rid, None)
+
+    def _held(self, rid: str) -> bool:
+        """Someone still needs this run: a waiting `run()` or an API follower."""
+        return self.waiters.get(rid, 0) > 0 or rid in self.detached
+
+    async def _stop(self, rid: str, task: asyncio.Task[RunResult]) -> None:
+        """Stop the sandbox run and wait until its cancelled result is stored."""
         cancel = getattr(self.runner, "cancel", None)
         if cancel is not None:
-            await cancel(run_id)
+            try:
+                await cancel(rid)
+            except Exception:  # cancelling the task below still stops the wait for it
+                log.exception("sandbox cancel of %s failed", rid)
         task.cancel()
-        return True
+        await asyncio.wait({task})
 
     # -- persistence ------------------------------------------------------------------------
     def _upsert(
@@ -538,6 +603,22 @@ class RunService:
             row.finished_at = datetime.now(UTC)
             s.add(row)
             s.commit()
+
+    def recover_interrupted(self) -> int:
+        """At server start: runs left queued or running by the previous process are failed,
+        with a note, so they are neither shown as running nor reused (returns how many)."""
+        with db_session(self.db_url) as s:
+            rows = list(s.exec(select(Run).where(col(Run.status).in_(["queued", "running"]))))
+            rows = [r for r in rows if r.id not in self.tasks]
+            for row in rows:
+                row.status = "failed"
+                row.error = RESTARTED
+                row.finished_at = datetime.now(UTC)
+                s.add(row)
+            s.commit()
+        if rows:
+            log.warning("marked %d interrupted runs as failed", len(rows))
+        return len(rows)
 
     def get(self, run_id: str) -> Run | None:
         """Run row with live progress merged in and its evidence basis derived."""

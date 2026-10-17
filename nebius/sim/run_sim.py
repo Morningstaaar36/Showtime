@@ -114,7 +114,7 @@ def main(work: Path) -> int:
             notes.append(f"PedPy exit-area density skipped: {type(exc).__name__}")
         extra.update(
             {
-                "trapped": float(sum(o.trapped for o in outputs)),
+                "trapped": float(sum(o.trapped + o.no_exit for o in outputs)),
                 "sim_dt_s": float(settings["dt"]),
                 "frame_hz": frame_hz,
                 "stair_transfers": float(sum(len(o.stair_arrivals) for o in outputs)),

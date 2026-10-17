@@ -54,6 +54,7 @@ class FloorOutput:
     remaining: int = 0
     trapped: int = 0  # people with no open exit (genuine), not model stragglers
     pending: int = 0  # people never placed (no space) or still queued
+    no_exit: int = 0  # people never placed because their floor had no open exit
     status: str = "ok"
     sim_time: float = 0.0
     notes: list[str] = field(default_factory=list)
@@ -245,6 +246,9 @@ class FloorRun:
                 target = targets[k] if targets else self.nearest_exit(pos)
                 if target is None:
                     self.note(f"Zone {zid} has no open exit on {self.floor_id}")
+                    left = len(placement.points) - k
+                    self.out.pending += left
+                    self.out.no_exit += left
                     break
                 self._add_agent(pos, zid, target, initial=True)
 
@@ -488,6 +492,7 @@ class FloorRun:
             "global_speed_factor": self.global_speed_factor,
             "pending_spawns": [p for p in pending if p.get("people", 0) > 0],
             "pending_people": self.out.pending + self.rejected,
+            "no_exit_people": self.out.no_exit,
             "exit_times": [list(x) for x in self.out.exit_times],
             "fired_events": self.fired,
             "scripts": [sc.snapshot() for sc in self.scripts],
@@ -515,6 +520,7 @@ class FloorRun:
         self.out.event_log = list(cp.get("event_log", []))
         self.out.marshals[:] = cp.get("marshals", [])
         self.out.pending = int(cp.get("pending_people", 0))
+        self.out.no_exit = int(cp.get("no_exit_people", 0))
         self.last_exit_t = {eid: self.t0 for eid in self.exits}
         self._next_clog_check = self.t0 + 2.0
         self._next_stuck_check = self.t0 + 5.0
@@ -1012,11 +1018,12 @@ def run(
                 pending_arrivals.setdefault(stairs[sid]["to_floor"], []).append((t, gid, sid))
         if out.status == "timeout":
             break
-    # everyone actually created (initial people, surges, counterflow, stair transfers count once)
+    # everyone actually created (initial people, surges, counterflow, stair transfers count once),
+    # plus people who were never created because no exit was open: they did not get out
     return {
         "outputs": outputs,
         "wall_s": time.monotonic() - started,
-        "people_total": gids[0] - 1,
+        "people_total": gids[0] - 1 + sum(o.no_exit for o in outputs),
         "people_planned": total,
         "rewind": rewind,
     }

@@ -23,6 +23,7 @@ import hashlib
 import json
 import logging
 import shlex
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -179,6 +180,8 @@ class NebiusRunner:
         key = hashlib.sha256(venue.model_dump_json().encode()).hexdigest()[:16]
         parent = self._nodes.get(job.parent_node or "") or self._venue_nodes[key]
         work = self.runs_dir / rid
+        if work.exists():  # a stale result.json from an earlier attempt must not be uploaded
+            shutil.rmtree(work)
         job.extra["provider"] = self.provider
         write_job_files(work, job)
         folder = f"/work/{rid}"

@@ -199,8 +199,10 @@ def run_venue(run_id: str, st: AppState = Depends(get_state)) -> Any:
 
 
 @router.post("/projects/{project_id}/sweep", status_code=202)
-def start_sweep(project_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
-    """Simulate the plan under six what-ifs, each in its own sandbox."""
+async def start_sweep(project_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Simulate the plan under six what-ifs, each in its own sandbox.
+
+    Async on purpose: runs start as tasks on the server's event loop."""
     report = validate_venue(st.projects.venue(project_id))
     if not report.ok:
         raise ApiException(422, "venue_invalid", report.errors[0].message, report.errors[0].hint)

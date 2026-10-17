@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 import time
 from collections import OrderedDict
@@ -27,7 +28,7 @@ from scipy.sparse.csgraph import dijkstra
 from api.core.extensions import Registry, T1Exit, T1Group, Tier1State
 from api.core.extensions import geometry as geo
 from api.core.venue_ops import venue_hash
-from api.models import Hotspot, PerExit, RunMetrics, RunResult, ScenarioEventIn, Venue
+from api.models import Hotspot, PerExit, RunMetrics, RunResult, ScenarioEventIn, Stair, Venue
 
 D_CAP = 1.9  # people/m² at maximum specific flow (SFPE fundamental diagram)
 D_JAM = 5.4  # jam density (Weidmann 1993)
@@ -208,10 +209,66 @@ def build_state(venue: Venue, settings: Any) -> tuple[Tier1State, dict[str, Any]
 class _Route:
     group: str
     exit: str
-    via: str | None
+    stairs: tuple[str, ...]  # stair flights taken in order, top floor first
+    stair_t: tuple[float, ...]  # first arrival at each of those stairs
     t_first: float
     t_mean: float
     t_last: float
+
+    @property
+    def via(self) -> str | None:
+        return self.stairs[0] if self.stairs else None
+
+
+@dataclass
+class _Walk:
+    """One group walking out: who, how fast, and where routes are collected."""
+
+    group: str
+    speed: float
+    state: Tier1State
+    grids: dict[str, FloorGrid]
+    stairs: dict[str, Stair]
+    out: list[_Route]
+
+
+def _follow(
+    w: _Walk,
+    floor: str,
+    area: list[Any],
+    t: tuple[float, float, float],
+    chain: tuple[str, ...],
+    chain_t: tuple[float, ...],
+    seen: frozenset[str],
+) -> None:
+    """Routes from `area` on `floor` to every exit, going down any chain of stairs."""
+    grid = w.grids[floor]
+    v = w.speed
+    for ex in w.state.exits.values():
+        if ex.floor_id != floor or ex.id not in grid.dist:
+            continue
+        dmin, dmean, dmax = _area_dist(grid, area, ex.id)
+        if not math.isfinite(dmean):
+            continue
+        if chain:  # from the zone the spread of distances matters; from a stair landing not
+            dmin = dmax = dmean
+        a, m, b = t[0] + dmin / v, t[1] + dmean / v, t[2] + dmax / v
+        if ex.kind == "exit":
+            w.out.append(_Route(w.group, ex.id, chain, chain_t, a, m, b))
+            continue
+        st = w.stairs[ex.id]
+        if st.to_floor in seen or st.to_floor not in w.grids:
+            continue
+        d = ex.stair_delay_s
+        _follow(
+            w,
+            st.to_floor,
+            st.bottom_polygon,
+            (a + d, m + d, b + d),
+            (*chain, ex.id),
+            (*chain_t, a),
+            seen | {st.to_floor},
+        )
 
 
 def _routes(venue: Venue, state: Tier1State, grids: dict[str, FloorGrid]) -> list[_Route]:
@@ -223,37 +280,10 @@ def _routes(venue: Venue, state: Tier1State, grids: dict[str, FloorGrid]) -> lis
         if zid not in zones:
             continue
         floor_id, poly = zones[zid]
-        grid = grids[floor_id]
         v = state.walk_speed_mps * state.global_speed_factor * g.speed_factor
-        for ex in state.exits.values():
-            if ex.floor_id != floor_id or ex.id not in grid.dist:
-                continue
-            dmin, dmean, dmax = _area_dist(grid, poly, ex.id)
-            if not math.isfinite(dmean):
-                continue
-            t0 = g.release_s
-            if ex.kind == "exit":
-                out.append(_Route(g.id, ex.id, None, t0 + dmin / v, t0 + dmean / v, t0 + dmax / v))
-                continue
-            st = stairs[ex.id]
-            lower = grids[st.to_floor]
-            for ex2 in state.exits.values():
-                if ex2.floor_id != st.to_floor or ex2.kind != "exit" or ex2.id not in lower.dist:
-                    continue
-                _, d2, _ = _area_dist(lower, st.bottom_polygon, ex2.id)
-                if not math.isfinite(d2):
-                    continue
-                extra = ex.stair_delay_s + d2 / v
-                out.append(
-                    _Route(
-                        g.id,
-                        ex2.id,
-                        ex.id,
-                        t0 + dmin / v + extra,
-                        t0 + dmean / v + extra,
-                        t0 + dmax / v + extra,
-                    )
-                )
+        t0 = g.release_s
+        walk = _Walk(g.id, v, state, grids, stairs, out)
+        _follow(walk, floor_id, poly, (t0, t0, t0), (), (), frozenset({floor_id}))
     return out
 
 
@@ -268,21 +298,25 @@ def _network(state: Tier1State, routes: list[_Route], horizon: float) -> nx.DiGr
     first: dict[str, float] = {}
     for r in routes:
         first[r.exit] = min(first.get(r.exit, math.inf), r.t_first)
-        if r.via:
-            first[r.via] = min(first.get(r.via, math.inf), r.t_first)
+        for sid, t_at in zip(r.stairs, r.stair_t, strict=True):
+            first[sid] = min(first.get(sid, math.inf), t_at)
     for r in routes:
         ex = state.exits[r.exit]
         if r.t_first >= _close(ex, horizon):
             continue
         w = int(round(r.t_mean))
-        if r.via is None:
+        if not r.stairs:
             g.add_edge(f"g:{r.group}", f"e:{r.exit}", capacity=10**9, weight=w)
-        else:
-            st = state.exits[r.via]
-            if r.t_first >= _close(st, horizon):
-                continue
-            g.add_edge(f"g:{r.group}", f"si:{r.via}", capacity=10**9, weight=0)
-            g.add_edge(f"so:{r.via}", f"e:{r.exit}", capacity=10**9, weight=w)
+            continue
+        if any(
+            t_at >= _close(state.exits[sid], horizon)
+            for sid, t_at in zip(r.stairs, r.stair_t, strict=True)
+        ):
+            continue
+        g.add_edge(f"g:{r.group}", f"si:{r.stairs[0]}", capacity=10**9, weight=0)
+        for upper, lower in itertools.pairwise(r.stairs):
+            g.add_edge(f"so:{upper}", f"si:{lower}", capacity=10**9, weight=0)
+        g.add_edge(f"so:{r.stairs[-1]}", f"e:{r.exit}", capacity=10**9, weight=w)
     for ex in state.exits.values():
         span = _close(ex, horizon) - first.get(ex.id, math.inf)
         cap = int(math.floor(max(span, 0.0) * ex.capacity_pps)) if math.isfinite(span) else 0
@@ -343,7 +377,7 @@ def run_tier1(
 
     plan_groups: dict[str, dict[str, int]] = {}
     plan_stairs: dict[str, dict[str, int]] = {}
-    route_by = {(r.group, r.exit, r.via): r for r in routes}
+    route_by = {(r.group, r.exit, r.stairs): r for r in routes}
     loads: dict[str, list[tuple[_Route, float]]] = {}
     for grp in state.groups.values():
         node = f"g:{grp.id}"
@@ -352,7 +386,7 @@ def run_tier1(
                 continue
             if nxt.startswith("e:"):
                 eid = nxt[2:]
-                r = route_by[(grp.id, eid, None)]
+                r = route_by[(grp.id, eid, ())]
                 loads.setdefault(eid, []).append((r, float(f)))
                 plan_groups.setdefault(
                     grp.id.split(":")[1] if grp.id.startswith("surge:") else grp.id, {}
@@ -365,21 +399,33 @@ def run_tier1(
                 gk = grp.id.split(":")[1] if grp.id.startswith("surge:") else grp.id
                 plan_groups.setdefault(gk, {}).setdefault(sid, 0)
                 plan_groups[gk][sid] += int(f)
-    # split stair flow onto lower exits proportionally to the stair's outgoing flow
+    # split stair flow onto the next stair or the exits below, in proportion to the stair's
+    # outgoing flow, following chains of stairs down a multi-storey building
+    stair_out: dict[str, dict[str, float]] = {}
     for st in [e for e in state.exits.values() if e.kind == "stair"]:
-        out_edges = {k[2:]: v for k, v in flow.get(f"so:{st.id}", {}).items() if v > 0}
-        tot_out = sum(out_edges.values())
-        if tot_out <= 0:
+        out_edges = {k: float(v) for k, v in flow.get(f"so:{st.id}", {}).items() if v > 0}
+        if sum(out_edges.values()) <= 0:
             continue
-        plan_stairs[st.id] = {k: int(v) for k, v in out_edges.items()}
-        for grp in state.groups.values():
-            into = flow.get(f"g:{grp.id}", {}).get(f"si:{st.id}", 0)
-            if into <= 0:
-                continue
-            for eid, f_out in out_edges.items():
-                via = route_by.get((grp.id, eid, st.id))
+        stair_out[st.id] = out_edges
+        plan_stairs[st.id] = {k.split(":", 1)[1]: int(v) for k, v in out_edges.items()}
+
+    def descend(grp_id: str, chain: tuple[str, ...], amount: float) -> None:
+        out_edges = stair_out.get(chain[-1], {})
+        tot_out = sum(out_edges.values())
+        for node, f_out in out_edges.items():
+            share = amount * f_out / tot_out
+            kind, target = node.split(":", 1)
+            if kind == "e":
+                via = route_by.get((grp_id, target, chain))
                 if via is not None:
-                    loads.setdefault(eid, []).append((via, into * f_out / tot_out))
+                    loads.setdefault(target, []).append((via, share))
+            elif kind == "si" and target not in chain:
+                descend(grp_id, (*chain, target), share)
+
+    for grp in state.groups.values():
+        for nxt, into in flow.get(f"g:{grp.id}", {}).items():
+            if into > 0 and nxt.startswith("si:"):
+                descend(grp.id, (nxt[3:],), float(into))
 
     t_axis = np.arange(0, HORIZON_S + 1, 1.0)
     evacuated = np.zeros_like(t_axis)
