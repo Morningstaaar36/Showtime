@@ -534,3 +534,237 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
   Playwright 7/7 with the real model and Docker.
 - Work split updated (TEAM_TASK_ALLOCATION.md §12): seed check backend done; its screen is
   Saif's S-09; Ridwan takes the real-life examples (R-01).
+
+## 2026-10-17 — Saif: building tools in the editor (G3-01)
+
+- Expert view › Plan: the tool rail has a Building group (wall W, door D, room O, stairs S,
+  walking route P) and a floor button (floor to edit, add a floor on top, remove a floor). Tools
+  act on `editFloor`; on a multi-storey venue the 3D view shows that floor alone while a tool is
+  active, and picking a floor in the floor switcher makes it the edit floor.
+- Rules for each click live in `web/src/lib/buildTools.ts` (pure, 11 vitest cases) on top of the
+  tested `venueOps.ts` builders. Walls and routes: click corners, Enter or double-click to
+  finish, Backspace removes a corner. Rooms: two corners, or typed south-west corner and size.
+  Stairs: click the middle, or type it; the panel says which floors they connect. Clicks on
+  doors, walls and crowd areas count as clicks on the floor while a building tool is active.
+- Right-hand panel shows the hint, the tool's options (door width, room door side, stair
+  width/length/direction, route width and name) and the typed forms. Selected stairs show
+  their floors and size with "Remove stairs". The simple check screen has a "Floors and
+  rooms" card (add or remove a floor, link to the drawing tools). Help lists the new keys.
+- Every change is a patch: a new version, a toast with Undo, Ctrl+Z / Ctrl+Shift+Z.
+- Also: `ScriptCode.tsx`/`scriptCode.ts` and `AskAnything.tsx`/`askAnything.ts` clashed on
+  case-insensitive disks (macOS `tsc -b` failed); helpers renamed `scriptSource.ts`, `askModel.ts`.
+- Checks: eslint 0 warnings, `tsc -b`, vitest 140; Playwright `e2e/building-tools.spec.ts`
+  (add floor → stairs → room → undo → redo, checked through the API) passes against the app
+  with fake providers.
+
+## 2026-10-17 — Saif: zone profile and event kind (G3-02)
+
+- A crowd area's card (check screen and Expert view) edits who is there: groups with shares in
+  percent (older people, children, wheelchair users, patients in beds, staff), the rest shown as
+  general adults, a refusal above 100%; when they start moving (run default or a delay in
+  seconds, with the event kind's usual delay when one is cited); and the route they walk (routes
+  on the area's floor, or none). Each save is a `set_zone_profile` patch.
+- The check screen has "Kind of event" (`useEventKinds`, offline fallback noted) with the usual
+  mix and "Use the usual people mix in every area", which patches only areas with people that
+  differ, in one version.
+- Helpers in `web/src/lib/zoneProfile.ts` (7 vitest cases). Playwright `e2e/zone-profile.spec.ts`
+  (hospital kind → usual mix on 2 areas → shares, delay and route on one area, checked through
+  the API) passes against the app with fake providers.
+
+## 2026-10-17 — Saif: routes, stairs, walls and labels in 3D (G3-04)
+
+- Walking routes (`venue.routes`) are drawn on their floor: a band as wide as `width_m`, a
+  dashed centre line and instanced chevrons in walking order (`routeMarks`, about 40 per route,
+  at least 2 m apart), with the route's name at its start (`scene/RouteLayer.tsx`).
+- Stairs are one extruded ramp from `stairProfile` along `stairRun` (bottom landing to top
+  landing), so they join any two floors, stacked or spread apart. With one floor shown alone,
+  its stairs show as landings marked "Stairs down" / "Stairs up" and stay selectable.
+- Inner walls with a centreline are straight boxes at their own thickness (`wallThickness`)
+  instead of a buffered outline, so thin partitions stay crisp.
+- Labels (`scene/labels.ts`, 4 vitest cases): one floor alone labels only that floor; three or
+  more stacked floors label the edit floor (ground by default) plus every exit; sites with 40+
+  labelled objects keep the 30 widest exits, 16 fullest areas and 10 largest features.
+- The tier chip moves below the floor switcher on multi-floor venues (they overlapped).
+- Checked on the conference hall + a third floor, a stair to it, a wall and a route: stacked,
+  spread apart and one-floor views (screenshots reviewed). vitest 151, lint, `tsc -b`.
+
+## 2026-10-17 — Saif: replay by people kind (G3-03)
+
+- `useReplay` also asks `GET /runs/{id}/agents` (the G2-04 contract,
+  `{"schema": 1, "kinds": {"<agent id>": "<kind>"}}`). Agent ids are traj.bin's uint16 ids, read
+  into a lookup table (`replay/kinds.ts`). A 404 (older runs, or a server without G2-04) or an
+  empty map keeps the plain replay.
+- People are drawn with one instanced mesh per kind present, each with its own shape and a
+  colour-blind-safe colour that avoids the safety colours (`scene/peopleLook.ts`): pill =
+  general adult, hexagonal post = older person, ball = child, wheel = wheelchair user, flat slab =
+  patient in a bed, square post = staff. The density tint still applies; the shape keeps the kind.
+- "Who is in the crowd" legend (shape, colour, count) next to the density legend in Expert
+  view, on Your plan's replay and on the AI-at-work screen; hidden when everyone is a general adult.
+- Performance: the frame loop is O(n) with one lookup per person and at most six draw calls; a
+  vitest case samples 3,000 people with ids over 300 frames and requires < 8 ms of JS per
+  frame (well under the 33 ms of 30 fps). GPU frame rate was not measurable here: headless
+  Chromium renders with SwiftShader.
+- Checked: a real Docker simulation of the school wing (400 people) with the `/agents` answer
+  stubbed in the browser (one in three people given a kind) — shapes, colours and legend counts
+  correct, no console errors. **Not yet checked against Ridwan's G2-04 endpoint** (not on any
+  branch on 17 Oct); re-check once it lands.
+
+## 2026-10-17 — Saif: surroundings option on the map screen (G3-05)
+
+- Map screen, building (indoor) mode: "Include the surroundings" switch with the copy from
+  `en.json`, and a "Distance around the building" slider (10–200 m in 10 m steps, 50 m by
+  default, keyboard operable). When on, `POST /venues/from-map` carries `surroundings_m`; when off
+  nothing is sent. Open-air areas do not show it.
+- The preview shows a "Surroundings {m} m" badge when the venue records
+  `extensions.building.surroundings_m`; if the option was on but the server did not add them, it
+  says so and suggests drawing the area around the building instead.
+- Playwright `e2e/surroundings.spec.ts` (draw a box → building → switch on → 80 m with the
+  arrow keys → the request carries `surroundings_m: 80`) passes.
+- **Waits on G2-06** (Ridwan): today's server ignores the field. For the badge, please record the
+  distance used as `extensions.building.surroundings_m` on the venue.
+
+## 2026-10-17 — Saif: scenario viewer, event markers, "Test this plan" fix (G3-06)
+
+- Your plan: "Every scenario the AI tested" replaces the top-3 risks list: the plan as drawn,
+  each attack (with its source and AI-written code), the fixes tried under it (kept or not), the
+  attack re-run with the changes kept so far, and the final before/after checks, each with its
+  verdict (holds, breaks, preview, not confirmed, running, did not finish) and its 95% time and
+  peak density. Clicking a row plays that run; "Back to before and after" returns to the pair.
+- The replay has a timeline under it with markers for the scenario's events (attack events and
+  the fixes' operational steps) and a caption over the replay while each happens, e.g. "South
+  door 1 blocked at 1:00", "1,200 more people into Audience at 0:30". Captions come from the
+  attack and fix definitions (`journey/plan/scenarios.ts`, 6 vitest cases): the sim's event log
+  records the time but not the exit or zone.
+- Multi-storey replays get "People on each floor" (one line per floor, with a text summary).
+- **The intermittent "Test this plan" failure** (once in two runs on 15 Oct): the "saved as
+  version N" toasts of the edits just made opened bottom-right, on top of the button. A
+  two-line toast (the door-width message) covered the button's centre, so the click landed on
+  the toast and nothing started; shorter messages or toasts already gone let it work, hence
+  "intermittent". Reproduced with `elementFromPoint` after the guided journey's edits. Toasts
+  now open bottom-left (the primary actions are on the right). `e2e/test-plan-click.spec.ts`
+  checks the toast column against the button: it fails with bottom-right, passes now.
+- `/runs/{id}/agents` (G3-03) is asked once per page load on servers without it, so the console
+  shows at most one 404 until G2-04 lands.
+- Playwright `e2e/scenario-viewer.spec.ts` (quick session on the school wing in the Docker
+  sandbox → list with verdicts → play an attack → seek to its marker → caption) passes.
+- Full Playwright suite: 12/12 passed (fake model, Docker sandbox), guided journey included.
+
+## 2026-10-17 — Saif: multi-storey browser journey (G3-07)
+
+- Playwright `e2e/multi-storey.spec.ts`: Home → "Pick it on the map" → Draw an area → Building
+  (indoor), 4 floors, Used as Hospital, Rooms and corridors → Build venue → Use this venue →
+  check screen with all, spread apart and the four floors in the switcher, one floor alone →
+  Test this plan → Your plan → the replay's floor switcher on one floor, "People on each floor".
+  Passed twice (9.2 min, 6.7 min) with the fake model and the Docker sandbox.
+- Screenshots in `docs/screenshots/`: `map-hospital-4f`, `check-hospital-4f`,
+  `check-hospital-one-floor`, `plan-hospital-one-floor` (`SHOTS=0` skips them).
+- The journey types 60 people (`PEOPLE=` overrides). The sim image is amd64: on an ARM Mac it
+  runs emulated, and the generated 250-person, four-storey baseline alone took 10 min 19 s, so
+  the first attempt timed out in "Trying what could go wrong".
+- For Ridwan (backend): deleting a project while its red-team session runs leaves the session
+  running in memory (it keeps starting simulations), and `POST /sessions/{id}/stop` answers 404
+  because the row is gone. Found when the first attempt's clean-up deleted the project.
+
+## 2026-10-17 — Saif: explain the verdict badges (S-05)
+
+- Under "This plan holds · Not confirmed" (and every other headline and badge) Your plan now
+  says in one line why the badge reads as it does, from the session evaluation and what its
+  confirmation runs rest on (`evaluationReason` in `lib/evidence.ts`, 2 vitest cases): e.g.
+  "Only quick simulations of the first minutes checked it…", "The simulator was not running, so
+  these numbers are a preview…", "No full simulation of the final plan with its changes has
+  run…". "What this means" links to the new Help section "Reading the verdict", which explains
+  the three headlines and the four badges.
+- The guided journey asserts the line and the link. Whether organizers understand it is for the
+  S-06 sessions.
+
+## 2026-10-17 — Saif: seed range on Your plan (S-09)
+
+- "Check with more seeds" card on Your plan: says which run it repeats (the kept fixes under the
+  worst attack, else the baseline), lets the organizer pick 1–5 more seeds (default from the
+  server: 3 locally, 5 on Nebius), calls `POST /sessions/{id}/seeds` and follows
+  `GET …/seeds` every 2.5 s while runs go. It shows "95% out in 4 min 29 s – 4 min 42 s over 4
+  seeds", the peak density range, people still inside (or "Everyone got out in all N runs"),
+  what the range rests on ("3 × full simulation"), the server's notes (runs left out, settings
+  changed), and each run with its seed and basis. Repeating reuses the runs already there.
+- Text helpers in `journey/plan/seeds.ts` (3 vitest cases); Playwright `e2e/seed-check.spec.ts`
+  (quick session → 2 more seeds → range over 3 seeds with bases and the run list) passes in the
+  Docker sandbox; it skips with the fake sandbox.
+
+## 2026-10-17 — Saif: frontend release quality (S-02)
+
+- New `e2e/release-quality.spec.ts` (with `@axe-core/playwright` 4.10.2, dev only): no console
+  errors on 15 pages (home, projects, welcome, settings, help, map, 404, the three simple
+  screens, the four Expert modes, scripts); axe WCAG 2.0/2.1/2.2 A+AA on the three simple
+  screens plus home and the map page, light and dark (the 3D canvas and the map tiles are
+  excluded: they are pictures with text next to them); Tab reaches each simple screen's primary
+  action with a visible focus; no sideways scroll at 320, 375 and 414 px on seven screens.
+  5/5 pass.
+- Fixed on the way:
+  - Contrast: white text on the bright safety colours was 2.9–3.4:1 (exit labels in 3D,
+    hotspot labels, journey step circles, replay captions, before/after chips, the danger
+    button). New tokens `--egress-strong`, `--caution-strong`, `--danger-strong`,
+    `--sky-strong` with `--on-strong` text (white in light, near-black in dark), all ≥ 5:1.
+  - The 3D view's container had `aria-label` without a role; it is `role="img"` now.
+  - Run pages logged a 404 for `/runs/{id}/agents` (G2-04 not merged): it is now asked only when
+    the run's venue has people groups, and at most once per page load.
+  - Sideways scroll: Home's header at 320 px (the wordmark hides below 360 px), Your plan's
+    grids (`grid-cols-1` so tracks can shrink), the replay timeline (shrinkable), and the
+    "Scenario written as code" badge (wraps).
+- Onboarding (`/welcome`) has "Any building, any number of floors" with a way to the map. The
+  camera tour mentions the floors, adds a stairs shot ("2 stairs join the floors; the narrowest
+  is 1.2 metres wide. People per floor: …") and who is in the crowd when areas have groups
+  (`Tour.test.ts`, 2 cases). vitest 167.
+
+## 2026-10-17 — Saif: agent evaluation harness (S-01, partly done)
+
+- `config.agents` on Red Team Night sessions: `hybrid` (default, unchanged behaviour), `rules`
+  (rule attacks and standard fixes only, no red/blue model calls), `model` (the agents' proposals
+  only: no rule attacks, no example script, no standard responses). Small additive change in
+  `api/orchestrator/session.py` (`_attacks`, `_fixes`): **Ridwan, please review** (your file).
+- `agent_call` events now carry `problems` (validation problems left), `problems_first` (in the
+  first answer, before repair) and up to three problem texts (`api/agents/base.py`).
+- `api/tests/test_agent_modes.py` (4 cases, FakeLLM): default and unknown modes are hybrid, rules
+  never asks the model, model adds no rule proposals, problems are reported.
+- `scripts/evaluate_agents.py` runs venues × arms through the API with the same config and seed
+  and tabulates the stream; method and metrics in `docs/EVALUATION.md`.
+- Run 1, rules only, on three venues: done (table in `docs/EVALUATION.md`). **Model-only and
+  hybrid arms not run: no OpenRouter key in this machine's `.env`.** At the reduced headcounts no
+  attack broke the plan, so the next run needs headcounts that break.
+
+## 2026-10-17 — Saif: screenshots (S-07)
+
+- `make screenshots` (`web/e2e/screens.mjs`) now also takes the three simple screens in light and
+  dark (`home`, `check`, `plan-simple` and their `-dark`), the empty plan (`plan-untested`), the
+  map, Help's verdict section, the building tools (`building-tools`) and a 4-storey hospital
+  (`hospital-check`, `hospital-spread`, `hospital-check-dark`). Samples are preferred when picking
+  projects by name (an evaluation project called "…t_alley…" was picked over the alley sample).
+  Error states: `missing-project`, `not-found` (its 404 is the only console error, expected).
+- All 29 shots refreshed and reviewed. The README table gains the check screen, Your plan, the
+  hospital and the building tools.
+- Found and fixed while reviewing: (1) a sample's session from before evaluations were recorded
+  said "No test has checked this plan yet" under the badge; it now says the test predates the
+  confirmation record and counts as not confirmed. (2) Four floors spread apart labelled every
+  ward on every floor and the labels piled up; from three floors, spread apart follows the
+  stacked rule (focus floor plus every exit). (3) A Docker Desktop quirk made
+  `docker image inspect showtime-sim:latest` answer "No such image" while the image ran fine,
+  so health said "make build-sim"; re-tagging the same image id fixed it (environment, not code).
+- Not shot: an empty project list (needs an empty database; the samples are always installed).
+
+## 2026-10-17 — Saif: demo projects (S-08, hospital done; march blocked), S-06 and S-10 prepared
+
+- `scripts/precompute_demos.py hospital_4f` builds "Riverside General · 4-storey ward block"
+  (fictional; a drawn box on a Dhaka city block, OpenStreetMap surroundings) through the map
+  importer: 4 storeys of wards, two stair cores, 600 people with the hospital's usual mix. One
+  session in the Docker sandbox (174 s): 4 of 4 attacks broke the plan, a rule fix ("Open a
+  2.5 m exit on the west side") was kept, "This plan fails · Partly confirmed". Pack:
+  `cache/demos/hospital_4f.showtime.zip` (1.7 MB), installed as a sample; it replays offline
+  with fake providers (checked: scenarios, replay, people per floor).
+- Made **without a model** (no OpenRouter key here): the attacks and the kept fix are
+  rule-based and the judge text is the template. Re-run with Nemotron before filming
+  (`make use-nebius`, then `precompute_demos.py hospital_4f`).
+- **March demo: blocked on G2-03** (routes and the `rally_street` template are not in the
+  simulator yet; routes are drawn but nobody walks them).
+- S-06: `docs/ORGANIZER_EXERCISES.md` (task, timings, what to record, issue list, correction
+  round). **Not run: needs 3–5 real organizers.**
+- S-10: `docs/VIDEO_SCRIPT.md` (shot list ≤ 3 min, voice-over, evidence table for N-04 run ids).
+  **Not recorded or published: needs Shahraz's live Nebius runs and a person to film/upload.**

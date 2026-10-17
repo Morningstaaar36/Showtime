@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scriptOf } from "@/journey/scriptCode";
+import { scriptOf } from "@/journey/scriptSource";
 
 const src = { incident: "x", source_url: "https://example.org" };
 

@@ -118,3 +118,21 @@ export function planFreshness(input: { currentHash: string | null | undefined; t
   if (fixedHash && currentHash === fixedHash) return "current_after";
   return "stale";
 }
+
+/** One line that says why the verdict badge reads as it does ("Not confirmed" because…), from the
+ * session evaluation's status and what its confirmation runs were based on. */
+export function evaluationReason(evaluation: Evaluation | null | undefined): string {
+  const status = evaluation?.status ?? "unconfirmed";
+  if (status === "confirmed") return t("evidence.why.confirmed");
+  if (status === "partially_confirmed") return t("evidence.why.partially_confirmed");
+  if (status === "failed") return t("evidence.why.failed");
+  // not confirmed: say what the numbers rest on instead
+  const basis = evaluation?.after_basis ?? evaluation?.before_basis ?? null;
+  // the banner shows tested plans only: no evaluation means a test from before it was recorded
+  if (!evaluation) return t("evidence.why.legacy");
+  if (basis === "preview") return t("evidence.why.preview");
+  if (basis === "instant_estimate") return t("evidence.why.estimate");
+  if (basis === "partial_simulation") return t("evidence.why.quick");
+  if (basis === "unknown") return t("evidence.why.unfinished");
+  return t("evidence.why.no_final");
+}

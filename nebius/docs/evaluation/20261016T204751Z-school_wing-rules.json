@@ -1,0 +1,967 @@
+{
+ "row": {
+  "venue": "school_wing",
+  "arm": "rules",
+  "status": "finished",
+  "attacks": 4,
+  "attacks_breaking": 0,
+  "rule_attacks_added": 0,
+  "agent_calls": 0,
+  "invalid_outputs": 0,
+  "spatial_errors_first": 0,
+  "spatial_errors_left": 0,
+  "repairs": 0,
+  "escalations": 0,
+  "cached_calls": 0,
+  "model_ms": 0,
+  "tokens": 0,
+  "cost_usd": 0.0,
+  "fixes_feasible": 0,
+  "fixes_infeasible": 0,
+  "fixes_kept": 0,
+  "regressions": 0,
+  "simulations": 5,
+  "evaluation": "unconfirmed",
+  "before_p95_s": null,
+  "after_p95_s": null,
+  "wall_s": 60.3,
+  "models": []
+ },
+ "session": {
+  "id": "s_fc704d347b",
+  "project_id": "p_e25894579d",
+  "venue_version": 1,
+  "status": "finished",
+  "config": {
+   "max_rounds": 1,
+   "attacks_per_round": 3,
+   "fixes_per_attack": 2,
+   "fix_targets": 2,
+   "seed": 42,
+   "confirm_tier3": true,
+   "max_runs": 12,
+   "max_wall_s": 1800.0,
+   "max_tokens": 400000,
+   "parallel_branches": true,
+   "agents": "rules"
+  },
+  "summary": {
+   "baseline_run_id": "r_a03ad795d60a",
+   "final_run_id": null,
+   "scoreboard": [
+    {
+     "round": 1,
+     "breaks": 0,
+     "attacks": 4
+    }
+   ],
+   "accepted_fixes": [],
+   "attacks": [
+    {
+     "schema_version": 1,
+     "attack_id": "A4",
+     "title": "Busiest gate jams 20 seconds in",
+     "events": [
+      {
+       "type": "script",
+       "at_s": 0.0,
+       "title": "Busiest gate jams 20 seconds in",
+       "code": "# Gate jam: the exit with the longest queue fails once it is crowded,\n# and people who were heading there are told to use the next exit.\nstate = {\"closed\": None}\n\n\ndef on_step(view, act):\n    if state[\"closed\"] is None and view.t >= 20:\n        busiest = max(view.exit_ids, key=lambda e: view.exits[e][\"queue\"])\n        if view.exits[busiest][\"queue\"] > 0:\n            act.close_exit(busiest)\n            act.note(f\"{busiest} jammed with {view.exits[busiest]['queue']} people heading to it\")\n            state[\"closed\"] = busiest\n",
+       "every_s": 1.0
+      }
+     ],
+     "inspired_by": {
+      "incident": "Kiss nightclub fire",
+      "year": 2013,
+      "source_url": "https://en.wikipedia.org/wiki/Kiss_nightclub_fire",
+      "evidence": "A pyrotechnic ignited ceiling foam; with the power out, people could not find the club's only exit.",
+      "dataset_row": 9018
+     },
+     "rationale": "A gate that reacts to the crowd: whichever exit has the most people heading to it fails at 20 s.",
+     "extensions": {
+      "kind": "script",
+      "generated_by": "rules"
+     }
+    },
+    {
+     "schema_version": 1,
+     "attack_id": "A1",
+     "title": "West stairwell lost one minute into the exit",
+     "events": [
+      {
+       "type": "block_exit",
+       "at_s": 60.0,
+       "exit_id": "stair_w"
+      }
+     ],
+     "inspired_by": {
+      "incident": "Kiss nightclub fire",
+      "year": 2013,
+      "source_url": "https://en.wikipedia.org/wiki/Kiss_nightclub_fire",
+      "evidence": "A pyrotechnic ignited ceiling foam; with the power out, people could not find the club's only exit.",
+      "dataset_row": 9018
+     },
+     "rationale": "stair_w carries the most people, so losing it overloads the others.",
+     "extensions": {
+      "generated_by": "rules"
+     }
+    },
+    {
+     "schema_version": 1,
+     "attack_id": "A3",
+     "title": "People push in through West stairwell",
+     "events": [
+      {
+       "type": "counterflow",
+       "at_s": 30.0,
+       "exit_id": "stair_w",
+       "people": 50
+      }
+     ],
+     "inspired_by": {
+      "incident": "Seoul Halloween crowd crush",
+      "year": 2022,
+      "source_url": "https://en.wikipedia.org/wiki/Seoul_Halloween_crowd_crush",
+      "evidence": "Halloween crowds pressed into a narrow, sloped alley in Itaewon from both ends; people fell and were crushed at extreme densities.",
+      "dataset_row": 9001
+     },
+     "rationale": "A group entering through stair_w meets the outgoing crowd head-on.",
+     "extensions": {
+      "generated_by": "rules"
+     }
+    },
+    {
+     "schema_version": 1,
+     "attack_id": "A2",
+     "title": "Late surge into Classroom 1",
+     "events": [
+      {
+       "type": "surge",
+       "at_s": 0.0,
+       "zone_id": "room_1",
+       "extra_people": 20
+      }
+     ],
+     "inspired_by": {
+      "incident": "The Station nightclub fire",
+      "year": 2003,
+      "source_url": "https://en.wikipedia.org/wiki/The_Station_nightclub_fire",
+      "evidence": "Pyrotechnics ignited foam around the stage; within minutes the building was engulfed and people piled up at the front door.",
+      "dataset_row": 9006
+     },
+     "rationale": "room_1 is the largest zone; a quarter more people arrive as it empties.",
+     "extensions": {
+      "generated_by": "rules"
+     }
+    }
+   ],
+   "fixes": [],
+   "worst_attack_id": null,
+   "before": {
+    "evac_time_p95_s": 55.025,
+    "evac_time_estimate_s": null,
+    "peak_density_ppm2": 3.64,
+    "time_above_danger_s": 0.0,
+    "agents_not_evacuated": 0,
+    "agents_total": 400
+   },
+   "after": null,
+   "judge_text": "These results describe the tested scenarios under the configured assumptions. Red team tested 4 attacks on School wing (400 people). Breaks per round: 0. No fixes were accepted. Evaluation: not confirmed. No attack broke the plan, so there was nothing to fix or confirm. Planning aid, not a safety certification.",
+   "recommendations": [],
+   "numbers_checked": false,
+   "countdown": {
+    "status": "no_hazard",
+    "t_hazard_s": null,
+    "t_hazard_iso": null,
+    "t_latest_s": null,
+    "t_latest_iso": null,
+    "rset_s": 55.025,
+    "pre_movement_s": 60.0,
+    "safety_factor": 1.5,
+    "hazard_source": null,
+    "hazard_explanation": "No hazard in forecast window.",
+    "rset_source": "the baseline (full simulation, run r_a03ad795d60a)",
+    "formula": "T_latest = T_hazard \u2212 (T_pre_movement + RSET \u00d7 safety factor)"
+   },
+   "stopped_reason": "no new breaks",
+   "measures": [],
+   "evaluation": {
+    "status": "unconfirmed",
+    "before_basis": "completed_simulation",
+    "after_basis": null,
+    "reasons": [
+     "No attack broke the plan, so there was nothing to fix or confirm."
+    ],
+    "before_run_id": "r_a03ad795d60a",
+    "after_run_id": null,
+    "baseline_basis": "completed_simulation",
+    "fallback_run_ids": {}
+   },
+   "cost": {
+    "usd_total": 0.0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "calls": 0,
+    "by_role": {},
+    "by_model": {},
+    "llm_cache_hits": 0,
+    "sims": {
+     "instant_estimates": 3,
+     "quick_sims": 4,
+     "full_sims": 1,
+     "failed": 0,
+     "cache_hits": 0,
+     "sim_seconds": 47.2
+    },
+    "wall_s": 58.5
+   }
+  },
+  "tokens": 0,
+  "cost_usd": 0.0,
+  "created_at": "2026-10-16T20:47:51.226778+00:00",
+  "finished_at": "2026-10-16T20:48:49.711355+00:00",
+  "error": null
+ },
+ "events": [
+  {
+   "seq": 1,
+   "type": "status",
+   "ts": "2026-10-16T20:47:51.228592+00:00",
+   "payload": {
+    "status": "running",
+    "phase": "baseline",
+    "round": 0,
+    "message": "Running the baseline"
+   }
+  },
+  {
+   "seq": 2,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:47:51.260331+00:00",
+   "payload": {
+    "node_id": "baseline",
+    "parent_id": null,
+    "kind": "baseline",
+    "label": "Baseline",
+    "run_id": "r_a03ad795d60a",
+    "status": "running",
+    "attack_id": null,
+    "fix_id": null
+   }
+  },
+  {
+   "seq": 3,
+   "type": "run_started",
+   "ts": "2026-10-16T20:47:51.260846+00:00",
+   "payload": {
+    "run_id": "r_a03ad795d60a",
+    "tier": 3,
+    "label": "Baseline",
+    "attack_id": null,
+    "fix_id": null,
+    "parent_run_id": null
+   }
+  },
+  {
+   "seq": 4,
+   "type": "tool_call",
+   "ts": "2026-10-16T20:47:51.261112+00:00",
+   "payload": {
+    "tool": "run_sim",
+    "args": {
+     "tier": 3,
+     "label": "Baseline"
+    },
+    "summary": "Tier 3 simulation in the sandbox"
+   }
+  },
+  {
+   "seq": 5,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:48:06.854039+00:00",
+   "payload": {
+    "node_id": "baseline",
+    "run_id": "r_a03ad795d60a",
+    "status": "ok",
+    "metrics": {
+     "evac_time_p95_s": 55.025,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.64,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 400
+    },
+    "tier": 3,
+    "basis": "completed_simulation"
+   }
+  },
+  {
+   "seq": 6,
+   "type": "run_finished",
+   "ts": "2026-10-16T20:48:06.857672+00:00",
+   "payload": {
+    "run_id": "r_a03ad795d60a",
+    "node_id": "baseline",
+    "status": "ok",
+    "tier": 3,
+    "metrics": {
+     "evac_time_p95_s": 55.025,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.64,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 400
+    },
+    "provider": "docker",
+    "engine": "jupedsim",
+    "basis": "completed_simulation",
+    "cache_hit": false,
+    "is_break": false,
+    "break_reasons": [],
+    "accepted": null
+   }
+  },
+  {
+   "seq": 7,
+   "type": "tool_call",
+   "ts": "2026-10-16T20:48:06.859316+00:00",
+   "payload": {
+    "tool": "incidents",
+    "args": {
+     "n": 8
+    },
+    "summary": "8 similar real incidents found"
+   }
+  },
+  {
+   "seq": 8,
+   "type": "status",
+   "ts": "2026-10-16T20:48:06.859882+00:00",
+   "payload": {
+    "status": "running",
+    "phase": "red_team",
+    "round": 1,
+    "message": "Red team is designing attacks"
+   }
+  },
+  {
+   "seq": 9,
+   "type": "status",
+   "ts": "2026-10-16T20:48:06.861253+00:00",
+   "payload": {
+    "status": "running",
+    "phase": "screening",
+    "round": 1,
+    "message": "Ranking attacks with the instant estimate"
+   }
+  },
+  {
+   "seq": 10,
+   "type": "attack_card",
+   "ts": "2026-10-16T20:48:06.893204+00:00",
+   "payload": {
+    "round": 1,
+    "attack": {
+     "schema_version": 1,
+     "attack_id": "A1",
+     "title": "West stairwell lost one minute into the exit",
+     "events": [
+      {
+       "type": "block_exit",
+       "at_s": 60.0,
+       "exit_id": "stair_w"
+      }
+     ],
+     "inspired_by": {
+      "incident": "Kiss nightclub fire",
+      "year": 2013,
+      "source_url": "https://en.wikipedia.org/wiki/Kiss_nightclub_fire",
+      "evidence": "A pyrotechnic ignited ceiling foam; with the power out, people could not find the club's only exit.",
+      "dataset_row": 9018
+     },
+     "rationale": "stair_w carries the most people, so losing it overloads the others.",
+     "extensions": {
+      "generated_by": "rules"
+     }
+    },
+    "tier1": {
+     "evac_time_p95_s": 148.0,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 4.74,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 400
+    }
+   }
+  },
+  {
+   "seq": 11,
+   "type": "attack_card",
+   "ts": "2026-10-16T20:48:06.903069+00:00",
+   "payload": {
+    "round": 1,
+    "attack": {
+     "schema_version": 1,
+     "attack_id": "A2",
+     "title": "Late surge into Classroom 1",
+     "events": [
+      {
+       "type": "surge",
+       "at_s": 0.0,
+       "zone_id": "room_1",
+       "extra_people": 20
+      }
+     ],
+     "inspired_by": {
+      "incident": "The Station nightclub fire",
+      "year": 2003,
+      "source_url": "https://en.wikipedia.org/wiki/The_Station_nightclub_fire",
+      "evidence": "Pyrotechnics ignited foam around the stage; within minutes the building was engulfed and people piled up at the front door.",
+      "dataset_row": 9006
+     },
+     "rationale": "room_1 is the largest zone; a quarter more people arrive as it empties.",
+     "extensions": {
+      "generated_by": "rules"
+     }
+    },
+    "tier1": {
+     "evac_time_p95_s": 109.0,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 4.4,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 420
+    }
+   }
+  },
+  {
+   "seq": 12,
+   "type": "attack_card",
+   "ts": "2026-10-16T20:48:06.913371+00:00",
+   "payload": {
+    "round": 1,
+    "attack": {
+     "schema_version": 1,
+     "attack_id": "A3",
+     "title": "People push in through West stairwell",
+     "events": [
+      {
+       "type": "counterflow",
+       "at_s": 30.0,
+       "exit_id": "stair_w",
+       "people": 50
+      }
+     ],
+     "inspired_by": {
+      "incident": "Seoul Halloween crowd crush",
+      "year": 2022,
+      "source_url": "https://en.wikipedia.org/wiki/Seoul_Halloween_crowd_crush",
+      "evidence": "Halloween crowds pressed into a narrow, sloped alley in Itaewon from both ends; people fell and were crushed at extreme densities.",
+      "dataset_row": 9001
+     },
+     "rationale": "A group entering through stair_w meets the outgoing crowd head-on.",
+     "extensions": {
+      "generated_by": "rules"
+     }
+    },
+    "tier1": {
+     "evac_time_p95_s": 137.0,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 4.6,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 400
+    }
+   }
+  },
+  {
+   "seq": 13,
+   "type": "attack_card",
+   "ts": "2026-10-16T20:48:06.913987+00:00",
+   "payload": {
+    "round": 1,
+    "attack": {
+     "schema_version": 1,
+     "attack_id": "A4",
+     "title": "Busiest gate jams 20 seconds in",
+     "events": [
+      {
+       "type": "script",
+       "at_s": 0.0,
+       "title": "Busiest gate jams 20 seconds in",
+       "code": "# Gate jam: the exit with the longest queue fails once it is crowded,\n# and people who were heading there are told to use the next exit.\nstate = {\"closed\": None}\n\n\ndef on_step(view, act):\n    if state[\"closed\"] is None and view.t >= 20:\n        busiest = max(view.exit_ids, key=lambda e: view.exits[e][\"queue\"])\n        if view.exits[busiest][\"queue\"] > 0:\n            act.close_exit(busiest)\n            act.note(f\"{busiest} jammed with {view.exits[busiest]['queue']} people heading to it\")\n            state[\"closed\"] = busiest\n",
+       "every_s": 1.0
+      }
+     ],
+     "inspired_by": {
+      "incident": "Kiss nightclub fire",
+      "year": 2013,
+      "source_url": "https://en.wikipedia.org/wiki/Kiss_nightclub_fire",
+      "evidence": "A pyrotechnic ignited ceiling foam; with the power out, people could not find the club's only exit.",
+      "dataset_row": 9018
+     },
+     "rationale": "A gate that reacts to the crowd: whichever exit has the most people heading to it fails at 20 s.",
+     "extensions": {
+      "kind": "script",
+      "generated_by": "rules"
+     }
+    },
+    "tier1": {},
+    "screening": "quick_simulation"
+   }
+  },
+  {
+   "seq": 14,
+   "type": "log",
+   "ts": "2026-10-16T20:48:06.914381+00:00",
+   "payload": {
+    "level": "info",
+    "message": "\u201cBusiest gate jams 20 seconds in\u201d is an AI-written scenario; the instant estimate cannot run its code, so it goes straight to a quick simulation."
+   }
+  },
+  {
+   "seq": 15,
+   "type": "status",
+   "ts": "2026-10-16T20:48:06.914818+00:00",
+   "payload": {
+    "status": "running",
+    "phase": "simulating",
+    "round": 1,
+    "message": "Simulating 4 attacks"
+   }
+  },
+  {
+   "seq": 16,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:48:06.924167+00:00",
+   "payload": {
+    "node_id": "atk:A4",
+    "parent_id": "baseline",
+    "kind": "attack",
+    "label": "Busiest gate jams 20 seconds in",
+    "run_id": "r_6fdea697cbb6",
+    "status": "running",
+    "attack_id": "A4",
+    "fix_id": null
+   }
+  },
+  {
+   "seq": 17,
+   "type": "run_started",
+   "ts": "2026-10-16T20:48:06.924750+00:00",
+   "payload": {
+    "run_id": "r_6fdea697cbb6",
+    "tier": 2,
+    "label": "Busiest gate jams 20 seconds in",
+    "attack_id": "A4",
+    "fix_id": null,
+    "parent_run_id": "baseline"
+   }
+  },
+  {
+   "seq": 18,
+   "type": "tool_call",
+   "ts": "2026-10-16T20:48:06.925055+00:00",
+   "payload": {
+    "tool": "run_sim",
+    "args": {
+     "tier": 2,
+     "label": "Busiest gate jams 20 seconds in"
+    },
+    "summary": "Tier 2 simulation in the sandbox"
+   }
+  },
+  {
+   "seq": 19,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:48:06.935562+00:00",
+   "payload": {
+    "node_id": "atk:A1",
+    "parent_id": "baseline",
+    "kind": "attack",
+    "label": "West stairwell lost one minute into the exit",
+    "run_id": "r_e2c2bb0d27f2",
+    "status": "running",
+    "attack_id": "A1",
+    "fix_id": null
+   }
+  },
+  {
+   "seq": 20,
+   "type": "run_started",
+   "ts": "2026-10-16T20:48:06.936189+00:00",
+   "payload": {
+    "run_id": "r_e2c2bb0d27f2",
+    "tier": 2,
+    "label": "West stairwell lost one minute into the exit",
+    "attack_id": "A1",
+    "fix_id": null,
+    "parent_run_id": "baseline"
+   }
+  },
+  {
+   "seq": 21,
+   "type": "tool_call",
+   "ts": "2026-10-16T20:48:06.936472+00:00",
+   "payload": {
+    "tool": "run_sim",
+    "args": {
+     "tier": 2,
+     "label": "West stairwell lost one minute into the exit"
+    },
+    "summary": "Tier 2 simulation in the sandbox"
+   }
+  },
+  {
+   "seq": 22,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:48:06.945127+00:00",
+   "payload": {
+    "node_id": "atk:A3",
+    "parent_id": "baseline",
+    "kind": "attack",
+    "label": "People push in through West stairwell",
+    "run_id": "r_e4f8f33ab031",
+    "status": "running",
+    "attack_id": "A3",
+    "fix_id": null
+   }
+  },
+  {
+   "seq": 23,
+   "type": "run_started",
+   "ts": "2026-10-16T20:48:06.945905+00:00",
+   "payload": {
+    "run_id": "r_e4f8f33ab031",
+    "tier": 2,
+    "label": "People push in through West stairwell",
+    "attack_id": "A3",
+    "fix_id": null,
+    "parent_run_id": "baseline"
+   }
+  },
+  {
+   "seq": 24,
+   "type": "tool_call",
+   "ts": "2026-10-16T20:48:06.946700+00:00",
+   "payload": {
+    "tool": "run_sim",
+    "args": {
+     "tier": 2,
+     "label": "People push in through West stairwell"
+    },
+    "summary": "Tier 2 simulation in the sandbox"
+   }
+  },
+  {
+   "seq": 25,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:48:06.955205+00:00",
+   "payload": {
+    "node_id": "atk:A2",
+    "parent_id": "baseline",
+    "kind": "attack",
+    "label": "Late surge into Classroom 1",
+    "run_id": "r_57a49810bae0",
+    "status": "running",
+    "attack_id": "A2",
+    "fix_id": null
+   }
+  },
+  {
+   "seq": 26,
+   "type": "run_started",
+   "ts": "2026-10-16T20:48:06.955637+00:00",
+   "payload": {
+    "run_id": "r_57a49810bae0",
+    "tier": 2,
+    "label": "Late surge into Classroom 1",
+    "attack_id": "A2",
+    "fix_id": null,
+    "parent_run_id": "baseline"
+   }
+  },
+  {
+   "seq": 27,
+   "type": "tool_call",
+   "ts": "2026-10-16T20:48:06.955956+00:00",
+   "payload": {
+    "tool": "run_sim",
+    "args": {
+     "tier": 2,
+     "label": "Late surge into Classroom 1"
+    },
+    "summary": "Tier 2 simulation in the sandbox"
+   }
+  },
+  {
+   "seq": 28,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:48:19.922300+00:00",
+   "payload": {
+    "node_id": "atk:A4",
+    "run_id": "r_6fdea697cbb6",
+    "status": "ok",
+    "metrics": {
+     "evac_time_p95_s": 104.85,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.67,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 400
+    },
+    "tier": 2,
+    "basis": "completed_simulation"
+   }
+  },
+  {
+   "seq": 29,
+   "type": "run_finished",
+   "ts": "2026-10-16T20:48:19.923581+00:00",
+   "payload": {
+    "run_id": "r_6fdea697cbb6",
+    "node_id": "atk:A4",
+    "status": "ok",
+    "tier": 2,
+    "metrics": {
+     "evac_time_p95_s": 104.85,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.67,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 400
+    },
+    "provider": "docker",
+    "engine": "jupedsim",
+    "basis": "completed_simulation",
+    "cache_hit": false,
+    "is_break": false,
+    "break_reasons": [],
+    "accepted": null
+   }
+  },
+  {
+   "seq": 30,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:48:31.392028+00:00",
+   "payload": {
+    "node_id": "atk:A1",
+    "run_id": "r_e2c2bb0d27f2",
+    "status": "ok",
+    "metrics": {
+     "evac_time_p95_s": 86.45,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.57,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 400
+    },
+    "tier": 2,
+    "basis": "completed_simulation"
+   }
+  },
+  {
+   "seq": 31,
+   "type": "run_finished",
+   "ts": "2026-10-16T20:48:31.393963+00:00",
+   "payload": {
+    "run_id": "r_e2c2bb0d27f2",
+    "node_id": "atk:A1",
+    "status": "ok",
+    "tier": 2,
+    "metrics": {
+     "evac_time_p95_s": 86.45,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.57,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 400
+    },
+    "provider": "docker",
+    "engine": "jupedsim",
+    "basis": "completed_simulation",
+    "cache_hit": false,
+    "is_break": false,
+    "break_reasons": [],
+    "accepted": null
+   }
+  },
+  {
+   "seq": 32,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:48:40.873637+00:00",
+   "payload": {
+    "node_id": "atk:A3",
+    "run_id": "r_e4f8f33ab031",
+    "status": "ok",
+    "metrics": {
+     "evac_time_p95_s": 97.45,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.63,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 450
+    },
+    "tier": 2,
+    "basis": "completed_simulation"
+   }
+  },
+  {
+   "seq": 33,
+   "type": "run_finished",
+   "ts": "2026-10-16T20:48:40.874921+00:00",
+   "payload": {
+    "run_id": "r_e4f8f33ab031",
+    "node_id": "atk:A3",
+    "status": "ok",
+    "tier": 2,
+    "metrics": {
+     "evac_time_p95_s": 97.45,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.63,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 450
+    },
+    "provider": "docker",
+    "engine": "jupedsim",
+    "basis": "completed_simulation",
+    "cache_hit": false,
+    "is_break": false,
+    "break_reasons": [],
+    "accepted": null
+   }
+  },
+  {
+   "seq": 34,
+   "type": "branch_node",
+   "ts": "2026-10-16T20:48:49.707494+00:00",
+   "payload": {
+    "node_id": "atk:A2",
+    "run_id": "r_57a49810bae0",
+    "status": "ok",
+    "metrics": {
+     "evac_time_p95_s": 65.15,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.69,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 420
+    },
+    "tier": 2,
+    "basis": "completed_simulation"
+   }
+  },
+  {
+   "seq": 35,
+   "type": "run_finished",
+   "ts": "2026-10-16T20:48:49.708218+00:00",
+   "payload": {
+    "run_id": "r_57a49810bae0",
+    "node_id": "atk:A2",
+    "status": "ok",
+    "tier": 2,
+    "metrics": {
+     "evac_time_p95_s": 65.15,
+     "evac_time_estimate_s": null,
+     "peak_density_ppm2": 3.69,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 0,
+     "agents_total": 420
+    },
+    "provider": "docker",
+    "engine": "jupedsim",
+    "basis": "completed_simulation",
+    "cache_hit": false,
+    "is_break": false,
+    "break_reasons": [],
+    "accepted": null
+   }
+  },
+  {
+   "seq": 36,
+   "type": "score",
+   "ts": "2026-10-16T20:48:49.708580+00:00",
+   "payload": {
+    "round": 1,
+    "breaks": 0,
+    "attacks_tested": 4,
+    "fixes_accepted": 0,
+    "scoreboard": [
+     {
+      "round": 1,
+      "breaks": 0,
+      "attacks": 4
+     }
+    ]
+   }
+  },
+  {
+   "seq": 37,
+   "type": "countdown",
+   "ts": "2026-10-16T20:48:49.709041+00:00",
+   "payload": {
+    "countdown": {
+     "status": "no_hazard",
+     "t_hazard_s": null,
+     "t_hazard_iso": null,
+     "t_latest_s": null,
+     "t_latest_iso": null,
+     "rset_s": 55.025,
+     "pre_movement_s": 60.0,
+     "safety_factor": 1.5,
+     "hazard_source": null,
+     "hazard_explanation": "No hazard in forecast window.",
+     "rset_source": "the baseline (full simulation, run r_a03ad795d60a)",
+     "formula": "T_latest = T_hazard \u2212 (T_pre_movement + RSET \u00d7 safety factor)"
+    }
+   }
+  },
+  {
+   "seq": 38,
+   "type": "status",
+   "ts": "2026-10-16T20:48:49.709452+00:00",
+   "payload": {
+    "status": "running",
+    "phase": "judging",
+    "round": 1,
+    "message": "Judge is checking every number"
+   }
+  },
+  {
+   "seq": 39,
+   "type": "agent_call",
+   "ts": "2026-10-16T20:48:49.709925+00:00",
+   "payload": {
+    "agent": "judge",
+    "role": "judge",
+    "model": "",
+    "prompt_version": "judge@3",
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "cost_usd": 0.0,
+    "ms": 0.1,
+    "ok": false,
+    "summary": "unreachable",
+    "repaired": false,
+    "escalated": false,
+    "cached": false,
+    "problems": 0,
+    "problems_first": 0,
+    "problem_texts": []
+   }
+  },
+  {
+   "seq": 40,
+   "type": "status",
+   "ts": "2026-10-16T20:48:49.711825+00:00",
+   "payload": {
+    "status": "finished",
+    "phase": "done",
+    "round": 1,
+    "message": "Finished: no new breaks"
+   }
+  }
+ ],
+ "wall_s": 60.3
+}

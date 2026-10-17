@@ -15,6 +15,7 @@ import { displayNames } from "@/lib/venueText";
 import { centroid } from "@/scene/geom";
 import { type Selection, useUi } from "@/state/ui";
 import { useVenueEdit } from "./useVenueEdit";
+import { ZoneProfileEditor } from "@/panels/ZoneProfile";
 
 type Found =
   | { what: "exit"; item: Exit; floorId: string }
@@ -175,8 +176,11 @@ export function ObjectCard({ project, scene, selection }: { project: ProjectDeta
       )}
 
       {found.what === "zone" && (
-        <NumberInput id={`p-${id}`} label={t("check.people")} unit={t("check.people_unit")} step={50} min={0} value={found.item.people} disabled={off}
-                     onCommit={(v) => submit([{ op: "set_people", zone_id: id, people: Math.round(v) } as never], t("check.msg_people", { name, n: fmtInt(v) }))} />
+        <>
+          <NumberInput id={`p-${id}`} label={t("check.people")} unit={t("check.people_unit")} step={50} min={0} value={found.item.people} disabled={off}
+                       onCommit={(v) => submit([{ op: "set_people", zone_id: id, people: Math.round(v) } as never], t("check.msg_people", { name, n: fmtInt(v) }))} />
+          <ZoneProfileEditor project={project} zoneId={id} disabled={locked} />
+        </>
       )}
 
       {!locked && <p className="flex items-center gap-2 text-sm text-muted"><Move className="size-4 shrink-0" />{t("check.drag_to_move")}</p>}

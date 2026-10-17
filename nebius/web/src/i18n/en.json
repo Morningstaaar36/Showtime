@@ -78,7 +78,10 @@
     "samples_title": "Three ready-made examples",
     "samples_lead": "Each one opens with a finished red-team session you can replay instantly.",
     "checklist_lead": "Showtime runs on this computer. These parts need to be ready.",
-    "hint_samples": "Install them with: make demo-precompute"
+    "hint_samples": "Install them with: make demo-precompute",
+    "buildings_title": "Any building, any number of floors",
+    "buildings_lead": "Pick your building on the map and say how many floors it has and what it is used as: a hospital, a school, an office tower. Showtime adds the stairs and the rooms; you say who is in each area (patients in beds, children, staff). Add floors, rooms and stairs yourself in Expert view.",
+    "buildings_go": "Pick a building on the map"
   },
   "projects": {
     "title": "Projects",
@@ -209,7 +212,7 @@
       "door": "Click an inner wall to cut a door in it.",
       "room": "Click one corner of the room, then the opposite corner.",
       "room_second": "Now click the opposite corner.",
-      "stair": "Click where the stairs start on this floor.",
+      "stair": "Click where the middle of the stairs goes on this floor.",
       "route": "Click along the route in walking order. Double-click or press Enter to finish."
     },
     "points": "{n} corners",
@@ -236,7 +239,9 @@
       "msg_removed": "Removed {name}",
       "ground": "Ground floor",
       "count": "{n} floors",
-      "one": "1 floor"
+      "one": "1 floor",
+      "summary": "{n} people · {w} walls",
+      "remove_named": "Remove {name}"
     },
     "errors": {
       "door_no_wall": "Click on an inner wall to add a door. Draw a wall first if there is none.",
@@ -267,10 +272,11 @@
       "room_width": "Width, east–west (m)",
       "room_depth": "Depth, north–south (m)",
       "typed_room": "Or type the south-west corner and the size",
-      "typed_stair": "Or type where the stairs start",
+      "typed_stair": "Or type where the middle of the stairs goes",
       "add_room": "Add room",
       "add_stair": "Add stairs",
-      "stair_connects": "Connects {from} and {to}."
+      "stair_connects": "Connects {from} and {to}.",
+      "thickness": "Wall thickness"
     },
     "msg": {
       "wall": "Added a wall",
@@ -418,7 +424,8 @@
       "event": "Kind of event",
       "rooms_badge": "Rooms inside",
       "surroundings_badge": "Surroundings {m} m",
-      "floor_tabs": "Floor plans"
+      "floor_tabs": "Floor plans",
+      "surroundings_missing": "The surroundings were not added: this server builds the building alone. Draw the area around it instead to include the street."
     },
     "building": {
       "title": "Floors and rooms",
@@ -728,7 +735,30 @@
     "tech_wind_body": "Pynite frame model of the stage roof with ASCE 7 wind pressure q = 0.613·Kz·Kzt·Kd·V². Gust speed at which ballast stops resisting uplift, sliding or overturning. A screening estimate, not a structural design.",
     "tech_latest": "Latest safe time to start evacuating",
     "tech_latest_body": "T_hazard − (pre-movement + evacuation time × safety factor). The hazard is the first forecast gust above the wind limit (Open-Meteo) or the scenario time when a route is lost.",
-    "tech_glossary": "Full technical glossary"
+    "tech_glossary": "Full technical glossary",
+    "sc_wall": "Draw wall",
+    "sc_door": "Add door in a wall",
+    "sc_room": "Add room",
+    "sc_stair": "Add stairs",
+    "sc_route": "Draw walking route",
+    "sc_finish": "Finish a wall or route",
+    "sc_undo_point": "Remove the last corner",
+    "verdict": "Reading the verdict",
+    "verdict_lead": "Your plan says two things: what the numbers show, and how sure they are.",
+    "v_holds": "This plan holds",
+    "v_holds_body": "No tested scenario pushed the crowd past the danger density, and everyone got out.",
+    "v_at_risk": "This plan is at risk",
+    "v_at_risk_body": "The crowd got close to the danger density, or above the warning level for a while.",
+    "v_fails": "This plan fails",
+    "v_fails_body": "In at least one scenario the crowd reached the danger density or people could not get out.",
+    "v_confirmed": "Confirmed by full simulations",
+    "v_confirmed_body": "The plan was simulated in full, before and after the changes, until everyone was out.",
+    "v_partly": "Partly confirmed",
+    "v_partly_body": "Full simulations ran but stopped at their time limit; the last part of the evacuation is estimated.",
+    "v_unconfirmed": "Not confirmed",
+    "v_unconfirmed_body": "The verdict rests on quick simulations, the instant estimate or a preview. Run the test again with the simulator on, or keep the changes and test again, to confirm it.",
+    "v_failed": "Confirmation failed",
+    "v_failed_body": "The full simulations did not finish (time limit or an error); the numbers shown are estimates."
   },
   "copilot": {
     "label": "Describe your event",
@@ -1164,7 +1194,34 @@
     "cost_tokens_only": "AI usage: {tokens} tokens ({cost}). Simulations were not counted for this test.",
     "calls": "{n} calls",
     "calls_one": "1 call",
-    "next": "Next steps"
+    "next": "Next steps",
+    "scenarios": "Every scenario the AI tested",
+    "scenarios_lead": "Click one to watch it. The timeline marks what happens and when.",
+    "sc_baseline": "Your plan as drawn",
+    "sc_with_changes": "{title} · with the changes kept so far",
+    "sc_final_before": "Final check before the changes · {title}",
+    "sc_final_after": "Final check with the changes · {title}",
+    "sc_fix": "Change tried",
+    "sc_kept": "Kept",
+    "sc_not_kept": "Not kept",
+    "sc_running": "Running",
+    "sc_failed": "Did not finish",
+    "sc_metrics": "95% out in {evac} · peak {peak} per m²",
+    "sc_playing": "Playing",
+    "sc_back": "Back to before and after",
+    "ev_block": "{exit} blocked at {at}",
+    "ev_unblock": "{exit} reopened at {at}",
+    "ev_surge": "{n} more people into {zone} at {at}",
+    "ev_slowdown": "Everyone slows to {p}% of their speed at {at}",
+    "ev_counterflow": "{n} people push back in through {exit} at {at}",
+    "ev_stagger": "{zone} held back {s} s from {at}",
+    "ev_marshal": "Stewards send people to {exit} at {at}",
+    "ev_one_way": "{exit} made exit-only at {at}",
+    "ev_script": "AI-written scenario starts: {title} ({at})",
+    "ev_other": "{what} at {at}",
+    "per_floor": "People on each floor",
+    "per_floor_lead": "How many people are still on each floor as the evacuation goes on.",
+    "per_floor_summary": "{floor}: {start} at the start, {end} at the end."
   },
   "checklist": {
     "download": "Download checklist",
@@ -1243,6 +1300,18 @@
       "partially_confirmed": "Partly confirmed: the simulations stopped before everyone was out",
       "unconfirmed": "Not confirmed",
       "failed": "Confirmation failed: the simulations didn't finish"
+    },
+    "why": {
+      "confirmed": "Full simulations of the plan, before and after the changes, ran until everyone was out.",
+      "partially_confirmed": "The full simulations reached their time limit before everyone was out, so the end of the evacuation is estimated.",
+      "failed": "The full simulations meant to check this plan did not finish, so the numbers come from estimates.",
+      "preview": "The simulator was not running, so these numbers are a preview, not a simulation.",
+      "estimate": "The final check used the instant estimate (a formula), not a full simulation.",
+      "quick": "Only quick simulations of the first minutes checked it; no full simulation ran to the end.",
+      "unfinished": "The final simulation did not finish, so nothing confirms the result.",
+      "no_final": "No full simulation of the final plan with its changes has run, so nothing confirms the result yet.",
+      "help": "What this means",
+      "legacy": "This test was made before Showtime recorded how its results were confirmed, so it counts as not confirmed. Test again to know."
     }
   },
   "analyst": {
@@ -1429,5 +1498,28 @@
     "label": "Floors to show",
     "all": "All floors",
     "exploded": "Spread apart"
+  },
+  "replay": {
+    "people_legend": "Who is in the crowd"
+  },
+  "seeds": {
+    "title": "Check with more seeds",
+    "lead": "One simulation is one random crowd: who walks how fast, who starts where. This repeats the run the verdict rests on with other random crowds, to show how much the numbers move.",
+    "repeats": "Repeats: {label}",
+    "how_many": "More seeds",
+    "start": "Check with more seeds",
+    "again": "Add more seeds",
+    "running": "Simulating: {done} of {total} runs done",
+    "range_evac": "95% out in {range} over {n} seeds",
+    "range_peak": "Peak density {range} people per m² over {n} seeds",
+    "range_all_out": "Everyone got out in all {n} runs",
+    "range_inside": "{range} people still inside at the end over {n} seeds",
+    "based_on": "Based on {bases}.",
+    "runs": "Each run",
+    "seed": "Seed {seed}",
+    "original": "the plan's own run",
+    "run_line": "95% out in {evac} · peak {peak} per m² · {inside} still inside",
+    "unavailable": "Not available yet: {reason}",
+    "none": "No extra seeds checked yet."
   }
 }

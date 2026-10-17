@@ -14,7 +14,7 @@ import { textHumanizer } from "@/lib/venueText";
 import { useUi } from "@/state/ui";
 import { AnalysisCard } from "./AnalysisCard";
 import { AskInput, EditProposal, type ProposalPreview, useEditPreview } from "./AskChange";
-import { type AskError, askError, cappedNote, intentMeta, navAction, retryWithExit, whatIfChips, whatIfRows } from "./askAnything";
+import { type AskError, askError, cappedNote, intentMeta, navAction, retryWithExit, whatIfChips, whatIfRows } from "./askModel";
 
 export interface AskAnythingProps {
   project: ProjectDetail;

@@ -9,11 +9,17 @@ import { useVenueFromMap } from "@/api/queries";
 import type { OsmFeature, Place, VenueDraft } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
 import { useEventKinds } from "@/lib/eventKinds";
 import { cn } from "@/lib/utils";
 import { DraftPreview } from "./DraftPreview";
+
+/** "Include the surroundings": how far around the building (G2-06 accepts 0–200 m). */
+const SURROUND_DEFAULT_M = 50;
+const SURROUND_MAX_M = 200;
 
 // MapLibre 6 loads its tile worker from a separate module; Vite bundles it and gives the URL.
 maplibregl.setWorkerUrl(workerUrl);
@@ -65,6 +71,8 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
   const [use, setUse] = useState(""); // "" = guess from the map
   const [interior, setInterior] = useState<"" | "open" | "rooms">(""); // "" = usual for the use
   const [eventKind, setEventKind] = useState("");
+  const [surround, setSurround] = useState(false);
+  const [surroundM, setSurroundM] = useState(SURROUND_DEFAULT_M);
   const { kinds } = useEventKinds();
   const [mapError, setMapError] = useState<string | null>(null);
   const [found, setFound] = useState(false); // the map shows the searched place
@@ -198,7 +206,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
         // a drawn box has no map name: call it what it is used as, when that is chosen
         name: sel.kind === "box" && mode === "indoor" && use ? kinds.find((k) => k.id === use)?.label ?? sel.name : sel.name, people: people.trim() && Number.isFinite(n) ? Math.round(n) : null, selected_id: sel.id,
         ...(mode === "indoor"
-          ? { levels, use: use || null, interior: interior || null }
+          ? { levels, use: use || null, interior: interior || null, ...(surround ? { surroundings_m: surroundM } : {}) }
           : { event_kind: eventKind || null }) },
       { onSuccess: (d) => onDraft(d.venue ? d : null) },
     );
@@ -215,7 +223,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
                 className={cn("flex items-center gap-2 rounded-[var(--radius-control)] border px-3 py-2 text-sm transition",
                   stage === i + 1 ? "border-signal bg-signal-soft font-semibold text-ink" : stage > i + 1 ? "border-egress/40 bg-egress-soft text-ink" : "border-border bg-surface text-muted")}>
               <span className={cn("grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold",
-                stage === i + 1 ? "bg-signal text-signal-ink" : stage > i + 1 ? "bg-egress text-white" : "bg-surface-3")}>{stage > i + 1 ? "✓" : i + 1}</span>
+                stage === i + 1 ? "bg-signal text-signal-ink" : stage > i + 1 ? "bg-egress-strong text-on-strong" : "bg-surface-3")}>{stage > i + 1 ? "✓" : i + 1}</span>
               {label}
             </li>
           ))}
@@ -310,6 +318,21 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
                   <option value="open">{t("editor.map.interior_open")}</option>
                 </select>
               </div>
+              <div className="grid min-w-[14rem] gap-1.5 sm:basis-full" data-testid="surroundings">
+                <div className="flex items-center gap-2">
+                  <Switch id="msurround" checked={surround} onCheckedChange={setSurround} aria-describedby="msurround-hint" />
+                  <Label htmlFor="msurround">{t("editor.map.surroundings")}</Label>
+                </div>
+                <p id="msurround-hint" className="text-[11px] text-muted">{t("editor.map.surroundings_hint")}</p>
+                {surround && (
+                  <div className="flex max-w-md items-center gap-3">
+                    <span id="msurround-d" className="shrink-0 text-xs text-muted">{t("editor.map.distance")}</span>
+                    <Slider min={10} max={SURROUND_MAX_M} step={10} value={[surroundM]} onValueChange={([v]) => setSurroundM(v)}
+                            thumbLabel={t("editor.map.distance")} aria-labelledby="msurround-d" />
+                    <span className="w-14 shrink-0 text-right text-sm tabular-nums" aria-live="polite">{surroundM} m</span>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <div className="grid gap-1">
@@ -339,7 +362,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
         <ErrorState title="The venue couldn't be built" message={(build.error as Error).message}
                     hint={(build.error as { hint?: string }).hint} onRetry={make} />
       )}
-      {build.data?.venue && <DraftPreview draft={build.data} />}
+      {build.data?.venue && <DraftPreview draft={build.data} surroundingsAsked={mode === "indoor" && surround ? surroundM : 0} />}
     </div>
   );
 }

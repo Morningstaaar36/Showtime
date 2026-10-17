@@ -1,5 +1,7 @@
 // Screenshot every screen for the self-review and the README.
 // Usage: node e2e/screens.mjs <outdir>   (app running at BASE, default http://127.0.0.1:5173)
+// Optional projects: "Hospital…" (a building drawn on the map with several floors) and "Untested…"
+// (no test yet) give the multi-storey and empty-plan shots; without them those shots are skipped.
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 
@@ -8,10 +10,13 @@ const BASE = process.env.BASE ?? "http://127.0.0.1:5173";
 mkdirSync(outDir, { recursive: true });
 
 const projects = await (await fetch(`${BASE}/api/v1/projects`)).json();
-const byName = (re) => projects.find((p) => re.test(p.name))?.id;
+// samples first: test and evaluation projects can share words with them ("alley")
+const byName = (re) => (projects.find((p) => p.sample && re.test(p.name)) ?? projects.find((p) => re.test(p.name)))?.id;
 const alley = byName(/alley/i);
 const hall = byName(/summit|two-floor/i);
 const festival = byName(/festival|wellington/i);
+const hospital = byName(/^hospital/i); // a multi-storey building drawn on the map (see below)
+const untested = byName(/^untested/i);
 
 /** [name, path, theme, steps] — steps: "wait=ms" | "click=text" | "key=K" */
 const SHOTS = [
@@ -31,6 +36,21 @@ const SHOTS = [
   ["branch-tree", `/p/${hall}/expert/redteam`, "light", ["click=Branch tree", "wait=1500"]],
   ["report", `/p/${festival}/expert/report`, "light", ["wait=3000"]],
   ["missing-project", "/p/p_doesnotexist/plan", "light"],
+  // the three simple screens (S-07), light and dark, filled and empty
+  ["home", "/", "light"],
+  ["home-dark", "/", "dark"],
+  ["check", `/p/${hall}/describe`, "light"],
+  ["check-dark", `/p/${hall}/describe`, "dark"],
+  ["plan-simple", `/p/${alley}`, "light", ["wait=3000"]],
+  ["plan-simple-dark", `/p/${alley}`, "dark", ["wait=3000"]],
+  ["plan-untested", `/p/${untested}`, "light"],
+  ["map", "/new/place", "light"],
+  ["help-verdict", "/help#verdict", "light"],
+  // buildings: drawing tools and a multi-storey venue
+  ["building-tools", `/p/${hall}/expert/plan`, "light", ["key=o", "wait=800"]],
+  ["hospital-check", `/p/${hospital}/describe`, "light", ["wait=2000"]],
+  ["hospital-spread", `/p/${hospital}/describe`, "light", ["click=Spread apart", "wait=2500"]],
+  ["hospital-check-dark", `/p/${hospital}/describe`, "dark", ["wait=2000"]],
 ];
 
 const browser = await chromium.launch({ args: ["--enable-unsafe-swiftshader", "--use-angle=swiftshader", "--ignore-gpu-blocklist"] });

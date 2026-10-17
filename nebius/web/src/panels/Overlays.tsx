@@ -1,7 +1,12 @@
 import { Navigation } from "lucide-react";
 import { CIVIDIS } from "@/scene/colormaps";
 import { DENSITY_MAX } from "@/scene/ReplayLayers";
+import { t } from "@/i18n";
+import { fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { kindsPresent, PEOPLE_KINDS, type PeopleKindId } from "@/replay/kinds";
+import type { Replay } from "@/replay/useReplay";
+import { PEOPLE_LOOK } from "@/scene/peopleLook";
 
 /** North arrow + scale bar, like a plan drawing. */
 export function PlanCompass({ span }: { span: number }) {
@@ -52,5 +57,32 @@ export function TierChip({ label, tone }: { label: string; tone: "estimate" | "c
       <span className={cn("size-1.5 rounded-full", tone === "confirmed" ? "bg-egress" : tone === "partial" ? "bg-caution" : "bg-line")} />
       {label}
     </span>
+  );
+}
+
+/** Who is in the replay: each kind's marker shape and colour, with how many people. Renders nothing
+ * when everyone is a general adult. */
+export function PeopleLegend({ replay, className }: { replay: Replay | null | undefined; className?: string }) {
+  const present = kindsPresent(replay?.kinds ?? null);
+  if (!replay?.kinds || present.length < 2) return null;
+  const total = replay.traj.index.max_agents;
+  const listed = PEOPLE_KINDS.reduce((n, k) => n + (k === "general" ? 0 : replay.kinds!.listed[k]), 0);
+  const count = (k: PeopleKindId) => (k === "general" ? Math.max(0, total - listed) : replay.kinds!.listed[k]);
+  return (
+    <section aria-label={t("replay.people_legend")}
+             className={cn("pointer-events-none rounded-[var(--radius-control)] border border-border bg-surface/90 px-3 py-2 shadow-sm backdrop-blur", className)}>
+      <p className="text-2xs font-medium text-muted">{t("replay.people_legend")}</p>
+      <ul className="mt-1 grid gap-0.5">
+        {present.map((k) => (
+          <li key={k} className="flex items-center gap-2 text-xs">
+            <svg viewBox="0 0 16 16" className="size-3.5 shrink-0" aria-hidden>
+              <path d={PEOPLE_LOOK[k].icon} fillRule="evenodd" fill={PEOPLE_LOOK[k].color ?? "currentColor"} stroke="var(--ink)" strokeWidth={0.6} />
+            </svg>
+            <span className="flex-1">{t(`editor.people.${k}`)}</span>
+            <span className="tabular text-muted">{fmtInt(count(k))}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

@@ -428,3 +428,34 @@ export interface SimulatorValidation {
   median_abs_error_pct: number;
   mean_error_pct: number;
 }
+
+/** GET/POST /sessions/{id}/seeds: the plan's key run repeated with more seeds (N05). */
+export interface SeedSpread { min: number; max: number; median: number; n: number }
+export interface SeedItem {
+  seed: number;
+  run_id: string | null;
+  original: boolean;
+  status: string;
+  basis: string;
+  tier: number | null;
+  progress: number | null;
+  metrics: { evac_time_p95_s: number | null; peak_density_ppm2: number; agents_not_evacuated: number; agents_total?: number; time_above_danger_s?: number } | null;
+  error: string | null;
+  included: boolean;
+}
+export interface SeedCheck {
+  session_id: string;
+  available: boolean;
+  reason: string | null;
+  key: { side: "after" | "baseline"; run_id: string; label: string; tier: number; seed: number; attack_title: string | null } | null;
+  default_extra: number;
+  max_extra: number;
+  status: "none" | "running" | "done";
+  n_extra: number;
+  items: SeedItem[];
+  done: number;
+  total: number;
+  range: Record<"evac_time_p95_s" | "peak_density_ppm2" | "agents_not_evacuated", SeedSpread | null> | null;
+  bases: Record<string, number>;
+  notes: string[];
+}

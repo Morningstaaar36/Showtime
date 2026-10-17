@@ -36,7 +36,7 @@ export function Timeline({ markers }: { markers: TimelineMarker[] }) {
   }, []);
   const pb = usePlayback.getState();
   return (
-    <div className="pointer-events-auto flex items-center gap-3 rounded-[var(--radius-panel)] border border-border bg-surface/95 px-3 py-2 shadow-[var(--shadow-float)] backdrop-blur">
+    <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-[var(--radius-panel)] sm:gap-3 border border-border bg-surface/95 px-3 py-2 shadow-[var(--shadow-float)] backdrop-blur">
       <Tip content="Back to start">
         <button type="button" aria-label="Back to start" onClick={() => pb.setT(0)} className="text-muted hover:text-ink"><SkipBack className="size-4" /></button>
       </Tip>
@@ -52,7 +52,7 @@ export function Timeline({ markers }: { markers: TimelineMarker[] }) {
           </button>
         ))}
       </div>
-      <div className="relative flex-1">
+      <div className="relative min-w-0 flex-1">
         <Slider value={[now]} min={0} max={Math.max(duration, 1)} step={0.25} thumbLabel="Replay time"
                 onValueChange={(v) => { pb.setT(v[0]); }} />
         <div className="pointer-events-none absolute inset-x-0 -top-2.5 h-2">
@@ -65,7 +65,7 @@ export function Timeline({ markers }: { markers: TimelineMarker[] }) {
           ))}
         </div>
       </div>
-      <span className="w-28 text-right text-sm tabular text-muted">{fmtClock(now)} / {fmtClock(duration)}</span>
+      <span className="shrink-0 text-right text-sm tabular text-muted sm:w-28">{fmtClock(now)} / {fmtClock(duration)}</span>
     </div>
   );
 }

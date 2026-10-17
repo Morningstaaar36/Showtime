@@ -5,7 +5,8 @@ import { ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
 import type * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { t } from "@/i18n";
-import { type Evaluation, evaluationLabel } from "@/lib/evidence";
+import { Link } from "react-router";
+import { type Evaluation, evaluationLabel, evaluationReason } from "@/lib/evidence";
 import { cn } from "@/lib/utils";
 import type { VerdictLevel } from "@/panels/verdict";
 
@@ -49,6 +50,10 @@ export function VerdictBanner({ level, headline, under, reasons, evaluation, jud
             <p className="text-xl font-semibold leading-tight">{headline}</p>
             <Badge tone={EVAL_TONE[status] ?? "neutral"} className="text-sm">{evaluationLabel(evaluation)}</Badge>
           </div>
+          <p className="max-w-prose text-sm" data-testid="verdict-why">
+            {evaluationReason(evaluation)}{" "}
+            <Link to="/help#verdict" className="font-medium text-signal underline-offset-4 hover:underline">{t("evidence.why.help")}</Link>
+          </p>
           <p className="max-w-prose text-base">{under}</p>
           {reasons.length > 0 && <ul className="list-disc pl-5 text-sm">{reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
         </div>

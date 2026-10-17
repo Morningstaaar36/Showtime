@@ -6,11 +6,12 @@ import { type ReactNode, Suspense, useMemo, useRef, useState } from "react";
 import type { Exit, Floor, Hotspot, Venue } from "@/api/types";
 import type { ObjectChange } from "@/lib/venueDiff";
 import type { Replay } from "@/replay/useReplay";
-import { useUi } from "@/state/ui";
+import { isBuildTool, useUi } from "@/state/ui";
 import { CameraRig } from "./CameraRig";
 import { ChangeHighlights, DraftPreview, MoveGizmo } from "./EditTools";
 import { resolveFloorView, venueBounds } from "./geom";
 import { useScenePalette } from "./palette";
+import { labelledIds } from "./labels";
 import { LabelLayer } from "./SceneHtml";
 import { Agents, DensityLayer, Hotspots, Marshals, PlaybackClock, type MarshalNote } from "./ReplayLayers";
 import { ShowLights } from "./ShowLights";
@@ -54,6 +55,9 @@ export function SceneRoot(p: SceneProps) {
   const cx = (x0 + x1) / 2;
   const cy = (y0 + y1) / 2;
   const drawing = tool !== "select" && tool !== "block";
+  // building tools draw over doors, walls and crowd areas: a click on them is a click on the floor there
+  const building = p.editable && isBuildTool(tool);
+  const asFloorClick = (f: Floor, e: ThreeEvent<MouseEvent>) => p.onFloorClick(f, e.point.x, -e.point.z);
   const showAgents = layers.people && p.replay;
   const site = useMemo(() => osmSite(p.venue), [p.venue]);
   const labelLayer = useRef<HTMLDivElement>(null);
@@ -67,6 +71,11 @@ export function SceneRoot(p: SceneProps) {
     if (!floor) return p.venue;
     return { ...p.venue, floors: [floor], stairs: [], routes: (p.venue.routes ?? []).filter((r) => r.floor_id === floor.floor_id) };
   }, [p.venue, onlyFloor]);
+  // one floor alone: its stairs show as landings ("Stairs down", "Stairs up")
+  const stubStairs = useMemo(() => (onlyFloor ? (p.venue.stairs ?? []).filter((s) => s.from_floor === onlyFloor || s.to_floor === onlyFloor) : []),
+    [p.venue, onlyFloor]);
+  const editFloor = useUi((s) => s.editFloor);
+  const labelled = useMemo(() => labelledIds(p.venue, view, editFloor), [p.venue, view, editFloor]);
   const hotspots = onlyFloor ? p.hotspots.filter((h) => h.floor_id === onlyFloor) : p.hotspots;
 
   return (
@@ -77,6 +86,7 @@ export function SceneRoot(p: SceneProps) {
       gl={{ antialias: false, powerPreference: "high-performance", preserveDrawingBuffer: true, logarithmicDepthBuffer: true }}
       camera={{ fov: 38, near: 0.5, far: Math.max(3000, span * 6), position: [cx + span, span, -cy + span] }}
       onPointerMissed={() => useUi.getState().select(null)}
+      role="img"
       aria-label="3D view of the venue"
     >
       <color attach="background" args={[palette.bg]} />
@@ -118,12 +128,14 @@ export function SceneRoot(p: SceneProps) {
           onMap={!!site}
           exploded={layers.exploded}
           labels={layers.labels}
+          labelled={labelled}
+          stubStairs={stubStairs}
           showZones={layers.zones && !showAgents}
           selectedId={selection?.id ?? null}
           blocked={blocked}
           peopleOverride={p.peopleOverride}
-          onExitClick={(e, f, ev: ThreeEvent<MouseEvent>) => { ev.stopPropagation(); p.onExitClick(e, f); }}
-          onObjectClick={(k, id, f) => p.onObjectClick(k, id, f)}
+          onExitClick={(e, f, ev: ThreeEvent<MouseEvent>) => { ev.stopPropagation(); if (building) asFloorClick(f, ev); else p.onExitClick(e, f); }}
+          onObjectClick={(k, id, f, ev) => { if (building) asFloorClick(f, ev); else p.onObjectClick(k, id, f); }}
           onFloorClick={(f, x, y) => p.onFloorClick(f, x, y)}
           onFloorDoubleClick={(f, x, y) => p.onFloorDoubleClick(f, x, y)}
           onFloorMove={drawing ? (f, x, y) => setCursor({ floorId: f.floor_id, x, y }) : undefined}
@@ -132,7 +144,7 @@ export function SceneRoot(p: SceneProps) {
         {p.replay && p.clock !== false && <PlaybackClock />}
         {showAgents && p.replay && (
           <Agents traj={p.replay.traj} density={p.replay.density} venue={p.venue} exploded={layers.exploded} palette={palette}
-                  onlyFloor={onlyFloor} />
+                  onlyFloor={onlyFloor} kinds={p.replay.kinds} />
         )}
         {p.replay?.density && (layers.heatmap || layers.terrain) && (
           <DensityLayer density={p.replay.density} venue={p.venue} exploded={layers.exploded} palette={palette}

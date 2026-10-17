@@ -16,7 +16,7 @@ import { shortId } from "@/lib/utils";
 import { AskDialog } from "@/panels/AskDialog";
 import { CommandBar } from "@/panels/CommandBar";
 import { PlanInspector } from "@/panels/Inspector";
-import { DensityLegend, PlanCompass, TierChip } from "@/panels/Overlays";
+import { DensityLegend, PeopleLegend, PlanCompass, TierChip } from "@/panels/Overlays";
 import { useTour } from "@/panels/Tour";
 import { RedTeamPanel, useRedTeamSession } from "@/panels/RedTeamPanel";
 import { ReportView } from "@/panels/ReportView";
@@ -31,8 +31,12 @@ import { exitRectAt, polygonArea, venueBounds } from "@/scene/geom";
 import type { MarshalNote } from "@/scene/ReplayLayers";
 import { SceneRoot } from "@/scene/SceneRoot";
 import { usePlayback } from "@/state/playback";
-import { type Mode, type Tool, useUi } from "@/state/ui";
+import { isBuildTool, type Mode, type Tool, useUi } from "@/state/ui";
 import { FloorSwitch } from "@/panels/FloorSwitch";
+import { BuildPanel, useApplyStep } from "@/panels/BuildPanel";
+import { clickStep, dropLastPoint, finishStep, isPolylineTool } from "@/lib/buildTools";
+import { resolveEditFloor } from "@/lib/venueOps";
+import { useBuild } from "@/state/build";
 
 const MODES: Mode[] = ["plan", "simulate", "redteam", "report"];
 
@@ -63,6 +67,7 @@ export function WorkspacePage() {
   const redo = useRedo(projectId);
   const start = useStartRun();
   const tier1 = useTier1(projectId);
+  const build = useApplyStep(projectId);
 
   useEffect(() => { useUi.getState().resetForProject(); usePlayback.getState().reset(); }, [projectId]);
   useEffect(() => { useUi.getState().setTool("select"); useUi.getState().select(null); }, [mode]);
@@ -70,6 +75,19 @@ export function WorkspacePage() {
   const p = project.data;
   const version = p?.current_version;
   const venue = p?.version.venue;
+
+  // building tools act on one floor: show it alone, and follow the floor picked in the floor switcher
+  const floorCount = venue?.floors.length ?? 0;
+  useEffect(() => {
+    if (!venue || floorCount < 2) return;
+    const ui = useUi.getState();
+    const view = ui.floorView;
+    if (view !== "all" && view !== "exploded" && view !== ui.editFloor && venue.floors.some((f) => f.floor_id === view)) ui.setEditFloor(view);
+    else if (isBuildTool(ui.tool)) {
+      const edit = resolveEditFloor(venue, ui.editFloor);
+      if (view !== edit) ui.setFloorView(edit);
+    }
+  }, [ui.tool, ui.editFloor, ui.floorView, floorCount]); // eslint-disable-line react-hooks/exhaustive-deps
   const eff = settings.data?.effective ?? {};
   const th: Thresholds = { warn: Number(eff.density_warn_ppm2 ?? 3.5), danger: Number(eff.density_danger_ppm2 ?? 5), dangerMinS: 5 };
 
@@ -181,16 +199,24 @@ export function WorkspacePage() {
         return;
       }
       if (mod) return;
-      const tools: Record<string, Tool> = { v: "select", e: "exit", b: "barrier", z: "zone", m: "measure", x: "block" };
+      const tools: Record<string, Tool> = { v: "select", e: "exit", b: "barrier", z: "zone", m: "measure", x: "block",
+                                            w: "wall", d: "door", o: "room", s: "stair", p: "route" };
       const k = e.key.toLowerCase();
-      if (k === "escape") { useUi.getState().setTool("select"); useUi.getState().select(null); }
+      const ui = useUi.getState();
+      if (k === "escape") { ui.setTool("select"); ui.select(null); }
+      else if (mode === "plan" && isBuildTool(ui.tool) && (k === "enter" || k === "backspace")) {
+        if (!isPolylineTool(ui.tool) || !p) return;
+        e.preventDefault();
+        if (k === "backspace") ui.setDraft(dropLastPoint(ui.draft));
+        else build.apply(finishStep(ui.tool, resolveEditFloor(p.version.venue, ui.editFloor), ui.draft, useBuild.getState().opts));
+      }
       else if (k === "r") runStress();
       else if (["1", "2", "3", "4"].includes(k)) navigate(`/p/${projectId}/expert/${MODES[Number(k) - 1]}`);
       else if (tools[k] && (mode === "plan" || ["select", "block", "measure"].includes(tools[k]))) useUi.getState().setTool(tools[k]);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [p, mode, projectId, runStress, navigate, undo, redo]);
+  }, [p, mode, projectId, runStress, navigate, undo, redo, build]);
 
   const result = run.data?.result ?? null;
   // the verdict in Plan prefers a confirmed simulation of exactly this version over the formula
@@ -264,6 +290,11 @@ export function WorkspacePage() {
   const onFloorClick = (floor: Floor, x: number, y: number) => {
     const tool = useUi.getState().tool;
     if (mode !== "plan" && tool !== "measure") { ui.select(null); return; }
+    if (isBuildTool(tool)) {
+      if (floor.floor_id !== resolveEditFloor(venue, useUi.getState().editFloor)) ui.setEditFloor(floor.floor_id);
+      build.apply(clickStep(tool, venue, floor.floor_id, useUi.getState().draft, x, y, useBuild.getState().opts));
+      return;
+    }
     if (tool === "exit") {
       const rect = exitRectAt(floor.walkable as Pt[], x, y, 2.0);
       if (!rect) { toast.error("Click closer to an outer wall to place an exit."); return; }
@@ -278,6 +309,10 @@ export function WorkspacePage() {
   const onFloorDoubleClick = (floor: Floor) => {
     const tool = useUi.getState().tool;
     const d = useUi.getState().draft;
+    if (isBuildTool(tool)) {
+      if (isPolylineTool(tool) && d.length >= 2) build.apply(finishStep(tool, floor.floor_id, d, useBuild.getState().opts));
+      return;
+    }
     if (tool === "barrier" && d.length >= 2) {
       submitOps([{ op: "add_barrier_line", floor_id: floor.floor_id, id: shortId("barrier"), points: d.slice(0, 20) } as PatchOpIn], "Added barrier");
       ui.setDraft([]);
@@ -315,12 +350,12 @@ export function WorkspacePage() {
                            editable={false} resetNonce={resetNonce} quality="low" clock={false}
                            onExitClick={() => {}} onObjectClick={() => {}} onFloorClick={() => {}}
                            onFloorDoubleClick={() => {}} onMove={() => {}} onHotspot={() => {}} />
-                <span className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-danger px-3 py-1 text-xs font-semibold text-white shadow dark:text-plan">Before fixes</span>
+                <span className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-danger-strong px-3 py-1 text-xs font-semibold text-on-strong shadow">Before fixes</span>
               </div>
             )}
             <div className={compareId && compareReplay.data ? "absolute inset-y-0 right-0 w-1/2" : "absolute inset-0"}>
             {compareId && compareReplay.data && (
-              <span className="pointer-events-none absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full bg-egress px-3 py-1 text-xs font-semibold text-white shadow dark:text-plan">After fixes</span>
+              <span className="pointer-events-none absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full bg-egress-strong px-3 py-1 text-xs font-semibold text-on-strong shadow">After fixes</span>
             )}
             <SceneRoot
               venue={mode !== "plan" && runVenue.data ? runVenue.data : venue}
@@ -343,7 +378,7 @@ export function WorkspacePage() {
             />
             </div>
             <div className="pointer-events-none absolute inset-0 z-40">
-              <div className="absolute left-3 top-3"><ToolRail mode={mode} onResetView={() => setResetNonce((n) => n + 1)} /></div>
+              <div className="absolute left-3 top-3"><ToolRail mode={mode} project={p} onResetView={() => setResetNonce((n) => n + 1)} /></div>
               {!compareId && (
                 <div className="absolute right-3 top-3 flex items-center gap-2">
                   <FloorSwitch venue={venue} />
@@ -351,7 +386,7 @@ export function WorkspacePage() {
                 </div>
               )}
               {shownRun && !compareId && (
-                <div className="absolute left-1/2 top-3 -translate-x-1/2"><TierChip label={tierLabel(shownRun)} tone={tone} /></div>
+                <div className={`absolute left-1/2 -translate-x-1/2 ${venue.floors.length > 1 ? "top-14" : "top-3"}`}><TierChip label={tierLabel(shownRun)} tone={tone} /></div>
               )}
               {compareId && (
                 <button type="button" onClick={() => ui.setCompareRun(null)}
@@ -361,11 +396,13 @@ export function WorkspacePage() {
               )}
               {mode === "plan" && ui.tool !== "select" && (
                 <div className="absolute left-16 top-3 max-w-sm rounded-[var(--radius-control)] border border-border bg-surface/95 px-3 py-2 text-sm shadow-sm">
-                  {t(`tools.${ui.tool === "exit" ? "exit_hint" : ui.tool === "barrier" ? "barrier_hint" : ui.tool === "zone" ? "zone_hint" : "measure"}`)}
+                  {isBuildTool(ui.tool) ? t(ui.tool === "room" && ui.draft.length === 1 ? "editor.hints.room_second" : `editor.hints.${ui.tool}`)
+                    : t(`tools.${ui.tool === "exit" ? "exit_hint" : ui.tool === "barrier" ? "barrier_hint" : ui.tool === "zone" ? "zone_hint" : "measure"}`)}
                 </div>
               )}
               <div className="absolute bottom-3 left-3 flex flex-col items-start gap-2">
                 {mode !== "plan" && replay.data?.density && <DensityLegend warn={th.warn} danger={th.danger} />}
+                {mode !== "plan" && <PeopleLegend replay={replay.data} className="w-64" />}
                 <PlanCompass span={span} />
               </div>
               <div className="absolute inset-x-0 bottom-3 flex justify-center px-40">
@@ -375,7 +412,8 @@ export function WorkspacePage() {
             </div>
           </main>
           <aside aria-label="Inspector" className={`scrollbar-thin shrink-0 overflow-y-auto border-l border-border bg-surface p-4 ${mode === "redteam" ? "w-[440px] xl:w-[500px]" : "w-[380px] xl:w-[420px]"}`}>
-            {mode === "plan" && <PlanInspector project={p} estimate={confirmed ?? estimate.data} th={th} countdown={countdown.data} />}
+            {mode === "plan" && isBuildTool(ui.tool) && <BuildPanel project={p} tool={ui.tool} />}
+            {mode === "plan" && !isBuildTool(ui.tool) && <PlanInspector project={p} estimate={confirmed ?? estimate.data} th={th} countdown={countdown.data} />}
             {mode === "simulate" && <SimulatePanel project={p} run={run.data} estimate={estimate.data} replay={replay.data ?? null} th={th} onAsk={(h) => setAsk({ open: true, hotspot: h })} />}
             {mode === "redteam" && <RedTeamPanel project={p} sessionId={redteam.sessionId} onPickSession={(id) => redteam.setPicked(id)} />}
           </aside>
