@@ -6,6 +6,34 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- **Instant estimate in buildings of 3+ storeys**: routes now follow chains of stairs, so upper
+  floors are no longer "stranded"; the 4-storey hospital sample went from 298 people with no route
+  to 95% out in 200 s (simulation: 223 s). Each stair's capacity window starts when people reach it.
+- **Safe capacity with stacked stairwells**: the tightest storey's stairs govern instead of the sum
+  of every flight (4-storey block: 960, not 1,560).
+- **Simulation with every exit blocked** reported 0 people, all evacuated, "ok": people who could
+  not be placed because no exit was open now count as not evacuated and trapped.
+- **Countdown**: a scenario or user-set hazard (seconds after the alarm) no longer prints a wrong
+  "start evacuating by" clock time, and is never compared with a forecast hazard measured from the
+  event start. Wind: gusts already over the limit when the window opens hit at the start, and the
+  "no hazard" text quotes the peak inside the window.
+- **Undo**: removing a zone restores its people mix, start delay and route; undoing a first start
+  time clears it.
+- **Scenario sweep** from the API skipped every scenario ("no running event loop").
+- **Red-team sessions** could stay "running" forever on an LLM replay miss or a failure while
+  finishing, locking the project; attack ids could repeat across rounds; session config could
+  override budgets (and `"lots"` gave a 500, now 422).
+- Runs and sessions left running by a server restart are marked failed / stopped at startup;
+  stopping one user of a shared run no longer cancels it for the others; reports of imported
+  projects keep their baseline and final runs; `GET /weather` with a bad date gives 422.
+- Forecast cache refreshes after 3 h (kept as a fallback when offline); Nebius sandbox no longer
+  uploads a stale `result.json`; trajectories of sites over ~650 m are no longer clamped.
+- Web: clearing a number field no longer saves 0; shortcuts no longer fire in dropdowns; the 3D
+  view stays on the run you picked during a live session; geometries are disposed; Autopilot "Try
+  again" no longer shows "Stopping…"; Undo toasts always undo their own edit; Ask shows the answer
+  for the hotspot asked about; "Not all% of" wording; event streams back off and stop on 404.
+
 ### Added
 - **How sure are these numbers?** (P2-04) on Your plan: the run the verdict rests on again with
   20% fewer and more people and walking 15% slower and faster (same seed, layout and scenario),

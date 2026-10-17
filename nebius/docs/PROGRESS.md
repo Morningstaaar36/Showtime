@@ -797,3 +797,27 @@ How to test: [P2_04_TESTING.md](P2_04_TESTING.md); method and limits: ASSUMPTION
   Mac (x86 simulator under emulation, several stacks running): the test took 4.5 h, the range 2.2 h.
 - The 120- and 400-person School wing tests with normal exits never broke, so they kept nothing:
   there a subset can't exist, and the range repeats the baseline (120 people: 24.0–31.3 s).
+
+## 2026-10-18 — Bug sweep (branch `fix/bug-sweep`)
+
+Three code reviews (API/orchestrator, core/sim/plugins, web) found 30 defects the tests missed;
+each was checked against the code, fixed, and covered by a regression test that fails on `main`
+(`api/tests/test_bug_sweep_core.py`, `api/tests/test_bug_sweep_api.py`, a sim test, vitest cases).
+The list is in CHANGELOG.md under Fixed. The most visible: the instant estimate stranded every
+floor above the second in 3+ storey buildings (the 4-storey hospital sample: 298 people "with no
+route", now 95% out in 200 s against 223 s simulated, ratio 0.90), and safe capacity summed
+stacked stairwells (1,560 instead of 960).
+
+- Checks: ruff, format, import contracts, mypy strict clean; pytest including slow and sim tests
+  647 passed / 1 skipped; eslint, tsc -b clean; vitest 177 passed; web build OK.
+- Live (Docker stack rebuilt, OpenRouter Nemotron 3 Super, local JuPedSim): `make smoke` OK; the
+  restart marked 8 runs and 4 sessions left "running" by earlier restarts as failed / stopped; the
+  scenario sweep on the hospital ran all six scenarios (all were skipped before).
+- Playwright: 19/19 journeys before the fixes; after, 18/19 in the full run, and the one failure
+  (stress test not finished within 150 s) happened while a 6-run sweep held the single simulation
+  slot; run alone it passes in 20 s.
+- Kept as notes, not counted as "not evacuated": people left out because a zone was too full or a
+  spot was too close to a wall (1 person in some festival runs); counting them would turn those
+  runs partial.
+- Note: run `npm ci` in web/ before `make e2e` after pulling; `@axe-core/playwright` is new (a stale
+  node_modules gave "Cannot find package").
