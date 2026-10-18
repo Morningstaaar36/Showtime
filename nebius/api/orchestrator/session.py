@@ -1395,6 +1395,12 @@ class SessionManager:
                     and "one_way" not in kinds
                 )
                 or (any(o.op == "add_exit" for o in f.patch.ops) and "add_exit" not in kinds)
+                # buildings: a wider stairwell and a phased evacuation (several zones held)
+                or (any(o.op == "widen_stair" for o in f.patch.ops) and "widen_stair" not in kinds)
+                or (
+                    sum(e.type == "staggered_release" for e in f.operational) > 1
+                    and "staggered_release" not in kinds
+                )
             )
         ]
         if not out:

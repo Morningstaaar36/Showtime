@@ -265,7 +265,7 @@ def _labels(venue: Venue) -> dict[str, str]:
     return out
 
 
-_STAIR_ID = re.compile(r"^stair_([a-z])(?:_(?:b?\d+))?$")
+_STAIR_ID = re.compile(r"^stair_([a-z]+?)(?:_(?:b?\d+))?$")
 
 
 def readable(text: str, venue: Venue) -> str:
@@ -277,7 +277,13 @@ def readable(text: str, venue: Venue) -> str:
     names = {k: v.removeprefix("the ") for k, v in _labels(venue).items()}
     for st in venue.stairs:
         m = _STAIR_ID.match(st.id)
-        names[st.id] = f"Stair {m.group(1).upper()}" if m else st.id.replace("_", " ")
+        tag = m.group(1) if m else ""
+        # stair_a_1 → Stair A, stair_ne → Stair NE, stair_main → Stair Main
+        names[st.id] = (
+            f"Stair {tag.upper() if len(tag) <= 2 else tag.capitalize()}"
+            if m
+            else st.id.replace("_", " ")
+        )
     ids = sorted(
         (i for i in names if "_" in i or any(c.isdigit() for c in i)), key=len, reverse=True
     )
