@@ -133,7 +133,7 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
     const choices = page.getByRole("checkbox", { name: /^Use “/ });
     if ((await choices.count()) > 1) {
       await choices.last().uncheck();
-      await expect(page.getByText("These changes were tested one by one, not together: test again before relying on them.")).toBeVisible();
+      await expect(page.getByRole("status").filter({ hasText: /tested one by one, not together/ })).toBeVisible();
       await choices.last().check();
     }
     const saved = page.waitForResponse((r) => /\/sessions\/[^/]+\/apply$/.test(r.url()) && r.request().method() === "POST");
