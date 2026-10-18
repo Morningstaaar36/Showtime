@@ -341,6 +341,9 @@ def explain_patch(venue: Venue, patch: VenuePatch) -> str:
             out.append(f"Added a stair from {n(d['from_floor'])} down to {n(d['to_floor'])}")
         elif k == "remove_stair":
             out.append(f"Removed {n(d['stair_id'])}")
+        elif k == "widen_stair" and d.get("restore") is None:
+            whole = " on every floor" if d.get("whole_stairwell", True) else ""
+            out.append(f"Made {n(d['stair_id'])} {_fmt(d['width_m'])} m wide{whole}")
         elif k == "add_wall":
             out.append(f"Added a wall on {n(d['floor_id'])}")
         elif k == "add_door":

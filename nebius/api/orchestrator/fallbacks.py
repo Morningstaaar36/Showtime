@@ -403,6 +403,71 @@ def _wall_for_new_exit(venue: Venue, floor_id: str) -> tuple[str, float] | None:
     return None
 
 
+def _stair_fixes(
+    registry: Registry, venue: Venue, attack: Attack, check_fix: Any
+) -> list[tuple[str, list[dict[str, Any]], list[dict[str, Any]], str, str]]:
+    """Wider stairwells and a phased evacuation, for buildings with stairs."""
+    from plugins.ops_core.structure import stairwell
+
+    out: list[tuple[str, list[dict[str, Any]], list[dict[str, Any]], str, str]] = []
+    if not venue.stairs:
+        return out
+    ground = min(venue.floors, key=lambda f: f.elevation_m).floor_id
+    seen: set[str] = set()
+    # the flights into the ground floor, narrowest first: each one is a stairwell to widen
+    for st in sorted((s for s in venue.stairs if s.to_floor == ground), key=lambda s: s.width_m):
+        if st.id in seen or st.width_m >= 2.4:
+            continue
+        seen.update(stairwell(venue, st.id))
+        width = round(min(st.width_m + 0.8, 2.4), 1)
+        ops = [{"op": "widen_stair", "stair_id": st.id, "width_m": width}]
+        if not check_fix(registry, venue, ops, []):
+            out.append(
+                (
+                    "layout",
+                    ops,
+                    [],
+                    f"Widen {st.id} to {width:g} m on every floor",
+                    f"A {width:g} m stair carries about {width / st.width_m:.1f} times as many "
+                    "people per second down the building.",
+                )
+            )
+        if len(out) >= 2:
+            break
+    # phased evacuation: the floor in trouble leaves first, the floors above wait a minute
+    floors = {f.floor_id: f for f in venue.floors}
+    hit: str | None = None
+    for e in attack.events:
+        d = e.model_dump()
+        if d.get("floor_id") in floors:
+            hit = str(d["floor_id"])
+        elif d.get("zone_id"):
+            hit = next(
+                (f.floor_id for f in venue.floors for z in f.zones if z.id == d["zone_id"]), hit
+            )
+    if hit is not None and hit != ground:
+        level = floors[hit].elevation_m
+        wait = [
+            z.id for f in venue.floors if f.elevation_m > level for z in f.zones if z.people > 0
+        ]
+        if wait:
+            name = floors[hit].name or hit
+            out.append(
+                (
+                    "ops",
+                    [],
+                    [
+                        {"type": "staggered_release", "zone_id": zid, "delay_s": 60, "at_s": 0}
+                        for zid in wait
+                    ],
+                    f"Phased evacuation: the {name.lower()} goes first",
+                    "The floors above wait a minute, so the stairs are clear for the floor at "
+                    "risk.",
+                )
+            )
+    return out
+
+
 def rule_fixes(
     registry: Registry, venue: Venue, attack: Attack, result: RunResult, n: int, id_prefix: str
 ) -> list[Fix]:
@@ -416,6 +481,8 @@ def rule_fixes(
         else min(venue.floors, key=lambda f: f.elevation_m)
     )
     per = sorted(result.metrics.per_exit, key=lambda p: -p.people)
+    # In a building the way down is usually the bottleneck, so those fixes come first.
+    candidates += _stair_fixes(registry, venue, attack, check_fix)
     widest = max((e.width_m for e in floor.exits), default=2.0)
     spot = _wall_for_new_exit(venue, floor.floor_id)
     if spot is not None:

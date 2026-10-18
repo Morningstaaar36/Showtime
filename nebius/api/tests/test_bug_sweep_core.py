@@ -248,3 +248,42 @@ def test_titles_name_objects_by_their_labels(registry: Registry) -> None:
     assert stair.id not in text and "Stair" in text
     assert "door_2" not in text and "door 2" in text.lower()
     assert readable("Power cut slows everyone down", venue) == "Power cut slows everyone down"
+
+
+def test_widen_stair_is_a_conformant_op_for_the_whole_stairwell(registry: Registry) -> None:
+    from api.tests.conformance.suites import check_patch_op
+
+    venue, _ = build_storeys(_ground(), levels=3, use="office", interior="open", people=600)
+    first = venue.stairs[0]
+    check_patch_op(registry, venue, {"op": "widen_stair", "stair_id": first.id, "width_m": 2.2})
+    wider = patch(registry, venue, {"op": "widen_stair", "stair_id": first.id, "width_m": 2.2})
+    changed = [s for s in wider.venue.stairs if s.width_m == 2.2]
+    assert len(changed) == 2  # both flights of that stairwell in a 3-storey building
+    before = run_tier1(venue, [], registry, S).metrics.evac_time_p95_s
+    after = run_tier1(wider.venue, [], registry, S).metrics.evac_time_p95_s
+    assert before is not None and after is not None and after < before
+
+
+def test_building_fixes_widen_stairs_and_phase_the_evacuation(registry: Registry) -> None:
+    from api.models import Attack
+    from api.orchestrator.fallbacks import rule_fixes
+
+    venue, _ = build_storeys(_ground(), levels=3, use="office", interior="open", people=600)
+    attack = Attack.model_validate(
+        {
+            "attack_id": "A1",
+            "title": "Smoke on the 1st floor",
+            "events": [{"type": "slowdown", "factor": 0.6, "at_s": 0, "floor_id": "F1"}],
+            "inspired_by": {
+                "incident": "x",
+                "year": 2000,
+                "source_url": "https://doi.org/10.5281/zenodo.19483010",
+                "evidence": "x",
+            },
+            "rationale": "x",
+        }
+    )
+    result = run_tier1(venue, [], registry, S)
+    titles = [f.title for f in rule_fixes(registry, venue, attack, result, 4, "F1_R")]
+    assert any(t.startswith("Widen") for t in titles), titles
+    assert any(t.startswith("Phased evacuation") for t in titles), titles
