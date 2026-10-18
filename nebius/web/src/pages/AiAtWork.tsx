@@ -164,7 +164,7 @@ export function AiAtWorkPage() {
                 <li key={n.key} className="relative flex flex-col items-center gap-1.5 text-center">
                   {next && (
                     <span aria-hidden className={cn("absolute left-[calc(50%+1.9rem)] right-[calc(-50%+1.9rem)] top-7 h-1 rounded-full max-sm:left-[calc(50%+1.4rem)] max-sm:right-[calc(-50%+1.4rem)] max-sm:top-5",
-                      next.status === "running" ? "animate-flow" : done ? "bg-signal" : "bg-surface-3")} />
+                      next.status === "running" && done ? "animate-flow" : done && next.status !== "pending" ? "bg-signal" : "bg-surface-3")} />
                   )}
                   <span className={cn("relative grid size-14 place-items-center rounded-full border-2 transition-all duration-500 [&_svg]:size-6 max-sm:size-10 max-sm:[&_svg]:size-5",
                     on ? "animate-halo scale-110 border-signal bg-signal text-signal-ink" : done ? "border-signal bg-signal-soft text-signal"
