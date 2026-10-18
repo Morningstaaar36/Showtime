@@ -52,7 +52,8 @@ stress-tested. Showtime makes "what happens if…?" a two-minute question for an
 
 - **Event Copilot (a LangGraph agent graph)**: one sentence → Brief agent → the real site
   (OpenStreetMap) or the Designer agent → layout solver → planning ratios → project → full
-  simulation in a sandbox → **scenario sweep** (six what-ifs, each branched into its own sandbox)
+  simulation in a sandbox → **scenario sweep** (what-ifs from an 18-scenario library, each
+  branched into its own sandbox)
   → **Safety officer** agent with prioritised, number-checked actions. The graph is drawn live
   as nodes run.
 - **Planning score** (A–F) with an explained breakdown, and a **what-if lab** (crowd size,
@@ -69,7 +70,7 @@ stress-tested. Showtime makes "what happens if…?" a two-minute question for an
 - **Plan for the day**: safe capacity (floor space × planning density; exits by the Green Guide
   width × flow × time method; stairs), exit width needed, stewards, first aiders, toilets (Purple
   Guide table by duration and alcohol), fencing, barrier and a budget. Every ratio is cited.
-- **3D venue** (React Three Fiber): (React Three Fiber): section-cut walls, exits with direction arrows, stage truss
+- **3D venue** (React Three Fiber): section-cut walls, exits with direction arrows, stage truss
   and roof, zones, stairs, two floors. Edit by **typing** ("add a 3 m exit on the east wall";
   the Venue agent turns it into a validated patch) or by **dragging**. Every save is a version
   with undo/redo.
@@ -96,6 +97,16 @@ Honest by design: **the language model never produces a number shown as a measur
 Densities, times, forces and wind limits come from the simulator, formulas or cited data; the
 UI always says whether you are looking at an *instant estimate* or a result *confirmed by
 simulation*.
+
+## Engineering novelty (and the papers behind it)
+
+| Idea | What Showtime does | Measured here |
+| --- | --- | --- |
+| **Rainbow red teaming with a physics judge** (Samvelyan et al., *Rainbow Teaming*, NeurIPS 2024; *RainbowPlus*, 2025) | The red team fills a **failure map**: a MAP-Elites archive of hazard kind × place (floor, exit or side), keeping the two worst attacks per cell. Nemotron is asked to fill the empty cells. The fitness is a severity score from **simulated metrics only**, so the search cannot flatter its judge, the failure mode Rainbow Teaming reports for LLM judges. | Matched two-round sessions with Nemotron (mock simulator, same budget): the school wing's map went from 29 % to 57 % coverage and from 4 to 6 of 6 hazard kinds. Live with JuPedSim, a 3-storey school filled 8 of 14 cells, every one a confirmed break. [docs/RAINBOW.md](docs/RAINBOW.md) |
+| **Crowd pressure, the turbulence warning** (Helbing, Johansson & Al-Abideen, *Phys. Rev. E* 75, 046109, 2007) | Every simulation computes crowd pressure P = ρ·Var(v) per cell and time, the measure that rose before the 2006 Mina crush, with their 0.02/s² threshold. It shows as a **Turbulence** layer in the replay, together with Fruin level-of-service shares (A–F). | A 0.8 m bottleneck: 28 s of turbulence, against none for a 6 m exit. A 3-storey school with 960 children: 40 s of turbulence on its stairs. |
+| **Describe → solve → check → repair for whole buildings** (in the spirit of Text2BIM, *J. Comput. Civ. Eng.* 2026) | One sentence becomes a multi-storey building: storeys and basements, people per floor, wards or classrooms off a corridor, atriums, stair cores. Nemotron writes only the structure; a solver builds the geometry and the checks send errors back once. | Live with Nemotron 3 Super: 12 of 12 test descriptions built correctly (a 5-storey office, a 4-floor hospital, a 3-level mall, a basement nightclub, a 10-storey hotel, a metro platform, …). Before this, every multi-storey description collapsed to one floor. |
+| **Who is in the crowd** | Older people, children, wheelchair users and patients in beds walk at cited speeds and take their real width, down the stairs too. The replay draws each kind with its own shape. | The 4-floor hospital takes 207 s to get 95 % out with its patients and staff, against 109 s if everyone moved like a healthy adult. |
+| **Scenarios for buildings** | 18 named what-ifs with targets picked from the venue: a stairwell lost to smoke, firefighters climbing the stairs, phased evacuation, a power cut, a gate closed, a late surge… | 3-storey office, 300 people: losing one stairwell raises the time to get 95 % out from 104 s to 174 s (+68 %). |
 
 ## How NVIDIA and Nebius technology is used
 
