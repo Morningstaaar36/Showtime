@@ -217,3 +217,46 @@ async def test_local_health_is_not_cached(tmp_path: Path) -> None:
     assert (await c.health())["ok"]
     await c.health()
     assert probe.calls == ["models", "models"]
+
+
+@pytest.mark.asyncio
+async def test_spare_key_takes_over_when_the_first_is_out_of_credit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import openai
+
+    class _NoCredit(_Transport):
+        async def _create(self, **kwargs: Any) -> Any:
+            raise RuntimeError("Error code: 402 - Insufficient credits")
+
+    made: list[str] = []
+    spare = _Transport()
+
+    def factory(**kw: Any) -> Any:
+        made.append(kw["api_key"])
+        return spare
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", factory)
+    c = LLMClient(
+        _settings(tmp_path, openai_compat_api_key_fallback="sk-spare-123456", llm_fallback="none"),
+        transport=_NoCredit(),
+    )
+    reply = await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert reply.text == "Hello." and made == ["sk-spare-123456"]
+    assert c.api_key == "sk-spare-123456"
+    assert "sk-spare-123456" not in c.redact("failed with sk-spare-123456")
+
+
+@pytest.mark.asyncio
+async def test_spare_key_is_not_used_for_other_errors(tmp_path: Path) -> None:
+    class _Broken(_Transport):
+        async def _create(self, **kwargs: Any) -> Any:
+            raise RuntimeError("Error code: 500 - upstream exploded")
+
+    c = LLMClient(
+        _settings(tmp_path, openai_compat_api_key_fallback="sk-spare-123456", llm_fallback="none"),
+        transport=_Broken(),
+    )
+    with pytest.raises(LLMError):
+        await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert c.api_key == "k"
