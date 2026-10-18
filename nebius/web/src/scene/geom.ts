@@ -194,9 +194,15 @@ export function floorsBottomUp(v: Venue): Floor[] {
   return [...v.floors].sort((a, b) => (a.elevation_m ?? 0) - (b.elevation_m ?? 0));
 }
 
-/** The floor view the scene can draw: an unknown floor id (another venue's) falls back to all. */
+/** From this many storeys up, the 3D view opens on one floor with the others ghosted: every room
+ * wall of four floors at once reads as a stack of ribbed slabs. */
+export const FOCUS_FROM = 3;
+
+/** The floor view the scene can draw: an unknown floor id (another venue's) falls back to all;
+ * "auto" (the default) focuses the lowest floor of a building with {@link FOCUS_FROM} storeys. */
 export function resolveFloorView(v: Venue, view: string | null | undefined): string {
-  if (!view || view === "all") return "all";
+  if (!view || view === "auto") return v.floors.length >= FOCUS_FROM ? floorsBottomUp(v)[0].floor_id : "all";
+  if (view === "all") return "all";
   if (view === "exploded") return v.floors.length > 1 ? "exploded" : "all";
   return v.floors.some((f) => f.floor_id === view) ? view : "all";
 }

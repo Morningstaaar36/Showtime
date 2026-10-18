@@ -29,6 +29,8 @@ export interface ScenePalette {
   agent: string;
   ink: string;
   stair: string;
+  /** stairs when several storeys are in view: the way down stands out */
+  stairHot: string;
 }
 
 const LIGHT: ScenePalette = {
@@ -57,6 +59,7 @@ const LIGHT: ScenePalette = {
   agent: "#3a3f8f",
   ink: "#1d1b3a",
   stair: "#b9c6ff",
+  stairHot: "#0a9fe0",
 };
 
 const DARK: ScenePalette = {
@@ -85,6 +88,7 @@ const DARK: ScenePalette = {
   agent: "#c4ced5",
   ink: "#e5ebee",
   stair: "#45535e",
+  stairHot: "#4cc3ff",
 };
 
 const NIGHT: ScenePalette = {

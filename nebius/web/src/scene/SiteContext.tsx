@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Pt, Venue } from "@/api/types";
-import { shapeOf, venueBounds } from "./geom";
+import { centroid, pointInPolygon, shapeOf, venueBounds } from "./geom";
 import type { ScenePalette } from "./palette";
 
 export interface OsmSite {
@@ -78,11 +78,18 @@ function MapTile({ tile, dark }: { tile: Tile; dark: boolean }) {
   );
 }
 
-function Neighbours({ site, palette }: { site: OsmSite; palette: ScenePalette }) {
+/** Does a mapped building stand on the venue itself (its own footprint, drawn again by the map)? */
+function onVenue(polygon: Pt[], venue: Venue): boolean {
+  const rings = venue.floors.map((f) => f.walkable as Pt[]);
+  const [cx, cy] = centroid(polygon);
+  return rings.some((r) => pointInPolygon(cx, cy, r) || polygon.some(([x, y]) => pointInPolygon(x, y, r)));
+}
+
+function Neighbours({ site, venue, palette }: { site: OsmSite; venue: Venue; palette: ScenePalette }) {
   const geo = useMemo(() => {
     const parts: THREE.BufferGeometry[] = [];
     for (const b of site.context ?? []) {
-      if (!b.polygon || b.polygon.length < 3) continue;
+      if (!b.polygon || b.polygon.length < 3 || onVenue(b.polygon, venue)) continue;
       const g = new THREE.ExtrudeGeometry(shapeOf(b.polygon), { depth: Math.max(2.5, b.height_m), bevelEnabled: false });
       g.rotateX(-Math.PI / 2);
       parts.push(g.index ? g.toNonIndexed() : g);
@@ -91,12 +98,12 @@ function Neighbours({ site, palette }: { site: OsmSite; palette: ScenePalette })
     const merged = mergeGeometries(parts, false);
     parts.forEach((p) => p.dispose());
     return merged;
-  }, [site]);
+  }, [site, venue]);
   useEffect(() => () => geo?.dispose(), [geo]);
   if (!geo) return null;
   return (
     <mesh geometry={geo} castShadow receiveShadow>
-      <meshStandardMaterial color={palette.dark ? "#3a4650" : "#d4dbe0"} roughness={0.9} transparent opacity={0.92} />
+      <meshStandardMaterial color={palette.dark ? "#3a4650" : "#d4dbe0"} roughness={0.9} transparent opacity={0.72} depthWrite={false} />
     </mesh>
   );
 }
@@ -109,7 +116,7 @@ export function SiteContext({ venue, palette, show }: { venue: Venue; palette: S
   return (
     <group>
       {show.map && tiles.map((t) => <MapTile key={t.key} tile={t} dark={palette.dark} />)}
-      {show.neighbours && <Neighbours site={site} palette={palette} />}
+      {show.neighbours && <Neighbours site={site} venue={venue} palette={palette} />}
     </group>
   );
 }
