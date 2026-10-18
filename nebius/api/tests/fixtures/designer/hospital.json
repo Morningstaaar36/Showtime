@@ -1,0 +1,51 @@
+{
+ "description": "Hospital with 4 floors, 60 x 25 m, wards along a central corridor, 30 patients and 10 staff per floor, two stairs and one main entrance.",
+ "spec": {
+  "name": "Hospital",
+  "mode": "indoor",
+  "width_m": 60.0,
+  "depth_m": 25.0,
+  "stage": null,
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "north",
+    "width_m": 2.4,
+    "position": 0.5,
+    "label": "Main entrance",
+    "level": 0
+   }
+  ],
+  "zones": [],
+  "features": [],
+  "upper_floor": null,
+  "building": {
+   "storeys": 4,
+   "basements": 0,
+   "use": "hospital",
+   "interior": "rooms",
+   "rooms_per_floor": null,
+   "room_label": "Ward",
+   "people_per_floor": 40,
+   "levels": [],
+   "stairs": [
+    {
+     "place": "west",
+     "width_m": 1.2
+    },
+    {
+     "place": "east",
+     "width_m": 1.2
+    }
+   ],
+   "floor_height_m": 3.5
+  },
+  "location": null,
+  "assumptions": [
+   "Main entrance 2.4 m wide on north wall.",
+   "Stairs 1.2 m wide at west and east ends.",
+   "40 people per floor (30 patients + 10 staff).",
+   "Wards along central corridor, interior set to 'rooms'."
+  ]
+ }
+}

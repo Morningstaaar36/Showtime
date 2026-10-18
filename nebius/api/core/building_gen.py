@@ -11,10 +11,11 @@ not a survey of the real interior.
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass, field
 from typing import Any, Literal, get_args
 
 from shapely.affinity import rotate, translate
-from shapely.geometry import LineString, MultiPolygon, Polygon, box
+from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 from shapely.geometry.polygon import orient
 from shapely.ops import unary_union
 
@@ -55,11 +56,20 @@ ROOMS_BY_DEFAULT = {"hospital", "school", "office", "residential"}
 # Rooms are grouped into a few areas per floor (each side of the corridor in up to this many
 # runs of neighbouring rooms) so a long wing gives "Ward A" to "Ward F", not 40 one-person rooms.
 AREAS_PER_SIDE = 3
+MAX_OWN_ROOMS = 12
 AREA_WORD: dict[str, str] = {
     "hospital": "Ward",
     "school": "Classrooms",
     "office": "Offices",
     "residential": "Flats",
+}
+# one room each, when the organizer gave the number of rooms ("8 classrooms per floor")
+ROOM_WORD: dict[str, str] = {
+    "hospital": "Ward",
+    "school": "Classroom",
+    "office": "Office",
+    "residential": "Flat",
+    "transit": "Room",
 }
 
 # Who is inside, by use (shares of each room's headcount). The simulator gives each group its
@@ -111,11 +121,96 @@ def default_interior(use: str | None) -> Interior:
 
 
 def floor_name(i: int) -> str:
-    """Ground, 1st floor, 2nd floor, ..."""
+    """Ground, 1st floor, 2nd floor, ...; Basement, Basement 2, ... below street level."""
+    if i < 0:
+        return "Basement" if i == -1 else f"Basement {-i}"
     if i == 0:
         return "Ground"
     suffix = "th" if 10 <= i % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(i % 10, "th")
     return f"{i}{suffix} floor"
+
+
+def floor_id(level: int) -> str:
+    """F0 (street level), F1, F2, ... upward; B1, B2, ... downward."""
+    return f"F{level}" if level >= 0 else f"B{-level}"
+
+
+def level_order(levels: int, basements: int = 0) -> list[int]:
+    """Levels in venue order: street level first, then upward, then the basements."""
+    return [*range(levels), *range(-1, -basements - 1, -1)]
+
+
+@dataclass
+class Core:
+    """One stair core: two landings in plan; the flight runs between `a` and `b`.
+
+    Above street level people come down from `a` to `b`; from a basement they go up from `a`
+    to `b`. A core with a `span` joins only the levels from span[0] to span[1] (an exit stair
+    from a basement or an upper floor to a street door); without one it joins every level.
+    """
+
+    a: Polygon
+    b: Polygon
+    width_m: float  # flight width
+    span: tuple[int, int] | None = None
+
+    def joins(self, lower: int, upper: int) -> bool:
+        """Whether this core links level `lower` with level `upper`."""
+        return self.span is None or (self.span[0] <= lower and upper <= self.span[1])
+
+
+@dataclass
+class StoreyPlan:
+    """Choices for a designed building (a map import leaves them at their defaults)."""
+
+    basements: int = 0
+    floor_people: list[int] | None = None  # one per level, lowest first; overrides `people`
+    cores: list[Core] | None = None  # None: up to two cores found near the ends
+    rooms_per_floor: int | None = None
+    level_obstacles: dict[int, list[Obstacle]] = field(default_factory=dict)
+    zone_word: str | None = None  # what to call the rooms or areas ("Guest rooms")
+    floor_names: dict[int, str] = field(default_factory=dict)  # "Lobby", "Platform"
+
+
+def place_core(
+    foot: Polygon,
+    target: tuple[float, float],
+    width_m: float,
+    avoid: Any = None,
+    *,
+    corridor: bool = False,
+) -> Core | None:
+    """A stair core as close to `target` (x, y) as fits inside `foot` and clear of `avoid`.
+
+    The flight runs along the building's long axis, pointing away from the nearer end; with
+    `corridor` it stays on the long axis, where the corridor of a room layout runs. Landing
+    `a` is the one nearer the target.
+    """
+    fr = _Frame(foot)
+    inside = foot.buffer(-0.3)
+    half = (width_m + 0.4) / 2
+    loc = fr.to_local(Point(target))
+    tx, ty = loc.x, 0.0 if corridor else loc.y
+    sign = 1 if tx <= (fr.s0 + fr.s1) / 2 else -1
+    step = max(0.5, max(fr.length, fr.depth) / 100)
+    ss = [fr.s0 + i * step for i in range(int(fr.length / step) + 1)]
+    ts = (
+        [0.0, 0.5, -0.5, 1.0, -1.0]
+        if corridor
+        else [fr.t0 + i * step for i in range(int(fr.depth / step) + 1)]
+    )
+    cands = sorted(((s, t) for s in ss for t in ts), key=lambda c: math.dist(c, (tx, ty)))
+    for s, t in cands:
+        a = box(min(s, s + sign * STAIR_RUN), t - half, max(s, s + sign * STAIR_RUN), t + half)
+        s2 = s + sign * (STAIR_RUN + 0.5)
+        b = box(min(s2, s2 + sign * STAIR_RUN), t - half, max(s2, s2 + sign * STAIR_RUN), t + half)
+        aw, bw = fr.to_world(a), fr.to_world(b)
+        if not (inside.contains(aw) and inside.contains(bw)):
+            continue
+        if avoid is not None and not avoid.is_empty and avoid.intersects(aw.union(bw)):
+            continue
+        return Core(aw, bw, round(width_m, 2))
+    return None
 
 
 # --- local frame along the building's long axis ----------------------------------------------
@@ -267,6 +362,38 @@ def _groups(use: str | None) -> list[PeopleGroup]:
     return [PeopleGroup(kind=k, share=s) for k, s in DEFAULT_GROUPS.get(use or "", [])]
 
 
+def split_holes(p: Polygon) -> list[Polygon]:
+    """Split a polygon with holes (a floor around an atrium) into parts without holes.
+
+    Zones are outlines without holes, so a ring-shaped floor area becomes two halves.
+    """
+    if not p.interiors:
+        return [p]
+    hole = Polygon(p.interiors[0]).centroid
+    x0, y0, x1, y1 = p.bounds
+    halves = (box(x0 - 1, y0 - 1, hole.x, y1 + 1), box(hole.x, y0 - 1, x1 + 1, y1 + 1))
+    out: list[Polygon] = []
+    for h in halves:
+        for part in _parts(p.intersection(h)):
+            out += split_holes(part)
+    return out
+
+
+def _split(total: int, weights: list[float]) -> list[int]:
+    """`total` split in proportion to `weights`, adding up exactly (largest remainder)."""
+    if not weights:
+        return []
+    if sum(weights) <= 0:
+        weights = [1.0] * len(weights)
+    s = sum(weights)
+    raw = [total * w / s for w in weights]
+    out = [math.floor(r) for r in raw]
+    order = sorted(range(len(raw)), key=lambda i: -(raw[i] - out[i]))
+    for i in order[: total - sum(out)]:
+        out[i] += 1
+    return out
+
+
 def _storeys(
     ground: Floor,
     levels: int,
@@ -274,6 +401,7 @@ def _storeys(
     interior: Interior,
     floor_height_m: float,
     people: int | None,
+    plan: StoreyPlan,
 ) -> tuple[list[Floor], list[Stair], list[str], Interior]:
     notes: list[str] = []
     foot = orient(geo.to_polygon(ground.walkable), 1.0)
@@ -282,16 +410,33 @@ def _storeys(
     fr = _Frame(foot)
     corridor_w = CORRIDOR_M.get(use or "", DEFAULT_CORRIDOR_M)
     solid_free = foot.difference(solid.buffer(0.5)) if solid is not None else foot
-    cores = _cores(fr, solid_free, corridor_w) if levels > 1 else []
-    if levels > 1 and not cores:
-        raise ValueError("No room for a stair inside this building outline.")
-    if levels > 1 and len(cores) == 1:
+    basements = plan.basements
+    order = level_order(levels, basements)
+    multi = len(order) > 1
+    if plan.cores is not None:
+        cores = list(plan.cores) if multi else []
+    else:
+        found = _cores(fr, solid_free, corridor_w) if multi else []
+        flight = round(min(STAIR_W, corridor_w - 0.2) - 0.4, 2)
+        cores = [Core(a, b, flight) for a, b in found]
+    for lower in sorted(order)[:-1]:
+        if not any(c.joins(lower, lower + 1) for c in cores):
+            raise ValueError("No room for a stair inside this building outline.")
+    if levels > 1 and len(cores) == 1 and plan.cores is None:
         notes.append("Only one stair fitted inside the outline; add a second one in the editor.")
-    core_area = unary_union([g for c in cores for g in c]).buffer(0.4) if cores else None
-    exits_area = unary_union([geo.to_polygon(e.polygon).buffer(1.2) for e in ground.exits])
+
+    def cores_at(k: int) -> list[Core]:
+        return [c for c in cores if c.span is None or c.span[0] <= k <= c.span[1]]
+
+    def core_area(k: int) -> Any:
+        shapes = [g for c in cores_at(k) for g in (c.a, c.b)]
+        return unary_union(shapes).buffer(0.4) if shapes else None
 
     walls: Any = None
     band: Polygon | None = None
+    # rooms the organizer counted are zones of their own (up to a dozen a floor; more are
+    # grouped into areas like a map import, so a hotel floor is not 30 two-person zones)
+    explicit_rooms = plan.rooms_per_floor is not None and plan.rooms_per_floor <= MAX_OWN_ROOMS
     if interior == "rooms":
         if fr.depth < corridor_w + 2 * MIN_ROOM_DEPTH or fr.length < 12:
             notes.append(
@@ -300,27 +445,42 @@ def _storeys(
             )
             interior = "open"
         else:
-            walls, band = _room_walls(
-                fr,
-                foot,
-                corridor_w,
-                ROOM_W.get(use or "", DEFAULT_ROOM_W),
-                DOOR_W.get(use or "", 1.0),
-            )
-            if core_area is not None:
-                walls = walls.difference(core_area)
+            room_w = ROOM_W.get(use or "", DEFAULT_ROOM_W)
+            if plan.rooms_per_floor is not None:
+                per_side = math.ceil(plan.rooms_per_floor / 2)
+                room_w = fr.length / per_side
+                if plan.rooms_per_floor % 2:
+                    notes.append(
+                        f"Laid out {2 * per_side} rooms per floor ({per_side} on each side of "
+                        "the corridor); merge two in the editor if one fewer is right."
+                    )
+            walls, band = _room_walls(fr, foot, corridor_w, room_w, DOOR_W.get(use or "", 1.0))
 
     load = LOAD_M2.get(use or "", DEFAULT_LOAD_M2)
-    floors: list[Floor] = []
+    floors: dict[int, Floor] = {}
     zone_shapes: list[tuple[int, Polygon]] = []
-    for i in range(levels):
-        fid = f"F{i}"
+    for k in order:
+        fid = floor_id(k)
+        exits_k = ground.exits if k == 0 else []
+        extra = plan.level_obstacles.get(k, [])
+        extra_area = (
+            unary_union([geo.to_polygon(o.polygon) for o in extra]).buffer(0.5) if extra else None
+        )
+        cores_k = core_area(k)
         floor_walls = walls
-        if i == 0 and floor_walls is not None:  # keep the mapped doors clear
-            floor_walls = floor_walls.difference(exits_area)
+        if floor_walls is not None:
+            if cores_k is not None:
+                floor_walls = floor_walls.difference(cores_k)
+            if exits_k:  # keep the doors clear
+                floor_walls = floor_walls.difference(
+                    unary_union([geo.to_polygon(e.polygon).buffer(1.2) for e in exits_k])
+                )
+            if extra_area is not None:
+                floor_walls = floor_walls.difference(extra_area)
         obstacles = [
-            o.model_copy(update={"id": o.id if i == 0 else f"{o.id}_{fid.lower()}"}) for o in solids
+            o.model_copy(update={"id": o.id if k == 0 else f"{o.id}_{fid.lower()}"}) for o in solids
         ]
+        obstacles += extra
         if floor_walls is not None:
             obstacles += _wall_obstacles(fid, floor_walls, floor_height_m - 0.3)
         free = foot
@@ -330,32 +490,119 @@ def _storeys(
             free = free.difference(floor_walls.buffer(0.4))
         # corridors are for moving, not for standing crowds
         free = free.difference(band.buffer(0.3)) if band is not None else free.buffer(-1.0)
-        if core_area is not None:
-            free = free.difference(core_area)
+        if cores_k is not None:
+            free = free.difference(cores_k)
+        if extra_area is not None:
+            free = free.difference(extra_area)
         rooms = [p for p in _parts(free) if p.area >= 6]
-        if band is not None:  # the floor without the corridor, stairs and courtyards
+        if band is not None and not explicit_rooms:  # the floor without corridor and stairs
             allowed = foot.buffer(-0.4).difference(band.buffer(0.3))
             if solid is not None:
                 allowed = allowed.difference(solid.buffer(0.5))
-            if core_area is not None:
-                allowed = allowed.difference(core_area)
+            if cores_k is not None:
+                allowed = allowed.difference(cores_k)
+            if extra_area is not None:
+                allowed = allowed.difference(extra_area)
             rooms = _group_rooms(fr, rooms, allowed)
-        zone_shapes += [(i, orient(p.simplify(0.2), 1.0)) for p in rooms]
-        floors.append(
-            Floor(
-                floor_id=fid,
-                name=floor_name(i),
-                elevation_m=round(i * floor_height_m, 2),
-                walkable=ground.walkable,
-                obstacles=obstacles,
-                exits=ground.exits if i == 0 else [],
-                zones=[],
+        elif band is not None:  # each room its own zone, in order along the corridor
+            rooms.sort(key=lambda p: (fr.to_local(p.centroid).y < 0, fr.to_local(p.centroid).x))
+        rooms = [q for p in rooms for q in split_holes(p) if q.area >= 2]
+        zone_shapes += [(k, orient(p.simplify(0.2), 1.0)) for p in rooms]
+        floors[k] = Floor(
+            floor_id=fid,
+            name=plan.floor_names.get(k, floor_name(k)),
+            elevation_m=round(k * floor_height_m, 2),
+            walkable=ground.walkable,
+            obstacles=obstacles,
+            exits=exits_k,
+            zones=[],
+        )
+
+    shares = _shares(zone_shapes, order, people, plan, load, use, notes, explicit_rooms)
+    groups = _groups(use)
+    if band is not None and explicit_rooms:
+        word = ROOM_WORD.get(use or "", "Room")
+    elif band is not None:
+        word = AREA_WORD.get(use or "", "Rooms")
+    else:
+        word = "Floor area"
+    word = plan.zone_word or word
+    kept = [
+        (fi, p, share)
+        for (fi, p), share in zip(zone_shapes, shares, strict=True)
+        if share > 0 or plan.floor_people is None  # a level left empty (a street entrance)
+    ]
+    on_floor = {fi: sum(1 for f, _, _ in kept if f == fi) for fi, _, _ in kept}
+    per_floor: dict[int, int] = {}
+    for fi, p, share in kept:
+        n = per_floor[fi] = per_floor.get(fi, 0) + 1
+        tag = str(n) if explicit_rooms and band is not None else (chr(64 + n) if n <= 26 else n)
+        label = word if on_floor[fi] == 1 else f"{word} {tag}"
+        if fi != 0 or fi in plan.floor_names:
+            label += f" · {plan.floor_names.get(fi, floor_name(fi))}"
+        floors[fi].zones.append(
+            Zone(
+                id=f"{floor_id(fi).lower()}_zone_{n}",
+                polygon=geo.to_points(p),
+                people=share,
+                label=label,
+                groups=groups,
             )
         )
 
+    stairs: list[Stair] = []
+    length = round(math.hypot(2 * STAIR_RUN + 1, floor_height_m), 2)
+    for idx, c in enumerate(cores):
+        letter = chr(ord("a") + idx)
+        links = [(f"F{i}", f"F{i - 1}", str(i)) for i in range(1, levels) if c.joins(i - 1, i)]
+        links += [
+            (floor_id(k), floor_id(k + 1), f"b{-k}")
+            for k in range(-basements, 0)
+            if c.joins(k, k + 1)
+        ]
+        for frm, to, tag in links:
+            stairs.append(
+                Stair(
+                    id=f"stair_{letter}_{tag}",
+                    from_floor=frm,
+                    to_floor=to,
+                    top_polygon=geo.to_points(orient(c.a, 1.0)),
+                    bottom_polygon=geo.to_points(orient(c.b, 1.0)),
+                    width_m=c.width_m,
+                    length_m=length,
+                )
+            )
+    return [floors[k] for k in order], stairs, notes, interior
+
+
+def _shares(
+    zone_shapes: list[tuple[int, Polygon]],
+    order: list[int],
+    people: int | None,
+    plan: StoreyPlan,
+    load: float,
+    use: str | None,
+    notes: list[str],
+    equal_rooms: bool,
+) -> list[int]:
+    """Headcount per zone shape: per level as given (exact), or a total split by area."""
     area = sum(p.area for _, p in zone_shapes)
+    if plan.floor_people is not None:
+        lowest_first = sorted(order)
+        if len(plan.floor_people) != len(lowest_first):
+            raise ValueError(f"{len(plan.floor_people)} headcounts for {len(lowest_first)} levels.")
+        out = [0] * len(zone_shapes)
+        for k, want in zip(lowest_first, plan.floor_people, strict=True):
+            idx = [i for i, (fi, _) in enumerate(zone_shapes) if fi == k]
+            if want > 0 and not idx:
+                raise ValueError(f"No room for people on the {floor_name(k).lower()}.")
+            weights = [1.0 if equal_rooms else zone_shapes[i][1].area for i in idx]
+            for i, n in zip(idx, _split(want, weights), strict=True):
+                out[i] = n
+        return out
     if not zone_shapes or area <= 0:
         raise ValueError("No room for people inside this building outline.")
+    levels = len(order)
     if people is None:
         estimate = max(10, int(area / load))
         people = min(estimate, AUTO_PEOPLE_MAX)
@@ -366,42 +613,13 @@ def _storeys(
             + (f" The floors could hold about {estimate:,}." if people < estimate else "")
         )
     left = people
-    groups = _groups(use)
-    word = AREA_WORD.get(use or "", "Rooms") if band is not None else "Floor area"
-    per_floor: dict[int, int] = {}
-    for k, (fi, p) in enumerate(zone_shapes):
+    out = []
+    for k, (_, p) in enumerate(zone_shapes):
         share = left if k == len(zone_shapes) - 1 else round(people * p.area / area)
         share = max(0, min(share, left))
         left -= share
-        n = per_floor[fi] = per_floor.get(fi, 0) + 1
-        label = f"{word} {chr(64 + n) if n <= 26 else n}"
-        if fi > 0:
-            label += f" · {floor_name(fi)}"
-        floors[fi].zones.append(
-            Zone(
-                id=f"f{fi}_zone_{n}",
-                polygon=geo.to_points(p),
-                people=share,
-                label=label,
-                groups=groups,
-            )
-        )
-
-    stairs: list[Stair] = []
-    for i in range(1, levels):
-        for k, (top, bottom) in enumerate(cores):
-            stairs.append(
-                Stair(
-                    id=f"stair_{'ab'[k]}_{i}",  # a and b: the two cores
-                    from_floor=f"F{i}",
-                    to_floor=f"F{i - 1}",
-                    top_polygon=geo.to_points(orient(top, 1.0)),
-                    bottom_polygon=geo.to_points(orient(bottom, 1.0)),
-                    width_m=round(min(STAIR_W, corridor_w - 0.2) - 0.4, 2),
-                    length_m=round(math.hypot(2 * STAIR_RUN + 1, floor_height_m), 2),
-                )
-            )
-    return floors, stairs, notes, interior
+        out.append(share)
+    return out
 
 
 def build_storeys(
@@ -412,14 +630,20 @@ def build_storeys(
     interior: Interior | None = None,
     floor_height_m: float = 3.5,
     people: int | None = None,
+    plan: StoreyPlan | None = None,
 ) -> tuple[Venue, list[str]]:
     """Stack `levels` storeys on the venue's one imported floor (rooms or open plan).
 
+    `plan` adds basements, exact headcounts per level, stair cores placed by the caller,
+    obstacles and exits on given levels (the designer uses it; a map import does not).
     Falls back to open floors, then to the single imported floor, when a layout does not
-    validate (an odd outline), and says so in the notes.
+    validate (an odd outline), and says so in the notes. With a `plan` the first layout that
+    could be built is returned even when it does not validate, so its checks can be fixed.
     """
+    designed = plan is not None
     if use is not None and use not in get_args(EventKind):
         raise ValueError(f"Unknown building use '{use}'.")
+    plan = plan or StoreyPlan()
     levels = max(1, min(int(levels), MAX_LEVELS))
     interior = interior or default_interior(use)
     ground = venue.floors[0]
@@ -427,13 +651,15 @@ def build_storeys(
     record = {
         "use": use,
         "levels": levels,
+        "basements": plan.basements,
         "interior": interior,
         "floor_height_m": floor_height_m,
     }
+    first: Venue | None = None
     for layout in dict.fromkeys([interior, "open"]):
         try:
             floors, stairs, why, layout = _storeys(
-                ground, levels, use, layout, floor_height_m, people
+                ground, levels, use, layout, floor_height_m, people, plan
             )
         except ValueError as exc:
             notes.append(str(exc))
@@ -450,9 +676,10 @@ def build_storeys(
             }
         )
         out = Venue.model_validate(out.model_dump())
+        first = first or out
         problems = [c.message for c in validate_venue(out).checks if c.severity == "error"]
         if not problems:
-            if levels > 1:
+            if levels > 1 and plan.cores is None:
                 why.append(
                     f"{levels} floors joined by two stair cores near the ends of the building. "
                     "Move the stairs to the real stairwells in the editor."
@@ -467,5 +694,7 @@ def build_storeys(
             f"The {layout} layout did not fit this outline ({problems[0]})"
             + ("; trying open floors." if layout == "rooms" else ".")
         )
+    if designed and first is not None:
+        return first, notes  # the checks on it say what to change
     notes.append("Kept the imported ground floor only.")
     return venue, notes

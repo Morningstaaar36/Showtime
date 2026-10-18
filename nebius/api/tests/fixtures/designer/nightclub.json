@@ -1,0 +1,60 @@
+{
+ "description": "Nightclub in a basement 25 x 15 m, 300 people, one narrow stair up to the street and a fire exit at the back.",
+ "spec": {
+  "name": "Basement nightclub",
+  "mode": "indoor",
+  "width_m": 25.0,
+  "depth_m": 15.0,
+  "stage": null,
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "west",
+    "width_m": 0.8,
+    "position": 0.5,
+    "label": "Stair to street",
+    "level": -1
+   },
+   {
+    "wall": "south",
+    "width_m": 1.0,
+    "position": 0.5,
+    "label": "Fire exit",
+    "level": -1
+   }
+  ],
+  "zones": [
+   {
+    "label": "Clubbers",
+    "people": 300,
+    "region": "whole"
+   }
+  ],
+  "features": [],
+  "upper_floor": null,
+  "building": {
+   "storeys": 1,
+   "basements": 1,
+   "use": "other",
+   "interior": "open",
+   "rooms_per_floor": null,
+   "room_label": null,
+   "people_per_floor": null,
+   "levels": [
+    {
+     "level": -1,
+     "people": 300,
+     "name": "Nightclub"
+    }
+   ],
+   "stairs": [],
+   "floor_height_m": 3.5
+  },
+  "location": null,
+  "assumptions": [
+   "Narrow stair width 0.8 m.",
+   "Fire exit width 1.0 m.",
+   "Basement is the only level; street level is access only."
+  ]
+ }
+}

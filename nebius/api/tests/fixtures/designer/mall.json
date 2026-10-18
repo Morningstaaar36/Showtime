@@ -1,0 +1,111 @@
+{
+ "description": "A shopping mall with 3 levels, an atrium, 600 shoppers per level, escalators in the middle and exits on all four sides.",
+ "spec": {
+  "name": "Shopping mall",
+  "mode": "indoor",
+  "width_m": 60.0,
+  "depth_m": 40.0,
+  "stage": null,
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "north",
+    "width_m": 2.0,
+    "position": 0.25,
+    "label": "North exit 1",
+    "level": 0
+   },
+   {
+    "wall": "north",
+    "width_m": 2.0,
+    "position": 0.75,
+    "label": "North exit 2",
+    "level": 0
+   },
+   {
+    "wall": "south",
+    "width_m": 2.0,
+    "position": 0.25,
+    "label": "South exit 1",
+    "level": 0
+   },
+   {
+    "wall": "south",
+    "width_m": 2.0,
+    "position": 0.75,
+    "label": "South exit 2",
+    "level": 0
+   },
+   {
+    "wall": "east",
+    "width_m": 2.0,
+    "position": 0.25,
+    "label": "East exit 1",
+    "level": 0
+   },
+   {
+    "wall": "east",
+    "width_m": 2.0,
+    "position": 0.75,
+    "label": "East exit 2",
+    "level": 0
+   },
+   {
+    "wall": "west",
+    "width_m": 2.0,
+    "position": 0.25,
+    "label": "West exit 1",
+    "level": 0
+   },
+   {
+    "wall": "west",
+    "width_m": 2.0,
+    "position": 0.75,
+    "label": "West exit 2",
+    "level": 0
+   }
+  ],
+  "zones": [],
+  "features": [
+   {
+    "kind": "escalator",
+    "label": "Escalator",
+    "place": "centre",
+    "width_m": 2.0,
+    "depth_m": 6.0,
+    "level": null
+   }
+  ],
+  "upper_floor": null,
+  "building": {
+   "storeys": 3,
+   "basements": 0,
+   "use": "mall",
+   "interior": "atrium",
+   "rooms_per_floor": null,
+   "room_label": null,
+   "people_per_floor": 600,
+   "levels": [],
+   "stairs": [
+    {
+     "place": "west",
+     "width_m": 1.2
+    },
+    {
+     "place": "east",
+     "width_m": 1.2
+    }
+   ],
+   "floor_height_m": 4.0
+  },
+  "location": null,
+  "assumptions": [
+   "Exits are 2.0 m wide, one pair per wall.",
+   "Atrium allows vertical openness across floors.",
+   "Escalator is 2.0 m wide and 6.0 m deep, placed centrally.",
+   "Stairs are 1.2 m wide at west and east walls for backup egress.",
+   "Floor height is 4.0 m to accommodate atrium volume.",
+   "Total shoppers: 1,800 across 3 levels."
+  ]
+ }
+}
