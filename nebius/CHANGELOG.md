@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- **Your plan is tabbed and visual**: Overview (traffic-light verdict ring, four key numbers with a
+  target bar, the density scale, the people-inside curve and the time needed, before vs after
+  fixes as paired bars, the worst moment replaying in 3D), Replay (before, after or side by side on
+  one clock, every scenario), Scenarios (cards, the scenario library and sweep, deeper checks as
+  tiles), Fixes (cards with before → after numbers and a switch each), Floors (one small plan per
+  storey with stair use and when it clears) and Hand over (report, map, checklist, data, cost). The
+  AI's prose sits behind "Read the AI's summary"; the tab is in the URL (`?tab=`).
+- **Buildings of 3+ storeys open on one floor in focus** with the others ghosted (outlines, faint
+  plates, no labels), every stair highlighted, room walls cut low, and a lift-style floor switcher;
+  "All floors" draws clean floor plates, "Spread apart" stays. People on other floors stay as faint
+  markers in replays. Map neighbours standing on the venue's own footprint are no longer drawn.
+- **AI at work is a live pipeline** (red team → screen → simulate → fix → judge) with a scoreboard,
+  an AI usage meter and attack cards dealt in.
+- **Home** adds "Events like yours" (concert, hospital fire drill, school drill, stadium, festival
+  pandal, mall, nightclub, street party, conference): tested samples open with results, the others
+  fill in "Describe it". **Check your venue** has floor tabs, door chips and people steppers.
+
+### Added
+- Turbulence layer toggle on the replay (GET /runs/{id}/pressure, same encoding as density) and the
+  scenario library (GET /scenarios, POST /projects/{id}/sweep with chosen ids); both stay hidden on
+  servers that answer 404. A slot for the red team's failure map in Scenarios.
+
 ### Fixed
 - **Instant estimate in buildings of 3+ storeys**: routes now follow chains of stairs, so upper
   floors are no longer "stranded"; the 4-storey hospital sample went from 298 people with no route
