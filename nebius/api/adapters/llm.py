@@ -260,6 +260,12 @@ class LLMClient:
             out = dict(self._health_cache[1])
         else:
             out = await self._hosted_health()
+            # an expired, revoked or empty first key: the spare key takes over here too, so the
+            # badge (and the first-run checklist) tells the truth about what calls will use
+            if not out["ok"] and self._switch_to_spare_key(str(out.get("detail", ""))):
+                out = await self._hosted_health()
+                if out["ok"]:
+                    out["detail"] = f"{out['detail']} (spare key)"
             ttl = HEALTH_TTL_OK_S if out["ok"] else HEALTH_TTL_FAIL_S
             self._health_cache = (now + ttl, out)
             out = dict(out)

@@ -260,3 +260,22 @@ async def test_spare_key_is_not_used_for_other_errors(tmp_path: Path) -> None:
     with pytest.raises(LLMError):
         await c.chat("fast", [{"role": "user", "content": "hi"}])
     assert c.api_key == "k"
+
+
+@pytest.mark.asyncio
+async def test_health_switches_to_the_spare_key_when_the_first_expired(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import openai
+
+    spare = _Probe()
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kw: spare)
+    s = _settings(
+        tmp_path,
+        openai_compat_base_url="https://openrouter.ai/api/v1",
+        openai_compat_api_key_fallback="sk-spare-123456",
+    )
+    c = LLMClient(s, transport=_Probe(fail=_Unauthorized("401 API key expired")))
+    out = await c.health()
+    assert out["ok"] is True and "spare key" in out["detail"]
+    assert c.api_key == "sk-spare-123456" and spare.calls == ["/key"]
