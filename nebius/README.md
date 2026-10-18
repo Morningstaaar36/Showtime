@@ -28,17 +28,17 @@ measured improvements, down to **the latest safe time to start evacuating**.
 
 > Planning aid, not a safety certification.
 
-![Event Copilot planning a concert at Ramna Park](docs/screenshots/copilot.png)
+![Your plan: a 4-floor hospital with its patients and staff, tested by the red team](docs/screenshots/overhaul/hospital-overview.png)
 
-| The real site in 3D, laid out for the event | Pick any building or park on a 3D map |
+| **Failure map**: every way the plan broke, by hazard and floor (Rainbow red teaming) | **Fixes**, each simulated on its own; none may make an outcome worse |
 | --- | --- |
-| ![Site](docs/screenshots/site-3d.png) | ![Map](docs/screenshots/map-select.png) |
-| **Red Team Night** | **Crowd replay with density heatmap** |
-| ![Red team](docs/screenshots/redteam.png) | ![Simulate](docs/screenshots/simulate.png) |
-| **Check your venue** (step 1 of the simple view) | **Your plan**: the verdict, why, and what was tested |
-| ![Check your venue](docs/screenshots/check.png) | ![Your plan](docs/screenshots/plan-simple.png) |
-| **Any building**: a 4-storey hospital drawn on the map, floors spread apart | **Building tools**: walls, doors, rooms, stairs, routes, floors |
-| ![Hospital, 4 floors](docs/screenshots/hospital-spread.png) | ![Building tools](docs/screenshots/building-tools.png) |
+| ![Failure map](docs/screenshots/overhaul/failure-map.png) | ![Fixes](docs/screenshots/overhaul/school-fixes.png) |
+| **Floors**: when each storey clears and how many use each stair | **Scenarios** the AI and the rules tried, with the incident that inspired each |
+| ![Floors](docs/screenshots/overhaul/school-floors.png) | ![Scenarios](docs/screenshots/overhaul/hospital-scenarios.png) |
+| **Start from your event**: map, one sentence, or a use case | **AI at work**: the red team, the simulator and the judge, live |
+| ![Home](docs/screenshots/overhaul/home.png) | ![AI at work](docs/screenshots/overhaul/work-live.png) |
+| **The real site in 3D**, laid out for the event | **Event Copilot**: one sentence to a tested plan |
+| ![Site](docs/screenshots/site-3d.png) | ![Copilot](docs/screenshots/copilot.png) |
 
 ## Why
 
