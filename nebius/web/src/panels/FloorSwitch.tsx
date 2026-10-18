@@ -40,7 +40,7 @@ export function FloorSwitch({ venue, className }: { venue: Venue; className?: st
         {floorsBottomUp(venue).map((f) => (
           <div key={f.floor_id} className="flex items-center gap-1">
             <span className="min-w-0 flex-1">{item(f.floor_id, name(f.floor_id), undefined, t("floors.people_on", { n: fmtInt(people(f.floor_id)) }))}</span>
-            <span aria-hidden className="flex w-9 shrink-0 max-sm:hidden items-center justify-end gap-0.5 pr-1 text-2xs text-muted tabular"><Users className="size-3.5" />{fmtInt(people(f.floor_id))}</span>
+            <span aria-hidden className="flex w-12 shrink-0 max-sm:hidden items-center justify-end gap-0.5 pr-1 text-2xs text-muted tabular"><Users className="size-3.5 shrink-0" />{fmtInt(people(f.floor_id))}</span>
           </div>
         ))}
       </div>

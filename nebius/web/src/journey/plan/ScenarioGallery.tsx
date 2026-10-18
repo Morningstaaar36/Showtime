@@ -3,7 +3,7 @@
  * checks (more seeds, how sure, rewind, stress at scale) as tiles that open their panel. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Accessibility, Ambulance, Baby, Ban, Bomb, BookOpen, Boxes, Car, Check, CloudLightning, CloudRain, Code2, Dices, DoorClosed, Droplets, ExternalLink, Fence,
+  Accessibility, Ambulance, ArrowUpDown, CircleCheck, CloudFog, CloudRainWind, DoorClosedLocked, UserPlus, Baby, Ban, Bomb, BookOpen, Boxes, Car, Check, CloudLightning, CloudRain, Code2, Dices, DoorClosed, Droplets, ExternalLink, Fence,
   Flame, Footprints, Gauge, HeartPulse, History, Hourglass, Layers, Lock, Megaphone, Moon, Music, PartyPopper, Play, Repeat2, ShieldAlert, ShieldCheck,
   Siren, Snail, Sun, Swords, Thermometer, TriangleAlert, UsersRound, Waves, Wind, Zap, ZapOff,
 } from "lucide-react";
@@ -116,6 +116,7 @@ export interface SweepItem {
   metrics?: { evac_time_p95_s: number | null; peak_density_ppm2: number; time_above_danger_s: number; agents_not_evacuated: number; agents_total: number };
 }
 interface Sweep { version: number | null; tier?: number; items: SweepItem[] }
+interface Catalogue { items: CatalogueItem[]; defaults: string[] | null }
 
 /** The icons the catalogue names (kebab-case or PascalCase), drawn from a fixed set so the
  * bundle doesn't carry every lucide icon; anything else gets the warning sign. */
@@ -126,6 +127,7 @@ const NAMED: Record<string, React.ReactNode> = {
   footprints: <Footprints />, accessibility: <Accessibility />, heartpulse: <HeartPulse />, megaphone: <Megaphone />, lock: <Lock />,
   fence: <Fence />, ambulance: <Ambulance />, zap: <Zap />, zapoff: <ZapOff />, lightbulboff: <ZapOff />, moon: <Moon />, sun: <Sun />,
   thermometer: <Thermometer />, droplets: <Droplets />, waves: <Waves />, ban: <Ban />, arrowleftright: <Repeat2 />, code: <Code2 />, code2: <Code2 />,
+  arrowupdown: <ArrowUpDown />, cloudfog: <CloudFog />, layers: <Layers />, circlecheck: <CircleCheck />, userplus: <UserPlus />, doorclosedlocked: <DoorClosedLocked />, cloudrainwind: <CloudRainWind />,
   swords: <Swords />, baby: <Baby />, car: <Car />, bomb: <Bomb />, music: <Music />, partypopper: <PartyPopper />,
 };
 export const namedIcon = (name: string | null | undefined): React.ReactNode =>
@@ -139,10 +141,13 @@ function useCatalogue(projectId: string) {
     enabled: !catalogueMissing,
     retry: false,
     staleTime: 60_000,
-    queryFn: async (): Promise<CatalogueItem[] | null> => {
+    queryFn: async (): Promise<Catalogue | null> => {
       try {
-        const out = await api.get<CatalogueItem[] | { items?: CatalogueItem[]; scenarios?: CatalogueItem[] }>(`/scenarios?project_id=${encodeURIComponent(projectId)}`);
-        return Array.isArray(out) ? out : out.items ?? out.scenarios ?? [];
+        const out = await api.get<CatalogueItem[] | { scenarios?: CatalogueItem[]; not_applicable?: { id: string; title: string; reason?: string }[]; default_sweep?: string[] }>(
+          `/scenarios?project_id=${encodeURIComponent(projectId)}`);
+        if (Array.isArray(out)) return { items: out, defaults: null };
+        const off = (out.not_applicable ?? []).map((x) => ({ id: x.id, title: x.title, description: x.reason, applicable: false } as CatalogueItem));
+        return { items: [...(out.scenarios ?? []), ...off], defaults: out.default_sweep ?? null };
       } catch (e) {
         if ((e as { status?: number }).status === 404) catalogueMissing = true;
         return null;
@@ -156,14 +161,15 @@ function useCatalogue(projectId: string) {
 export function ScenarioCatalogue({ projectId, version, onPlay }: { projectId: string; version: number; onPlay: (runId: string, title: string) => void }) {
   const qc = useQueryClient();
   const catalogue = useCatalogue(projectId);
-  const items = catalogue.data ?? [];
+  const items = catalogue.data?.items ?? [];
+  const defaults = catalogue.data?.defaults;
   const sweep = useQuery({
     queryKey: ["sweep", projectId],
     queryFn: () => api.get<Sweep>(`/projects/${projectId}/sweep`),
     refetchInterval: (q) => (q.state.data?.items.some(busy) ? 2500 : false),
   });
   const [chosen, setChosen] = useState<Set<string> | null>(null);
-  const picks = chosen ?? new Set(items.filter((i) => i.applicable !== false).slice(0, 6).map((i) => i.id));
+  const picks = chosen ?? new Set(defaults ?? items.filter((i) => i.applicable !== false).slice(0, 6).map((i) => i.id));
   const run = useMutation({
     mutationFn: () => api.post<Sweep>(`/projects/${projectId}/sweep`, items.length ? { scenarios: [...picks] } : {}),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["sweep", projectId] }); toast.success(t("plan.sweep_queued")); },
@@ -204,7 +210,13 @@ export function ScenarioCatalogue({ projectId, version, onPlay }: { projectId: s
                       <span className="block font-semibold leading-snug">{it.title}</span>
                       {it.description && <span className="line-clamp-2 block text-xs text-muted">{it.description}</span>}
                       {off ? <span className="mt-1 block text-2xs font-medium text-muted">{t("plan.not_applicable")}</span>
-                        : (it.targets?.length ?? 0) > 0 && <span className="mt-1 block text-2xs text-muted">{t("plan.targets", { n: it.targets!.length })}</span>}
+                        : (it.targets?.length ?? 0) > 0 && (
+                          <span className="mt-1.5 flex flex-wrap gap-1">
+                            {it.targets!.filter((x): x is string => typeof x === "string").slice(0, 3).map((x) => (
+                              <span key={x} className="line-clamp-2 max-w-full rounded-[6px] bg-surface-3 px-1.5 py-0.5 text-2xs text-ink" title={x}>{x}</span>
+                            ))}
+                          </span>
+                        )}
                     </span>
                     {on && <Check className="size-4 shrink-0 text-signal" aria-hidden />}
                   </label>
