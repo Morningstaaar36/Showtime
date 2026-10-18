@@ -36,6 +36,28 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | Sensitivity: headcount | Every zone × 0.8 and × 1.2 | Planning bracket set by the team (R-02 in `TEAM_TASK_ALLOCATION.md`), not a published forecast error: headcounts on the day differ from the plan both ways | `api/orchestrator/sensitivity.py` (`VARIANTS`) |
 | Sensitivity: walking speed | Free walking speeds × 0.85 and × 1.15 (level mean and spread, stairs) | Planning bracket set by the team (R-02). It stays inside the spread of the default itself (1.34 ± 0.26 m/s, about ±19%, Weidmann) | `api/orchestrator/sensitivity.py` (`VARIANTS`) |
 
+## People mix (zone `groups`)
+
+A zone's people mix (Check your venue › people, or `set_zone_profile`) is simulated: each share
+of the zone's people gets its own walking speed and body size, decided once per person so they
+stay that slow on the stairs (stair travel scales by speed / 1.34 m/s) and on the floors below.
+Who is who is drawn with the run's seed (exact shares, largest remainder) and saved as
+`agents.json`, so the replay shows each kind with its own shape and colour.
+
+| Kind | Level speed | Radius | Source |
+| --- | --- | --- | --- |
+| general adult, staff | normal distribution, mean 1.34 m/s | 0.22 m | as above |
+| elderly | 0.97 m/s | 0.22 m | 15th-percentile walking speed of older pedestrians, Knoblauch, Pietrucha & Nitzburg 1996, *Transportation Research Record* 1538 [VERIFY] |
+| child | 1.0 m/s | 0.17 m | [VERIFY] e.g. Larusdottir & Dederichs 2012, *Fire Technology* 48 (children's evacuation) |
+| wheelchair | 0.69 m/s | 0.40 m | Boyce, Shields & Silcock 1999, *Fire Technology* 35(1) [VERIFY]; radius from a 0.7 × 1.2 m wheelchair (ISO 7193) |
+| hospital bed | 0.5 m/s | 0.60 m | [VERIFY] a bed pushed by staff along a corridor; screening value |
+
+Each person's speed varies ±10 % around the value. A wide body that does not fit where people
+were placed keeps its speed and takes an ordinary person's room (the run is never stopped for
+it). Limits: wheelchair users and beds use stairs like everyone else, only slower; real plans
+use refuges, evacuation chairs and horizontal evacuation, which are not modelled. The instant
+estimate uses the share-weighted mean walking time of the mix (`api/core/tier1.py`).
+
 ## Scenario library (`api/core/scenarios.py`)
 
 Named what-ifs (GET /api/v1/scenarios, and the scenario sweep). Targets are picked by fixed rules:

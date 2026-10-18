@@ -190,6 +190,12 @@ def pressure(run_id: str, st: AppState = Depends(get_state)) -> FileResponse:
     return _artifact(st, run_id, "pressure_grid", "application/octet-stream")
 
 
+@router.get("/runs/{run_id}/agents")
+def agent_kinds(run_id: str, st: AppState = Depends(get_state)) -> FileResponse:
+    """Who each simulated person is when the plan has a people mix: {"schema", "kinds"}."""
+    return _artifact(st, run_id, "agents", "application/json")
+
+
 @router.get("/runs/{run_id}/pressure/index")
 def pressure_index(run_id: str, st: AppState = Depends(get_state)) -> FileResponse:
     """Grid geometry, times, threshold, peak map and turbulent hotspots."""

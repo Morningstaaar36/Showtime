@@ -141,6 +141,14 @@ def main(work: Path) -> int:
                 **raw.get("rewind", {}),
             }
         )
+        # who each person is when a zone has a people mix (ids as in traj.bin)
+        kinds = raw.get("kinds") or {}
+        if kinds:
+            (work / "agents.json").write_text(
+                json.dumps({"schema": 1, "kinds": {str(g): k for g, k in sorted(kinds.items())}})
+            )
+            for kind in sorted(set(kinds.values())):
+                extra[f"people_{kind}"] = float(sum(1 for k in kinds.values() if k == kind))
         statuses = {o.status for o in outputs}
         status = (
             "timeout"
@@ -179,6 +187,7 @@ def main(work: Path) -> int:
                         if (work / "pressure.bin").exists()
                         else {}
                     ),
+                    **({"agents": "agents.json"} if kinds else {}),
                 },
                 "sim_time_s": max((o.sim_time for o in outputs), default=0.0),
                 "notes": notes,

@@ -39,6 +39,26 @@ REWIND_SINGLE_FLOOR = "rewind needs a single-floor venue"
 COUNTERFLOW_STAIR_FACTOR = 0.5  # same as the instant estimate (plugins/events_core)
 
 
+# People who move differently (a zone's `groups`): level walking speed (m/s) and body radius (m).
+# Sources and limits in docs/ASSUMPTIONS.md ("People mix"). Mirrored in api/core/tier1.py.
+KIND_SPEED = {"elderly": 0.97, "child": 1.0, "wheelchair": 0.69, "bed": 0.5}
+KIND_RADIUS = {"child": 0.17, "wheelchair": 0.4, "bed": 0.6}
+
+
+def assign_kinds(n: int, groups: list[dict[str, Any]], rng: np.random.Generator) -> list[str]:
+    """A kind for each of `n` placed people: exact shares (largest remainder), seeded order."""
+    if n <= 0 or not groups:
+        return ["general"] * max(n, 0)
+    want = [(str(g["kind"]), float(g["share"]) * n) for g in groups]
+    counts = {k: int(x) for k, x in want}
+    left = n - sum(counts.values()) - round(n * (1 - sum(float(g["share"]) for g in groups)))
+    for k, _x in sorted(want, key=lambda kx: -(kx[1] - int(kx[1])))[: max(left, 0)]:
+        counts[k] += 1
+    kinds = [k for k, c in counts.items() for _ in range(c)]
+    kinds += ["general"] * (n - len(kinds))
+    return [kinds[i] for i in rng.permutation(n)]
+
+
 def mobility_pick(gid: int, share: float) -> bool:
     """Whether person `gid` belongs to a share (a fixed hash: same people every run and floor)."""
     return ((gid * 2654435761) % 4294967296) / 4294967296.0 < share
@@ -87,11 +107,14 @@ class FloorRun:
         checkpoint_path: Path | None = None,
         resume_state: dict[str, Any] | None = None,
         slow: dict[int, float] | None = None,
+        kinds: dict[int, str] | None = None,
     ) -> None:
         self.floor_id: str = floor["floor_id"]
         # slower walkers (mobility_share): gid -> level speed, shared by every floor so a
         # person stays slow on the floors below and on the stairs
         self.slow: dict[int, float] = slow if slow is not None else {}
+        # who is not a general adult (a zone's people mix): gid -> kind, shared by every floor
+        self.kinds: dict[int, str] = kinds if kinds is not None else {}
         self.mobility_rules: list[tuple[float, float]] = []
         self.settings = settings
         self.plan = plan
@@ -177,6 +200,7 @@ class FloorRun:
             if not area.is_empty:
                 self.zones[z["id"]] = area
         self.zone_people = {z["id"]: int(z["people"]) for z in floor.get("zones", [])}
+        self.zone_groups = {z["id"]: list(z.get("groups") or []) for z in floor.get("zones", [])}
 
         self.agents: dict[int, AgentInfo] = {}
         self.held: list[tuple[float, int]] = []
@@ -247,21 +271,57 @@ class FloorRun:
             n = self.zone_people.get(zid, 0)
             if n <= 0:
                 continue
-            placement = place_people(jps, area, n, seed=self.seed * 1000 + i, radius=self.radius)
-            if placement.shortfall:
-                self.note(f"Zone {zid}: {placement.shortfall} people did not fit and were left out")
-                self.out.pending += placement.shortfall
+            points, kinds, shortfall = self._place_zone(zid, area, n, self.seed * 1000 + i)
+            if shortfall:
+                self.note(f"Zone {zid}: {shortfall} people did not fit and were left out")
+                self.out.pending += shortfall
             quotas = self.plan_quotas(zid)
-            targets = assign_targets(placement.points, quotas, self.exits) if quotas else []
-            for k, pos in enumerate(placement.points):
+            targets = assign_targets(points, quotas, self.exits) if quotas else []
+            for k, pos in enumerate(points):
                 target = targets[k] if targets else self.nearest_exit(pos)
                 if target is None:
                     self.note(f"Zone {zid} has no open exit on {self.floor_id}")
-                    left = len(placement.points) - k
+                    left = len(points) - k
                     self.out.pending += left
                     self.out.no_exit += left
                     break
-                self._add_agent(pos, zid, target, initial=True)
+                who = kinds[k]
+                speed = None
+                if who in KIND_SPEED:
+                    speed = float(np.clip(KIND_SPEED[who] * self.rng.normal(1.0, 0.1), 0.2, 2.0))
+                self._add_agent(pos, zid, target, initial=True, speed=speed, people_kind=who)
+
+    def _place_zone(
+        self, zid: str, area: Polygon, n: int, seed: int
+    ) -> tuple[list[tuple[float, float]], list[str], int]:
+        """Positions and kinds for a zone's people (and how many did not fit).
+
+        People wider than an adult (wheelchairs, beds) are placed first at their own spacing,
+        then everyone else around them, so nobody is placed overlapping a wide neighbour.
+        """
+        kinds = assign_kinds(n, self.zone_groups.get(zid, []), np.random.default_rng(seed))
+        wide = [k for k in kinds if KIND_RADIUS.get(k, self.radius) > self.radius]
+        if not wide:
+            placement = place_people(jps, area, n, seed=seed, radius=self.radius)
+            return placement.points, kinds[: len(placement.points)], placement.shortfall
+        big = max(KIND_RADIUS[k] for k in wide)
+        first = place_people(jps, area, len(wide), seed=seed, radius=big)
+        rest = [k for k in kinds if KIND_RADIUS.get(k, self.radius) <= self.radius]
+        # every spot an adult could take (a full lattice), then keep those clear of wide people
+        room = int(area.area / (2 * self.radius + 0.02) ** 2)
+        spare = place_people(jps, area, max(room, len(rest)), seed=seed + 1, radius=self.radius)
+        gap = big + self.radius + 0.02
+        taken = np.asarray(first.points, dtype=float).reshape(-1, 2)
+        others: list[tuple[float, float]] = []
+        for pt in spare.points:
+            if len(others) == len(rest):
+                break
+            if len(taken) and float(np.min(np.hypot(*(taken - np.asarray(pt)).T))) < gap:
+                continue
+            others.append(pt)
+        points = list(first.points) + others
+        out_kinds = wide[: len(first.points)] + rest[: len(others)]
+        return points, out_kinds, n - len(points)
 
     def _add_agent(
         self,
@@ -273,30 +333,45 @@ class FloorRun:
         gid: int | None = None,
         initial: bool = False,
         speed: float | None = None,
+        people_kind: str = "general",
     ) -> int | None:
         ex = self.exits[target]
         speed = self._speed() if speed is None else speed
+        if gid is not None and people_kind == "general":
+            people_kind = self.kinds.get(gid, "general")  # someone arriving down a stair
+        radius = KIND_RADIUS.get(people_kind, self.radius)
         if kind == "normal":
             speed = self.mobility_speed(gid if gid is not None else self.gids[0], speed)
         jid_stage = journey if journey is not None else (ex.journey_id, ex.stage_id)
-        try:
-            jid = self.sim.add_agent(
-                self.params_cls(
-                    position=pos,
-                    journey_id=jid_stage[0],
-                    stage_id=jid_stage[1],
-                    desired_speed=speed * self.global_speed_factor,
-                    radius=self.radius,
-                    **({"time_gap": self.time_gap} if self.model_name != "avm" else {}),
+        jid = None
+        # a bed or wheelchair is wider than the spacing people were placed at: if it does not
+        # fit there, it keeps its speed and takes an ordinary person's room
+        for r in dict.fromkeys((radius, self.radius)):
+            try:
+                jid = self.sim.add_agent(
+                    self.params_cls(
+                        position=pos,
+                        journey_id=jid_stage[0],
+                        stage_id=jid_stage[1],
+                        desired_speed=speed * self.global_speed_factor,
+                        radius=r,
+                        **({"time_gap": self.time_gap} if self.model_name != "avm" else {}),
+                    )
                 )
-            )
-        except Exception:
+                break
+            except Exception:
+                continue
+        if jid is None:
             if initial:
                 self.rejected += 1
             return None
         if gid is None:
             gid = self.gids[0]
             self.gids[0] += 1
+        if people_kind != "general":
+            self.kinds[gid] = people_kind
+            if people_kind in KIND_SPEED:  # stays this slow on the stairs and the floors below
+                self.slow[gid] = min(self.slow.get(gid, speed), speed)
         self.agents[jid] = AgentInfo(
             gid=gid,
             group=group,
@@ -513,6 +588,7 @@ class FloorRun:
             "global_speed_factor": self.global_speed_factor,
             "mobility_rules": [list(r) for r in self.mobility_rules],
             "slow": {str(k): v for k, v in self.slow.items()},
+            "kinds": {str(k): v for k, v in self.kinds.items()},
             "pending_spawns": [p for p in pending if p.get("people", 0) > 0],
             "pending_people": self.out.pending + self.rejected,
             "no_exit_people": self.out.no_exit,
@@ -540,6 +616,7 @@ class FloorRun:
         self.global_speed_factor = float(cp.get("global_speed_factor", 1.0))
         self.mobility_rules = [(float(a), float(b)) for a, b in cp.get("mobility_rules", [])]
         self.slow.update({int(k): float(v) for k, v in cp.get("slow", {}).items()})
+        self.kinds.update({int(k): str(v) for k, v in cp.get("kinds", {}).items()})
         self.out.exit_times = [(float(t), int(g), str(e)) for t, g, e in cp["exit_times"]]
         self.out.notes = list(cp.get("notes", []))
         self.out.event_log = list(cp.get("event_log", []))
@@ -995,6 +1072,7 @@ def run(
             sid = str(ev["exit_id"])
             stair_cf[sid] = min(stair_cf.get(sid, math.inf), float(ev.get("at_s", 0.0)))
     slow: dict[int, float] = {}
+    kinds: dict[int, str] = {}
     base_floors = {f["floor_id"]: f for f in (base_venue or {}).get("floors", [])}
     progress_path = work / "progress.json"
     last_write = [0.0]
@@ -1055,6 +1133,7 @@ def run(
             checkpoint_path=work / "checkpoint.json",
             resume_state=resume_state,
             slow=slow,
+            kinds=kinds,
         )
         out = fr.run(max_sim_s, deadline, progress)
         if rewind_note:
@@ -1080,4 +1159,5 @@ def run(
         "people_total": gids[0] - 1 + sum(o.no_exit for o in outputs),
         "people_planned": total,
         "rewind": rewind,
+        "kinds": kinds,
     }

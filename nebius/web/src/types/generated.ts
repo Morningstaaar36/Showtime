@@ -249,6 +249,7 @@ export type DensityGrid = string | null;
 export type DensityIndex = string | null;
 export type PressureGrid = string | null;
 export type PressureIndex = string | null;
+export type Agents = string | null;
 export type Raw = string | null;
 export type RuntimeS = number;
 export type Provider = string;
@@ -999,6 +1000,7 @@ export interface RunArtifacts {
   density_index: DensityIndex;
   pressure_grid: PressureGrid;
   pressure_index: PressureIndex;
+  agents: Agents;
   raw: Raw;
   [k: string]: unknown;
 }

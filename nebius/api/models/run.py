@@ -92,6 +92,7 @@ class RunArtifacts(BaseModel):
     # crowd pressure (density x velocity variance), same layout as the density grid
     pressure_grid: str | None = None
     pressure_index: str | None = None
+    agents: str | None = None  # agents.json: who is not a general adult (people mix)
     raw: str | None = None
 
 

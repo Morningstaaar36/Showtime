@@ -52,6 +52,7 @@ ARTIFACT_FILES = (
     "density_index.json",
     "pressure.bin",
     "pressure_index.json",
+    "agents.json",
     "venue.json",
     "result.json",
 )

@@ -184,6 +184,34 @@ def test_blocking_exit_increases_rset() -> None:
     assert blocked["metrics"]["evac_time_p95_s"] > open_res["metrics"]["evac_time_p95_s"]
 
 
+def test_people_mix_is_simulated_and_listed() -> None:
+    plain, _ = run(room(60))
+    venue = room(60)
+    venue["floors"][0]["zones"][0]["groups"] = [
+        {"kind": "wheelchair", "share": 0.25},
+        {"kind": "elderly", "share": 0.25},
+    ]
+    mixed, work = run(venue)
+    assert mixed["metrics"]["agents_evacuated"] == 60
+    assert mixed["metrics"]["evac_time_p95_s"] > plain["metrics"]["evac_time_p95_s"]
+    kinds = json.loads((work / "agents.json").read_text())["kinds"]
+    assert sorted(kinds.values()).count("wheelchair") == 15
+    assert sorted(kinds.values()).count("elderly") == 15
+    assert mixed["metrics"]["extra"]["people_wheelchair"] == 15
+    assert mixed["artifacts"]["agents"] == "agents.json"
+    assert "agents" not in plain["artifacts"]
+
+
+def test_people_mix_stays_slow_down_the_stairs() -> None:
+    plain, _ = run(two_floor(24, 0))
+    venue = two_floor(24, 0)
+    venue["floors"][1]["zones"][0]["groups"] = [{"kind": "bed", "share": 0.125}]
+    beds, work = run(venue)
+    assert beds["metrics"]["agents_evacuated"] == 24
+    assert beds["metrics"]["evac_time_p95_s"] > plain["metrics"]["evac_time_p95_s"]
+    assert list(json.loads((work / "agents.json").read_text())["kinds"].values()).count("bed") == 3
+
+
 def test_every_exit_blocked_counts_people_as_not_evacuated() -> None:
     venue = room(40)
     venue["floors"][0]["exits"][0]["blocked"] = True

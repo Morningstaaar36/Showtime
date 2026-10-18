@@ -163,6 +163,21 @@ def _area_dist(
     return (float(d.min()), float(d.mean()), float(d.max()))
 
 
+# Level walking speed (m/s) of people who move differently; same values as the simulator
+# (sim/plugins/engine_jupedsim.py KIND_SPEED, sources in docs/ASSUMPTIONS.md "People mix").
+KIND_SPEED = {"elderly": 0.97, "child": 1.0, "wheelchair": 0.69, "bed": 0.5}
+
+
+def mix_speed_factor(groups: list[Any], walk_speed: float) -> float:
+    """Speed factor of a zone's people mix: the share-weighted mean of walking *times*."""
+    slow = [(g.share, KIND_SPEED[g.kind]) for g in groups if g.kind in KIND_SPEED]
+    if not slow:
+        return 1.0
+    rest = max(0.0, 1.0 - sum(share for share, _ in slow))
+    time_ratio = rest + sum(share * min(walk_speed / v, 10.0) for share, v in slow)
+    return 1.0 / time_ratio if time_ratio > 0 else 1.0
+
+
 def build_state(venue: Venue, settings: Any) -> tuple[Tier1State, dict[str, Any]]:
     """Tier 1 input from the venue: exits, stairs and one group per zone."""
     grids = floor_grids(venue)
@@ -200,7 +215,14 @@ def build_state(venue: Venue, settings: Any) -> tuple[Tier1State, dict[str, Any]
             if z.people <= 0:
                 continue
             cx, cy = geo.centroid(z.polygon)
-            groups[z.id] = T1Group(id=z.id, floor_id=f.floor_id, x=cx, y=cy, people=z.people)
+            groups[z.id] = T1Group(
+                id=z.id,
+                floor_id=f.floor_id,
+                x=cx,
+                y=cy,
+                people=z.people,
+                speed_factor=mix_speed_factor(z.groups, settings.walk_speed_mean),
+            )
     state = Tier1State(exits=exits, groups=groups, walk_speed_mps=settings.walk_speed_mean)
     return state, {"grids": grids}
 

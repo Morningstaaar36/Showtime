@@ -3084,6 +3084,18 @@
      "default": null,
      "title": "Pressure Index"
     },
+    "agents": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Agents"
+    },
     "raw": {
      "anyOf": [
       {
@@ -3100,6 +3112,7 @@
    "title": "RunArtifacts",
    "type": "object",
    "required": [
+    "agents",
     "density_grid",
     "density_index",
     "pressure_grid",
