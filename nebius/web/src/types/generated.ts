@@ -247,6 +247,8 @@ export type Trajectory = string | null;
 export type TrajectoryIndex = string | null;
 export type DensityGrid = string | null;
 export type DensityIndex = string | null;
+export type PressureGrid = string | null;
+export type PressureIndex = string | null;
 export type Raw = string | null;
 export type RuntimeS = number;
 export type Provider = string;
@@ -995,6 +997,8 @@ export interface RunArtifacts {
   trajectory_index: TrajectoryIndex;
   density_grid: DensityGrid;
   density_index: DensityIndex;
+  pressure_grid: PressureGrid;
+  pressure_index: PressureIndex;
   raw: Raw;
   [k: string]: unknown;
 }

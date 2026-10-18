@@ -50,6 +50,8 @@ ARTIFACT_FILES = (
     "traj_index.json",
     "density.bin",
     "density_index.json",
+    "pressure.bin",
+    "pressure_index.json",
     "venue.json",
     "result.json",
 )

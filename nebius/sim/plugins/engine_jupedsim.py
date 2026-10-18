@@ -36,6 +36,12 @@ from plugins.events import FLOOR_KEYS, HANDLERS, surge_step
 
 ENGINE_ID = "jupedsim"
 REWIND_SINGLE_FLOOR = "rewind needs a single-floor venue"
+COUNTERFLOW_STAIR_FACTOR = 0.5  # same as the instant estimate (plugins/events_core)
+
+
+def mobility_pick(gid: int, share: float) -> bool:
+    """Whether person `gid` belongs to a share (a fixed hash: same people every run and floor)."""
+    return ((gid * 2654435761) % 4294967296) / 4294967296.0 < share
 
 
 def _ev_key(ev: dict[str, Any]) -> str:
@@ -80,8 +86,13 @@ class FloorRun:
         checkpoint_at_s: float | None = None,
         checkpoint_path: Path | None = None,
         resume_state: dict[str, Any] | None = None,
+        slow: dict[int, float] | None = None,
     ) -> None:
         self.floor_id: str = floor["floor_id"]
+        # slower walkers (mobility_share): gid -> level speed, shared by every floor so a
+        # person stays slow on the floors below and on the stairs
+        self.slow: dict[int, float] = slow if slow is not None else {}
+        self.mobility_rules: list[tuple[float, float]] = []
         self.settings = settings
         self.plan = plan
         self.rng = np.random.default_rng(seed)
@@ -265,6 +276,8 @@ class FloorRun:
     ) -> int | None:
         ex = self.exits[target]
         speed = self._speed() if speed is None else speed
+        if kind == "normal":
+            speed = self.mobility_speed(gid if gid is not None else self.gids[0], speed)
         jid_stage = journey if journey is not None else (ex.journey_id, ex.stage_id)
         try:
             jid = self.sim.add_agent(
@@ -298,6 +311,14 @@ class FloorRun:
         return jid
 
     # ------------------------------------------------------------- handler API
+    def mobility_speed(self, gid: int, speed: float) -> float:
+        """Level walking speed of person `gid` after the slower-walker rules of this floor."""
+        for share, v in self.mobility_rules:
+            if mobility_pick(gid, share):
+                self.slow[gid] = min(self.slow.get(gid, v), v)
+        v = self.slow.get(gid)
+        return min(speed, v) if v is not None else speed
+
     def note(self, text: str) -> None:
         if text not in self.out.notes and len(self.out.notes) < 40:
             self.out.notes.append(text)
@@ -490,6 +511,8 @@ class FloorRun:
             "exits": {eid: ex.open for eid, ex in self.exits.items()},
             "closed_inflows": sorted(self.closed_inflows),
             "global_speed_factor": self.global_speed_factor,
+            "mobility_rules": [list(r) for r in self.mobility_rules],
+            "slow": {str(k): v for k, v in self.slow.items()},
             "pending_spawns": [p for p in pending if p.get("people", 0) > 0],
             "pending_people": self.out.pending + self.rejected,
             "no_exit_people": self.out.no_exit,
@@ -515,6 +538,8 @@ class FloorRun:
                 self.exits[eid].open = bool(is_open)
         self.closed_inflows = set(cp.get("closed_inflows", []))
         self.global_speed_factor = float(cp.get("global_speed_factor", 1.0))
+        self.mobility_rules = [(float(a), float(b)) for a, b in cp.get("mobility_rules", [])]
+        self.slow.update({int(k): float(v) for k, v in cp.get("slow", {}).items()})
         self.out.exit_times = [(float(t), int(g), str(e)) for t, g, e in cp["exit_times"]]
         self.out.notes = list(cp.get("notes", []))
         self.out.event_log = list(cp.get("event_log", []))
@@ -905,20 +930,38 @@ class FloorRun:
 
 
 def stair_schedule(
-    arrivals: list[tuple[float, int, str]], venue: dict[str, Any], settings: dict[str, Any]
+    arrivals: list[tuple[float, int, str]],
+    venue: dict[str, Any],
+    settings: dict[str, Any],
+    slow: dict[int, float] | None = None,
+    counterflow: dict[str, float] | None = None,
 ) -> list[tuple[float, int, str]]:
-    """FIFO queue per stair: leave the bottom after travel time, at most width x flow per s."""
+    """FIFO entry per stair: at most width x flow people per s step on, each then takes
+    length / speed to reach the bottom.
+
+    `slow` (gid -> level speed) scales a slower walker's stair speed by speed / mean walking
+    speed; `counterflow` (stair id -> time) halves a stair's flow from that time (a group
+    climbing against the crowd, e.g. firefighters). With neither, the leaving times equal the
+    plain FIFO queue max(t + length / speed, previous + headway).
+    """
     stairs = {s["id"]: s for s in venue.get("stairs", [])}
     speed = float(settings.get("stair_speed", 0.6))
     flow = float(settings.get("stair_flow", 1.0))
+    mean = float(settings.get("walk_speed_mean", 1.34))
+    slow = slow or {}
+    counterflow = counterflow or {}
     out: list[tuple[float, int, str]] = []
     last: dict[str, float] = {}
     for t, gid, sid in sorted(arrivals):
         s = stairs[sid]
         headway = 1.0 / max(flow * float(s["width_m"]), 0.05)
-        depart = max(t + float(s["length_m"]) / speed, last.get(sid, -math.inf) + headway)
-        last[sid] = depart
-        out.append((round(depart, 3), gid, sid))
+        enter = max(t, last.get(sid, -math.inf) + headway)
+        cf = counterflow.get(sid)
+        if cf is not None and enter >= cf:
+            enter = max(t, last.get(sid, -math.inf) + headway / COUNTERFLOW_STAIR_FACTOR)
+        last[sid] = enter
+        ratio = min(1.0, slow[gid] / mean) if gid in slow else 1.0
+        out.append((round(enter + float(s["length_m"]) / (speed * ratio), 3), gid, sid))
     return out
 
 
@@ -939,9 +982,19 @@ def run(
     floors = sorted(venue["floors"], key=lambda f: -float(f.get("elevation_m", 0)))
     floor_of: dict[str, str] = {}
     for f in venue["floors"]:
+        floor_of[f["floor_id"]] = f["floor_id"]
         for coll in ("exits", "zones"):
             for item in f.get(coll, []):
                 floor_of[item["id"]] = f["floor_id"]
+    stair_ids = {s["id"] for s in venue.get("stairs", [])}
+    for s in venue.get("stairs", []):
+        floor_of[s["id"]] = s["from_floor"]  # a stair is a way out of its upper floor
+    stair_cf = {}
+    for ev in events:
+        if ev.get("type") == "counterflow" and ev.get("exit_id") in stair_ids:
+            sid = str(ev["exit_id"])
+            stair_cf[sid] = min(stair_cf.get(sid, math.inf), float(ev.get("at_s", 0.0)))
+    slow: dict[int, float] = {}
     base_floors = {f["floor_id"]: f for f in (base_venue or {}).get("floors", [])}
     progress_path = work / "progress.json"
     last_write = [0.0]
@@ -1001,6 +1054,7 @@ def run(
             checkpoint_at_s=float(checkpoint_at) if checkpoint_at is not None else None,
             checkpoint_path=work / "checkpoint.json",
             resume_state=resume_state,
+            slow=slow,
         )
         out = fr.run(max_sim_s, deadline, progress)
         if rewind_note:
@@ -1012,7 +1066,7 @@ def run(
         if resume_state is not None:
             rewind["resumed_from_s"] = round(fr.t0, 2)
         if out.stair_arrivals:
-            sched = stair_schedule(out.stair_arrivals, venue, settings)
+            sched = stair_schedule(out.stair_arrivals, venue, settings, slow, stair_cf)
             stairs = {s["id"]: s for s in venue.get("stairs", [])}
             for t, gid, sid in sched:
                 pending_arrivals.setdefault(stairs[sid]["to_floor"], []).append((t, gid, sid))

@@ -6,6 +6,9 @@ Analysis scripts (AI- or user-written) use these helpers instead of opening file
   (metres) at every stored time `t` (seconds); `every_s` keeps one frame per that many seconds
 - `load_density()` -> (array [time, floor, ny, nx] in people per m2, index dict with `times`,
   `origin`, `cell_m`, `floors`, `warn`, `danger`)
+- `load_pressure()` -> (array [time, floor, ny, nx] of crowd pressure in 1/s2 = local density
+  x local velocity variance, Helbing et al. 2007; index dict as above plus `danger` = the
+  turbulence threshold 0.02/s2 and `turbulent_hotspots`)
 - `exits()` -> DataFrame [id, name, floor, x, y, width_m, blocked]
 - `zones()` -> DataFrame [id, name, floor, x, y, area_m2, people]
 - `people_near(exit_id, radius_m=3.0)` -> DataFrame [t, people]: people within that distance
@@ -156,6 +159,16 @@ def load_density() -> tuple[np.ndarray, dict[str, Any]]:
     shape = tuple(int(v) for v in index.get("shape") or [0, 0, 0, 0])
     arr = raw.reshape(shape).astype(np.float32) * float(index.get("scale", 0.05))
     index.pop("peak_map", None)  # large; the array holds the same information
+    return arr, index
+
+
+def load_pressure() -> tuple[np.ndarray, dict[str, Any]]:
+    """Crowd pressure over time in 1/s2: array [time, floor, ny, nx] and its index."""
+    index = dict(_json("pressure_index.json", "crowd pressure grid"))
+    raw = np.frombuffer(_file("pressure.bin", "crowd pressure grid").read_bytes(), dtype=np.uint8)
+    shape = tuple(int(v) for v in index.get("shape") or [0, 0, 0, 0])
+    arr = raw.reshape(shape).astype(np.float32) * float(index.get("scale", 0.001))
+    index.pop("peak_map", None)
     return arr, index
 
 

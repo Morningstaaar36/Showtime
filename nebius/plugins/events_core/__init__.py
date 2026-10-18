@@ -36,6 +36,15 @@ def _zone_ids(v: Venue) -> set[str]:
     return {z.id for f in v.floors for z in f.zones}
 
 
+def _route_ids(v: Venue) -> set[str]:
+    """Exits plus stairs: a stair's top landing is a way out of its upper floor."""
+    return _exit_ids(v) | {s.id for s in v.stairs}
+
+
+def _unknown_route(v: Venue, ref: str) -> list[str]:
+    return [] if ref in _route_ids(v) else [f"Unknown exit or stair '{ref}'."]
+
+
 class BlockExitEvent(_E):
     type: Literal["block_exit"] = "block_exit"
     exit_id: str
@@ -44,11 +53,14 @@ class BlockExitEvent(_E):
 class BlockExit:
     type = "block_exit"
     label = "Exit blocked"
-    description = "An exit becomes unusable at at_s (crowd, fire, police line, locked gate)."
+    description = (
+        "An exit, or a stair (its id as exit_id), becomes unusable at at_s (crowd, fire, "
+        "smoke in a stairwell, police line, locked gate)."
+    )
     params_model = BlockExitEvent
 
     def validate_refs(self, venue: Venue, p: BlockExitEvent) -> list[str]:
-        return [] if p.exit_id in _exit_ids(venue) else [f"Unknown exit '{p.exit_id}'."]
+        return _unknown_route(venue, p.exit_id)
 
     def tier1_effect(self, state: Tier1State, p: BlockExitEvent) -> None:
         ex = state.exits.get(p.exit_id)
@@ -69,7 +81,7 @@ class UnblockExit:
     params_model = UnblockExitEvent
 
     def validate_refs(self, venue: Venue, p: UnblockExitEvent) -> list[str]:
-        return [] if p.exit_id in _exit_ids(venue) else [f"Unknown exit '{p.exit_id}'."]
+        return _unknown_route(venue, p.exit_id)
 
     def tier1_effect(self, state: Tier1State, p: UnblockExitEvent) -> None:
         ex = state.exits.get(p.exit_id)
@@ -118,21 +130,34 @@ class SlowdownEvent(_E):
     type: Literal["slowdown"] = "slowdown"
     factor: float = Field(gt=0.05, le=1.0)
     zone_id: str | None = None
+    floor_id: str | None = None  # everyone on that floor, also people arriving there later
 
 
 class Slowdown:
     type = "slowdown"
     label = "Slowdown"
-    description = "Walking speed drops by a factor from at_s (power cut, smoke, slope, rain)."
+    description = (
+        "Walking speed drops by a factor from at_s (power cut, smoke, slope, rain): in one "
+        "zone (zone_id), on one floor (floor_id) or everywhere."
+    )
     params_model = SlowdownEvent
 
     def validate_refs(self, venue: Venue, p: SlowdownEvent) -> list[str]:
         if p.zone_id and p.zone_id not in _zone_ids(venue):
             return [f"Unknown zone '{p.zone_id}'."]
+        if p.floor_id and p.floor_id not in {f.floor_id for f in venue.floors}:
+            return [f"Unknown floor '{p.floor_id}'."]
+        if p.zone_id and p.floor_id:
+            return ["Give a zone or a floor for a slowdown, not both."]
         return []
 
     def tier1_effect(self, state: Tier1State, p: SlowdownEvent) -> None:
-        if p.zone_id:
+        if p.floor_id:
+            # Tier 1 walks each group at one speed: groups that start on the floor slow down
+            for g in state.groups.values():
+                if g.floor_id == p.floor_id:
+                    g.speed_factor *= p.factor
+        elif p.zone_id:
             for g in state.groups.values():
                 if g.id == p.zone_id or g.id.startswith(f"{SURGE_ID_PREFIX}{p.zone_id}:"):
                     g.speed_factor *= p.factor
@@ -152,12 +177,13 @@ class Counterflow:
     label = "Counterflow"
     description = (
         "A group enters through an exit and pushes inward against the evacuating crowd "
-        "(late arrivals, people going back for friends)."
+        "(late arrivals, people going back for friends). With a stair id, the group comes up "
+        "that stair onto its upper floor (firefighters) and halves the stair's flow from at_s."
     )
     params_model = CounterflowEvent
 
     def validate_refs(self, venue: Venue, p: CounterflowEvent) -> list[str]:
-        errs = [] if p.exit_id in _exit_ids(venue) else [f"Unknown exit '{p.exit_id}'."]
+        errs = _unknown_route(venue, p.exit_id)
         if p.target_zone_id and p.target_zone_id not in _zone_ids(venue):
             errs.append(f"Unknown zone '{p.target_zone_id}'.")
         return errs
@@ -235,13 +261,48 @@ class OneWay:
     params_model = OneWayEvent
 
     def validate_refs(self, venue: Venue, p: OneWayEvent) -> list[str]:
-        return [] if p.exit_id in _exit_ids(venue) else [f"Unknown exit '{p.exit_id}'."]
+        return _unknown_route(venue, p.exit_id)
 
     def tier1_effect(self, state: Tier1State, p: OneWayEvent) -> None:
         ex = state.exits.get(p.exit_id)
         if ex is not None and any("Counterflow at " + p.exit_id in n for n in state.notes):
             ex.capacity_pps /= COUNTERFLOW_CAPACITY_FACTOR  # counterflow is stopped
             state.notes.append(f"One-way flow at {p.exit_id} restores its capacity.")
+
+
+class MobilityShareEvent(_E):
+    type: Literal["mobility_share"] = "mobility_share"
+    share: float = Field(gt=0, le=1)
+    speed_mps: float = Field(ge=0.1, le=1.34)
+    floor_id: str | None = None  # only people starting on (or reaching) this floor
+
+
+class MobilityShare:
+    type = "mobility_share"
+    label = "Slower walkers"
+    description = (
+        "From at_s a share of people (chosen by a fixed rule per person) move at speed_mps "
+        "on the level and proportionally slower on stairs: wheelchair users, people with "
+        "walking aids, people who would have used a lift. Everywhere, or on one floor."
+    )
+    params_model = MobilityShareEvent
+
+    def validate_refs(self, venue: Venue, p: MobilityShareEvent) -> list[str]:
+        if p.floor_id and p.floor_id not in {f.floor_id for f in venue.floors}:
+            return [f"Unknown floor '{p.floor_id}'."]
+        return []
+
+    def tier1_effect(self, state: Tier1State, p: MobilityShareEvent) -> None:
+        # one speed per group: use the mean speed of the mix (the slow tail shows in Tier 3)
+        ratio = min(1.0, p.speed_mps / max(state.walk_speed_mps, 0.1))
+        factor = (1.0 - p.share) + p.share * ratio
+        for g in state.groups.values():
+            if p.floor_id is None or g.floor_id == p.floor_id:
+                g.speed_factor *= factor
+        state.notes.append(
+            f"Instant estimate slows the crowd to the mean speed of the mix (×{factor:.2f}); "
+            "only a simulation shows the slowest people at the end."
+        )
 
 
 class ScriptEventModel(_E):
@@ -289,6 +350,7 @@ ALL_EVENTS = [
     StaggeredRelease(),
     MarshalRedirect(),
     OneWay(),
+    MobilityShare(),
     Script(),
 ]
 

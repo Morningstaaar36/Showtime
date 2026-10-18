@@ -89,6 +89,9 @@ class RunArtifacts(BaseModel):
     trajectory_index: str | None = None
     density_grid: str | None = None
     density_index: str | None = None
+    # crowd pressure (density x velocity variance), same layout as the density grid
+    pressure_grid: str | None = None
+    pressure_index: str | None = None
     raw: str | None = None
 
 

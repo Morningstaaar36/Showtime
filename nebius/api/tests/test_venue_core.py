@@ -140,6 +140,11 @@ EVENT_SAMPLES: list[dict[str, object]] = [
     {"type": "counterflow", "exit_id": "door_s2", "people": 80, "at_s": 10},
     {"type": "staggered_release", "zone_id": "mezzanine", "delay_s": 45},
     {"type": "marshal_redirect", "to_exit_id": "door_s2", "from_exit_id": "door_s1", "at_s": 20},
+    {"type": "block_exit", "exit_id": "stair_ne", "at_s": 0},
+    {"type": "counterflow", "exit_id": "stair_ne", "people": 8, "at_s": 60},
+    {"type": "slowdown", "factor": 0.5, "floor_id": "F1", "at_s": 0},
+    {"type": "mobility_share", "share": 0.1, "speed_mps": 0.69, "at_s": 0},
+    {"type": "mobility_share", "share": 0.05, "speed_mps": 0.57, "floor_id": "F1", "at_s": 0},
 ]
 
 

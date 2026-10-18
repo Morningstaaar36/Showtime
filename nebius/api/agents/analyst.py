@@ -33,6 +33,8 @@ INPUT_FILES = (
     "traj_index.json",
     "density.bin",
     "density_index.json",
+    "pressure.bin",
+    "pressure_index.json",
 )
 MAX_INPUT_BYTES = 256 * 1024 * 1024
 CODE_TIMEOUT_S = 30.0

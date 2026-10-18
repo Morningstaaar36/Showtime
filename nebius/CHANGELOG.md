@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Crowd pressure and turbulence** (Helbing, Johansson & Al-Abideen 2007): every simulation writes
+  `pressure.bin` / `pressure_index.json` (same layout as the density grid, GET
+  `/runs/{id}/pressure`) and reports `peak_pressure`, `time_turbulent_s` (pressure ≥ 0.02/s² in a
+  crowd of at least the warning density) and turbulent hotspots. Fruin level of service A–F as
+  shares of person-seconds (`los_share_A` … `los_share_F`).
+- **Scenario library**: 18 named what-ifs (GET `/api/v1/scenarios?project_id=…`) with targets
+  picked from the venue, including multi-storey ones (stairwell lost to smoke, smoke on the fire
+  floor, phased evacuation, firefighters on the stairs, lift out of service, more
+  mobility-impaired people). The sweep accepts `{"scenarios": [...]}`; the default is still the
+  original six.
+- Scenario events: `block_exit`, `unblock_exit`, `counterflow` and `one_way` take a stair id;
+  `slowdown` takes a `floor_id`; new `mobility_share` (a share of people at a given speed, slower
+  on stairs too).
+
 ### Fixed
 - **Instant estimate in buildings of 3+ storeys**: routes now follow chains of stairs, so upper
   floors are no longer "stranded"; the 4-storey hospital sample went from 298 people with no route

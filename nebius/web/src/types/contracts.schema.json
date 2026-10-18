@@ -3060,6 +3060,30 @@
      "default": null,
      "title": "Density Index"
     },
+    "pressure_grid": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Pressure Grid"
+    },
+    "pressure_index": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Pressure Index"
+    },
     "raw": {
      "anyOf": [
       {
@@ -3078,6 +3102,8 @@
    "required": [
     "density_grid",
     "density_index",
+    "pressure_grid",
+    "pressure_index",
     "raw",
     "trajectory",
     "trajectory_index"
