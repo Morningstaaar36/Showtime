@@ -7,7 +7,7 @@ cd "$ROOT"
 BIN="${LLAMA_SERVER_BIN:-$(ls -d "$ROOT"/.tools/llama/llama-*/llama-server 2>/dev/null | head -n1)}"
 MODELS_DIR="${MODELS_DIR:-$ROOT/models}"
 MODEL_FILE="${LOCAL_LLM_FILE:-nemotron-nano-9b-v2-q4_k_m.gguf}"
-CTX="${LLM_CONTEXT:-8192}"
+CTX="${LLM_CONTEXT:-16384}"
 PORT="${LLM_PORT:-8080}"
 if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
   echo "llama-server not found. Run: make get-llm" >&2; exit 1
