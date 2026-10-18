@@ -25,7 +25,7 @@ export function StepIndicator({ step, projectId }: { step: JourneyStep; projectI
         const label = <><span className={cn("grid size-6 place-items-center rounded-full text-xs font-semibold tabular",
             current ? cn(STEP_TONE[s], "ring-4 ring-signal-soft") : done ? "bg-egress-strong text-on-strong" : "bg-surface-3 text-muted")}>
             {done ? <Check className="size-3" /> : i + 1}
-          </span><span className={cn("hidden sm:inline", current ? "font-semibold text-ink" : "text-muted")}>{t(`journey.${s}`)}</span></>;
+          </span><span className={cn("hidden whitespace-nowrap sm:inline", current ? "font-semibold text-ink" : "text-muted")}>{t(`journey.${s}`)}</span></>;
         return (
           <li key={s} className="flex items-center gap-1">
             {i > 0 && <span aria-hidden className="h-px w-3 bg-border-strong sm:mx-1 sm:w-8" />}
@@ -56,17 +56,17 @@ export function JourneyShell({ step, projectId, title, back, children, wide, fil
               <ChevronLeft className="size-4" /><Logo compact />
             </Link>
           ) : <Link to="/" aria-label="Showtime home"><Logo wordmarkClassName="max-[359px]:hidden" /></Link>}
-          {title && <span className="hidden min-w-0 truncate font-semibold md:inline">{title}</span>}
+          {title && <span className="hidden min-w-0 max-w-[22rem] truncate font-semibold md:inline">{title}</span>}
           <div className="mx-auto"><StepIndicator step={step} projectId={projectId} /></div>
           {projectId && (
             <Link to={`/p/${projectId}/expert`} aria-label={t("journey.expert")} title={t("journey.expert")}
                   className="flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] px-2 text-sm text-muted hover:bg-surface-2 hover:text-ink">
-              <PanelsTopLeft className="size-4" /><span className="hidden lg:inline">{t("journey.expert")}</span>
+              <PanelsTopLeft className="size-4" /><span className="hidden whitespace-nowrap xl:inline">{t("journey.expert")}</span>
             </Link>
           )}
           <Link to="/help" aria-label={t("journey.help")} title={t("journey.help")}
                 className="flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] px-2 text-sm text-muted hover:bg-surface-2 hover:text-ink">
-            <CircleHelp className="size-4" /><span className="hidden lg:inline">{t("journey.help")}</span>
+            <CircleHelp className="size-4" /><span className="hidden whitespace-nowrap xl:inline">{t("journey.help")}</span>
           </Link>
           <span className="hidden sm:block"><ProviderBadge /></span>
           <ThemeToggle />

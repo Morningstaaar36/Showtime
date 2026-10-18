@@ -94,7 +94,8 @@ export function VenueModel(props: Props) {
       ))}
       {(venue.stairs ?? []).map((s) => (
         <StairMesh key={s.id} stair={s} venue={venue} palette={props.palette} exploded={exploded}
-                   highlight={multi} selected={props.selectedId === s.id} labels={may(props, s.id)}
+                   highlight={multi} selected={props.selectedId === s.id}
+                   labels={may(props, s.id) && (!focus || s.from_floor === focus || s.to_floor === focus)}
                    onClick={(e) => {
                      const fl = venue.floors.find((f) => f.floor_id === s.from_floor);
                      if (fl) props.onObjectClick?.("stair", s.id, fl, e);

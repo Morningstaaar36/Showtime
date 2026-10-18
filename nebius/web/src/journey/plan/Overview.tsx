@@ -152,7 +152,7 @@ export function Overview(p: OverviewProps) {
                 <PopoverTrigger asChild>
                   <button type="button" className="group inline-flex min-h-8 items-center gap-1 rounded-full focus-visible:outline-2 focus-visible:outline-signal"
                           aria-label={t("plan.why_badge", { label: evaluationLabel(p.evaluation) })}>
-                    <Badge tone={EVAL_TONE[status] ?? "neutral"} className="text-sm">{evaluationLabel(p.evaluation)}</Badge>
+                    <Badge tone={EVAL_TONE[status] ?? "neutral"} className="whitespace-normal text-left text-sm">{evaluationLabel(p.evaluation)}</Badge>
                     <Info className="size-4 text-muted group-hover:text-ink" aria-hidden />
                   </button>
                 </PopoverTrigger>

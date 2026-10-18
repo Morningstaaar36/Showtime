@@ -173,12 +173,11 @@ export function FixChooser(p: FixChooserProps) {
                     </span>
                   </div>
                   {deciding ? (
-                    <label className="relative inline-flex min-h-11 shrink-0 cursor-pointer items-center">
+                    <span className="relative inline-flex min-h-11 shrink-0 items-center">
                       <input type="checkbox" checked={on} onChange={() => p.onToggle(f.fix_id)} aria-label={t("yourplan.use_fix", { title })}
-                             className="peer sr-only" />
-                      <span aria-hidden className="h-7 w-12 rounded-full bg-surface-3 ring-1 ring-border-strong transition peer-checked:bg-signal peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-signal" />
-                      <span aria-hidden className="absolute left-1 top-1/2 size-5 -translate-y-1/2 rounded-full bg-surface shadow transition peer-checked:translate-x-5" />
-                    </label>
+                             className="peer h-7 w-12 cursor-pointer appearance-none rounded-full bg-surface-3 ring-1 ring-border-strong transition checked:bg-signal checked:ring-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal" />
+                      <span aria-hidden className="pointer-events-none absolute left-1 top-1/2 size-5 -translate-y-1/2 rounded-full bg-surface shadow transition peer-checked:translate-x-5" />
+                    </span>
                   ) : inPlan.has(f.fix_id) ? <Badge tone="egress"><Check />{t("yourplan.already_accepted_one")}</Badge>
                     : p.state === "accepted_subset" ? <Badge tone="outline">{t("yourplan.not_in_plan")}</Badge> : null}
                 </div>

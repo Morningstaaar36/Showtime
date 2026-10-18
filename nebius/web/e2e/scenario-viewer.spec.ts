@@ -14,6 +14,10 @@ test("scenario viewer: list, play a scenario, timeline caption", async ({ page, 
       .toMatch(/finished|stopped/);
 
     await page.goto(`/p/${id}?session=${sid}`);
+    // the Scenarios tab shows them as cards; the Replay tab lists them next to the 3D replay
+    await page.getByRole("tab", { name: /^Scenarios/ }).click();
+    await expect(page.getByTestId("scenario-gallery").getByRole("listitem").first()).toBeVisible({ timeout: 30_000 });
+    await page.getByRole("tab", { name: "Replay" }).click();
     const list = page.getByTestId("scenarios");
     await expect(list.getByRole("heading", { name: "Every scenario the AI tested" })).toBeVisible({ timeout: 30_000 });
     await expect(list.getByRole("button", { name: /Your plan as drawn/ })).toBeVisible();
