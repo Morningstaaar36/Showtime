@@ -59,6 +59,22 @@ def _run(tier: int = 2, status: str = "ok", **m: Any) -> RunResult:
     return RunResult(run_id="r", tier=tier, status=status, metrics=RunMetrics(extra=extra, **m))  # type: ignore[arg-type]
 
 
+def test_exits_added_by_a_fix_land_in_an_existing_column(registry: Any) -> None:
+    from api.core.venue_ops import apply_patch
+    from api.models import VenuePatch
+
+    hall = get_template("conference_hall_2f")
+    a = Archive(hall)
+    op = {"op": "add_exit", "floor_id": "F0", "id": "door_e1", "wall": "east", "center": 8}
+    fixed = apply_patch(
+        hall, VenuePatch.model_validate({"ops": [{**op, "width_m": 2.5}]}), registry
+    ).venue
+    atk = _attack([{"type": "block_exit", "exit_id": "door_e1", "at_s": 30}])
+    assert a.cell_of(atk) is None
+    a.learn(fixed)
+    assert a.cell_of(atk) == ("exit_blocked", "floor:F0")
+
+
 def test_event_types_map_to_hazard_kinds() -> None:
     assert kind_of("block_exit") == "exit_blocked"
     assert kind_of("marshal_redirect") == kind_of("one_way") == "route_change"
@@ -147,7 +163,14 @@ def test_severity_reaches_one_exactly_when_the_run_breaks() -> None:
     assert severity_score(_run(peak_density_ppm2=9.0), rule)[0] < 1.0
     assert severity_score(_run(status="failed", time_above_danger_s=99), rule)[0] == 0.0
     trapped = _run(tier=3, agents_total=100, extra={"trapped": 10.0})
-    assert severity_score(trapped, rule)[0] == pytest.approx(1.1)
+    assert severity_score(trapped, rule)[0] == pytest.approx(2.0)
+    # above a break the score grades how bad: 2.0 = danger for the whole evacuation target
+    long = _run(time_above_danger_s=120.0, agents_total=400)
+    assert severity_score(long, rule)[1]["danger_time"] == pytest.approx(2.0)
+    half = _run(time_above_danger_s=62.5, agents_total=400)
+    assert severity_score(half, rule)[1]["danger_time"] == pytest.approx(1.5)
+    inside = _run(tier=3, agents_not_evacuated=40, agents_total=400)
+    assert severity_score(inside, rule)[1]["people_inside"] == pytest.approx(2.0)
 
 
 def _elite(aid: str, sev: float) -> Elite:
@@ -201,6 +224,8 @@ def test_screening_prefers_empty_cells_over_raw_estimates() -> None:
     ]
     assert pick_candidates(c, a, 2) == [1, 3]
     assert pick_candidates(c, a, 4)[:2] == [1, 3]
+    # a gap the round aimed at goes first, even with a lower estimate
+    assert pick_candidates(c, a, 1, aim=[("counterflow", "near:stair_w")]) == [3]
 
 
 @pytest.mark.parametrize("template", ["school_wing", "conference_hall_2f"])

@@ -742,9 +742,15 @@ class SessionManager:
                     break
                 self._status(live, "screening", rnd, "Ranking attacks with the instant estimate")
                 cells = {a.attack_id: archive.cell_of(a) for a in proposed}
-                landed = set(cells.values())
-                archive.aimed += len(aim) + len(aim_script)
-                archive.hit += sum(1 for c in aim + aim_script if c in landed)
+                if cfg.get("agents") != "rules":
+                    # how well the model follows the map (rule fills hit by construction)
+                    landed = {
+                        cells[a.attack_id]
+                        for a in proposed
+                        if a.extensions.get("generated_by") != "rules"
+                    }
+                    archive.aimed += len(aim) + len(aim_script)
+                    archive.hit += sum(1 for c in aim + aim_script if c in landed)
                 tier1: dict[str, RunResult] = {}
                 menu: list[tuple[Attack, Cell | None, float]] = []
                 scripted: list[Attack] = []
@@ -757,7 +763,7 @@ class SessionManager:
                     menu.append((a, cells[a.attack_id], severity_score(est, rule)[0]))
                 # the instant estimate cannot run code: at most one script, the model's first
                 scripted.sort(key=lambda a: a.extensions.get("generated_by") == "rules")
-                picked = [menu[i] for i in pick_candidates(menu, archive, n_menu)]
+                picked = [menu[i] for i in pick_candidates(menu, archive, n_menu, aim)]
                 chosen = list(scripted[:1]) + [a for a, _, _ in picked]
                 chosen_ids = {a.attack_id for a in chosen}
                 # what was not simulated may be proposed again in a later round
@@ -1062,6 +1068,7 @@ class SessionManager:
                             if ok:
                                 accepted.append(fx.fix_id)
                                 working = candidate
+                                archive.learn(working)
                                 live.measures.extend(fx.operational)
                                 fixed_cell = archive.mark_fixed(
                                     a.attack_id, fx.fix_id, severity_score(fr, rule)[0], fr.run_id

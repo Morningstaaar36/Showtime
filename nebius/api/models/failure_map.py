@@ -55,8 +55,8 @@ class FailureMapRound(BaseModel):
 
 
 class FailureMapAim(BaseModel):
-    targeted: int = 0  # cells the red team was asked to fill
-    hit: int = 0  # of those, cells a proposed attack really landed in
+    targeted: int = 0  # cells the red-team model was asked to fill
+    hit: int = 0  # of those, cells one of its own attacks really landed in (rule fills excluded)
 
 
 class FailureMap(BaseModel):

@@ -199,37 +199,55 @@ class BreakRule:
 
 SEVERITY_CAP = 3.0  # one extreme metric must not swamp the QD-score
 SOFT_DENSITY = 0.9  # peak density alone (no time above danger) never reaches a break
+DANGER_SCALE_S = 300.0  # danger time that scores 2.0 when the venue has no evacuation target
+INSIDE_SCALE = 0.1  # 10 % of the crowd still inside scores 2.0
+TRAPPED_SCALE = 0.1  # 10 % of the crowd trapped scores 2.0
 SEVERITY_FORMULA = (
-    "severity = max(RSET × safety factor / target, time above danger / minimum danger time, "
-    "people inside / (tolerance + 1), 1 + trapped / people, (1 − fraction out) / 0.5 for "
-    "partial runs, 0.9 × min(1, peak density / danger density)), each capped at 3; "
-    "severity ≥ 1 means the run breaks the plan"
+    "severity = the largest of: RSET × safety factor / target; time above danger (1 at the "
+    "minimum danger time, 2 at the evacuation target); people still inside (1 just past the "
+    "tolerance, 2 at 10 % of the crowd); trapped people (1 for one, 2 at 10 %); for partial "
+    "runs, share not out / 0.5; and 0.9 × peak density / danger density (at most 0.9). Each "
+    "part is capped at 3. Severity ≥ 1 means the run breaks the plan"
 )
+
+
+def _graded(x: float, threshold: float, anchor: float) -> float:
+    """x / threshold below the threshold; above it 1 at the threshold and 2 at `anchor`."""
+    if x < threshold or anchor <= threshold:
+        return x / threshold if threshold > 0 else (1.0 if x > 0 else 0.0)
+    return 1.0 + (x - threshold) / (anchor - threshold)
 
 
 def severity_score(r: RunResult, rule: BreakRule) -> tuple[float, dict[str, float]]:
     """Severity of a run from its simulated metrics only, and its parts.
 
-    Each part is a ratio to its break threshold, so a run breaks the plan exactly when its
-    score is at least 1.0 (at the evacuation-time threshold the break needs a strict
-    excess, so a score of exactly 1.0 there is the edge). Failed runs score 0.
+    Each part is 1.0 at the threshold of the matching rule in `break_reasons`, so a run breaks
+    the plan exactly when its score is at least 1.0 (at the evacuation-time threshold the
+    break needs a strict excess, so exactly 1.0 there is the edge). Above a threshold a part
+    grows linearly to 2.0 at "twice as bad" (see SEVERITY_FORMULA). Failed runs score 0.
     """
     if r.status in ("failed", "timeout", "cancelled"):
         return 0.0, {}
     m = r.metrics
+    people = max(m.agents_total, 1)
     parts: dict[str, float] = {}
     rset = (
         m.evac_time_p95_s if m.evac_time_p95_s is not None else m.extra.get("rset_extrapolated_s")
     )
     if rule.target_s and rset is not None:
         parts["evacuation"] = float(rset) * rule.safety_factor / rule.target_s
-    parts["danger_time"] = m.time_above_danger_s / max(rule.min_s, 1e-9)
+    min_s = max(rule.min_s, 1e-9)
+    parts["danger_time"] = _graded(
+        m.time_above_danger_s, min_s, max(rule.target_s or DANGER_SCALE_S, min_s + 1)
+    )
     trapped = int(m.extra.get("trapped", 0))
     if trapped:
-        parts["trapped"] = 1.0 + trapped / max(m.agents_total, 1)
+        parts["trapped"] = 1.0 + (trapped - 1) / max(TRAPPED_SCALE * people - 1, 1)
     tol = max(5, round(m.agents_total * 0.005))
     if r.tier != 2:
-        parts["people_inside"] = m.agents_not_evacuated / (tol + 1)
+        parts["people_inside"] = _graded(
+            m.agents_not_evacuated, tol + 1, max(INSIDE_SCALE * people, tol + 2)
+        )
     elif m.agents_not_evacuated > tol and m.evac_time_p95_s is None:
         frac = m.extra.get("evacuated_fraction")
         if frac is not None:
@@ -315,6 +333,7 @@ class Archive:
             exits=tuple(e.id for f in venue.floors for e in f.exits),
             zones=tuple(z.id for f in venue.floors for z in f.zones),
         )
+        self.venue = venue
         self.region_of: dict[str, str] = {}
         for r in self.regions:
             for x in (*r.exits, *r.zones):
@@ -327,6 +346,29 @@ class Archive:
         self.history: list[dict[str, Any]] = []
         self.aimed = 0
         self.hit = 0
+
+    def learn(self, venue: Venue) -> None:
+        """Place exits and zones a kept fix added (e.g. a new door) in the existing columns,
+        so later attacks on them land on the map; the grid itself never changes."""
+        for f in venue.floors:
+            items = [(e.id, e.polygon) for e in f.exits] + [(z.id, z.polygon) for z in f.zones]
+            for oid, poly in items:
+                if oid in self.region_of:
+                    continue
+                where = self._region_for(f.floor_id, geo.centroid(poly))
+                if where is not None:
+                    self.region_of[oid] = where
+
+    def _region_for(self, floor_id: str, at: tuple[float, float]) -> str | None:
+        ids = [r.id for r in self.regions]
+        if len(self.venue.floors) > 1:
+            return next((i for i in ids if floor_id in i.split(":", 1)[1].split("+")), None)
+        f = self.venue.floors[0]
+        if ids and ids[0].startswith("near:"):
+            near = min(f.exits, key=lambda e: geo.distance_to(e.polygon, *at))
+            return f"near:{near.id}"
+        side = f"side:{_side(*at, geo.to_polygon(f.walkable).bounds)}"
+        return side if side in self.where else None
 
     def _col(self, where: str) -> int:
         ids = [r.id for r in self.regions] + [EVERYWHERE]
@@ -515,15 +557,20 @@ class Archive:
 
 
 def pick_candidates(
-    candidates: list[tuple[Attack, Cell | None, float]], archive: Archive, k: int
+    candidates: list[tuple[Attack, Cell | None, float]],
+    archive: Archive,
+    k: int,
+    aim: list[Cell] | None = None,
 ) -> list[int]:
-    """Indices of the k candidates to simulate: one per cell first, preferring empty cells,
-    then cells the estimate says they would enter, then the highest estimates."""
+    """Indices of the k candidates to simulate, in priority order: one per cell first; gaps
+    the round aimed at (in aim order), then other gaps, then cells the estimate says they
+    would enter, then the rest; within each, the highest estimate first."""
+    aim = aim or []
 
-    def tier(cell: Cell | None, score: float) -> int:
+    def tier(cell: Cell | None, score: float) -> tuple[int, int]:
         if cell is not None and cell in archive.cells and not archive.cells[cell]:
-            return 0
-        return 1 if archive.would_improve(cell, score) else 2
+            return (0, aim.index(cell)) if cell in aim else (1, 0)
+        return (2, 0) if archive.would_improve(cell, score) else (3, 0)
 
     order = sorted(
         range(len(candidates)),
