@@ -1,0 +1,77 @@
+{
+ "description": "Metro station: underground platform level 120 x 14 m with 800 waiting passengers, three stairs up to the street-level ticket hall, which has exits on the west and east.",
+ "spec": {
+  "name": "Metro station",
+  "mode": "indoor",
+  "width_m": 120.0,
+  "depth_m": 14.0,
+  "stage": null,
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "west",
+    "width_m": 2.0,
+    "position": 0.5,
+    "label": "Street exit",
+    "level": 0
+   },
+   {
+    "wall": "east",
+    "width_m": 2.0,
+    "position": 0.5,
+    "label": "Street exit",
+    "level": 0
+   }
+  ],
+  "zones": [
+   {
+    "label": "Waiting passengers",
+    "people": 800,
+    "region": "whole"
+   }
+  ],
+  "features": [],
+  "upper_floor": null,
+  "building": {
+   "storeys": 2,
+   "basements": 1,
+   "use": "transit",
+   "interior": "open",
+   "rooms_per_floor": null,
+   "room_label": null,
+   "people_per_floor": null,
+   "levels": [
+    {
+     "level": -1,
+     "people": 800,
+     "name": "Platform"
+    },
+    {
+     "level": 0,
+     "people": 0,
+     "name": "Ticket hall"
+    }
+   ],
+   "stairs": [
+    {
+     "place": "west",
+     "width_m": 1.2
+    },
+    {
+     "place": "centre",
+     "width_m": 1.2
+    },
+    {
+     "place": "east",
+     "width_m": 1.2
+    }
+   ],
+   "floor_height_m": 3.5
+  },
+  "location": null,
+  "assumptions": [
+   "Street exits 2.0 m wide each.",
+   "Stairs 1.2 m wide each."
+  ]
+ }
+}

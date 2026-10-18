@@ -119,6 +119,29 @@ def floor_geometry(floor: dict[str, Any]) -> FloorGeometry:
     return FloorGeometry(free=free, exit_stages=stages, passages=passages)
 
 
+def floor_run_order(venue: dict[str, Any]) -> list[dict[str, Any]]:
+    """Floors in simulation order: each before the floors its stairs lead to.
+
+    People arriving by stair are injected into the floor they reach, so that floor runs after
+    every floor that sends people to it: top down above street level, and a basement (whose
+    stairs go up) before the street level. Stairs drawn in a loop fall back to height order.
+    """
+    floors = sorted(venue["floors"], key=lambda f: -float(f.get("elevation_m", 0)))
+    feeds: dict[str, set[str]] = {f["floor_id"]: set() for f in floors}
+    for s in venue.get("stairs", []):
+        a, b = s["from_floor"], s["to_floor"]
+        if a in feeds and b in feeds and a != b:
+            feeds[b].add(a)
+    done: set[str] = set()
+    out: list[dict[str, Any]] = []
+    while len(out) < len(floors):
+        left = [f for f in floors if f["floor_id"] not in done]
+        nxt = next((f for f in left if feeds[f["floor_id"]] <= done), left[0])
+        out.append(nxt)
+        done.add(nxt["floor_id"])
+    return out
+
+
 def free_space(floor: dict[str, Any]) -> Polygon | MultiPolygon:
     """Walkable space including door passages, minus obstacles."""
     return floor_geometry(floor).free

@@ -79,9 +79,11 @@ def venue_summary(venue: Venue) -> str:
         for z in f.zones:
             label = f" ({z.label})" if z.label else ""
             lines.append(f"  zone {z.id}{label}: {z.people} people, {_bbox(z.polygon)}")
+    elevation = {f.floor_id: f.elevation_m for f in venue.floors}
     for s in venue.stairs:
+        way = "up" if elevation.get(s.from_floor, 0) < elevation.get(s.to_floor, 0) else "down"
         lines.append(
-            f"Stair {s.id}: from {s.from_floor} down to {s.to_floor}, "
+            f"Stair {s.id}: from {s.from_floor} {way} to {s.to_floor}, "
             f"{_fmt(s.width_m)} m wide, {_fmt(s.length_m)} m long."
         )
     if venue.stage is not None:

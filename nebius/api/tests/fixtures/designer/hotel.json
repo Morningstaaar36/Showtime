@@ -1,0 +1,65 @@
+{
+ "description": "A 10-storey hotel 45 by 18 m: a lobby on the ground floor with 120 guests, 60 guests on each upper floor in rooms off a central corridor, stairs at both ends, main entrance on the south and a service exit on the north.",
+ "spec": {
+  "name": "Hotel",
+  "mode": "indoor",
+  "width_m": 45.0,
+  "depth_m": 18.0,
+  "stage": null,
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "south",
+    "width_m": 2.4,
+    "position": 0.5,
+    "label": "Main entrance",
+    "level": 0
+   },
+   {
+    "wall": "north",
+    "width_m": 1.2,
+    "position": 0.5,
+    "label": "Service exit",
+    "level": 0
+   }
+  ],
+  "zones": [],
+  "features": [],
+  "upper_floor": null,
+  "building": {
+   "storeys": 10,
+   "basements": 0,
+   "use": "other",
+   "interior": "rooms",
+   "rooms_per_floor": 30,
+   "room_label": "Guest room",
+   "people_per_floor": 60,
+   "levels": [
+    {
+     "level": 0,
+     "people": 120,
+     "name": "Lobby"
+    }
+   ],
+   "stairs": [
+    {
+     "place": "west",
+     "width_m": 1.2
+    },
+    {
+     "place": "east",
+     "width_m": 1.2
+    }
+   ],
+   "floor_height_m": 3.5
+  },
+  "location": null,
+  "assumptions": [
+   "Main entrance 2.4 m wide, service exit 1.2 m wide.",
+   "Stairs 1.2 m wide at both ends.",
+   "Each upper floor has 30 guest rooms off a central corridor.",
+   "Lobby on ground floor, 60 guests per upper floor.",
+   "Total guests: 120 + 9\u00d760 = 660."
+  ]
+ }
+}

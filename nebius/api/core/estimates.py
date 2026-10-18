@@ -137,11 +137,20 @@ def capacity(venue: Venue, registry: Registry, settings: Any) -> Capacity:
     width = sum(e.width_m for f in venue.floors for e in f.exits if not e.blocked)
     by_egress = int(width * settings.specific_flow * target)
     limited: Literal["space", "exits", "stairs"] = "exits" if by_egress < by_space else "space"
-    # Stairs leaving a storey carry everyone on it and above, so the tightest storey governs;
-    # adding up every flight would count stacked stairwells as if they ran in parallel.
-    storeys = sorted(venue.floors, key=lambda f: f.elevation_m)
-    for i, floor in enumerate(storeys[1:], start=1):
-        load = sum(z.people for f in storeys[i:] for z in f.zones)
+    # Stairs leaving a storey carry everyone on it and on the storeys that come through it
+    # (above it, or below it for a basement), so the tightest storey governs; adding up every
+    # flight would count stacked stairwells as if they ran in parallel.
+    feeds: dict[str, set[str]] = {f.floor_id: set() for f in venue.floors}
+    for s in venue.stairs:
+        if s.to_floor in feeds:
+            feeds[s.to_floor].add(s.from_floor)
+    for floor in venue.floors:
+        through, todo = {floor.floor_id}, [floor.floor_id]
+        while todo:
+            for up in feeds.get(todo.pop(), set()) - through:
+                through.add(up)
+                todo.append(up)
+        load = sum(z.people for f in venue.floors if f.floor_id in through for z in f.zones)
         width = sum(s.width_m for s in venue.stairs if s.from_floor == floor.floor_id)
         if not (load and width and current):
             continue

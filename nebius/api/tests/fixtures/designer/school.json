@@ -1,0 +1,60 @@
+{
+ "description": "School with 3 floors, each floor has 8 classrooms of 40 students off a corridor, stairs at both ends, two exits on the ground floor.",
+ "spec": {
+  "name": "School",
+  "mode": "indoor",
+  "width_m": 36.0,
+  "depth_m": 24.0,
+  "stage": null,
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "south",
+    "width_m": 1.8,
+    "position": 0.3,
+    "label": "Exit 1",
+    "level": 0
+   },
+   {
+    "wall": "south",
+    "width_m": 1.8,
+    "position": 0.7,
+    "label": "Exit 2",
+    "level": 0
+   }
+  ],
+  "zones": [],
+  "features": [],
+  "upper_floor": null,
+  "building": {
+   "storeys": 3,
+   "basements": 0,
+   "use": "school",
+   "interior": "rooms",
+   "rooms_per_floor": 8,
+   "room_label": "Classroom",
+   "people_per_floor": 320,
+   "levels": [],
+   "stairs": [
+    {
+     "place": "west",
+     "width_m": 1.2
+    },
+    {
+     "place": "east",
+     "width_m": 1.2
+    }
+   ],
+   "floor_height_m": 3.5
+  },
+  "location": null,
+  "assumptions": [
+   "Each classroom is 6m x 5m with corridor width 2m.",
+   "Ground floor is level 0 with two street-level exits.",
+   "Stairs are 1.2m wide at both ends of the corridor.",
+   "Total students: 3 floors \u00d7 8 classrooms \u00d7 40 = 960.",
+   "Exit width 1.8m assumed for school doors.",
+   "Building depth allows for corridor and two rows of classrooms."
+  ]
+ }
+}

@@ -1,0 +1,52 @@
+{
+ "description": "A 5-storey office building, 40 by 20 m, 150 people per floor, two stairwells at each end, main exit on the south.",
+ "spec": {
+  "name": "Office building",
+  "mode": "indoor",
+  "width_m": 40.0,
+  "depth_m": 20.0,
+  "stage": null,
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "south",
+    "width_m": 2.4,
+    "position": 0.5,
+    "label": "Main exit",
+    "level": 0
+   }
+  ],
+  "zones": [],
+  "features": [],
+  "upper_floor": null,
+  "building": {
+   "storeys": 5,
+   "basements": 0,
+   "use": "office",
+   "interior": "open",
+   "rooms_per_floor": null,
+   "room_label": null,
+   "people_per_floor": 150,
+   "levels": [],
+   "stairs": [
+    {
+     "place": "west",
+     "width_m": 1.2
+    },
+    {
+     "place": "east",
+     "width_m": 1.2
+    }
+   ],
+   "floor_height_m": 3.5
+  },
+  "location": null,
+  "assumptions": [
+   "Main exit width 2.4 m (double door).",
+   "Stairwells 1.2 m wide each.",
+   "No upper floor or balcony present.",
+   "Open office layout per floor.",
+   "Total occupancy 750 people (5 floors \u00d7 150)."
+  ]
+ }
+}

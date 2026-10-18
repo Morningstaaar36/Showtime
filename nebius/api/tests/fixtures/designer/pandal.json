@@ -1,0 +1,47 @@
+{
+ "description": "Durga Puja pandal in Dhaka, open ground 50 by 40 m, 3,000 visitors, entry gate on the west and exit gate on the east, idol stage in the centre.",
+ "spec": {
+  "name": "Durga Puja pandal",
+  "mode": "outdoor",
+  "width_m": 50.0,
+  "depth_m": 40.0,
+  "stage": {
+   "wall": "centre",
+   "width_m": 12.0,
+   "depth_m": 8.0,
+   "roof_height_m": 10.0
+  },
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "west",
+    "width_m": 3.0,
+    "position": 0.5,
+    "label": "Entry gate",
+    "level": 0
+   },
+   {
+    "wall": "east",
+    "width_m": 3.0,
+    "position": 0.5,
+    "label": "Exit gate",
+    "level": 0
+   }
+  ],
+  "zones": [
+   {
+    "label": "Visitors",
+    "people": 3000,
+    "region": "whole"
+   }
+  ],
+  "features": [],
+  "upper_floor": null,
+  "building": null,
+  "location": "Dhaka",
+  "assumptions": [
+   "Entry and exit gates 3 m wide each.",
+   "Stage 12 m wide and 8 m deep with a 10 m roof."
+  ]
+ }
+}
