@@ -189,6 +189,31 @@ async def session_events(session_id: str, after: int = 0, st: AppState = Depends
     return EventSourceResponse(gen(), ping=15)
 
 
+@router.get("/sessions/{session_id}/archive")
+def session_archive(session_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The red team's failure map (quality-diversity archive): hazard kind × where, with the
+    strongest simulated attacks per cell, coverage and QD-score (docs/RAINBOW.md). Live while
+    the session runs, from the summary once it has finished."""
+    row = st.sessions.get(session_id)
+    if row is None:
+        raise ApiException(404, "not_found", f"Session {session_id} does not exist.")
+    live = st.sessions.live.get(session_id)
+    snap = live.archive if live is not None else None
+    if snap is None and row.summary:
+        snap = row.summary.get("archive")
+    if snap is None:
+        stored = [e for e in st.sessions.stored_events(session_id) if e.type == "archive"]
+        snap = stored[-1].payload.get("archive") if stored else None
+    if snap is None:
+        raise ApiException(
+            404,
+            "no_archive",
+            "This session has no failure map yet.",
+            "Sessions started before the failure map existed have none: run the red team again.",
+        )
+    return {"session_id": session_id, "status": row.status, **snap}
+
+
 @router.post("/sessions/{session_id}/stop")
 def stop_session(session_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
     st.sessions.stop(session_id)

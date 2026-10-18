@@ -1,5 +1,5 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { Activity, ArrowRight, Bot, Check, Columns2, ExternalLink, Eye, GitBranch, History, Settings2, ShieldAlert, ShieldCheck, Square, Swords, Wrench, X } from "lucide-react";
+import { Activity, ArrowRight, Bot, Check, Columns2, ExternalLink, Eye, GitBranch, History, LayoutGrid, Settings2, ShieldAlert, ShieldCheck, Square, Swords, Wrench, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import { BranchTree } from "./BranchTree";
+import { FailureMap } from "./FailureMap";
+import { cellLabel, type FailureMap as FailureMapData } from "./failureMap";
 import { describeEvent, describeOp } from "./describe";
 import { exitLabeler, textHumanizer } from "./Inspector";
 
@@ -138,8 +140,8 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
                        })} applying={apply.isPending} onShow={(id) => setActive(id)} />
           )}
           <Tabs.Root defaultValue="cards">
-            <Tabs.List className="flex gap-0.5 rounded-full bg-surface-2 p-1">
-              {[["cards", <Swords key="s" />, "Attacks and fixes"], ["tree", <GitBranch key="g" />, t("redteam.branch_tree")], ["activity", <Activity key="a" />, t("redteam.activity")]].map(([v, icon, l]) => (
+            <Tabs.List className="flex gap-0.5 overflow-x-auto rounded-full bg-surface-2 p-1 scrollbar-thin">
+              {[["cards", <Swords key="s" />, "Attacks and fixes"], ["map", <LayoutGrid key="m" />, "Failure map"], ["tree", <GitBranch key="g" />, t("redteam.branch_tree")], ["activity", <Activity key="a" />, t("redteam.activity")]].map(([v, icon, l]) => (
                 <Tabs.Trigger key={v as string} value={v as string}
                               className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm text-muted hover:text-ink data-[state=active]:bg-surface data-[state=active]:font-medium data-[state=active]:text-ink data-[state=active]:shadow-sm [&_svg]:size-3.5">
                   {icon}{l}
@@ -148,10 +150,14 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
             </Tabs.List>
             <Tabs.Content value="cards" className="mt-3 space-y-3">
               {view.attacks.length === 0 && <p className="text-sm text-muted">{running ? "The red team is reading the plan and similar real incidents…" : "No attacks yet."}</p>}
-              {view.attacks.map(({ attack, round }, i) => (
-                <AttackCard key={attack.attack_id} index={i} attack={attack} round={round} view={view} label={label} human={human}
+              {view.attacks.map(({ attack, round, cell }, i) => (
+                <AttackCard key={attack.attack_id} index={i} attack={attack} round={round} cell={cellLabel(view.archive, cell)} view={view} label={label} human={human}
                             active={activeRun} onShow={(id) => setActive(id)} projectId={project.id} />
               ))}
+            </Tabs.Content>
+            <Tabs.Content value="map" className="mt-3">
+              <FailureMap map={view.archive ?? ((session.data?.summary as Record<string, unknown> | null | undefined)?.archive as FailureMapData | undefined)}
+                          onSelectRun={(id) => setActive(id)} activeRunId={activeRun} />
             </Tabs.Content>
             <Tabs.Content value="tree" className="mt-3">
               <BranchTree nodes={view.nodes} activeRunId={activeRun} onPick={pick} human={human} />
@@ -224,8 +230,8 @@ function TimeTravel({ projectId, attack, fix, attackRunId, active }: {
   );
 }
 
-function AttackCard({ attack, round, view, label, human, index, active, onShow, projectId }: {
-  attack: SessionView["attacks"][number]["attack"]; round: number; view: SessionView; label: (id: string) => string;
+function AttackCard({ attack, round, cell, view, label, human, index, active, onShow, projectId }: {
+  attack: SessionView["attacks"][number]["attack"]; round: number; cell: string | null; view: SessionView; label: (id: string) => string;
   human: (text: string) => string;
   index: number; active: string | null; onShow: (runId: string) => void; projectId: string;
 }) {
@@ -242,7 +248,7 @@ function AttackCard({ attack, round, view, label, human, index, active, onShow, 
       <div className="space-y-2 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-2xs font-medium text-muted">{attack.attack_id} · round {round}</p>
+            <p className="text-2xs font-medium text-muted">{attack.attack_id} · round {round}{cell && <span title="Failure-map cell this attack landed in"> · {cell}</span>}</p>
             <h4 className="font-semibold leading-snug">{human(attack.title)}</h4>
           </div>
           {status === "break" && <Badge tone="danger">{t("redteam.break")}</Badge>}

@@ -25,6 +25,7 @@ from api.models import (
     VenuePatch,
 )
 from api.models.autopilot import AutopilotEvent, AutopilotRequest, AutopilotRun
+from api.models.failure_map import FailureMap
 from api.models.plan import BundlePreview, PlanBundle, PlanEvidence, PlanSnapshot, PlanUpdate
 from api.models.scene import SceneFacts, SceneSnapshot
 from plugins.hazard_wind.stage_check import StageCheckResult
@@ -59,6 +60,7 @@ MODELS = [
     AutopilotRequest,
     AutopilotRun,
     AutopilotEvent,
+    FailureMap,
 ]
 
 
