@@ -6,7 +6,19 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Venues with storeys from a description**: the designer can now describe buildings with
+  several storeys and basements, people per floor (or per named level such as "Lobby"), rooms off
+  a corridor (with a room count), an atrium, stair cores near named walls or in the centre, exits
+  on other levels, and basement exits that are stairs up to a street door. The solver builds them
+  with the map's storey generator and places exactly the headcount described on each level.
+  A stage can stand in the centre; repeated exit names are numbered ("South gate 1, 2, 3").
+  Repair messages name the zone and level instead of internal ids (designer prompt v5).
+
 ### Fixed
+- **Basements in the simulation**: floors now run in stair order, so people climbing out of a
+  basement reach the street level instead of arriving after it was simulated; stairs leading up
+  are drawn and labelled the right way in 3D and counted in safe capacity.
 - **Instant estimate in buildings of 3+ storeys**: routes now follow chains of stairs, so upper
   floors are no longer "stranded"; the 4-storey hospital sample went from 298 people with no route
   to 95% out in 200 s (simulation: 223 s). Each stair's capacity window starts when people reach it.
