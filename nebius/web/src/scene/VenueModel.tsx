@@ -80,6 +80,7 @@ export function VenueModel(props: Props) {
         if (!floor) return null;
         return (
           <StairStub key={s.id} stair={s} floor={floor} y={floorY(venue, floor.floor_id, exploded)} palette={props.palette}
+                     goesDown={stairGoesDown(venue, s, floor.floor_id)}
                      selected={props.selectedId === s.id} labels={may(props, s.id)}
                      onClick={(e) => props.onObjectClick?.("stair", s.id, floor, e)} />
         );
@@ -582,10 +583,15 @@ function StairMesh({ stair, venue, palette, exploded, selected, labels, onClick 
   stair: Stair; venue: Venue; palette: ScenePalette; exploded: boolean; selected: boolean; labels: boolean;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
 }) {
-  const yTop = floorY(venue, stair.from_floor, exploded);
-  const yBot = floorY(venue, stair.to_floor, exploded);
+  const yFrom = floorY(venue, stair.from_floor, exploded);
+  const yTo = floorY(venue, stair.to_floor, exploded);
+  // a basement stair is walked upward: its upper end is the landing on to_floor
+  const up = yFrom < yTo;
+  const [yTop, yBot] = up ? [yTo, yFrom] : [yFrom, yTo];
+  const upper = (up ? stair.bottom_polygon : stair.top_polygon) as Pt[];
+  const lower = (up ? stair.top_polygon : stair.bottom_polygon) as Pt[];
   const rise = yTop - yBot;
-  const climb = useMemo(() => stairRun(stair.top_polygon as Pt[], stair.bottom_polygon as Pt[]), [stair.top_polygon, stair.bottom_polygon]);
+  const climb = useMemo(() => stairRun(upper, lower), [upper, lower]);
   // the flight's side profile (steps over a soffit) extruded across the stair's width
   const geo = useMemo(() => {
     const g = new THREE.ExtrudeGeometry(shapeOf(stairProfile(climb.run, rise)), { depth: stair.width_m, bevelEnabled: false });
@@ -617,12 +623,19 @@ function StairMesh({ stair, venue, palette, exploded, selected, labels, onClick 
 }
 
 /** A stair seen from one floor alone: its landing on this floor, with an arrow up or down. */
-function StairStub({ stair, floor, y, palette, selected, labels, onClick }: {
-  stair: Stair; floor: Floor; y: number; palette: ScenePalette; selected: boolean; labels: boolean;
+/** Whether a stair leads down from `floorId` (a basement stair leads up from the basement). */
+function stairGoesDown(venue: Venue, stair: Stair, floorId: string): boolean {
+  const elev = (id: string) => venue.floors.find((f) => f.floor_id === id)?.elevation_m ?? 0;
+  const other = floorId === stair.from_floor ? stair.to_floor : stair.from_floor;
+  return elev(other) < elev(floorId);
+}
+
+function StairStub({ stair, floor, y, palette, selected, labels, goesDown, onClick }: {
+  stair: Stair; floor: Floor; y: number; palette: ScenePalette; selected: boolean; labels: boolean; goesDown: boolean;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
 }) {
-  const down = stair.from_floor === floor.floor_id;
-  const poly = (down ? stair.top_polygon : stair.bottom_polygon) as Pt[];
+  const onFrom = stair.from_floor === floor.floor_id;
+  const poly = (onFrom ? stair.top_polygon : stair.bottom_polygon) as Pt[];
   const geo = useMemo(() => {
     const g = new THREE.ShapeGeometry(shapeOf(poly));
     g.rotateX(-Math.PI / 2);
@@ -640,7 +653,7 @@ function StairStub({ stair, floor, y, palette, selected, labels, onClick }: {
       {labels && (
         <SceneHtml position={[cx, 1.0, -cy]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs text-muted shadow-sm">
-            {down ? "Stairs down" : "Stairs up"} · {fmtNum(stair.width_m, 1)} m
+            {goesDown ? "Stairs down" : "Stairs up"} · {fmtNum(stair.width_m, 1)} m
           </div>
         </SceneHtml>
       )}

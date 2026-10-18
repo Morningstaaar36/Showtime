@@ -24,6 +24,7 @@ from jps_build import (
     ExitInfo,
     assign_targets,
     floor_geometry,
+    floor_run_order,
     inside,
     nearest_free_point,
     place_people,
@@ -931,12 +932,12 @@ def run(
     settings: dict[str, Any],
     base_venue: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Run every floor (top first) and return raw outputs for metrics."""
+    """Run every floor (each before the floors its stairs lead to) and return raw outputs."""
     started = time.monotonic()
     deadline = started + float(request.get("max_wall_s", 240))
     max_sim_s = float(request.get("max_sim_s", 900))
     seed = int(request.get("seed", 42))
-    floors = sorted(venue["floors"], key=lambda f: -float(f.get("elevation_m", 0)))
+    floors = floor_run_order(venue)
     floor_of: dict[str, str] = {}
     for f in venue["floors"]:
         for coll in ("exits", "zones"):
