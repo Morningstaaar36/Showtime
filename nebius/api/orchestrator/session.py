@@ -23,6 +23,7 @@ from sqlmodel import col, select
 from api.adapters.llm import Budget, BudgetExceeded, LLMError
 from api.agents.base import AgentEnv, AgentUnavailable, audit_decision
 from api.agents.blue_team import blue_team
+from api.agents.context import readable
 from api.agents.judge import judge
 from api.agents.red_team import (
     incident_query,
@@ -737,6 +738,9 @@ class SessionManager:
                     archive=archive,
                     aim=aim + aim_script,
                 )
+                proposed = [
+                    x.model_copy(update={"title": readable(x.title, working)}) for x in proposed
+                ]
                 if not proposed:
                     reason = "no new attacks"
                     break
@@ -957,6 +961,9 @@ class SessionManager:
                         f"F{len(fixes_all) + 1}_",
                         mode=str(cfg.get("agents", "hybrid")),
                     )
+                    fixes = [
+                        fx.model_copy(update={"title": readable(fx.title, working)}) for fx in fixes
+                    ]
                     # every candidate is checked against the same plan (it changes only when
                     # a fix is kept, which ends this attack), so the checks and the
                     # simulations of all candidates can happen up front

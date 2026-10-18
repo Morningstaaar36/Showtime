@@ -7,6 +7,7 @@ responses replay (the record/replay cache key includes the messages).
 from __future__ import annotations
 
 import copy
+import re
 from functools import lru_cache
 from typing import Annotated, Any, Union
 
@@ -262,6 +263,28 @@ def _labels(venue: Venue) -> dict[str, str]:
     for r in venue.routes:
         out[r.id] = r.label or "the route " + r.id.replace("_", " ")
     return out
+
+
+_STAIR_ID = re.compile(r"^stair_([a-z])(?:_(?:b?\d+))?$")
+
+
+def readable(text: str, venue: Venue) -> str:
+    """`text` with every object id of the venue replaced by its organizer-facing name.
+
+    Model- and rule-written titles sometimes name objects by id ("Add an exit for
+    f1_zone_2", "one-way flow at door_s2"); people should read "Ward 2 · 1st floor".
+    """
+    names = {k: v.removeprefix("the ") for k, v in _labels(venue).items()}
+    for st in venue.stairs:
+        m = _STAIR_ID.match(st.id)
+        names[st.id] = f"Stair {m.group(1).upper()}" if m else st.id.replace("_", " ")
+    ids = sorted(
+        (i for i in names if "_" in i or any(c.isdigit() for c in i)), key=len, reverse=True
+    )
+    if not ids:
+        return text
+    pattern = re.compile(r"(?<![\w-])(" + "|".join(map(re.escape, ids)) + r")(?![\w-])")
+    return pattern.sub(lambda m: names[m.group(1)], text)
 
 
 def explain_patch(venue: Venue, patch: VenuePatch) -> str:

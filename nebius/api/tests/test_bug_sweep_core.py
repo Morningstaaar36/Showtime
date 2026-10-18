@@ -235,3 +235,16 @@ def test_a_new_door_never_straddles_an_interior_wall(registry: Registry) -> None
     door = P(next(e.polygon for e in res.venue.floors[0].exits if e.id == "door_new"))
     assert not door.intersects(P(wall).buffer(0.05))
     assert abs((door.bounds[1] + door.bounds[3]) / 2 - 5.0) < 2.0  # slid only as far as needed
+
+
+def test_titles_name_objects_by_their_labels(registry: Registry) -> None:
+    from api.agents.context import readable
+
+    venue, _ = build_storeys(_ground(), levels=3, use="hospital", interior="rooms", people=120)
+    zone = venue.floors[1].zones[0]
+    stair = venue.stairs[0]
+    text = readable(f"Add an exit for {zone.id} near {stair.id} and door_2", venue)
+    assert zone.id not in text and (zone.label or "") in text
+    assert stair.id not in text and "Stair" in text
+    assert "door_2" not in text and "door 2" in text.lower()
+    assert readable("Power cut slows everyone down", venue) == "Power cut slows everyone down"
