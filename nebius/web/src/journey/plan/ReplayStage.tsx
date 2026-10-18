@@ -61,7 +61,7 @@ export function ReplayStage({ label, main, compare, markers, basis, chip, top, c
       {chip && <div className="pointer-events-none absolute left-3 top-3 z-40 max-w-[60%]">{chip}</div>}
       {top && <div className="absolute inset-x-0 top-3 z-40 flex justify-center px-3 max-sm:top-14">{top}</div>}
       {main.replay && <ReplayCaption markers={markers} className="absolute inset-x-0 top-16 z-40 flex justify-center px-3 max-sm:top-28" />}
-      <PeopleLegend replay={main.replay} className="absolute right-3 top-1/2 z-40 w-52 -translate-y-1/2 max-lg:hidden" />
+      <PeopleLegend replay={main.replay} className="absolute left-3 top-1/2 z-40 w-52 -translate-y-1/2 max-lg:hidden" />
       {legend && main.replay?.density && (
         <div className="pointer-events-none absolute bottom-14 right-3 z-40 max-md:hidden">
           {legend.title ? (

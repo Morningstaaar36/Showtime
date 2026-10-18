@@ -44,7 +44,11 @@ test("multi-storey journey: 4-floor hospital from the map to a one-floor replay"
   try {
     const switcher = page.getByRole("radiogroup", { name: "Floors to show" });
     await expect(switcher.getByRole("radio")).toHaveCount(6); // all, spread apart, 4 floors
+    // adding and removing storeys lives under "More options"; floor tabs pick the floor in the list
+    await expect(page.getByRole("group", { name: "Floor shown in the list" }).getByRole("button")).toHaveCount(5);
+    await page.getByText("More options").click();
     await expect(page.getByRole("heading", { name: "Floors and rooms" })).toBeAttached();
+    await page.getByText("More options").click();
     await expect(page.locator("canvas").first()).toBeVisible();
     await page.waitForTimeout(4000); // let the 3D view draw before the screenshot
     await shot(page, "check-hospital-4f");
