@@ -51,6 +51,8 @@ ARTIFACTS = (
     "traj_index.json",
     "density.bin",
     "density_index.json",
+    "pressure.bin",
+    "pressure_index.json",
     "checkpoint.json",
 )
 BASE_IMAGE = "python:3.12-slim"

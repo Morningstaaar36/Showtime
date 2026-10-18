@@ -112,6 +112,26 @@ def main(work: Path) -> int:
                 extra[f"exit_density_peak:{eid}"] = val
         except Exception as exc:  # PedPy is a bonus metric; never fail the run for it
             notes.append(f"PedPy exit-area density skipped: {type(exc).__name__}")
+        extra.update(dens["los"])
+        turbulence: dict[str, Any] = {"hotspots": []}
+        try:
+            turbulence = metrics.pressure_and_turbulence(
+                work,
+                venue,
+                times,
+                frames,
+                x0,
+                y0,
+                nx,
+                ny,
+                min_density=float(settings.get("pressure_min_density_ppm2", warn)),
+                threshold=float(settings.get("turbulence_pressure", 0.02)),
+            )
+            extra["peak_pressure"] = round(turbulence["peak"], 4)
+            extra["time_turbulent_s"] = round(turbulence["turbulent_s"], 1)
+            extra["turbulence_threshold"] = turbulence["threshold"]
+        except Exception as exc:  # a bonus layer: never fail the run for it
+            notes.append(f"Crowd pressure skipped: {type(exc).__name__}: {exc}"[:200])
         extra.update(
             {
                 "trapped": float(sum(o.trapped + o.no_exit for o in outputs)),
@@ -154,12 +174,18 @@ def main(work: Path) -> int:
                     "trajectory_index": "traj_index.json",
                     "density_grid": "density.bin",
                     "density_index": "density_index.json",
+                    **(
+                        {"pressure_grid": "pressure.bin", "pressure_index": "pressure_index.json"}
+                        if (work / "pressure.bin").exists()
+                        else {}
+                    ),
                 },
                 "sim_time_s": max((o.sim_time for o in outputs), default=0.0),
                 "notes": notes,
                 "extensions": {
                     "marshals": [m for o in outputs for m in o.marshals],
                     "event_log": [e for o in outputs for e in o.event_log],
+                    "turbulence_hotspots": turbulence["hotspots"],
                 },
             }
         )

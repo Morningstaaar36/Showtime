@@ -7,6 +7,7 @@ import math
 from pathlib import Path
 from typing import Any
 
+import crowd_pressure as cp
 import numpy as np
 import shapely
 from jps_build import free_space, to_poly
@@ -147,6 +148,7 @@ def density_and_hotspots(
     above_danger = above_warn = 0.0
     dts = np.diff(times, append=times[-1] + (times[-1] - times[-2] if len(times) > 1 else 0.25))
     series_peak: list[float] = []
+    los_s = np.zeros(len(cp.LOS_BANDS))  # person-seconds per Fruin level of service
     for k, (_, xs, ys, fl) in enumerate(frames):
         dens = np.zeros((len(floors), ny, nx), dtype=np.float32)
         for fi in range(len(floors)):
@@ -162,6 +164,7 @@ def density_and_hotspots(
             sm = ndimage.gaussian_filter(counts, SMOOTH_SIGMA, mode="constant")
             d = np.where(masks[fi], sm / np.maximum(frac_s[fi], 0.25), 0.0)
             dens[fi] = d
+            los_s += np.bincount(cp.los_band(d[iy, ix]), minlength=len(los_s)) * float(dts[k])
         fmax = float(dens.max()) if dens.size else 0.0
         series_peak.append(round(fmax, 3))
         if fmax >= danger:
@@ -225,6 +228,69 @@ def density_and_hotspots(
         "above_danger_s": above_danger,
         "above_warn_s": above_warn,
         "hotspots": hotspots[:10],
+        "los": cp.los_shares(los_s),
+    }
+
+
+def pressure_and_turbulence(
+    work: Path,
+    venue: dict[str, Any],
+    times: list[float],
+    frames: list[Any],
+    x0: float,
+    y0: float,
+    nx: int,
+    ny: int,
+    min_density: float,
+    threshold: float = cp.TURBULENCE_P,
+) -> dict[str, Any]:
+    """Crowd pressure grid (pressure.bin, same layout as density.bin) and turbulence metrics."""
+    floors = venue["floors"]
+    frac = [_walkable_fraction(f, x0, y0, nx, ny) for f in floors]
+    acc = cp.PressureAccumulator(
+        len(floors), nx, ny, x0, y0, frac, [fr > 0.2 for fr in frac], threshold, min_density
+    )
+    for k in range(1, len(frames)):
+        acc.add(times[k], *cp.frame_velocities(frames[k - 1], frames[k], times[k] - times[k - 1]))
+    if times:
+        acc.finish(times[-1])
+    arr = np.stack(acc.stored) if acc.stored else np.zeros((0, len(floors), ny, nx), dtype=np.uint8)
+    hotspots = acc.hotspots([f["floor_id"] for f in floors])
+    by_id = {f["floor_id"]: f for f in floors}
+    for h in hotspots:
+        h["near"] = _nearest(by_id[h["floor_id"]], h["x"], h["y"])
+    (work / "pressure.bin").write_bytes(arr.tobytes())
+    (work / "pressure_index.json").write_text(
+        json.dumps(
+            {
+                "format": "showtime-pressure-v1",
+                "quantity": "crowd pressure: local density x local velocity variance",
+                "unit": "1/s2",
+                "times": acc.stored_t,
+                "origin": [x0, y0],
+                "cell_m": CELL_M,
+                "nx": nx,
+                "ny": ny,
+                "floors": [f["floor_id"] for f in floors],
+                "scale": cp.PRESSURE_SCALE,
+                "dtype": "uint8",
+                "shape": list(arr.shape),
+                "warn": round(threshold / 2, 4),
+                "danger": threshold,
+                "min_density_ppm2": min_density,  # cells below it are stored as 0
+                "radius_m": cp.PRESSURE_R_M,
+                "window_s": acc.window_s,
+                "peak_series": acc.series[:: max(1, len(acc.series) // 600)],
+                "peak_map": [np.round(acc.peak_map[i], 4).tolist() for i in range(len(floors))],
+                "turbulent_hotspots": hotspots,
+            }
+        )
+    )
+    return {
+        "peak": float(acc.peak_map.max()) if acc.peak_map.size else 0.0,
+        "turbulent_s": acc.turbulent_s,
+        "hotspots": hotspots,
+        "threshold": threshold,
     }
 
 

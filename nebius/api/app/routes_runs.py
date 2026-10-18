@@ -184,6 +184,18 @@ def density_index(run_id: str, st: AppState = Depends(get_state)) -> FileRespons
     return _artifact(st, run_id, "density_index", "application/json")
 
 
+@router.get("/runs/{run_id}/pressure")
+def pressure(run_id: str, st: AppState = Depends(get_state)) -> FileResponse:
+    """Binary crowd pressure grid uint8 [frames, floors, ny, nx] (value x scale = 1/s²)."""
+    return _artifact(st, run_id, "pressure_grid", "application/octet-stream")
+
+
+@router.get("/runs/{run_id}/pressure/index")
+def pressure_index(run_id: str, st: AppState = Depends(get_state)) -> FileResponse:
+    """Grid geometry, times, threshold, peak map and turbulent hotspots."""
+    return _artifact(st, run_id, "pressure_index", "application/json")
+
+
 @router.get("/runs/{run_id}/venue")
 def run_venue(run_id: str, st: AppState = Depends(get_state)) -> Any:
     """The venue this run simulated (fix runs include the fix's layout edits)."""
@@ -198,21 +210,67 @@ def run_venue(run_id: str, st: AppState = Depends(get_state)) -> Any:
     return json.loads(path.read_text())
 
 
+class SweepIn(BaseModel):
+    """Which catalogue scenarios to simulate (GET /scenarios lists them); default: the
+    original six (as planned, 20% more people, main exit closed, rain, rain and main exit
+    closed, late surge in the dark)."""
+
+    scenarios: list[str] | None = Field(default=None, min_length=1, max_length=sweep.MAX_SCENARIOS)
+
+
 @router.post("/projects/{project_id}/sweep", status_code=202)
-async def start_sweep(project_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
-    """Simulate the plan under six what-ifs, each in its own sandbox.
+async def start_sweep(
+    project_id: str, body: SweepIn | None = None, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """Simulate the plan under several what-ifs (default six), each in its own sandbox.
 
     Async on purpose: runs start as tasks on the server's event loop."""
     report = validate_venue(st.projects.venue(project_id))
     if not report.ok:
         raise ApiException(422, "venue_invalid", report.errors[0].message, report.errors[0].hint)
-    return sweep.start_sweep(st, project_id)
+    try:
+        return sweep.start_sweep(st, project_id, scenario_ids=body.scenarios if body else None)
+    except sweep.UnknownScenario as exc:
+        raise ApiException(
+            422, "unknown_scenario", str(exc), "GET /api/v1/scenarios lists them."
+        ) from exc
 
 
 @router.get("/projects/{project_id}/sweep")
 def get_sweep(project_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
     """The latest scenario sweep and its runs (empty when none was started)."""
     return sweep.sweep_status(st, project_id) or {"items": [], "version": None}
+
+
+@router.get("/scenarios")
+def list_scenarios(
+    project_id: str | None = None, version: int | None = None, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """The scenario catalogue. With `project_id`: the entries that apply to that venue, each
+    with its concrete targets in plain words and the events it adds, plus the ones that do
+    not apply and why."""
+    from api.core.scenarios import CATALOGUE, catalogue_for
+
+    if project_id is None:
+        return {
+            "scenarios": [s.public() for s in CATALOGUE],
+            "default_sweep": list(sweep.DEFAULT_SCENARIOS),
+        }
+    p = st.projects.get(project_id)
+    v = version or p.current_version
+    venue = st.projects.venue(project_id, v)
+    resolved = catalogue_for(venue, st.runs.estimate(venue))
+    return {
+        "project_id": project_id,
+        "version": v,
+        "scenarios": [r.public() for r in resolved if r.built is not None],
+        "not_applicable": [
+            {"id": r.spec.id, "title": r.spec.title, "reason": r.reason}
+            for r in resolved
+            if r.built is None
+        ],
+        "default_sweep": list(sweep.DEFAULT_SCENARIOS),
+    }
 
 
 # --- Stress test at scale (SANDBOX_SCOPE idea 4) -----------------------------------------------
