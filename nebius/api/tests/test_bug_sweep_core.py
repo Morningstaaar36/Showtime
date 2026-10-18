@@ -287,3 +287,31 @@ def test_building_fixes_widen_stairs_and_phase_the_evacuation(registry: Registry
     titles = [f.title for f in rule_fixes(registry, venue, attack, result, 4, "F1_R")]
     assert any(t.startswith("Widen") for t in titles), titles
     assert any(t.startswith("Phased evacuation") for t in titles), titles
+
+
+def test_a_fix_that_slows_the_evacuation_is_never_kept() -> None:
+    from api.models import RunMetrics, RunResult
+    from api.orchestrator.session import made_worse
+
+    def run(p95: float | None, inside: int, peak: float, extrap: float | None = None) -> RunResult:
+        extra = {"rset_extrapolated_s": extrap} if extrap is not None else {}
+        return RunResult(
+            run_id="r",
+            tier=2,
+            status="partial",
+            engine="jupedsim",
+            metrics=RunMetrics(
+                evac_time_p95_s=p95,
+                peak_density_ppm2=peak,
+                agents_total=960,
+                agents_not_evacuated=inside,
+                extra=extra,
+            ),
+        )
+
+    # the school's east exit: danger time fell, but 95% out went from ~3:12 to ~5:37
+    attack, with_fix = run(None, 300, 5.5, extrap=192), run(None, 300, 5.6, extrap=337)
+    assert "the time to get out" in made_worse(attack, with_fix, 0.10, 5.0)
+    # a real improvement is not flagged
+    assert made_worse(run(240, 10, 5.4), run(200, 0, 4.1), 0.10, 5.0) == ""
+    assert "people left inside" in made_worse(run(240, 0, 3.0), run(230, 5, 3.0), 0.10, 5.0)

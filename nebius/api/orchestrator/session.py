@@ -305,6 +305,32 @@ class LiveSession:
 Maker = tuple[str, Callable[[], Awaitable[RunResult]]]
 
 
+def _time_out(r: RunResult) -> float | None:
+    """Time for 95% to get out: measured, else extrapolated from the exit flow at the end."""
+    m = r.metrics
+    if m.evac_time_p95_s is not None:
+        return float(m.evac_time_p95_s)
+    ext = (m.extra or {}).get("rset_extrapolated_s")
+    return float(ext) if ext is not None else None
+
+
+def made_worse(before: RunResult, after: RunResult, margin: float, danger: float) -> str:
+    """What a change makes clearly worse under the same attack ("" when nothing does)."""
+    worse: list[str] = []
+    t0, t1 = _time_out(before), _time_out(after)
+    if t0 is not None and t1 is not None and t1 > t0 * (1 + margin):
+        worse.append("the time to get out")
+    n0 = before.metrics.agents_not_evacuated or 0
+    n1 = after.metrics.agents_not_evacuated or 0
+    if n1 > n0:
+        worse.append("the number of people left inside")
+    d0 = before.metrics.peak_density_ppm2 or 0.0
+    d1 = after.metrics.peak_density_ppm2 or 0.0
+    if d1 >= danger and d1 > d0 * (1 + margin):
+        worse.append("the peak density")
+    return " and ".join(worse)
+
+
 class Branches:
     """Independent simulations of one step (the screened attacks of a round, or the candidate
     fixes of one attack), started together and read back in their original order, so scoring,
@@ -1038,8 +1064,24 @@ class SessionManager:
                             # enough to keep a change.
                             helps = (not fr_reasons and gain > 0) or gain >= float(s.fix_min_gain)
                             evidence_ok = comparable(r, fr)
+                            # a better composite score is not enough when an outcome people
+                            # read first (time out, people inside, peak density) gets worse
+                            worse = made_worse(
+                                r, fr, float(s.fix_min_gain), float(s.density_danger_ppm2)
+                            )
+                            if helps and worse:
+                                self.emit(
+                                    live,
+                                    "log",
+                                    {
+                                        "level": "info",
+                                        "message": f"{fx.title}: not kept, because it makes "
+                                        f"{worse} worse under this attack",
+                                    },
+                                )
                             ok = (
                                 helps
+                                and not worse
                                 and evidence_ok
                                 and not self._hurts_baseline(working, fx, baseline, live)
                             )
