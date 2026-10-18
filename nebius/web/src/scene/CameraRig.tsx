@@ -4,9 +4,13 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { Venue } from "@/api/types";
 import { useUi } from "@/state/ui";
-import { floorY, venueBounds } from "./geom";
+import { floorBounds, floorY, venueBounds } from "./geom";
 
-export function CameraRig({ venue, resetNonce, exploded }: { venue: Venue; resetNonce: number; exploded: boolean }) {
+export function CameraRig({ venue, resetNonce, exploded, focusFloor = null }: {
+  venue: Venue; resetNonce: number; exploded: boolean;
+  /** one floor in focus: frame that floor at its height (the ghosted storeys stay around it) */
+  focusFloor?: string | null;
+}) {
   const ref = useRef<CameraControls>(null);
   const flyTo = useUi((s) => s.flyTo);
   const shot = useUi((s) => s.shot);
@@ -19,14 +23,16 @@ export function CameraRig({ venue, resetNonce, exploded }: { venue: Venue; reset
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
-    const [x0, y0, x1, y1] = venueBounds(venue);
-    const top = Math.max(...venue.floors.map((f) => floorY(venue, f.floor_id, exploded)));
-    const box = new THREE.Box3(new THREE.Vector3(x0, 0, -y1), new THREE.Vector3(x1, top + 3, -y0));
+    const focus = focusFloor && venue.floors.some((f) => f.floor_id === focusFloor) ? focusFloor : null;
+    const [x0, y0, x1, y1] = focus ? floorBounds(venue, focus) : venueBounds(venue);
+    const bottom = focus ? floorY(venue, focus, exploded) : 0;
+    const top = focus ? bottom : Math.max(...venue.floors.map((f) => floorY(venue, f.floor_id, exploded)));
+    const box = new THREE.Box3(new THREE.Vector3(x0, bottom, -y1), new THREE.Vector3(x1, top + 3, -y0));
     const sphere = box.getBoundingSphere(new THREE.Sphere());
     sphere.radius *= 0.86; // the sphere is loose for flat venues; tighten so the venue fills the view
     void c.rotateTo(0.5, 0.9, false);
     void c.fitToSphere(sphere, true);
-  }, [venue.venue_id, resetNonce, exploded]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [venue.venue_id, resetNonce, exploded, focusFloor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const c = ref.current;

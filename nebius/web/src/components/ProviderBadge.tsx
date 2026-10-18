@@ -29,7 +29,7 @@ export function ProviderBadge({ cost }: { cost?: { tokens: number; usd: number }
     <Popover>
       <PopoverTrigger asChild>
         <button type="button" aria-label={t("common.provider_aria", { label })}
-                className={cn("inline-flex h-8 items-center gap-1.5 rounded-[var(--radius-control)] border px-2 text-2xs font-semibold tracking-wide transition-colors hover:border-border-strong",
+                className={cn("inline-flex h-8 items-center whitespace-nowrap gap-1.5 rounded-[var(--radius-control)] border px-2 text-2xs font-semibold tracking-wide transition-colors hover:border-border-strong",
                   ok ? "border-border bg-surface text-ink" : "border-caution/40 bg-caution-soft text-ink")}>
           <Icon className="size-3.5" aria-hidden />
           {label}{fallback && <span className="font-normal text-muted">→ LOCAL</span>}

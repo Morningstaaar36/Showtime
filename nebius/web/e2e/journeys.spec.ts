@@ -110,16 +110,21 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
   await expect(verdict.getByText("Evacuation time (95%)")).toBeVisible();
   // what the tests show is the evaluation's own label: never "confirmed" unless it is
   await expect(verdict).toContainText(/Not confirmed|Partly confirmed|Confirmation failed|Confirmed by full simulations/);
-  // S-05: the badge says why in one line, with a link to Help
-  await expect(verdict.getByTestId("verdict-why")).toContainText(/\w+\./);
-  await expect(verdict.getByRole("link", { name: "What this means" })).toHaveAttribute("href", "/help#verdict");
-  await expect(page.getByRole("heading", { name: "How this plan was made" })).toBeVisible();
+  // S-05: the badge says why in one line, with a link to Help (one click away, in a popover)
+  await verdict.getByRole("button", { name: /why\?$/ }).click();
+  await expect(page.getByTestId("verdict-why")).toContainText(/\w+\./);
+  await expect(page.getByRole("link", { name: "What this means" })).toHaveAttribute("href", "/help#verdict");
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("link", { name: "Download report" })).toBeVisible();
+  // the hand-over tab: how the plan was made and the downloads for the team
+  await page.getByRole("tab", { name: "Hand over" }).click();
+  await expect(page.getByRole("heading", { name: "How this plan was made" })).toBeVisible();
   const checklist = page.getByRole("link", { name: "Download checklist" });
   await expect(checklist).toBeVisible();
   const handover = await page.request.get((await checklist.getAttribute("href")) ?? "");
   expect(handover.ok()).toBeTruthy();
   expect(await handover.text()).toContain("Planning aid, not a safety certification.");
+  await page.getByRole("tab", { name: /^Fixes/ }).click();
   const accept = page.getByRole("button", { name: "Accept these changes" });
   // the choice of tested changes is ready once the tested version is known
   await expect(accept.or(page.getByText("The AI found no change worth making."))).toBeVisible();

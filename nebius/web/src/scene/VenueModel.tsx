@@ -6,6 +6,7 @@ import * as THREE from "three";
 import type { Exit, Floor, Obstacle, Pt, StageParams, Stair, Venue, Zone } from "@/api/types";
 import { isProposed, lockedIds } from "@/lib/annotations";
 import { fmtInt, fmtNum } from "@/lib/format";
+import { floorLabels } from "@/lib/venueOps";
 import { exitName } from "@/lib/venueText";
 import {
   bbox,
@@ -51,7 +52,17 @@ interface Props extends ModelHandlers {
   labelled?: Set<string> | null;
   /** stairs whose other floor is not drawn (one floor alone): shown as a stairwell outline */
   stubStairs?: Stair[];
+  /** one floor drawn in full; the other storeys are ghosts (outlines and faint plates, no labels,
+   * not clickable) and every stair is highlighted */
+  focusFloor?: string | null;
+  /** a tall building seen whole: room walls low, storeys as clean floor plates, stairs highlighted */
+  stacked?: boolean;
 }
+
+/** Room walls of a tall building seen whole: a plan-drawing cut, low enough not to stack into ribs. */
+const STACKED_WALL_M = 0.55;
+/** Room walls of the floor in focus: cut at handrail height, so small rooms don't read as ribs. */
+const FOCUS_WALL_M = 1.1;
 
 const may = (p: Props, id: string) => p.labels && (!p.labelled || p.labelled.has(id));
 
@@ -62,14 +73,29 @@ const OBSTACLE_HEIGHT: Record<string, number> = {
 
 export function VenueModel(props: Props) {
   const { venue, exploded } = props;
+  const focus = props.focusFloor && venue.floors.some((f) => f.floor_id === props.focusFloor) ? props.focusFloor : null;
+  const focusElev = venue.floors.find((f) => f.floor_id === focus)?.elevation_m ?? 0;
+  const tags = useMemo(() => floorTags(venue), [venue]);
+  const multi = venue.floors.length > 1 && (!!focus || !!props.stacked || exploded);
   return (
     <group>
-      {venue.floors.map((f) => (
-        <FloorGroup key={f.floor_id} {...props} floor={f} y={floorY(venue, f.floor_id, exploded)} />
+      {venue.floors.map((f) => {
+        const y = floorY(venue, f.floor_id, exploded);
+        if (focus && f.floor_id !== focus) {
+          return <GhostFloor key={f.floor_id} floor={f} y={y} palette={props.palette} above={(f.elevation_m ?? 0) > focusElev}
+                             tag={exploded ? tags.get(f.floor_id) : undefined} />;
+        }
+        return <FloorGroup key={f.floor_id} {...props} floor={f} y={y} />;
+      })}
+      {/* stacked storeys sit too close for tags at the same corner: those floors are named in the lift panel */}
+      {exploded && multi && venue.floors.filter((f) => !focus || f.floor_id === focus).map((f) => (
+        <FloorTag key={`tag-${f.floor_id}`} floor={f} y={floorY(venue, f.floor_id, exploded)} text={tags.get(f.floor_id) ?? f.floor_id}
+                  focus={f.floor_id === focus} />
       ))}
       {(venue.stairs ?? []).map((s) => (
         <StairMesh key={s.id} stair={s} venue={venue} palette={props.palette} exploded={exploded}
-                   selected={props.selectedId === s.id} labels={may(props, s.id)}
+                   highlight={multi} selected={props.selectedId === s.id}
+                   labels={may(props, s.id) && (!focus || s.from_floor === focus || s.to_floor === focus)}
                    onClick={(e) => {
                      const fl = venue.floors.find((f) => f.floor_id === s.from_floor);
                      if (fl) props.onObjectClick?.("stair", s.id, fl, e);
@@ -100,7 +126,7 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
       <Slab floor={floor} palette={palette} outdoor={venue.mode === "outdoor"} upper={isUpper}
             onClick={props.onFloorClick} onMove={props.onFloorMove} onDouble={props.onFloorDoubleClick}
             dim={!!dim} seeThrough={!!props.onMap && !isUpper} />
-      <Walls floor={floor} palette={palette} outdoor={venue.mode === "outdoor"} upper={isUpper} />
+      <Walls floor={floor} palette={palette} outdoor={venue.mode === "outdoor"} upper={isUpper || !!props.stacked} />
       {isUpper && !props.exploded && (
         <BalconyStructure floor={floor} base={venue.floors[0]} height={y} palette={palette} />
       )}
@@ -112,6 +138,7 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
                       onGrab={props.onObjectPointerDown && ((e) => props.onObjectPointerDown?.("stage", o.id, floor, e))} />
         ) : (
           <ObstacleMesh key={o.id} obstacle={o} palette={palette} selected={props.selectedId === o.id}
+                        lowWalls={props.stacked ? STACKED_WALL_M : props.focusFloor ? FOCUS_WALL_M : undefined}
                         labels={may(props, o.id)} proposed={isProposed(venue, o.id)} locked={locked.has(o.id)}
                         onClick={(e) => props.onObjectClick?.("obstacle", o.id, floor, e)}
                         onGrab={props.onObjectPointerDown && ((e) => props.onObjectPointerDown?.("obstacle", o.id, floor, e))} />
@@ -272,14 +299,17 @@ function FencePosts({ len, h, color }: { len: number; h: number; color: string }
   );
 }
 
-function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, onClick, onGrab }: {
+function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, lowWalls, onClick, onGrab }: {
   obstacle: Obstacle; palette: ScenePalette; selected: boolean; labels: boolean;
+  /** draw room walls cut at this height (a tall building: plan-drawing cut) */
+  lowWalls?: number;
   /** proposed construction: drawn see-through until it is built */
   proposed: boolean; locked: boolean;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
   onGrab?: (e: ThreeEvent<PointerEvent>) => void;
 }) {
-  const h = obstacle.height_m ?? OBSTACLE_HEIGHT[obstacle.kind ?? "other"] ?? 1.4;
+  const full = obstacle.height_m ?? OBSTACLE_HEIGHT[obstacle.kind ?? "other"] ?? 1.4;
+  const h = lowWalls && obstacle.kind === "wall" ? Math.min(full, lowWalls) : full;
   const geo = useMemo(() => {
     const g = new THREE.ExtrudeGeometry(shapeOf(obstacle.polygon as Pt[]), { depth: h, bevelEnabled: false });
     g.rotateX(-Math.PI / 2);
@@ -579,8 +609,10 @@ function ZonePatch({ zone, palette, selected, labels, people, onClick, onGrab, v
   );
 }
 
-function StairMesh({ stair, venue, palette, exploded, selected, labels, onClick }: {
+function StairMesh({ stair, venue, palette, exploded, selected, labels, highlight, onClick }: {
   stair: Stair; venue: Venue; palette: ScenePalette; exploded: boolean; selected: boolean; labels: boolean;
+  /** several storeys in view: the stair is the way down, so it stands out */
+  highlight?: boolean;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
 }) {
   const yFrom = floorY(venue, stair.from_floor, exploded);
@@ -603,13 +635,14 @@ function StairMesh({ stair, venue, palette, exploded, selected, labels, onClick 
     <group position={[climb.bx, yBot, -climb.by]} rotation={[0, climb.angle, 0]}
            onClick={(e) => { e.stopPropagation(); onClick(e); }}>
       <mesh geometry={geo} castShadow receiveShadow>
-        <meshStandardMaterial color={selected ? palette.signal : palette.stair} roughness={0.8} />
-        <Edges color={selected ? palette.signal : palette.edge} threshold={30} />
+        <meshStandardMaterial color={selected ? palette.signal : highlight ? palette.stairHot : palette.stair} roughness={0.8}
+                              emissive={highlight && !selected ? palette.stairHot : "#000000"} emissiveIntensity={highlight ? 0.25 : 0} />
+        <Edges color={selected ? palette.signal : highlight ? palette.stairHot : palette.edge} threshold={30} />
       </mesh>
       {[-1, 1].map((s) => (
         <Line key={s} points={[new THREE.Vector3(0, 1.0, (s * stair.width_m) / 2),
                                new THREE.Vector3(climb.run, rise + 1.0, (s * stair.width_m) / 2)]}
-              color={palette.edge} lineWidth={1.5} />
+              color={highlight ? palette.stairHot : palette.edge} lineWidth={highlight ? 2.5 : 1.5} />
       ))}
       {labels && (
         <SceneHtml position={[climb.run / 2, rise / 2 + 1.6, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
@@ -655,6 +688,72 @@ function StairStub({ stair, floor, y, palette, selected, labels, goesDown, onCli
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs text-muted shadow-sm">
             {goesDown ? "Stairs down" : "Stairs up"} · {fmtNum(stair.width_m, 1)} m
           </div>
+        </SceneHtml>
+      )}
+    </group>
+  );
+}
+
+/** "2nd floor · 120" (the floor's name, else Ground / 1st / B1), for tags next to each storey. */
+function floorTags(venue: Venue): Map<string, string> {
+  const labels = floorLabels(venue);
+  return new Map(venue.floors.map((f) => {
+    const l = labels.get(f.floor_id) ?? f.floor_id;
+    const name = f.name?.trim() || (l === "Ground" ? "Ground floor" : l.startsWith("B") ? l : `${l} floor`);
+    return [f.floor_id, `${name} · ${fmtInt(f.zones.reduce((n, z) => n + z.people, 0))}`];
+  }));
+}
+
+/** The storey's name at its corner, so a stack of floors reads like a section drawing. */
+function FloorTag({ floor, y, text, focus }: { floor: Floor; y: number; text: string; focus: boolean }) {
+  const [x0, y0] = bbox(floor.walkable as Pt[]);
+  return (
+    <SceneHtml position={[x0, y + 0.4, -y0]} zIndexRange={[12, 0]} style={{ pointerEvents: "none", transform: "translate(-105%, -50%)" }}>
+      <div className={`whitespace-nowrap rounded-[4px] px-1.5 py-0.5 text-2xs font-semibold tabular shadow-sm ${focus ? "bg-signal text-signal-ink" : "bg-surface/90 text-muted"}`}>
+        {text}
+      </div>
+    </SceneHtml>
+  );
+}
+
+const NO_RAYCAST = () => null;
+
+/** A storey out of focus: a faint plate with its outline and room walls as thin lines. Floors
+ * above the focus are outlines only, so they never hide the floor in focus. Not clickable. */
+function GhostFloor({ floor, y, palette, above, tag }: { floor: Floor; y: number; palette: ScenePalette; above: boolean; tag?: string }) {
+  const geo = useMemo(() => {
+    const g = new THREE.ShapeGeometry(shapeOf(floor.walkable as Pt[]));
+    g.rotateX(-Math.PI / 2);
+    return g;
+  }, [floor.walkable]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  const ring = useMemo(() => [...(floor.walkable as Pt[]), floor.walkable[0] as Pt].map((p) => new THREE.Vector3(p[0], 0.02, -p[1])), [floor.walkable]);
+  const walls = useMemo(() => floor.obstacles.filter((o) => o.kind === "wall").map((o) => {
+    const pts = (o.line && o.line.length >= 2 ? o.line : [...o.polygon, o.polygon[0]]) as Pt[];
+    return pts.map((p) => new THREE.Vector3(p[0], 0.03, -p[1]));
+  }), [floor.obstacles]);
+  return (
+    <group position={[0, y, 0]}>
+      <mesh geometry={geo} raycast={NO_RAYCAST} renderOrder={-1}>
+        <meshBasicMaterial color={palette.floor} transparent opacity={above ? 0.06 : 0.42} depthWrite={false} />
+      </mesh>
+      <Line points={ring} color={palette.slabEdge} lineWidth={above ? 1 : 1.4} transparent opacity={above ? 0.45 : 0.8} raycast={NO_RAYCAST} />
+      {!above && walls.map((pts, i) => (
+        <Line key={i} points={pts} color={palette.slabEdge} lineWidth={0.8} transparent opacity={0.45} raycast={NO_RAYCAST} />
+      ))}
+      {floor.exits.map((e) => {
+        const [cx, cy] = centroid(e.polygon as Pt[]);
+        return (
+          <mesh key={e.id} position={[cx, 0.05, -cy]} raycast={NO_RAYCAST}>
+            <cylinderGeometry args={[0.35, 0.35, 0.08, 12]} />
+            <meshBasicMaterial color={palette.egress} transparent opacity={above ? 0.35 : 0.7} />
+          </mesh>
+        );
+      })}
+      {tag && (
+        <SceneHtml position={[bbox(floor.walkable as Pt[])[0], 0.4, -bbox(floor.walkable as Pt[])[1]]} zIndexRange={[12, 0]}
+                   style={{ pointerEvents: "none", transform: "translate(-105%, -50%)" }}>
+          <div className="whitespace-nowrap rounded-[4px] bg-surface/90 px-1.5 py-0.5 text-2xs font-semibold text-muted tabular shadow-sm">{tag}</div>
         </SceneHtml>
       )}
     </group>

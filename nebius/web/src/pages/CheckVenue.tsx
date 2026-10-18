@@ -159,7 +159,7 @@ export function CheckVenuePage() {
         </main>
 
         <aside aria-label={t("check.panel")} className="scrollbar-thin flex w-full shrink-0 flex-col border-t border-border bg-surface lg:w-[400px] lg:border-l lg:border-t-0 xl:w-[440px]">
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
             <div>
               <h1 className="text-xl font-semibold tracking-tight">{t("check.title")}</h1>
               <p className="mt-1 text-base text-muted">{t("check.lead")}</p>
@@ -171,7 +171,7 @@ export function CheckVenuePage() {
             )}
             {selection && selection.kind !== "hotspot" && selection.kind !== "stair"
               ? <><ObjectCard project={p} scene={scene.data} selection={selection} /><Button variant="link" onClick={() => useUi.getState().select(null)}>{t("check.back_to_list")}</Button></>
-              : <><VenueChecklist project={p} scene={scene.data} /><div className="mt-6 border-t border-border pt-5"><EventKindControl project={p} /></div>{p.version.venue.mode === "indoor" && <div className="mt-6"><FloorsCard project={p} /></div>}</>}
+              : <><VenueChecklist project={p} scene={scene.data} /><div className="border-t border-border pt-4"><EventKindControl project={p} /></div></>}
             <details className="rounded-[10px] border border-border">
               <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm font-semibold">
                 <SlidersHorizontal className="size-4 text-muted" />{t("check.more_options")}
@@ -190,6 +190,7 @@ export function CheckVenuePage() {
                   </div>
                 </fieldset>
                 <OperationalPlan projectId={projectId} />
+                {p.version.venue.mode === "indoor" && <div className="border-t border-border pt-4"><FloorsCard project={p} /></div>}
               </div>
             </details>
           </div>

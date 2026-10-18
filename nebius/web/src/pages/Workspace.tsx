@@ -381,7 +381,7 @@ export function WorkspacePage() {
             <div className="pointer-events-none absolute inset-0 z-40">
               <div className="absolute left-3 top-3"><ToolRail mode={mode} project={p} onResetView={() => setResetNonce((n) => n + 1)} /></div>
               {!compareId && (
-                <div className="absolute right-3 top-3 flex items-center gap-2">
+                <div className="absolute right-3 top-3 flex items-start gap-2">
                   <FloorSwitch venue={venue} />
                   <ViewMenu multiFloor={venue.floors.length > 1} tour={tour} />
                 </div>

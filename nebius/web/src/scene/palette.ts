@@ -29,6 +29,8 @@ export interface ScenePalette {
   agent: string;
   ink: string;
   stair: string;
+  /** stairs when several storeys are in view: the way down stands out */
+  stairHot: string;
 }
 
 const LIGHT: ScenePalette = {
@@ -57,23 +59,24 @@ const LIGHT: ScenePalette = {
   agent: "#3a3f8f",
   ink: "#1d1b3a",
   stair: "#b9c6ff",
+  stairHot: "#0a9fe0",
 };
 
 const DARK: ScenePalette = {
   dark: true,
-  bg: "#10161a",
-  ground: "#121a1f",
-  grid: "#1f2a32",
-  gridSection: "#2b3944",
-  floor: "#1c252b",
-  floorOutdoor: "#1a2320",
-  slabEdge: "#4f5e69",
-  wall: "#2a353d",
-  wallCut: "#c9d2d8",
-  edge: "#7d8b96",
-  obstacle: "#2f3a43",
-  booth: "#34414b",
-  stageDeck: "#3a4752",
+  bg: "#17163a",
+  ground: "#302f6a",
+  grid: "#2b2a55",
+  gridSection: "#3a397a",
+  floor: "#262552",
+  floorOutdoor: "#1d2c3a",
+  slabEdge: "#5d5c94",
+  wall: "#34335f",
+  wallCut: "#d9d8ff",
+  edge: "#8a89c0",
+  obstacle: "#3b3a68",
+  booth: "#46457b",
+  stageDeck: "#4a4890",
   stageFrame: "#9aa7b1",
   membrane: "#d9e1e6",
   barrier: "#8996a0",
@@ -84,7 +87,8 @@ const DARK: ScenePalette = {
   danger: "#f05a57",
   agent: "#c4ced5",
   ink: "#e5ebee",
-  stair: "#45535e",
+  stair: "#4a4a86",
+  stairHot: "#4cc3ff",
 };
 
 const NIGHT: ScenePalette = {

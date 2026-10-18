@@ -1,52 +1,47 @@
 /** "How this plan was made" (N16): measured model cost, models, simulations by kind, compute
- * and wall time of the test behind this plan. Free and local models cost "$0.00". */
+ * and wall time of the test behind this plan, as tiles. Free and local models cost "$0.00". */
+import { Bot, Clock3, Cpu, Sparkles, Timer } from "lucide-react";
+import type * as React from "react";
 import { t } from "@/i18n";
 import type { CostRecord } from "@/lib/evidence";
 import { fmtMoney, fmtTokens } from "@/lib/format";
 import { costView } from "./cost";
 
+function Stat({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note?: string }) {
+  return (
+    <div className="min-w-0 rounded-[10px] bg-surface-2 p-3">
+      <dt className="flex items-center gap-2 text-xs text-muted">
+        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-surface text-signal [&_svg]:size-3.5" aria-hidden>{icon}</span>{label}
+      </dt>
+      <dd className="mt-1 text-lg font-bold leading-tight tabular">{value}</dd>
+      {note && <dd className="text-2xs text-muted">{note}</dd>}
+    </div>
+  );
+}
+
 export function CostCard({ cost, tokens, costUsd }: { cost: CostRecord | null | undefined; tokens: number; costUsd: number }) {
   const v = costView(cost);
   return (
-    <section aria-labelledby="cost-h" className="space-y-2 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
-      <h2 id="cost-h" className="font-semibold">{t("yourplan.cost")}</h2>
+    <section aria-labelledby="cost-h" className="space-y-3 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
+      <h2 id="cost-h" className="flex items-center gap-2 font-semibold"><Sparkles className="size-4 text-signal" aria-hidden />{t("yourplan.cost")}</h2>
       {!v ? (
         <p className="text-sm text-muted">{tokens ? t("yourplan.cost_tokens_only", { tokens: fmtTokens(tokens), cost: fmtMoney(costUsd) }) : t("yourplan.cost_missing")}</p>
       ) : (
         <>
-          <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-muted">{t("yourplan.cost_total")}</dt>
-              <dd className="text-lg font-semibold tabular">{v.total}{v.free && <span className="ml-1.5 text-sm font-normal text-muted">({t("yourplan.cost_free")})</span>}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">{t("yourplan.cost_calls")}</dt>
-              <dd className="tabular">{v.calls}</dd>
-            </div>
-            <div className="sm:col-span-2">
-              <dt className="text-muted">{t("yourplan.cost_sims")}</dt>
-              <dd className="tabular">{v.sims}{v.simsNote && <span className="text-muted"> ({v.simsNote})</span>}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">{t("yourplan.cost_compute")}</dt>
-              <dd className="tabular">{v.compute}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">{t("yourplan.cost_wall")}</dt>
-              <dd className="tabular">{v.wall}</dd>
-            </div>
-            {v.models.length > 0 && (
-              <div className="sm:col-span-2">
-                <dt className="text-muted">{t("yourplan.cost_models")}</dt>
-                <dd>
-                  <ul className="space-y-0.5">
-                    {v.models.map((m) => <li key={m.name} className="flex flex-wrap justify-between gap-x-3"><span className="min-w-0 break-all">{m.name}</span><span className="text-muted tabular">{m.detail}</span></li>)}
-                  </ul>
-                </dd>
-              </div>
-            )}
+          <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Stat icon={<Bot />} label={t("yourplan.cost_total")} value={v.total} note={v.free ? t("yourplan.cost_free") : undefined} />
+            <Stat icon={<Cpu />} label={t("yourplan.cost_sims")} value={v.sims.split(" · ")[0]} note={[...v.sims.split(" · ").slice(1), v.simsNote].filter(Boolean).join(" · ") || undefined} />
+            <Stat icon={<Timer />} label={t("yourplan.cost_compute")} value={v.compute} />
+            <Stat icon={<Clock3 />} label={t("yourplan.cost_wall")} value={v.wall} />
           </dl>
-          <p className="text-xs text-muted">{t("yourplan.cost_body")}</p>
+          <details className="text-sm">
+            <summary className="flex min-h-9 cursor-pointer items-center text-xs font-medium text-signal">{t("plan.cost_more")}</summary>
+            <dl className="mt-1 space-y-1">
+              <div className="flex flex-wrap justify-between gap-x-3"><dt className="text-muted">{t("yourplan.cost_calls")}</dt><dd className="tabular">{v.calls}</dd></div>
+              {v.models.map((m) => <div key={m.name} className="flex flex-wrap justify-between gap-x-3"><dt className="min-w-0 break-all">{m.name}</dt><dd className="text-muted tabular">{m.detail}</dd></div>)}
+            </dl>
+            <p className="mt-2 text-xs text-muted">{t("yourplan.cost_body")}</p>
+          </details>
         </>
       )}
     </section>

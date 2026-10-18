@@ -44,7 +44,11 @@ test("multi-storey journey: 4-floor hospital from the map to a one-floor replay"
   try {
     const switcher = page.getByRole("radiogroup", { name: "Floors to show" });
     await expect(switcher.getByRole("radio")).toHaveCount(6); // all, spread apart, 4 floors
+    // adding and removing storeys lives under "More options"; floor tabs pick the floor in the list
+    await expect(page.getByRole("group", { name: "Floor shown in the list" }).getByRole("button")).toHaveCount(5);
+    await page.getByText("More options").click();
     await expect(page.getByRole("heading", { name: "Floors and rooms" })).toBeAttached();
+    await page.getByText("More options").click();
     await expect(page.locator("canvas").first()).toBeVisible();
     await page.waitForTimeout(4000); // let the 3D view draw before the screenshot
     await shot(page, "check-hospital-4f");
@@ -62,7 +66,8 @@ test("multi-storey journey: 4-floor hospital from the map to a one-floor replay"
     await expect(page).toHaveURL(/\/p\/p_[^/]+\?session=/, { timeout: 840_000 });
     await expect(page.getByRole("region", { name: "Verdict" })).toBeVisible({ timeout: 30_000 });
 
-    // one-floor replay: the replay's floor switcher shows that floor alone
+    // one-floor replay: the replay's floor switcher puts that floor in focus
+    await page.getByRole("tab", { name: "Replay" }).click();
     const replay = page.getByRole("region", { name: "Replay" });
     const replaySwitch = replay.getByRole("radiogroup", { name: "Floors to show" });
     await expect(replaySwitch).toBeVisible({ timeout: 30_000 });
@@ -71,7 +76,9 @@ test("multi-storey journey: 4-floor hospital from the map to a one-floor replay"
     await page.waitForTimeout(3000);
     await replay.scrollIntoViewIfNeeded();
     await shot(page, "plan-hospital-one-floor");
-    // multi-storey replays chart people per floor
+    // multi-storey plans have a Floors tab: one small plan per storey and people per floor over time
+    await page.getByRole("tab", { name: /^Floors/ }).click();
+    await expect(page.getByTestId("floor-cards").getByRole("listitem")).toHaveCount(4);
     await expect(page.getByRole("heading", { name: "People on each floor" })).toBeVisible({ timeout: 30_000 });
   } finally {
     await page.request.delete(`/api/v1/projects/${id}`);

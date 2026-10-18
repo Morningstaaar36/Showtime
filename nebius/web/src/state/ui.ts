@@ -19,8 +19,9 @@ export interface Selection {
   y?: number;
 }
 
-/** Which floors the 3D view shows: all stacked, spread apart, or one floor alone (its id). */
-export type FloorView = "all" | "exploded" | (string & {});
+/** Which floors the 3D view shows: all stacked, spread apart, or one floor in focus (its id) with
+ * the others ghosted. "auto" focuses the lowest floor of a tall building, else shows all. */
+export type FloorView = "auto" | "all" | "exploded" | (string & {});
 
 export interface Layers {
   people: boolean;
@@ -120,7 +121,7 @@ export const useUi = create<UiState>((set, get) => ({
   draft: [],
   proposal: null,
   focusFloor: null,
-  floorView: prefs.layers?.exploded ? "exploded" : "all",
+  floorView: prefs.layers?.exploded ? "exploded" : "auto",
   flyTo: null,
   shot: null,
   setShot: (pos, target) => set((s) => ({ shot: { pos, target, nonce: (s.shot?.nonce ?? 0) + 1 } })),
@@ -135,7 +136,7 @@ export const useUi = create<UiState>((set, get) => ({
       const on = v ?? !s.layers[k];
       const layers = { ...s.layers, [k]: on };
       if (k !== "exploded") return { layers };
-      return { layers, floorView: on ? "exploded" : s.floorView === "exploded" ? "all" : s.floorView };
+      return { layers, floorView: on ? "exploded" : s.floorView === "exploded" ? "auto" : s.floorView };
     });
     savePrefs(get());
   },
@@ -159,7 +160,7 @@ export const useUi = create<UiState>((set, get) => ({
     set((s) => ({ selection: null, hover: null, activeRunId: null, compareRunId: null, blockedExits: [],
           tier1Preview: null, draft: [], proposal: null, focusFloor: null, tool: "select", editFloor: null,
           // a floor id belongs to one venue; the exploded preference carries over
-          floorView: s.floorView === "exploded" ? "exploded" : "all" })),
+          floorView: s.floorView === "exploded" ? "exploded" : "auto" })),
 
   // --- building editor (feat/editor) ---
   editFloor: null,

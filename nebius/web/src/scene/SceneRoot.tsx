@@ -9,7 +9,7 @@ import type { Replay } from "@/replay/useReplay";
 import { isBuildTool, useUi } from "@/state/ui";
 import { CameraRig } from "./CameraRig";
 import { ChangeHighlights, DraftPreview, MoveGizmo } from "./EditTools";
-import { resolveFloorView, venueBounds } from "./geom";
+import { FOCUS_FROM, resolveFloorView, venueBounds } from "./geom";
 import { useScenePalette } from "./palette";
 import { labelledIds } from "./labels";
 import { LabelLayer } from "./SceneHtml";
@@ -61,8 +61,10 @@ export function SceneRoot(p: SceneProps) {
   const showAgents = layers.people && p.replay;
   const site = useMemo(() => osmSite(p.venue), [p.venue]);
   const labelLayer = useRef<HTMLDivElement>(null);
-  // one floor alone: the model, hotspots and highlights see a venue holding only that floor;
-  // people and the heatmap keep the full venue (their floor indexes) and skip the others
+  // one floor in focus: the model draws it in full and the other storeys as ghosts (outlines, no
+  // labels) with every stair highlighted; hotspots and highlights see a venue holding only that
+  // floor; the heatmap keeps the full venue (its floor indexes) and skips the others, and people
+  // on the other floors stay as faint markers so a building's evacuation still reads
   const floorView = useUi((s) => s.floorView);
   const view = resolveFloorView(p.venue, floorView);
   const onlyFloor = view === "all" || view === "exploded" ? null : view;
@@ -71,9 +73,8 @@ export function SceneRoot(p: SceneProps) {
     if (!floor) return p.venue;
     return { ...p.venue, floors: [floor], stairs: [], routes: (p.venue.routes ?? []).filter((r) => r.floor_id === floor.floor_id) };
   }, [p.venue, onlyFloor]);
-  // one floor alone: its stairs show as landings ("Stairs down", "Stairs up")
-  const stubStairs = useMemo(() => (onlyFloor ? (p.venue.stairs ?? []).filter((s) => s.from_floor === onlyFloor || s.to_floor === onlyFloor) : []),
-    [p.venue, onlyFloor]);
+  // a tall building seen whole: room walls drawn low, so the storeys read as clean floor plates
+  const stacked = view === "all" && p.venue.floors.length >= FOCUS_FROM;
   const editFloor = useUi((s) => s.editFloor);
   const labelled = useMemo(() => labelledIds(p.venue, view, editFloor), [p.venue, view, editFloor]);
   const hotspots = onlyFloor ? p.hotspots.filter((h) => h.floor_id === onlyFloor) : p.hotspots;
@@ -123,13 +124,14 @@ export function SceneRoot(p: SceneProps) {
         {site && <SiteContext venue={p.venue} palette={palette} show={{ map: true, neighbours: true }} />}
         {layers.night && <ShowLights venue={shown} exploded={layers.exploded} />}
         <VenueModel
-          venue={shown}
+          venue={onlyFloor ? p.venue : shown}
+          focusFloor={onlyFloor}
+          stacked={stacked}
           palette={palette}
           onMap={!!site}
           exploded={layers.exploded}
           labels={layers.labels}
           labelled={labelled}
-          stubStairs={stubStairs}
           showZones={layers.zones && !showAgents}
           selectedId={selection?.id ?? null}
           blocked={blocked}
@@ -144,7 +146,7 @@ export function SceneRoot(p: SceneProps) {
         {p.replay && p.clock !== false && <PlaybackClock />}
         {showAgents && p.replay && (
           <Agents traj={p.replay.traj} density={p.replay.density} venue={p.venue} exploded={layers.exploded} palette={palette}
-                  onlyFloor={onlyFloor} kinds={p.replay.kinds} />
+                  onlyFloor={onlyFloor} ghostOthers kinds={p.replay.kinds} />
         )}
         {p.replay?.density && (layers.heatmap || layers.terrain) && (
           <DensityLayer density={p.replay.density} venue={p.venue} exploded={layers.exploded} palette={palette}
@@ -169,7 +171,7 @@ export function SceneRoot(p: SceneProps) {
         {p.children}
       </Suspense>
 
-      <CameraRig venue={p.venue} resetNonce={p.resetNonce} exploded={layers.exploded} />
+      <CameraRig venue={p.venue} resetNonce={p.resetNonce} exploded={layers.exploded} focusFloor={onlyFloor} />
 
       {p.quality === "high" && (
         <EffectComposer multisampling={0} enableNormalPass={false}>
