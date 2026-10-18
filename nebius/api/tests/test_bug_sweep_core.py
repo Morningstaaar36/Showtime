@@ -209,3 +209,29 @@ async def test_a_stale_forecast_is_refreshed_and_kept_when_offline(
 
     with pytest.raises(WeatherUnavailable):
         await wx.hourly_gusts(23.7, 90.4, "Asia/Dhaka", day + timedelta(days=1))
+
+
+def test_a_new_door_never_straddles_an_interior_wall(registry: Registry) -> None:
+    from shapely.geometry import Polygon as P
+
+    from api.models import Obstacle
+
+    venue = _ground()
+    # a room wall meets the east wall at y = 5 (room to the south, corridor to the north)
+    wall = [(40.0, 4.9), (60.0, 4.9), (60.0, 5.1), (40.0, 5.1)]
+    venue.floors[0].obstacles.append(Obstacle(id="room_wall", kind="wall", polygon=wall))
+    res = patch(
+        registry,
+        venue,
+        {
+            "op": "add_exit",
+            "floor_id": "F0",
+            "id": "door_new",
+            "wall": "east",
+            "center": 5.0,
+            "width_m": 2.0,
+        },
+    )
+    door = P(next(e.polygon for e in res.venue.floors[0].exits if e.id == "door_new"))
+    assert not door.intersects(P(wall).buffer(0.05))
+    assert abs((door.bounds[1] + door.bounds[3]) / 2 - 5.0) < 2.0  # slid only as far as needed

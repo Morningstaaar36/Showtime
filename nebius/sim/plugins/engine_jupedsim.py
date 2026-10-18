@@ -43,7 +43,7 @@ COUNTERFLOW_STAIR_FACTOR = 0.5  # same as the instant estimate (plugins/events_c
 # People who move differently (a zone's `groups`): level walking speed (m/s) and body radius (m).
 # Sources and limits in docs/ASSUMPTIONS.md ("People mix"). Mirrored in api/core/tier1.py.
 KIND_SPEED = {"elderly": 0.97, "child": 1.0, "wheelchair": 0.69, "bed": 0.5}
-KIND_RADIUS = {"child": 0.17, "wheelchair": 0.4, "bed": 0.6}
+KIND_RADIUS = {"child": 0.17, "wheelchair": 0.35, "bed": 0.45}
 
 
 def assign_kinds(n: int, groups: list[dict[str, Any]], rng: np.random.Generator) -> list[str]:

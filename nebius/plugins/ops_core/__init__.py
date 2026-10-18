@@ -178,9 +178,12 @@ class AddExitOp:
         floor = venue.floors[fi]
         first = geo.exit_on_wall(floor.walkable, p.wall, p.center, p.width_m)
         others = [geo.to_polygon(e.polygon).buffer(0.5) for e in floor.exits if e.id != p.id]
+        # a door must open into one space: never across an interior wall (a door straddling
+        # the wall between a room and the corridor leaves the room's people pinned to it)
+        others += [geo.to_polygon(o.polygon).buffer(0.05) for o in floor.obstacles]
         if not any(geo.to_polygon(first).intersects(o) for o in others):
             return first
-        # an exit is already there: take the nearest free spot on the same wall
+        # an exit or a wall is already there: take the nearest free spot on the same wall
         minx, miny, maxx, maxy = geo.to_polygon(floor.walkable).bounds
         lo, hi = (miny, maxy) if p.wall in ("east", "west") else (minx, maxx)
         want = p.center if p.center is not None else (lo + hi) / 2
@@ -195,7 +198,9 @@ class AddExitOp:
                 continue
             if not any(geo.to_polygon(cand).intersects(o) for o in others):
                 return cand
-        raise ValueError(f"the {p.wall} wall has no free {p.width_m:g} m stretch left")
+        raise ValueError(
+            f"the {p.wall} wall has no free {p.width_m:g} m stretch left between exits and walls"
+        )
 
     def validate(self, venue: Venue, params: AddExitParams) -> list[str]:
         if _floor_index(venue, params.floor_id) is None:

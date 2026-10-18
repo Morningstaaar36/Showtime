@@ -50,8 +50,8 @@ Who is who is drawn with the run's seed (exact shares, largest remainder) and sa
 | general adult, staff | normal distribution, mean 1.34 m/s | 0.22 m | as above |
 | elderly | 0.97 m/s | 0.22 m | 15th-percentile walking speed of older pedestrians, Knoblauch, Pietrucha & Nitzburg 1996, *Transportation Research Record* 1538 [VERIFY] |
 | child | 1.0 m/s | 0.17 m | [VERIFY] e.g. Larusdottir & Dederichs 2012, *Fire Technology* 48 (children's evacuation) |
-| wheelchair | 0.69 m/s | 0.40 m | Boyce, Shields & Silcock 1999, *Fire Technology* 35(1) [VERIFY]; radius from a 0.7 × 1.2 m wheelchair (ISO 7193) |
-| hospital bed | 0.5 m/s | 0.60 m | [VERIFY] a bed pushed by staff along a corridor; screening value |
+| wheelchair | 0.69 m/s | 0.35 m | Boyce, Shields & Silcock 1999, *Fire Technology* 35(1) [VERIFY]; radius = half the 0.7 m width of a wheelchair (ISO 7193) |
+| hospital bed | 0.5 m/s | 0.45 m | [VERIFY] a bed pushed by staff along a corridor; radius = half a 0.9 m bed width (a circle cannot model its length) |
 
 Each person's speed varies ±10 % around the value. A wide body that does not fit where people
 were placed keeps its speed and takes an ordinary person's room (the run is never stopped for
