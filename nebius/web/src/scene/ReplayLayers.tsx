@@ -78,6 +78,7 @@ export function Agents({ traj, density, venue, exploded, palette, onlyFloor = nu
   useEffect(() => () => geometries.forEach((g) => g.dispose()), [geometries]);
   const tmp = useMemo(() => new THREE.Color(), []);
   const faint = useMemo(() => new THREE.Color(palette.bg), [palette.bg]);
+  const heatMax = density?.displayMax ?? DENSITY_MAX;
   const only = onlyFloor ? traj.index.floors.indexOf(onlyFloor) : -1;
   const densFloor = useMemo(() => {
     // traj floor index -> density floor index
@@ -119,13 +120,13 @@ export function Agents({ traj, density, venue, exploded, palette, onlyFloor = nu
         else tmp.copy(bases[s]);
         if (!other && density && frame >= 0 && densFloor[f] >= 0) {
           const d = density.at(frame, densFloor[f], x, y);
-          tmp.lerp(LUT_COLORS[Math.min(255, Math.round((d / DENSITY_MAX) * 255))], Math.min(1, Math.max(0, (d - 1.0) / 2.5)));
+          tmp.lerp(LUT_COLORS[Math.min(255, Math.round((d / heatMax) * 255))], Math.min(1, Math.max(0, (d - 1.0) / 2.5)));
         }
         m.setColorAt(i, tmp);
       } else if (density && frame >= 0 && densFloor[f] >= 0) {
         const d = density.at(frame, densFloor[f], x, y);
         const k = Math.min(1, Math.max(0, (d - 1.0) / 2.5));
-        const lut = LUT_COLORS[Math.min(255, Math.round((d / DENSITY_MAX) * 255))];
+        const lut = LUT_COLORS[Math.min(255, Math.round((d / heatMax) * 255))];
         // with people kinds the shape carries the kind, so a crush still tints every marker
         tmp.copy(bases[s]).lerp(lut, k);
         m.setColorAt(i, tmp);
@@ -226,11 +227,11 @@ export function DensityLayer({ density, venue, exploded, palette, terrain, onlyF
     uniforms: {
       uA: { value: L.a }, uB: { value: L.b }, uMix: { value: 0 }, uLut: { value: lut },
       uScale: { value: scale }, uDanger: { value: danger }, uWarn: { value: warn },
-      uMaxD: { value: DENSITY_MAX }, uOpacity: { value: 0.8 }, uLift: { value: 0 }, uSolid: { value: 0 },
+      uMaxD: { value: density.displayMax ?? DENSITY_MAX }, uOpacity: { value: 0.8 }, uLift: { value: 0 }, uSolid: { value: 0 },
       uDangerColor: { value: new THREE.Color(palette.danger) },
       uWarnColor: { value: new THREE.Color(palette.caution) },
     },
-  })), [layers, lut, scale, danger, warn, palette.danger, palette.caution]);
+  })), [layers, lut, scale, danger, warn, palette.danger, palette.caution, density.displayMax]);
 
   useEffect(() => () => {
     for (const L of layers) { L.a.dispose(); L.b.dispose(); }

@@ -35,6 +35,8 @@ export interface OverviewProps {
   /** fixes included in the numbers */
   fixes: number;
   reasons: string[];
+  /** the red team's round in three numbers */
+  score: { attacks: number; breaks: number; fixes: number };
   run: RunResult | null;
   basis: string;
   countdown: Countdown | null | undefined;
@@ -109,7 +111,7 @@ function CompareRow({ label, icon, before, after, fmt, lowerBetter = true }: {
     </div>
   );
   return (
-    <li className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-x-3 gap-y-1 py-2 max-sm:grid-cols-[1fr_auto]">
+    <li className="grid grid-cols-[minmax(0,10.5rem)_1fr_auto] items-center gap-x-3 gap-y-1 py-2 max-sm:grid-cols-[1fr_auto]">
       <span className="flex min-w-0 items-center gap-2 text-sm font-medium max-sm:col-span-1"><span className="text-muted [&_svg]:size-4" aria-hidden>{icon}</span><span className="truncate">{label}</span></span>
       <span className="space-y-1 max-sm:col-span-2 max-sm:row-start-2">
         <span className="flex items-center gap-2"><span className="w-10 text-2xs text-muted">{t("yourplan.before")}</span>{bar(before, "bg-line")}<span className="w-20 text-right text-xs tabular">{fmt(before)}</span></span>
@@ -174,6 +176,14 @@ export function Overview(p: OverviewProps) {
               <li key={r} className="flex items-start gap-2 font-medium text-[color-mix(in_srgb,var(--danger)_80%,black)] dark:text-danger"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{r}</li>
             ))}
           </ul>
+          <dl className="mt-auto grid grid-cols-3 gap-2 text-center">
+            {([["attacks", p.score.attacks, "text-ink"], ["breaks", p.score.breaks, p.score.breaks ? "text-danger" : "text-ink"], ["fixes", p.score.fixes, "text-signal"]] as const).map(([k, v, c]) => (
+              <div key={k} className="rounded-[10px] bg-surface/70 px-2 py-2">
+                <dd className={cn("text-2xl font-bold leading-none tabular", c)}>{fmtInt(v)}</dd>
+                <dt className="mt-1 text-2xs text-muted">{t(`plan.score_${k}`)}</dt>
+              </div>
+            ))}
+          </dl>
         </div>
 
         <div className="min-w-0 lg:col-span-3">{p.hero}</div>
@@ -205,7 +215,7 @@ export function Overview(p: OverviewProps) {
           <h2 id="ba-h" className="flex items-center gap-2 font-semibold"><Sparkles className="size-4 text-signal" aria-hidden />{t("plan.before_after")}</h2>
           {hasCompare ? (
             <ul className="mt-1 divide-y divide-border">
-              <CompareRow label={t("yourplan.n_evac")} icon={<Clock3 />} before={evacOf(b)} after={evacOf(a)}
+              <CompareRow label={t("plan.fix_evac")} icon={<Clock3 />} before={evacOf(b)} after={evacOf(a)}
                           fmt={(v) => (v == null ? t("plan.not_all_out") : fmtDuration(v))} />
               <CompareRow label={t("yourplan.n_peak")} icon={<Gauge />} before={num(b?.peak_density_ppm2)} after={num(a?.peak_density_ppm2)}
                           fmt={(v) => (v == null ? "–" : `${fmtNum(v, 1)} /m²`)} />

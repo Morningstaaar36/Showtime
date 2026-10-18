@@ -15,7 +15,7 @@ import { Sparkline } from "./visuals";
 
 const path = (pts: Pt[], close = true) => pts.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(2)},${(-p[1]).toFixed(2)}`).join("") + (close ? "Z" : "");
 
-function MiniPlan({ venue, floorId, stairUse, bounds }: { venue: Venue; floorId: string; stairUse: Record<string, number>; bounds: [number, number, number, number] }) {
+function MiniPlan({ venue, floorId, bounds }: { venue: Venue; floorId: string; bounds: [number, number, number, number] }) {
   const f = venue.floors.find((x) => x.floor_id === floorId)!;
   const [x0, y0, x1, y1] = bounds;
   const w = Math.max(x1 - x0, 1), h = Math.max(y1 - y0, 1);
@@ -34,16 +34,6 @@ function MiniPlan({ venue, floorId, stairUse, bounds }: { venue: Venue; floorId:
         return <path key={s.id} d={path(poly)} fill="var(--sky)" fillOpacity={0.85} stroke="var(--sky-strong)" strokeWidth={sw} />;
       })}
       {f.exits.map((e) => <path key={e.id} d={path(e.polygon as Pt[])} fill="var(--egress)" stroke="var(--egress)" strokeWidth={sw * 3} />)}
-      {stairs.map((s) => {
-        const poly = (s.from_floor === floorId ? s.top_polygon : s.bottom_polygon) as Pt[];
-        const cx = poly.reduce((a, p) => a + p[0], 0) / poly.length, cy = poly.reduce((a, p) => a + p[1], 0) / poly.length;
-        return (
-          <text key={`n${s.id}`} x={cx} y={-cy - Math.max(w, h) * 0.035} textAnchor="middle" fontSize={Math.max(w, h) * 0.06}
-                className="fill-ink font-semibold" style={{ paintOrder: "stroke", stroke: "var(--surface)", strokeWidth: Math.max(w, h) * 0.012 }}>
-            {fmtInt(stairUse[s.id] ?? 0)}
-          </text>
-        );
-      })}
     </svg>
   );
 }
@@ -53,6 +43,12 @@ export function FloorsTab({ venue, traj, onWatch }: { venue: Venue; traj: Trajec
   const summary = useMemo(() => (traj ? floorsSummary(traj, venue) : null), [traj, venue]);
   const bounds = useMemo(() => venueBounds(venue), [venue]);
   const floors = floorsBottomUp(venue).reverse();
+  const stairsOf = (id: string) => (venue.stairs ?? []).filter((x) => x.from_floor === id);
+  const cxAll = (bounds[0] + bounds[2]) / 2, span = Math.max(bounds[2] - bounds[0], 1);
+  const stairSide = (st: NonNullable<Venue["stairs"]>[number]) => {
+    const x = (st.top_polygon as Pt[]).reduce((a, p) => a + p[0], 0) / st.top_polygon.length;
+    return t(x < cxAll - span / 6 ? "plan.fl_west" : x > cxAll + span / 6 ? "plan.fl_east" : "plan.fl_middle");
+  };
   const totalStair = summary ? Object.values(summary.stairs).reduce((a, b) => a + b, 0) : 0;
   return (
     <div className="space-y-4">
@@ -74,7 +70,16 @@ export function FloorsTab({ venue, traj, onWatch }: { venue: Venue; traj: Trajec
                   <span className="font-semibold">{name(f.floor_id)}</span>
                   <Play className="size-4 text-muted group-hover:text-signal" aria-hidden />
                 </span>
-                <MiniPlan venue={venue} floorId={f.floor_id} stairUse={summary?.stairs ?? {}} bounds={bounds} />
+                <MiniPlan venue={venue} floorId={f.floor_id} bounds={bounds} />
+                {summary && stairsOf(f.floor_id).length > 0 && (
+                  <span className="flex flex-wrap gap-1.5">
+                    {stairsOf(f.floor_id).map((st) => (
+                      <span key={st.id} className="inline-flex items-center gap-1 rounded-full bg-sky-soft px-2 py-0.5 text-xs font-medium text-sky-strong tabular">
+                        <Footprints className="size-3" aria-hidden />{t("plan.fl_stair_use", { side: stairSide(st), n: fmtInt(summary.stairs[st.id] ?? 0) })}
+                      </span>
+                    ))}
+                  </span>
+                )}
                 <span className="grid grid-cols-2 gap-2 text-sm">
                   <span className="rounded-[8px] bg-surface-2 px-2 py-1">
                     <span className="flex items-center gap-1 text-2xs text-muted"><Users className="size-3" />{t("plan.fl_start")}</span>

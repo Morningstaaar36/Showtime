@@ -20,9 +20,13 @@ export class DensityGrid {
   readonly index: DensityIndex;
   readonly data: Uint8Array;
   readonly frameSize: number;
+  /** top of the colour scale; unset = people per m² ({@link DENSITY_MAX} in the scene). Grids in
+   * another unit (crowd pressure) set their own. */
+  displayMax?: number;
 
-  constructor(index: DensityIndex, buf: ArrayBuffer) {
+  constructor(index: DensityIndex, buf: ArrayBuffer, displayMax?: number) {
     this.index = index;
+    this.displayMax = displayMax;
     this.data = new Uint8Array(buf);
     this.frameSize = index.nx * index.ny;
   }

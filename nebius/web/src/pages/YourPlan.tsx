@@ -36,7 +36,8 @@ import { ReplayStage } from "@/journey/plan/ReplayStage";
 import { bestLine } from "@/journey/plan/rewind";
 import { RewindPanel } from "@/journey/plan/RewindPanel";
 import { SavedActions } from "@/journey/plan/SavedActions";
-import { DeeperChecks, ScenarioCards, ScenarioLibrary } from "@/journey/plan/ScenarioGallery";
+import { FailureMapSlot } from "@/journey/plan/FailureMapSlot";
+import { DeeperChecks, ScenarioCards, ScenarioCatalogue } from "@/journey/plan/ScenarioGallery";
 import { ScenarioList } from "@/journey/plan/ScenarioViewer";
 import { type ScenarioRow, scenarioMarkers, scenarioRows } from "@/journey/plan/scenarios";
 import { SeedPanel } from "@/journey/plan/SeedPanel";
@@ -152,6 +153,7 @@ export function YourPlanPage() {
   const heroReplay = heroIsBefore ? beforeReplay.data : afterReplay.data ?? beforeReplay.data;
   const heroVenue = heroIsBefore ? beforeVenue : afterOk ? afterVenue : beforeVenue;
   const pressure = usePressure(shownId, activeReplayTab);
+  const turb = turbulence && !split && pressure.data ? pressure.data : null;
   // one clock: the replay the open tab shows drives it; the worst moment starts just before its peak
   const clockReplay = tab === "overview" ? heroReplay : activeReplayTab ? replay.data : null;
   const compareReplay = activeReplayTab && split ? beforeReplay.data : null;
@@ -284,6 +286,11 @@ export function YourPlanPage() {
   };
   const pick = (row: ScenarioRow) => { setPicked({ sid: sessionId, row }); usePlayback.getState().setT(0); };
   const previewing = !!proposal;
+  /** a run from outside the session (a sweep result, the failure map) plays in the replay */
+  const playRun = (runId: string, title: string) => {
+    pick({ key: `run:${runId}`, kind: "attack", title, runId, outcome: "unknown", evacS: null, peak: null, children: [] });
+    go("replay");
+  };
   const deciding = state === "pending" && kept.length > 0;
   const primary = deciding || state === "accepted_subset" ? null : state === "stale" ? "test" : "report";
   const multi = venue.floors.length > 1;
@@ -386,7 +393,9 @@ export function YourPlanPage() {
             <Overview level={verdictRun ? verdict.level : "unknown"} headline={verdictRun ? verdict.headline : t("yourplan.no_result")}
                       evaluation={subsetRun ? subsetRecord?.together?.evaluation : summary?.evaluation}
                       worst={worst ? human(worst.title) : null} fixes={hasAfter ? (state === "accepted_subset" ? record?.fix_ids.length ?? kept.length : kept.length) : 0}
-                      reasons={verdict.reasons} run={verdictRun} basis={basis} countdown={cd} countdownBasis={cdBasis} th={th}
+                      reasons={verdict.reasons} run={verdictRun}
+                      score={{ attacks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.attacks, 0) || (summary?.attacks?.length ?? 0),
+                               breaks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.breaks, 0), fixes: kept.length }} basis={basis} countdown={cd} countdownBasis={cdBasis} th={th}
                       targetS={venue.mode === "indoor" ? TARGET_INDOOR_S : TARGET_OUTDOOR_S}
                       before={summary?.before as SessionMetrics | undefined} after={summary?.after as SessionMetrics | undefined}
                       insideSeries={insideSeries(afterReplay.data ?? null)} hero={hero} next={next}
@@ -397,10 +406,12 @@ export function YourPlanPage() {
             <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
               <div className="min-w-0 space-y-2">
                 <ReplayStage label={t("yourplan.replay")} className="h-[58vh] min-h-[360px]"
-                             main={previewing ? { venue: proposal.venue, replay: null } : { venue: shownVenue.data ?? venue, replay: replay.data ?? null }}
+                             main={previewing ? { venue: proposal.venue, replay: null }
+                               : { venue: shownVenue.data ?? venue, replay: replay.data && turb ? { ...replay.data, density: turb.grid } : replay.data ?? null }}
                              compare={!previewing && split ? { venue: beforeVenue.data ?? venue, replay: beforeReplay.data ?? null } : null}
                              highlights={previewing ? proposal.changes : undefined}
-                             markers={markersFor(pickedRow, shownSide)} basis={previewing ? undefined : stageBasis} legend={previewing ? null : th}
+                             markers={markersFor(pickedRow, shownSide)} basis={previewing ? undefined : stageBasis}
+                             legend={previewing ? null : turb ? { warn: turb.warn, danger: turb.danger, max: turb.max, title: t("plan.turbulence_scale", { unit: turb.unit ?? "" }).trim() } : th}
                              chip={!previewing && pickedRow ? <span className="block truncate rounded-full bg-surface/95 px-3 py-1 text-sm font-medium shadow-sm">{pickedRow.title}</span> : undefined}
                              top={previewing ? undefined : pickedRow
                                ? <Button size="sm" className="pointer-events-auto shadow-sm" onClick={() => setPicked(null)}>{t("yourplan.sc_back")}</Button>
@@ -428,7 +439,8 @@ export function YourPlanPage() {
           <TabsContent value="scenarios" className="animate-tab-in space-y-6">
             <ScenarioCards rows={rows} attacks={summary?.attacks ?? []} name={label} stress={stressByAttack(stressRec)}
                            onPlay={(row) => { pick(row); go("replay"); }} />
-            <ScenarioLibrary projectId={p.id} />
+            <FailureMapSlot projectId={p.id} sessionId={sessionId} onSelectRun={playRun} />
+            <ScenarioCatalogue projectId={p.id} version={p.current_version} onPlay={playRun} />
             <DeeperChecks status={checkStatus} panels={{
               seeds: <SeedPanel sessionId={sessionId} human={human} />,
               range: <RangePanel sessionId={sessionId} />,

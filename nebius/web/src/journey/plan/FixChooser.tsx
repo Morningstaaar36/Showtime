@@ -11,11 +11,11 @@ import { Spinner } from "@/components/ui/misc";
 import { t } from "@/i18n";
 import { lockConflicts } from "@/lib/annotations";
 import { runBasisLabel } from "@/lib/evidence";
-import { fmtDuration, fmtNum } from "@/lib/format";
+import { fmtClock, fmtDuration, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { describeEvent, describeOp } from "@/panels/describe";
 import { DeltaChip } from "./visuals";
-import { evacValue, type FixTest, fixSource, fixTest, type NodeLike, testedTogether } from "./fixes";
+import { type FixTest, fixSource, fixTest, type NodeLike, testedTogether } from "./fixes";
 import { type TogetherCheck, togetherText } from "./range";
 import { actionText } from "./SavedActions";
 import type { PlanState } from "./state";
@@ -78,6 +78,13 @@ export function fixSummary(f: Fix, name: (id: string) => string): string {
   ].join(" · ");
 }
 
+/** "2:26", "~5:57" (estimated: not everyone was out), "–" (not reached). */
+function clockOf(m: Record<string, number | null | undefined>): string {
+  if (m.evac_time_p95_s != null) return fmtClock(m.evac_time_p95_s);
+  if (m.evac_time_estimate_s != null) return `~${fmtClock(m.evac_time_estimate_s)}`;
+  return "–";
+}
+
 /** One icon per kind of change: new door, fence, wider door, one-way, held back, stewards, staff. */
 export function fixIcon(f: Fix): React.ReactNode {
   const ops = ((f.patch?.ops ?? []) as PatchOpIn[]).map((o) => o.op as string);
@@ -102,7 +109,7 @@ function FixNumbers({ test, loading, attack }: { test: FixTest; loading: boolean
   const a = after.metrics ?? {};
   const evacN = (m: Record<string, number | null | undefined>) => m.evac_time_p95_s ?? m.evac_time_estimate_s ?? null;
   const rows: { key: string; label: string; from: string; to: string; b: number | null; a: number | null }[] = [
-    { key: "evac", label: t("plan.fix_evac"), from: evacValue(b), to: evacValue(a), b: evacN(b), a: evacN(a) },
+    { key: "evac", label: t("plan.fix_evac"), from: clockOf(b), to: clockOf(a), b: evacN(b), a: evacN(a) },
     { key: "peak", label: t("plan.fix_peak"), from: fmtNum(b.peak_density_ppm2, 1), to: fmtNum(a.peak_density_ppm2, 1), b: b.peak_density_ppm2 ?? null, a: a.peak_density_ppm2 ?? null },
     { key: "danger", label: t("plan.fix_danger"), from: fmtDuration(b.time_above_danger_s), to: fmtDuration(a.time_above_danger_s), b: b.time_above_danger_s ?? null, a: a.time_above_danger_s ?? null },
   ];

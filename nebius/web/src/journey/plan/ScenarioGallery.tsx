@@ -1,13 +1,20 @@
 /** Your plan › Scenarios: every tested scenario as a card (icon, short headline, pass or fail, one
  * key number), click to watch it; the scenario library when the server has one; and the deeper
  * checks (more seeds, how sure, rewind, stress at scale) as tiles that open their panel. */
-import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Code2, Dices, DoorClosed, ExternalLink, Gauge, History, Hourglass, Layers, Play, Repeat2, ShieldCheck, Snail, TriangleAlert, UsersRound } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  Accessibility, Ambulance, Baby, Ban, Bomb, BookOpen, Boxes, Car, Check, CloudLightning, CloudRain, Code2, Dices, DoorClosed, Droplets, ExternalLink, Fence,
+  Flame, Footprints, Gauge, HeartPulse, History, Hourglass, Layers, Lock, Megaphone, Moon, Music, PartyPopper, Play, Repeat2, ShieldAlert, ShieldCheck,
+  Siren, Snail, Sun, Swords, Thermometer, TriangleAlert, UsersRound, Waves, Wind, Zap, ZapOff,
+} from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
 import { api } from "@/api/client";
 import type { Attack } from "@/api/types";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/misc";
 import { t } from "@/i18n";
 import { fmtClock, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -68,14 +75,14 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay }: {
                 {r.children.length > 0 && <Badge tone="outline">{t("plan.sc_fixes", { k: kept, n: r.children.length })}</Badge>}
                 {st && <Badge tone={st.breaks ? "danger" : "egress"}>{t("plan.sc_stress", { k: st.breaks, n: st.runs })}</Badge>}
               </div>
-              <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
+              <div className="mt-auto flex items-center justify-between gap-2">
                 {a?.inspired_by?.source_url ? (
-                  <a href={a.inspired_by.source_url} target="_blank" rel="noreferrer" className="flex min-h-11 min-w-0 items-center gap-1 text-xs text-signal hover:underline">
+                  <a href={a.inspired_by.source_url} target="_blank" rel="noreferrer" className="flex min-h-11 min-w-0 flex-1 items-center gap-1 text-xs text-signal hover:underline">
                     <ExternalLink className="size-3 shrink-0" /><span className="truncate">{a.inspired_by.incident}{a.inspired_by.year ? ` (${a.inspired_by.year})` : ""}</span>
                   </a>
                 ) : <span />}
                 <button type="button" disabled={!playable} onClick={() => onPlay(r)} aria-label={t("plan.sc_watch", { title: r.title })}
-                        className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-plan transition hover:scale-[1.03] disabled:opacity-40">
+                        className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-plan transition hover:scale-[1.03] disabled:opacity-40">
                   <Play className="size-3.5" fill="currentColor" aria-hidden />{t("plan.sc_play")}
                 </button>
               </div>
@@ -87,42 +94,161 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay }: {
   );
 }
 
-// --- the scenario library (GET /scenarios?project_id=): shown only when the server has it --------
+// --- the scenario catalogue (GET /scenarios?project_id=) and the sweep that runs it ----------------
 
-let libraryMissing = false;
+let catalogueMissing = false;
 
-interface LibraryItem { id?: string; scenario_id?: string; title?: string; name?: string; kind?: string; category?: string; description?: string; summary?: string }
+/** One entry of the catalogue (novelty API): `icon` is a lucide icon name. */
+export interface CatalogueItem {
+  id: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  category?: string;
+  category_label?: string;
+  targets?: unknown[];
+  applicable?: boolean;
+}
 
-export function ScenarioLibrary({ projectId }: { projectId: string }) {
-  const q = useQuery({
-    queryKey: ["scenario-library", projectId],
-    enabled: !libraryMissing,
+export interface SweepItem {
+  key: string; label: string; run_id: string | null; status?: string; progress?: number | null; skipped?: string;
+  title?: string; icon?: string; category?: string; targets?: unknown[];
+  metrics?: { evac_time_p95_s: number | null; peak_density_ppm2: number; time_above_danger_s: number; agents_not_evacuated: number; agents_total: number };
+}
+interface Sweep { version: number | null; tier?: number; items: SweepItem[] }
+
+/** The icons the catalogue names (kebab-case or PascalCase), drawn from a fixed set so the
+ * bundle doesn't carry every lucide icon; anything else gets the warning sign. */
+const NAMED: Record<string, React.ReactNode> = {
+  doorclosed: <DoorClosed />, users: <UsersRound />, usersround: <UsersRound />, snail: <Snail />, flame: <Flame />, firesxtinguisher: <Flame />,
+  cloudrain: <CloudRain />, cloudlightning: <CloudLightning />, wind: <Wind />, siren: <Siren />, repeat: <Repeat2 />, repeat2: <Repeat2 />,
+  hourglass: <Hourglass />, timer: <Hourglass />, shieldalert: <ShieldAlert />, trianglealert: <TriangleAlert />, alerttriangle: <TriangleAlert />,
+  footprints: <Footprints />, accessibility: <Accessibility />, heartpulse: <HeartPulse />, megaphone: <Megaphone />, lock: <Lock />,
+  fence: <Fence />, ambulance: <Ambulance />, zap: <Zap />, zapoff: <ZapOff />, lightbulboff: <ZapOff />, moon: <Moon />, sun: <Sun />,
+  thermometer: <Thermometer />, droplets: <Droplets />, waves: <Waves />, ban: <Ban />, arrowleftright: <Repeat2 />, code: <Code2 />, code2: <Code2 />,
+  swords: <Swords />, baby: <Baby />, car: <Car />, bomb: <Bomb />, music: <Music />, partypopper: <PartyPopper />,
+};
+export const namedIcon = (name: string | null | undefined): React.ReactNode =>
+  NAMED[(name ?? "").toLowerCase().replace(/[^a-z0-9]/g, "")] ?? <TriangleAlert />;
+
+const busy = (it: SweepItem) => it.status === "running" || it.status === "queued";
+
+function useCatalogue(projectId: string) {
+  return useQuery({
+    queryKey: ["scenario-catalogue", projectId],
+    enabled: !catalogueMissing,
     retry: false,
     staleTime: 60_000,
-    queryFn: async () => {
+    queryFn: async (): Promise<CatalogueItem[] | null> => {
       try {
-        const out = await api.get<LibraryItem[] | { items?: LibraryItem[]; scenarios?: LibraryItem[] }>(`/scenarios?project_id=${encodeURIComponent(projectId)}`);
+        const out = await api.get<CatalogueItem[] | { items?: CatalogueItem[]; scenarios?: CatalogueItem[] }>(`/scenarios?project_id=${encodeURIComponent(projectId)}`);
         return Array.isArray(out) ? out : out.items ?? out.scenarios ?? [];
       } catch (e) {
-        if ((e as { status?: number }).status === 404) libraryMissing = true;
+        if ((e as { status?: number }).status === 404) catalogueMissing = true;
         return null;
       }
     },
   });
-  const items = q.data ?? [];
-  if (!items.length) return null;
+}
+
+/** Pick scenarios from the catalogue (or the six standard what-ifs on a server without one), run
+ * them in parallel sandboxes, and watch any result in the replay. */
+export function ScenarioCatalogue({ projectId, version, onPlay }: { projectId: string; version: number; onPlay: (runId: string, title: string) => void }) {
+  const qc = useQueryClient();
+  const catalogue = useCatalogue(projectId);
+  const items = catalogue.data ?? [];
+  const sweep = useQuery({
+    queryKey: ["sweep", projectId],
+    queryFn: () => api.get<Sweep>(`/projects/${projectId}/sweep`),
+    refetchInterval: (q) => (q.state.data?.items.some(busy) ? 2500 : false),
+  });
+  const [chosen, setChosen] = useState<Set<string> | null>(null);
+  const picks = chosen ?? new Set(items.filter((i) => i.applicable !== false).slice(0, 6).map((i) => i.id));
+  const run = useMutation({
+    mutationFn: () => api.post<Sweep>(`/projects/${projectId}/sweep`, items.length ? { scenarios: [...picks] } : {}),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["sweep", projectId] }); toast.success(t("plan.sweep_queued")); },
+    onError: (e) => toast.error(e.message, { description: (e as { hint?: string | null }).hint ?? undefined }),
+  });
+  const results = sweep.data?.items ?? [];
+  const running = results.some(busy) || run.isPending;
+  const stale = sweep.data?.version != null && sweep.data.version !== version;
+  const groups = [...new Set(items.map((i) => i.category_label ?? i.category ?? ""))];
+  const flip = (id: string) => { const next = new Set(picks); if (next.has(id)) next.delete(id); else next.add(id); setChosen(next); };
+
   return (
-    <section aria-labelledby="lib-h" className="space-y-3">
-      <h2 id="lib-h" className="flex items-center gap-2 text-lg font-semibold"><BookOpen className="size-5 text-signal" aria-hidden />{t("plan.library")}</h2>
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {items.slice(0, 24).map((it, i) => (
-          <li key={it.id ?? it.scenario_id ?? i} className="rounded-[var(--radius-panel)] border border-border bg-surface p-3 shadow-sm">
-            <p className="font-semibold leading-snug">{it.title ?? it.name ?? it.id}</p>
-            {(it.kind ?? it.category) && <Badge tone="outline" className="mt-1">{it.kind ?? it.category}</Badge>}
-            {(it.summary ?? it.description) && <p className="mt-1 line-clamp-2 text-xs text-muted">{it.summary ?? it.description}</p>}
-          </li>
-        ))}
-      </ul>
+    <section aria-labelledby="cat-h" className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 id="cat-h" className="flex items-center gap-2 text-lg font-semibold"><BookOpen className="size-5 text-signal" aria-hidden />{t(items.length ? "plan.library" : "plan.whatifs")}</h2>
+          <p className="text-sm text-muted">{t(items.length ? "plan.library_lead" : "plan.whatifs_lead")}</p>
+        </div>
+        <Button variant={results.length ? "secondary" : "primary"} disabled={running || (items.length > 0 && picks.size === 0)} onClick={() => run.mutate()}>
+          {running ? <Spinner /> : <Boxes />}{items.length ? t("plan.sweep_run", { n: picks.size }) : t("plan.whatifs_run")}
+        </Button>
+      </div>
+
+      {groups.map((g) => (
+        <div key={g || "all"} className="space-y-2">
+          {g && <h3 className="text-sm font-semibold text-muted">{g}</h3>}
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {items.filter((i) => (i.category_label ?? i.category ?? "") === g).map((it) => {
+              const off = it.applicable === false;
+              const on = picks.has(it.id) && !off;
+              return (
+                <li key={it.id}>
+                  <label className={cn("flex h-full cursor-pointer items-start gap-3 rounded-[var(--radius-panel)] border-2 bg-surface p-3 shadow-sm transition",
+                                       on ? "border-signal" : "border-transparent hover:border-border-strong", off && "cursor-not-allowed opacity-55")}>
+                    <input type="checkbox" className="sr-only" checked={on} disabled={off} onChange={() => flip(it.id)} aria-label={it.title} />
+                    <span className={cn("grid size-10 shrink-0 place-items-center rounded-[10px] [&_svg]:size-5", on ? "bg-signal text-signal-ink" : "bg-surface-3 text-muted")} aria-hidden>{namedIcon(it.icon)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold leading-snug">{it.title}</span>
+                      {it.description && <span className="line-clamp-2 block text-xs text-muted">{it.description}</span>}
+                      {off ? <span className="mt-1 block text-2xs font-medium text-muted">{t("plan.not_applicable")}</span>
+                        : (it.targets?.length ?? 0) > 0 && <span className="mt-1 block text-2xs text-muted">{t("plan.targets", { n: it.targets!.length })}</span>}
+                    </span>
+                    {on && <Check className="size-4 shrink-0 text-signal" aria-hidden />}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+
+      {results.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">{t("plan.sweep_results")}{stale && <Badge tone="caution">{t("plan.sweep_stale")}</Badge>}</h3>
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {results.map((it) => {
+              const m = it.metrics;
+              const bad = !!m && (m.peak_density_ppm2 >= 5 || m.agents_not_evacuated > 0);
+              const title = it.title ?? it.label;
+              return (
+                <li key={it.key} className={cn("flex items-center gap-3 rounded-[var(--radius-panel)] border-2 bg-surface p-3 shadow-sm",
+                                               !m ? "border-border" : bad ? "border-danger/35" : "border-egress/30")}>
+                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-[10px] [&_svg]:size-5", !m ? "bg-surface-3 text-muted" : bad ? "bg-danger-soft text-danger-strong" : "bg-egress-soft text-egress-strong")} aria-hidden>
+                    {it.icon ? namedIcon(it.icon) : <Boxes />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-2 block text-sm font-semibold leading-snug">{title}</span>
+                    {it.skipped ? <span className="block text-2xs text-muted">{it.skipped}</span> : !m ? (
+                      <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-surface-3"><span className="block h-full animate-pulse rounded-full bg-signal" style={{ width: `${Math.max(8, (it.progress ?? 0) * 100)}%` }} /></span>
+                    ) : (
+                      <span className="block text-xs text-muted tabular">{t("yourplan.sc_metrics", { evac: m.evac_time_p95_s != null ? fmtClock(m.evac_time_p95_s) : "–", peak: fmtNum(m.peak_density_ppm2, 1) })}</span>
+                    )}
+                  </span>
+                  {m && it.run_id && (
+                    <button type="button" onClick={() => onPlay(it.run_id!, title)} aria-label={t("plan.sc_watch", { title })}
+                            className="grid size-11 shrink-0 place-items-center rounded-full bg-ink text-plan transition hover:scale-105">
+                      <Play className="size-4" fill="currentColor" aria-hidden />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

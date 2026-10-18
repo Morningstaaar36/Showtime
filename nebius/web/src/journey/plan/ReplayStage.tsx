@@ -12,6 +12,7 @@ import type { TimelineMarker } from "@/panels/Timeline";
 import type { Replay } from "@/replay/useReplay";
 import { SceneRoot } from "@/scene/SceneRoot";
 import { ReplayCaption } from "./ScenarioViewer";
+import { DensityScale } from "./visuals";
 
 const noop = () => {};
 
@@ -34,7 +35,8 @@ export function ReplayStage({ label, main, compare, markers, basis, chip, top, c
   chip?: React.ReactNode;
   top?: React.ReactNode;
   corner?: React.ReactNode;
-  legend?: { warn: number; danger: number } | null;
+  /** the heatmap's scale; `title` and `max` for a layer in another unit (turbulence) */
+  legend?: { warn: number; danger: number; title?: string; max?: number } | null;
   highlights?: ObjectChange[];
   className?: string;
 }) {
@@ -60,7 +62,16 @@ export function ReplayStage({ label, main, compare, markers, basis, chip, top, c
       {top && <div className="absolute inset-x-0 top-3 z-40 flex justify-center px-3 max-sm:top-14">{top}</div>}
       {main.replay && <ReplayCaption markers={markers} className="absolute inset-x-0 top-16 z-40 flex justify-center px-3 max-sm:top-28" />}
       <PeopleLegend replay={main.replay} className="absolute right-3 top-1/2 z-40 w-52 -translate-y-1/2 max-lg:hidden" />
-      {legend && main.replay?.density && <div className="pointer-events-none absolute bottom-3 right-3 z-40 max-md:hidden"><DensityLegend warn={legend.warn} danger={legend.danger} /></div>}
+      {legend && main.replay?.density && (
+        <div className="pointer-events-none absolute bottom-14 right-3 z-40 max-md:hidden">
+          {legend.title ? (
+            <div className="w-56 rounded-[var(--radius-control)] border border-border bg-surface/90 px-3 py-2 shadow-sm backdrop-blur">
+              <p className="mb-1.5 text-2xs font-medium text-muted">{legend.title}</p>
+              <DensityScale value={null} warn={legend.warn} danger={legend.danger} max={legend.max} />
+            </div>
+          ) : <DensityLegend warn={legend.warn} danger={legend.danger} />}
+        </div>
+      )}
       {!split && basis && <span className="pointer-events-none absolute bottom-3 left-3 z-40 rounded-full bg-surface/95 px-3 py-1 text-xs shadow-sm">{basis}</span>}
       {corner && <div className="absolute bottom-3 right-3 z-40">{corner}</div>}
     </section>
