@@ -200,7 +200,7 @@ export function YourPlanPage() {
   if (!p || !venue || sessions.isLoading) {
     return (
       <JourneyShell step="plan" projectId={projectId}>
-        <main className="mx-auto w-full max-w-6xl space-y-4 p-4"><Skeleton className="h-24" /><div className="grid gap-3 sm:grid-cols-3"><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /></div><Skeleton className="h-80" /></main>
+        <main className="mx-auto w-full max-w-6xl space-y-4 p-4"><Skeleton className="h-24" /><div className="grid grid-cols-1 gap-3 sm:grid-cols-3"><Skeleton className="h-24" /><Skeleton className="h-24" /><Skeleton className="h-24" /></div><Skeleton className="h-80" /></main>
       </JourneyShell>
     );
   }
@@ -403,7 +403,7 @@ export function YourPlanPage() {
           </TabsContent>
 
           <TabsContent value="replay" className="animate-tab-in">
-            <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
               <div className="min-w-0 space-y-2">
                 <ReplayStage label={t("yourplan.replay")} className="h-[58vh] min-h-[360px]"
                              main={previewing ? { venue: proposal.venue, replay: null }

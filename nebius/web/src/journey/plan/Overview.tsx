@@ -141,7 +141,7 @@ export function Overview(p: OverviewProps) {
 
   return (
     <div className="space-y-4">
-      <section aria-label={t("yourplan.verdict")} className="grid gap-4 lg:grid-cols-5">
+      <section aria-label={t("yourplan.verdict")} className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className={cn("relative flex flex-col gap-4 overflow-hidden rounded-[var(--radius-panel)] border-2 p-5 shadow-sm lg:col-span-2",
                            tone.soft, p.level === "holds" ? "border-egress/35" : p.level === "fails" ? "border-danger/35" : p.level === "at_risk" ? "border-caution/35" : "border-border")}>
           <div className="flex items-center gap-4">
@@ -178,9 +178,9 @@ export function Overview(p: OverviewProps) {
           </ul>
           <dl className="mt-auto grid grid-cols-3 gap-2 text-center">
             {([["attacks", p.score.attacks, "text-ink"], ["breaks", p.score.breaks, p.score.breaks ? "text-danger" : "text-ink"], ["fixes", p.score.fixes, "text-signal"]] as const).map(([k, v, c]) => (
-              <div key={k} className="rounded-[10px] bg-surface/70 px-2 py-2">
-                <dd className={cn("text-2xl font-bold leading-none tabular", c)}>{fmtInt(v)}</dd>
+              <div key={k} className="flex flex-col-reverse rounded-[10px] bg-surface/70 px-2 py-2">
                 <dt className="mt-1 text-2xs text-muted">{t(`plan.score_${k}`)}</dt>
+                <dd className={cn("text-2xl font-bold leading-none tabular", c)}>{fmtInt(v)}</dd>
               </div>
             ))}
           </dl>
@@ -188,7 +188,7 @@ export function Overview(p: OverviewProps) {
 
         <div className="min-w-0 lg:col-span-3">{p.hero}</div>
 
-        <ul className="grid gap-3 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-4" aria-label={t("plan.key_numbers")}>
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-4" aria-label={t("plan.key_numbers")}>
           <Tile icon={<Clock3 />} tone="bg-sky-soft text-sky-strong" label={t("yourplan.n_evac")} testId="kpi-evac"
                 value={m ? evacValue({ evac_time_p95_s: m.evac_time_p95_s, evac_time_estimate_s: extra.rset_extrapolated_s }) : "–"}
                 visual={<TargetBar value={evac} target={p.targetS} over={evac == null || evac > p.targetS}
@@ -210,7 +210,7 @@ export function Overview(p: OverviewProps) {
         </ul>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <section aria-labelledby="ba-h" className="rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm lg:col-span-3">
           <h2 id="ba-h" className="flex items-center gap-2 font-semibold"><Sparkles className="size-4 text-signal" aria-hidden />{t("plan.before_after")}</h2>
           {hasCompare ? (

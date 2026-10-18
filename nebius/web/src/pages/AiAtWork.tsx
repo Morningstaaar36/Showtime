@@ -1,7 +1,8 @@
 /** Step 2 of the guided journey (route `/p/:projectId/work`): honest progress of the AI test,
  * the latest finished simulation in 3D, and the attacks and fixes as they arrive. */
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, CircleAlert, CircleDashed, CircleMinus, ExternalLink, Loader2, Square, WifiOff, X } from "lucide-react";
+import { Check, CircleAlert, Code2, Coins, Cpu, DoorClosed, ExternalLink, Filter, Hourglass, Loader2, Repeat2, Scale, ShieldAlert, ShieldCheck, Snail, Sparkles, Square, Swords, TriangleAlert, UsersRound, WifiOff, Wrench, X } from "lucide-react";
+import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { qk, useProject, useRun, useRunVenue, useSession, useSessions, useStopSession } from "@/api/queries";
@@ -15,8 +16,9 @@ import { t } from "@/i18n";
 import { ScriptCode } from "@/journey/ScriptCode";
 import { runOutcome } from "@/lib/evidence";
 import { JourneyShell } from "@/journey/JourneyShell";
-import { workSteps } from "@/journey/workSteps";
-import { fmtDuration, fmtInt, fmtMoney } from "@/lib/format";
+import { type ScenarioKind, scenarioKind } from "@/journey/plan/gallery";
+import { type NodeKey, pipelineNodes, workSteps } from "@/journey/workSteps";
+import { fmtDuration, fmtInt, fmtMoney, fmtTokens } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { textHumanizer } from "@/lib/venueText";
 import { useReplay } from "@/replay/useReplay";
@@ -111,64 +113,86 @@ export function AiAtWorkPage() {
       return { id: fix.fix_id, kind: "fix" as const, title: human(fix.title), status: node?.accepted === true ? "kept" : node?.accepted === false ? "not_kept" : "testing", source: null, attack: null };
     }),
   ];
-  const visible = showAll ? cards : cards.slice(-4);
+  const visible = showAll ? cards : cards.slice(-8);
+  const nodes = pipelineNodes(view.phases, { ended, failed, now });
+  const breaks = view.scoreboard.reduce((n, r) => n + r.breaks, 0);
+  const attacksTried = view.scoreboard.reduce((n, r) => n + r.attacks, 0) || view.attacks.length;
+  const nodeCount: Record<NodeKey, number | null> = {
+    red_team: view.attacks.length || null,
+    screen: view.attacks.filter(({ attack }) => !!view.nodes[`atk:${attack.attack_id}`]).length || null,
+    simulate: okRuns || null,
+    fix: view.fixes.length || null,
+    judge: null,
+  };
+  const budget = view.cost?.budget_tokens ?? 0;
+  const used = view.cost?.tokens_total ?? 0;
+  const startedAt = view.phases[0] ? Date.parse(view.phases[0].ts) : null;
+  const lastAt = view.phases[view.phases.length - 1] ? Date.parse(view.phases[view.phases.length - 1].ts) : null;
+  const elapsed = startedAt != null ? Math.max(0, ((ended ? lastAt ?? now : now) - startedAt) / 1000) : null;
 
   return (
     <JourneyShell step="work" projectId={projectId} title={project.data?.name} back={{ to: `/p/${projectId}`, label: t("journey.your_plan") }} wide>
       <Confirm open={confirmStop} onOpenChange={setConfirmStop} title={t("work.stop_title")} body={t("work.stop_body")}
                confirmLabel={t("work.stop")} onConfirm={() => sessionId && stop.mutate(sessionId)} />
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside aria-label={t("work.progress")} className="flex w-full shrink-0 flex-col border-b border-border bg-surface lg:w-[360px] lg:border-b-0 lg:border-r">
-          <div className="flex-1 space-y-4 overflow-y-auto p-4">
-            <h1 className="text-xl font-semibold tracking-tight">{ended ? (failed ? t("work.failed_title") : t("work.done_title")) : t("work.title")}</h1>
-            {failed && <ErrorState message={session.data?.error || t("work.failed_body")} />}
-            <div className="space-y-1.5">
-              <div className="flex items-baseline justify-between text-sm">
-                <span className="font-medium">{ended ? t("work.all_done") : t("work.step_of", { n: Math.min(finishedSteps + 1, steps.length), total: steps.length })}</span>
-                <span className="text-muted tabular">{percent}%</span>
-              </div>
-              <div className="h-3 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={t("work.progress")}>
-                <div className={cn("h-full rounded-full transition-all duration-700", failed ? "bg-danger" : "bg-[linear-gradient(90deg,var(--sky),var(--signal),var(--pink))]")} style={{ width: `${percent}%` }} />
-              </div>
-              {!ended && <p className="text-sm text-muted">{t("work.leave_ok")}</p>}
-            </div>
-            <p className="sr-only" aria-live="polite">{current ? t(`work.step_${current.key}`) : ended ? t("work.done_title") : ""}</p>
-            <ol className="space-y-1">
-              {steps.map((s) => (
-                <li key={s.key} className={cn("flex items-start gap-3 rounded-[8px] px-2 py-2", s.status === "running" && "bg-signal-soft/60")}>
-                  <span className="mt-0.5 [&_svg]:size-5">
-                    {s.status === "done" ? <Check className="text-egress" /> : s.status === "running" ? <Loader2 className="animate-spin text-signal" />
-                      : s.status === "failed" ? <CircleAlert className="text-danger" /> : s.status === "skipped" ? <CircleMinus className="text-line" /> : <CircleDashed className="text-line" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={cn("block text-base", s.status === "pending" || s.status === "skipped" ? "text-muted" : "font-medium")}>{t(`work.step_${s.key}`)}</span>
-                    {s.status === "running" && view.message && <span className="block text-sm text-muted">{human(view.message)}</span>}
-                    {s.status === "skipped" && <span className="block text-sm text-muted">{t("work.skipped")}</span>}
-                  </span>
-                  {s.elapsedS != null && <span className="text-sm text-muted tabular">{fmtDuration(s.elapsedS)}</span>}
-                </li>
-              ))}
-            </ol>
-            {ended && !failed && (
-              <div className="space-y-2 rounded-[10px] border border-egress/35 bg-egress-soft p-3">
-                <p className="font-semibold">{status === "stopped" ? t("work.stopped_ready") : t("work.ready")}</p>
-                <Button asChild variant="primary" size="lg" className="w-full">
-                  <Link to={`/p/${projectId}?session=${sessionId}`} autoFocus>{t("work.open_plan")}</Link>
-                </Button>
-              </div>
-            )}
-            {!view.connected && !ended && view.lastSeq > 0 && (
-              <p className="flex items-center gap-2 text-sm text-muted"><WifiOff className="size-4" />{t("work.reconnecting")}</p>
-            )}
+      <main id="main" className="mx-auto flex w-full min-w-0 max-w-[1500px] flex-1 flex-col gap-4 p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl font-bold tracking-tight">{ended ? (failed ? t("work.failed_title") : t("work.done_title")) : t("work.title")}</h1>
+            <p className="text-sm text-muted tabular">
+              {ended ? t("work.all_done") : t("work.step_of", { n: Math.min(finishedSteps + 1, steps.length), total: steps.length })}
+              {elapsed != null && ` · ${fmtDuration(elapsed)}`}{!ended && ` · ${t("work.leave_short")}`}
+            </p>
           </div>
-          <div className="space-y-2 border-t border-border p-4 text-sm text-muted tabular">
-            <p>{t("work.sims", { n: fmtInt(okRuns) })}{view.cost ? ` · ${t("work.ai_usage", { tokens: fmtInt(view.cost.tokens_total), cost: fmtMoney(view.cost.cost_usd) })}` : ""}</p>
-            {!ended && <Button className="h-11 w-full" disabled={stop.isPending} onClick={() => setConfirmStop(true)}><Square className="size-3.5" />{t("work.stop")}</Button>}
-          </div>
-        </aside>
+          {!ended && <Button className="h-11" disabled={stop.isPending} onClick={() => setConfirmStop(true)}><Square className="size-3.5" />{t("work.stop")}</Button>}
+          {ended && !failed && (
+            <Button asChild variant="primary" size="lg"><Link to={`/p/${projectId}?session=${sessionId}`} autoFocus><Sparkles />{t("work.open_plan")}</Link></Button>
+          )}
+        </div>
+        {failed && <ErrorState message={session.data?.error || t("work.failed_body")} />}
 
-        <main id="main" className="flex min-w-0 flex-1 flex-col">
-          <div className="relative h-[45vh] lg:h-auto lg:flex-1">
+        {/* the pipeline: each agent lights up as its events arrive */}
+        <section aria-label={t("work.progress")} className="rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
+          <div className="h-2 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={t("work.progress")}>
+            <div className={cn("h-full rounded-full transition-all duration-700", failed ? "bg-danger" : "bg-[linear-gradient(90deg,var(--sky),var(--signal),var(--pink))]")} style={{ width: `${percent}%` }} />
+          </div>
+          <ol className="mt-4 grid grid-cols-5 items-start">
+            {nodes.map((n, i) => {
+              const on = n.status === "running";
+              const done = n.status === "done";
+              const next = nodes[i + 1];
+              return (
+                <li key={n.key} className="relative flex flex-col items-center gap-1.5 text-center">
+                  {next && (
+                    <span aria-hidden className={cn("absolute left-[calc(50%+1.9rem)] right-[calc(-50%+1.9rem)] top-7 h-1 rounded-full max-sm:left-[calc(50%+1.4rem)] max-sm:right-[calc(-50%+1.4rem)] max-sm:top-5",
+                      next.status === "running" ? "animate-flow" : done ? "bg-signal" : "bg-surface-3")} />
+                  )}
+                  <span className={cn("relative grid size-14 place-items-center rounded-full border-2 transition-all duration-500 [&_svg]:size-6 max-sm:size-10 max-sm:[&_svg]:size-5",
+                    on ? "animate-halo scale-110 border-signal bg-signal text-signal-ink" : done ? "border-signal bg-signal-soft text-signal"
+                      : n.status === "failed" ? "border-danger bg-danger-soft text-danger" : "border-border bg-surface-2 text-line")}>
+                    {NODE_ICON[n.key]}
+                    {nodeCount[n.key] != null && (
+                      <span className="absolute -right-1 -top-1 grid min-w-6 place-items-center rounded-full bg-ink px-1.5 text-2xs font-bold text-plan tabular">{nodeCount[n.key]}</span>
+                    )}
+                  </span>
+                  <span className={cn("text-sm font-semibold max-sm:text-2xs", n.status === "pending" || n.status === "skipped" ? "text-muted" : "text-ink")}>{t(`work.node_${n.key}`)}</span>
+                  <span className="text-2xs text-muted tabular max-sm:hidden">{n.elapsedS != null ? fmtDuration(n.elapsedS) : n.status === "skipped" ? t("work.skipped_short") : " "}</span>
+                </li>
+              );
+            })}
+          </ol>
+          <p className="sr-only" aria-live="polite">{current ? t(`work.step_${current.key}`) : ended ? t("work.done_title") : ""}</p>
+          <div className="mt-3 flex min-h-11 items-center gap-3 rounded-[10px] bg-surface-2 px-3 py-2">
+            {ended ? (failed ? <CircleAlert className="size-5 shrink-0 text-danger" /> : <Check className="size-5 shrink-0 text-egress" />) : <Loader2 className="size-5 shrink-0 animate-spin text-signal" />}
+            <span className="min-w-0">
+              <span className="block font-semibold">{current ? t(`work.step_${current.key}`) : ended ? (status === "stopped" ? t("work.stopped_ready") : t("work.ready")) : t("work.starting")}</span>
+              {!ended && view.message && <span className="block truncate text-sm text-muted">{human(view.message)}</span>}
+            </span>
+            {!view.connected && !ended && view.lastSeq > 0 && <span className="ml-auto flex items-center gap-1.5 text-sm text-muted"><WifiOff className="size-4" />{t("work.reconnecting")}</span>}
+          </div>
+        </section>
+
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="relative h-[45vh] min-h-72 overflow-hidden rounded-[var(--radius-panel)] border border-border lg:h-auto lg:min-h-[380px]">
             {venue && <FloorSwitch venue={venue} className="absolute right-3 top-3 z-50" />}
             {venue ? (
               <SceneRoot venue={runVenue.data ?? venue} replay={replay.data ?? null} hotspots={[]} marshals={[]} editable={false}
@@ -176,21 +200,48 @@ export function AiAtWorkPage() {
                          onFloorDoubleClick={() => {}} onMove={() => {}} onHotspot={() => {}} />
             ) : <Skeleton className="m-4 h-[calc(100%-2rem)]" />}
             <PeopleLegend replay={replay.data} className="absolute bottom-3 left-3 z-40 w-52" />
-            <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-surface/95 px-3 py-1 text-sm shadow-sm">
+            <span className="pointer-events-none absolute left-3 top-3 z-40 inline-flex items-center gap-1.5 rounded-full bg-surface/95 px-3 py-1 text-sm shadow-sm">
+              <span className={cn("size-2 rounded-full", replay.data ? "bg-egress" : "animate-pulse bg-line")} />
               {replay.data ? t("work.showing_latest") : t("work.waiting_sim")}
             </span>
           </div>
-          <section aria-label={t("work.trying")} className="border-t border-border bg-surface p-4">
-            <div className="mb-2 flex items-baseline justify-between">
-              <h2 className="font-semibold">{t("work.trying")}</h2>
-              {cards.length > 4 && <Button variant="link" onClick={() => setShowAll((v) => !v)}>{showAll ? t("work.show_less") : t("work.show_all", { n: cards.length })}</Button>}
+
+          <aside aria-label={t("work.scoreboard")} className="space-y-3">
+            <dl className="grid grid-cols-2 gap-2">
+              {([["attacks", attacksTried, "text-ink", <Swords key="a" />], ["breaks", breaks, breaks ? "text-danger" : "text-ink", <ShieldAlert key="b" />],
+                ["fixes", view.fixesAccepted, "text-signal", <Wrench key="c" />], ["sims", okRuns, "text-ink", <Cpu key="d" />]] as const).map(([k, v, c, icon]) => (
+                <div key={k} className="rounded-[var(--radius-panel)] border border-border bg-surface p-3 shadow-sm">
+                  <dt className="flex items-center gap-1.5 text-xs text-muted [&_svg]:size-3.5">{icon}{t(`work.sb_${k}`)}</dt>
+                  <dd className={cn("mt-1 text-3xl font-bold leading-none tabular transition-all", c)}>{fmtInt(v)}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-3 shadow-sm">
+              <p className="flex items-center justify-between gap-2 text-xs text-muted"><span className="flex items-center gap-1.5"><Coins className="size-3.5" />{t("work.ai_meter")}</span>
+                <span className="font-semibold text-ink tabular">{fmtMoney(view.cost?.cost_usd ?? session.data?.cost_usd ?? 0)}</span></p>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-3"><div className="h-full rounded-full bg-signal transition-all duration-700" style={{ width: `${budget ? Math.min(100, (used / budget) * 100) : 0}%` }} /></div>
+              <p className="mt-1 text-2xs text-muted tabular">{budget ? t("work.tokens_of", { n: fmtTokens(used), max: fmtTokens(budget) }) : t("work.tokens", { n: fmtTokens(used || (session.data?.tokens ?? 0)) })}</p>
             </div>
-            {cards.length === 0 ? <p className="text-sm text-muted">{ended ? t("work.no_cards") : t("work.cards_soon")}</p> : (
-              <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                {visible.map((c) => (
-                  <li key={`${c.kind}:${c.id}`} className="animate-deal-in rounded-[10px] border border-border p-3 text-sm">
+          </aside>
+        </div>
+
+        <section aria-label={t("work.trying")} className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-semibold">{t("work.trying")}</h2>
+            {cards.length > 8 && <Button variant="link" onClick={() => setShowAll((v) => !v)}>{showAll ? t("work.show_less") : t("work.show_all", { n: cards.length })}</Button>}
+          </div>
+          {cards.length === 0 ? <p className="text-sm text-muted">{ended ? t("work.no_cards") : t("work.cards_soon")}</p> : (
+            <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              {visible.map((c) => (
+                <li key={`${c.kind}:${c.id}`} className={cn("animate-deal-in flex min-w-0 gap-3 rounded-[var(--radius-panel)] border-2 bg-surface p-3 text-sm shadow-sm",
+                                                             c.status === "break" ? "border-danger/35" : c.status === "holds" || c.status === "kept" ? "border-egress/30" : "border-border")}>
+                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-[10px] [&_svg]:size-5",
+                                      c.kind === "attack" ? "bg-danger-soft text-danger-strong" : "bg-signal-soft text-signal")} aria-hidden>
+                    {c.kind === "attack" ? KIND_ICON[scenarioKind(c.attack)] : <Wrench />}
+                  </span>
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium leading-snug">{c.title}</p>
+                      <p className="line-clamp-2 font-semibold leading-snug">{c.title}</p>
                       {c.status === "break" && <Badge tone="danger"><X />{t("work.breaks")}</Badge>}
                       {c.status === "holds" && <Badge tone="egress"><Check />{t("work.holds")}</Badge>}
                       {c.status === "preview" && <Badge tone="neutral">{t("work.preview")}</Badge>}
@@ -199,20 +250,29 @@ export function AiAtWorkPage() {
                       {c.status === "not_kept" && <Badge tone="neutral">{t("work.not_kept")}</Badge>}
                       {(c.status === "running" || c.status === "testing") && <Badge tone="signal"><Loader2 className="animate-spin" />{t("work.testing")}</Badge>}
                     </div>
-                    <p className="mt-1 text-xs text-muted">{c.kind === "attack" ? t("work.risk") : t("work.fix")}</p>
+                    <p className="text-xs text-muted">{c.kind === "attack" ? t("work.risk") : t("work.fix")}</p>
                     {c.source?.source_url && (
-                      <a href={c.source.source_url} target="_blank" rel="noreferrer" className="mt-1 flex min-h-11 items-center gap-1 text-xs text-signal hover:underline">
-                        <ExternalLink className="size-3" />{t("work.inspired_by", { what: `${c.source.incident}${c.source.year ? ` (${c.source.year})` : ""}` })}
+                      <a href={c.source.source_url} target="_blank" rel="noreferrer" className="flex min-h-11 items-center gap-1 text-xs text-signal hover:underline">
+                        <ExternalLink className="size-3 shrink-0" /><span className="truncate">{t("work.inspired_by", { what: `${c.source.incident}${c.source.year ? ` (${c.source.year})` : ""}` })}</span>
                       </a>
                     )}
                     <ScriptCode attack={c.attack} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </main>
-      </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </main>
     </JourneyShell>
   );
 }
+
+const NODE_ICON: Record<NodeKey, React.ReactNode> = {
+  red_team: <Swords />, screen: <Filter />, simulate: <Cpu />, fix: <Wrench />, judge: <Scale />,
+};
+
+const KIND_ICON: Record<ScenarioKind, React.ReactNode> = {
+  block: <DoorClosed />, surge: <UsersRound />, slow: <Snail />, counter: <Repeat2 />, hold: <Hourglass />,
+  script: <Code2 />, normal: <ShieldCheck />, other: <TriangleAlert />,
+};

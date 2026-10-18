@@ -72,7 +72,7 @@ export function ReplayStage({ label, main, compare, markers, basis, chip, top, c
           ) : <DensityLegend warn={legend.warn} danger={legend.danger} />}
         </div>
       )}
-      {!split && basis && <span className="pointer-events-none absolute bottom-3 left-3 z-40 rounded-full bg-surface/95 px-3 py-1 text-xs shadow-sm">{basis}</span>}
+      {!split && basis && <span className={cn("pointer-events-none absolute bottom-3 left-3 z-40 max-w-[55%] truncate rounded-full bg-surface/95 px-3 py-1 text-xs shadow-sm", corner && "max-sm:hidden")}>{basis}</span>}
       {corner && <div className="absolute bottom-3 right-3 z-40">{corner}</div>}
     </section>
   );

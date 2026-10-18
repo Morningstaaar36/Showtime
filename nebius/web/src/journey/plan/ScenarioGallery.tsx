@@ -40,7 +40,7 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay }: {
   const shown = rows.filter((r) => r.kind === "baseline" || (r.kind === "attack" && !r.key.includes(":current:")));
   if (!shown.length) return <p className="text-sm text-muted">{t("yourplan.no_risks")}</p>;
   return (
-    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="scenario-gallery">
+    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="scenario-gallery">
       {shown.map((r, i) => {
         const a = r.kind === "attack" ? attacks.find((x) => x.attack_id === r.attackId) : undefined;
         const kind = r.kind === "baseline" ? "normal" : scenarioKind(a);
@@ -190,7 +190,7 @@ export function ScenarioCatalogue({ projectId, version, onPlay }: { projectId: s
       {groups.map((g) => (
         <div key={g || "all"} className="space-y-2">
           {g && <h3 className="text-sm font-semibold text-muted">{g}</h3>}
-          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {items.filter((i) => (i.category_label ?? i.category ?? "") === g).map((it) => {
               const off = it.applicable === false;
               const on = picks.has(it.id) && !off;
@@ -218,7 +218,7 @@ export function ScenarioCatalogue({ projectId, version, onPlay }: { projectId: s
       {results.length > 0 && (
         <div className="space-y-2">
           <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">{t("plan.sweep_results")}{stale && <Badge tone="caution">{t("plan.sweep_stale")}</Badge>}</h3>
-          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {results.map((it) => {
               const m = it.metrics;
               const bad = !!m && (m.peak_density_ppm2 >= 5 || m.agents_not_evacuated > 0);
@@ -265,7 +265,7 @@ export function DeeperChecks({ status, panels }: { status: Record<CheckKey, stri
   return (
     <section aria-labelledby="deeper-h" className="space-y-3">
       <h2 id="deeper-h" className="text-lg font-semibold">{t("plan.deeper")}</h2>
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {keys.map((k) => (
           <li key={k}>
             <button type="button" aria-expanded={open === k} onClick={() => setOpen(open === k ? null : k)}

@@ -34,7 +34,7 @@ export function HandOver({ sessionId, projectId, onTestAgain, testing, children 
   const url = (p: string) => api.url(`/sessions/${sessionId}${p}`);
   return (
     <div className="space-y-4">
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Tile href={url("/report")} icon={<FileText />} title={t("plan.ho_report")} body={t("plan.ho_report_body")} label={t("plan.ho_report_label")}
               tone="bg-signal-soft text-signal" />
         <Tile href={url("/map.svg")} icon={<MapIcon />} title={t("plan.ho_map")} body={t("plan.ho_map_body")} label={t("report.export_map")} download

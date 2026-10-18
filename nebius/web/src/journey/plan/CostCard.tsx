@@ -9,13 +9,12 @@ import { costView } from "./cost";
 
 function Stat({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note?: string }) {
   return (
-    <div className="flex min-w-0 items-start gap-2.5 rounded-[10px] bg-surface-2 p-3">
-      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface text-signal [&_svg]:size-4" aria-hidden>{icon}</span>
-      <div className="min-w-0">
-        <dt className="text-xs text-muted">{label}</dt>
-        <dd className="text-lg font-bold leading-tight tabular">{value}</dd>
-        {note && <dd className="text-2xs text-muted">{note}</dd>}
-      </div>
+    <div className="min-w-0 rounded-[10px] bg-surface-2 p-3">
+      <dt className="flex items-center gap-2 text-xs text-muted">
+        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-surface text-signal [&_svg]:size-3.5" aria-hidden>{icon}</span>{label}
+      </dt>
+      <dd className="mt-1 text-lg font-bold leading-tight tabular">{value}</dd>
+      {note && <dd className="text-2xs text-muted">{note}</dd>}
     </div>
   );
 }
@@ -29,7 +28,7 @@ export function CostCard({ cost, tokens, costUsd }: { cost: CostRecord | null | 
         <p className="text-sm text-muted">{tokens ? t("yourplan.cost_tokens_only", { tokens: fmtTokens(tokens), cost: fmtMoney(costUsd) }) : t("yourplan.cost_missing")}</p>
       ) : (
         <>
-          <dl className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <Stat icon={<Bot />} label={t("yourplan.cost_total")} value={v.total} note={v.free ? t("yourplan.cost_free") : undefined} />
             <Stat icon={<Cpu />} label={t("yourplan.cost_sims")} value={v.sims.split(" · ")[0]} note={[...v.sims.split(" · ").slice(1), v.simsNote].filter(Boolean).join(" · ") || undefined} />
             <Stat icon={<Timer />} label={t("yourplan.cost_compute")} value={v.compute} />

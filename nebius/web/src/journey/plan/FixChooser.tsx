@@ -150,7 +150,7 @@ export function FixChooser(p: FixChooserProps) {
         {p.kept.length > 0 && deciding && <p className="text-sm text-muted">{t("plan.suggests_short")}</p>}
       </div>
       {p.kept.length === 0 ? <p className="text-sm text-muted">{t("yourplan.no_changes")}</p> : (
-        <ul className="grid gap-3 md:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {p.kept.map((f, i) => {
             const ops = (f.patch?.ops ?? []) as PatchOpIn[];
             const build = ops.some((o) => CONSTRUCTION.has(o.op));

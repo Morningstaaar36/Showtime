@@ -58,7 +58,7 @@ export function FloorsTab({ venue, traj, onWatch }: { venue: Venue; traj: Trajec
         <span className="flex items-center gap-1.5"><span className="size-3 rounded-[2px] bg-signal/20" />{t("plan.fl_crowd")}</span>
         {summary && <span className="flex items-center gap-1.5 font-medium text-ink"><Footprints className="size-4" />{t("plan.fl_stair_total", { n: fmtInt(totalStair) })}</span>}
       </div>
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="floor-cards">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="floor-cards">
         {floors.map((f) => {
           const st = summary?.floors.find((x) => x.floorId === f.floor_id);
           const people = f.zones.reduce((n, z) => n + z.people, 0);
