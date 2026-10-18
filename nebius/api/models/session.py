@@ -21,6 +21,7 @@ SessionEventType = Literal[
     "log",
     "status",
     "marshal",
+    "archive",
 ]
 
 

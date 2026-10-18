@@ -65,7 +65,17 @@ from api.models import (
     Venue,
     VenuePatch,
 )
-from api.orchestrator.fallbacks import rule_attacks, rule_fixes
+from api.orchestrator.archive import (
+    KIND_IDS,
+    Archive,
+    BreakRule,
+    Cell,
+    Elite,
+    Insert,
+    pick_candidates,
+    severity_score,
+)
+from api.orchestrator.fallbacks import rule_attacks, rule_attacks_for_cells, rule_fixes
 
 # who proposes attacks and fixes in a session (`config["agents"]`)
 AGENT_MODES = ("hybrid", "rules", "model")
@@ -288,6 +298,7 @@ class LiveSession:
     stop_event: asyncio.Event = field(default_factory=asyncio.Event)
     branch_runs: dict[str, str] = field(default_factory=dict)  # node id -> run id
     inflight: set[str] = field(default_factory=set)  # node ids waiting for their run
+    archive: dict[str, Any] | None = None  # latest failure-map snapshot (GET .../archive)
 
 
 Maker = tuple[str, Callable[[], Awaitable[RunResult]]]
@@ -689,30 +700,101 @@ class SessionManager:
                 },
             )
             seen: set[str] = set()
+            archive = Archive(venue)
+            rule = BreakRule(
+                s.density_danger_ppm2, s.danger_min_duration_s, self._target(venue), s.safety_factor
+            )
+            self._archive_event(live, archive, 0, None)
+            n_menu = int(cfg["attacks_per_round"])
+            menu_kinds = set(KIND_IDS) - {"adaptive"}
             for rnd in range(1, int(cfg["max_rounds"]) + 1):
                 self._check(live)
+                # quality-diversity search: aim at empty cells of the failure map first, then
+                # at the weakest ones (docs/RAINBOW.md)
+                aim = archive.targets(n_menu, menu_kinds)
+                aim_script = archive.targets(1, {"adaptive"})
                 self._status(live, "red_team", rnd, "Red team is designing attacks")
-                attacks = await self._attacks(
+                self.emit(
+                    live,
+                    "tool_call",
+                    {
+                        "tool": "failure_map",
+                        "args": {"targets": [list(c) for c in aim + aim_script]},
+                        "summary": "Aiming at "
+                        + "; ".join(archive.describe(c).split(":")[0] for c in aim + aim_script),
+                    },
+                )
+                proposed = await self._attacks(
                     env,
                     working,
                     baseline,
                     incidents,
-                    int(cfg["attacks_per_round"]),
+                    n_menu,
                     seen,
                     len(attacks_all),
                     live.tested,
                     mode=str(cfg.get("agents", "hybrid")),
+                    archive=archive,
+                    aim=aim + aim_script,
                 )
-                if not attacks:
+                if not proposed:
                     reason = "no new attacks"
                     break
                 self._status(live, "screening", rnd, "Ranking attacks with the instant estimate")
-                ranked: list[tuple[float, Attack]] = []
+                cells = {a.attack_id: archive.cell_of(a) for a in proposed}
+                if cfg.get("agents") != "rules":
+                    # how well the model follows the map (rule fills hit by construction)
+                    landed = {
+                        cells[a.attack_id]
+                        for a in proposed
+                        if a.extensions.get("generated_by") != "rules"
+                    }
+                    archive.aimed += len(aim) + len(aim_script)
+                    archive.hit += sum(1 for c in aim + aim_script if c in landed)
+                tier1: dict[str, RunResult] = {}
+                menu: list[tuple[Attack, Cell | None, float]] = []
                 scripted: list[Attack] = []
-                for a in attacks:
+                for a in proposed:
                     if is_script_attack(a):
-                        # the instant estimate cannot run code: straight to a quick simulation
                         scripted.append(a)
+                        continue
+                    est = self._estimate(live, working, a, extra=live.measures)
+                    tier1[a.attack_id] = est
+                    menu.append((a, cells[a.attack_id], severity_score(est, rule)[0]))
+                # the instant estimate cannot run code: at most one script, the model's first
+                scripted.sort(key=lambda a: a.extensions.get("generated_by") == "rules")
+                picked = [menu[i] for i in pick_candidates(menu, archive, n_menu, aim)]
+                chosen = list(scripted[:1]) + [a for a, _, _ in picked]
+                chosen_ids = {a.attack_id for a in chosen}
+                # what was not simulated may be proposed again in a later round
+                for a in proposed:
+                    if a.attack_id not in chosen_ids:
+                        seen.discard(signature([e.model_dump() for e in a.events]))
+                left_out = [a.title for a in proposed if a.attack_id not in chosen_ids]
+                if left_out:
+                    self.emit(
+                        live,
+                        "log",
+                        {
+                            "level": "info",
+                            "message": "Screened out by the instant estimate (not simulated): "
+                            + "; ".join(left_out),
+                        },
+                    )
+                # ids follow the simulated attacks, so they stay in sequence
+                renamed = {
+                    a.attack_id: f"A{len(attacks_all) + i + 1}" for i, a in enumerate(chosen)
+                }
+                ranked: list[tuple[float, Attack]] = []
+                cell_by_id: dict[str, Cell | None] = {}
+                for a in chosen:
+                    cell = cells[a.attack_id]
+                    old_id = a.attack_id
+                    a = a.model_copy(update={"attack_id": renamed[old_id]})
+                    cell_by_id[a.attack_id] = cell
+                    where = {"cell": {"kind": cell[0], "where": cell[1]} if cell else None}
+                    if is_script_attack(a):
+                        ranked.append((math.inf, a))
                         self.emit(
                             live,
                             "attack_card",
@@ -721,6 +803,7 @@ class SessionManager:
                                 "attack": a.model_dump(mode="json"),
                                 "tier1": {},
                                 "screening": SCRIPT_SCREENING,
+                                **where,
                             },
                         )
                         self.emit(
@@ -734,15 +817,19 @@ class SessionManager:
                             },
                         )
                         continue
-                    est = self._estimate(live, working, a, extra=live.measures)
+                    est = tier1[old_id]
                     ranked.append((severity(est), a))
                     self.emit(
                         live,
                         "attack_card",
-                        {"round": rnd, "attack": a.model_dump(mode="json"), "tier1": headline(est)},
+                        {
+                            "round": rnd,
+                            "attack": a.model_dump(mode="json"),
+                            "tier1": headline(est),
+                            **where,
+                        },
                     )
                 ranked.sort(key=lambda x: -x[0])
-                ranked = [(math.inf, a) for a in scripted] + ranked
                 attacks_all.extend(a for _, a in ranked)
                 live.tested = [
                     f"{a.title} ({', '.join(e.type for e in a.events)})" for a in attacks_all
@@ -779,11 +866,39 @@ class SessionManager:
                             s.safety_factor,
                         )
                         self._node_done(live, f"atk:{a.attack_id}", r, reasons)
+                        if r.status not in ("failed", "timeout", "cancelled"):
+                            score, parts = severity_score(r, rule)
+                            ins = archive.insert(
+                                Elite(
+                                    attack_id=a.attack_id,
+                                    title=a.title,
+                                    run_id=r.run_id,
+                                    severity=score,
+                                    is_break=bool(reasons),
+                                    round=rnd,
+                                    metrics=headline(r),
+                                    parts=parts,
+                                    basis=r.basis,
+                                    generated_by=str(a.extensions.get("generated_by", "ai")),
+                                ),
+                                cell_by_id.get(a.attack_id),
+                            )
+                            self._archive_event(live, archive, rnd, ins, a.attack_id, score)
                         if reasons:
                             breaks.append((severity(r), a, r))
                             if worst is None or severity(r) > worst[0]:
                                 worst = (severity(r), a, r)
-                scoreboard.append({"round": rnd, "breaks": len(breaks), "attacks": len(ranked)})
+                point = archive.end_round(rnd)
+                scoreboard.append(
+                    {
+                        "round": rnd,
+                        "breaks": len(breaks),
+                        "attacks": len(ranked),
+                        "coverage": point["coverage"],
+                        "qd_score": point["qd_score"],
+                    }
+                )
+                self._archive_event(live, archive, rnd, None)
                 self.emit(
                     live,
                     "score",
@@ -796,9 +911,12 @@ class SessionManager:
                     },
                 )
                 if not breaks:
-                    reason = "no new breaks"
-                    break
-                breaks.sort(key=lambda x: -x[0])
+                    if not archive.empty():
+                        reason = "no new breaks"
+                        break
+                    continue  # nothing to fix, but the map still has gaps to search
+                # the worst elites of the map first, then other breaks of this round
+                breaks.sort(key=lambda x: (not archive.contains(x[1].attack_id), -x[0]))
                 accepted_before_round = len(accepted)
                 for sev, a, r in breaks[: int(cfg["fix_targets"])]:
                     self._check(live)
@@ -950,7 +1068,21 @@ class SessionManager:
                             if ok:
                                 accepted.append(fx.fix_id)
                                 working = candidate
+                                archive.learn(working)
                                 live.measures.extend(fx.operational)
+                                fixed_cell = archive.mark_fixed(
+                                    a.attack_id, fx.fix_id, severity_score(fr, rule)[0], fr.run_id
+                                )
+                                if fixed_cell is not None:
+                                    self._archive_event(
+                                        live,
+                                        archive,
+                                        rnd,
+                                        Insert("fixed", fixed_cell),
+                                        a.attack_id,
+                                        severity_score(fr, rule)[0],
+                                        fix_id=fx.fix_id,
+                                    )
                                 self.emit(
                                     live,
                                     "score",
@@ -995,6 +1127,32 @@ class SessionManager:
         finally:
             live.finished = True
             await self._notify(live)
+
+    def _archive_event(
+        self,
+        live: LiveSession,
+        archive: Archive,
+        rnd: int,
+        change: Insert | None,
+        attack_id: str | None = None,
+        score: float | None = None,
+        fix_id: str | None = None,
+    ) -> None:
+        """Stream the failure map after a change (and keep it for GET .../archive)."""
+        snap = archive.snapshot()
+        live.archive = snap
+        payload: dict[str, Any] = {"round": rnd, "change": None, "archive": snap}
+        if change is not None:
+            payload["change"] = {
+                "outcome": change.outcome,
+                "kind": change.cell[0] if change.cell else None,
+                "where": change.cell[1] if change.cell else None,
+                "attack_id": attack_id,
+                "severity": score,
+                "replaced_attack_id": change.replaced,
+                "fix_id": fix_id,
+            }
+        self.emit(live, "archive", payload)
 
     def _fail(self, live: LiveSession, exc: Exception) -> None:
         """Mark a session that could not write its summary as failed (status, error, end)."""
@@ -1066,12 +1224,29 @@ class SessionManager:
         offset: int,
         tested: list[str],
         mode: str = "hybrid",
+        archive: Archive | None = None,
+        aim: list[Cell] | None = None,
     ) -> list[Attack]:
+        """Candidate attacks for one round. With a failure map, the model is asked to fill the
+        `aim` cells; the rules fill the cells it missed (hybrid) or all of them (rules)."""
+        aim = aim or []
         if mode == "rules":
-            return rule_attacks(venue, baseline, incidents, n, seen, offset)
+            return self._rule_fill(venue, baseline, incidents, n, seen, offset, archive, aim)
+        menu_aim = [c for c in aim if c[0] != "adaptive"]
+        script_aim = [c for c in aim if c[0] == "adaptive"]
         try:
             out = await red_team(
-                env, self.st.registry, venue, baseline, incidents, n, seen, offset, tested=tested
+                env,
+                self.st.registry,
+                venue,
+                baseline,
+                incidents,
+                n,
+                seen,
+                offset,
+                tested=tested,
+                aim=[archive.describe(c) for c in menu_aim] if archive else None,
+                aim_script=archive.describe(script_aim[0]) if archive and script_aim else None,
             )
         except (AgentUnavailable, LLMError) as exc:  # LLMError: e.g. a replay-cache miss
             if env.emit:
@@ -1086,10 +1261,49 @@ class SessionManager:
         if mode == "model":
             return out
         if not out:
-            out = rule_attacks(venue, baseline, incidents, n, seen, offset)
+            out = self._rule_fill(venue, baseline, incidents, n, seen, offset, archive, aim)
             if out and env.emit:
                 env.emit("log", {"level": "info", "message": "Rule-based attacks were added."})
-        elif not any(is_script_attack(a) for a in out):
+            return out
+        if archive is not None and aim:
+            # cells of the map the model aimed at but missed: the rules fill them, and the
+            # instant estimate decides which candidates are simulated
+            landed = {archive.cell_of(a) for a in out}
+            missed = [c for c in aim if c not in landed]
+            if not any(is_script_attack(a) for a in out) and not any(
+                c[0] == "adaptive" for c in missed
+            ):
+                missed += [c for c in archive.targets(1, {"adaptive"}) if c not in missed]
+            fills = rule_attacks_for_cells(
+                venue,
+                baseline,
+                incidents,
+                [(k, archive.region(w)) for k, w in missed],
+                seen,
+                offset + len(out),
+            )
+            if fills and env.emit:
+                env.emit(
+                    "log",
+                    {
+                        "level": "info",
+                        "message": "Rule-based attacks for gaps in the failure map the AI "
+                        "missed: " + "; ".join(a.title for a in fills),
+                    },
+                )
+                if not any(is_script_attack(a) for a in out) and any(
+                    is_script_attack(a) for a in fills
+                ):
+                    env.emit(
+                        "log",
+                        {
+                            "level": "info",
+                            "message": "The AI wrote no scenario script this round, so the "
+                            "built-in example script was added.",
+                        },
+                    )
+            return out + fills
+        if not any(is_script_attack(a) for a in out):
             # every test includes a scenario written as code; the built-in example stands in
             extra = rule_attacks(venue, baseline, incidents, n, set(seen), offset + len(out))
             example = [a for a in extra if is_script_attack(a)][:1]
@@ -1108,6 +1322,35 @@ class SessionManager:
                             "built-in example script was added.",
                         },
                     )
+        return out
+
+    def _rule_fill(
+        self,
+        venue: Venue,
+        baseline: RunResult | None,
+        incidents: list[IncidentRecord],
+        n: int,
+        seen: set[str],
+        offset: int,
+        archive: Archive | None,
+        aim: list[Cell],
+    ) -> list[Attack]:
+        """Rule-based attacks for the aimed cells, topped up to n menu attacks by the
+        standard rule set (one scenario script at most)."""
+        out: list[Attack] = []
+        if archive is not None and aim:
+            out = rule_attacks_for_cells(
+                venue, baseline, incidents, [(k, archive.region(w)) for k, w in aim], seen, offset
+            )
+        menu = [a for a in out if not is_script_attack(a)]
+        if len(menu) < n:
+            more = rule_attacks(venue, baseline, incidents, n - len(menu), seen, offset + len(out))
+            has_script = any(is_script_attack(a) for a in out)
+            for a in more:
+                if is_script_attack(a) and has_script:
+                    seen.discard(signature([e.model_dump() for e in a.events]))
+                    continue
+                out.append(a.model_copy(update={"attack_id": f"A{offset + len(out) + 1}"}))
         return out
 
     async def _fixes(
@@ -1382,6 +1625,8 @@ class SessionManager:
             "final_venue": working.model_dump(mode="json"),
             "measures": [m.model_dump() for m in live.measures],
             "evaluation": evaluation,
+            # the failure map (quality-diversity archive) the red team searched
+            "archive": live.archive,
             # measured after the judge, so every model call of the session is included
             "cost": live.cost.record(wall_s=time.monotonic() - live.started),
         }
