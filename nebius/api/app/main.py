@@ -19,6 +19,7 @@ from api.app import errors
 from api.app.routes_agents import router as agents_router
 from api.app.routes_ask import router as ask_router
 from api.app.routes_autopilot import router as autopilot_router
+from api.app.routes_cases import router as cases_router
 from api.app.routes_core import router as core_router
 from api.app.routes_places import router as places_router
 from api.app.routes_plan import router as plan_router
@@ -143,6 +144,7 @@ def create_app(state: AppState | None = None, settings: Settings | None = None) 
     app.include_router(scripts_router)
     app.include_router(places_router)
     app.include_router(autopilot_router)
+    app.include_router(cases_router)
     return app
 
 

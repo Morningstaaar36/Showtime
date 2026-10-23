@@ -30,6 +30,16 @@ from api.core.building_gen import (
     split_holes,
 )
 from api.core.extensions import geometry as geo
+from api.core.venue_parts import (
+    PassagePart,
+    area_labels,
+    area_shape,
+    clear_of,
+    dividers,
+    heading_exits,
+    solve_passages,
+    walkable_with,
+)
 from api.models import Exit, Floor, Obstacle, StageParams, Stair, Venue, Zone
 from api.models.venue import ObstacleKind
 from api.models.venue_spec import (
@@ -112,9 +122,9 @@ def _frame(stage_wall: Wall, inner: Rect, u0: float, u1: float, v0: float, v1: f
     return (min(xs), min(ys), max(xs), max(ys))
 
 
-def _inner(spec: VenueSpec) -> Rect:
+def _inner(spec: VenueSpec, margin: float = MARGIN_M) -> Rect:
     """Area left for people and features: inside the margin and clear of the stage."""
-    m = min(MARGIN_M, 0.08 * min(spec.width_m, spec.depth_m))
+    m = min(margin, 0.08 * min(spec.width_m, spec.depth_m))
     x0, y0, x1, y1 = m, m, spec.width_m - m, spec.depth_m - m
     if spec.stage is not None and spec.stage.wall != "centre":
         cut = spec.stage.depth_m + STAGE_GAP_M
@@ -485,14 +495,18 @@ def build_venue(spec: VenueSpec, venue_id: str = "draft") -> BuildResult:
 
 
 def _build_single(spec: VenueSpec, venue_id: str) -> BuildResult:
-    """One floor (plus an optional balcony): the hall, field or square of the spec."""
+    """One floor (plus an optional balcony): the hall, field or square of the spec, with the
+    passages that lead off it and the fences that split it into pens."""
     notes: list[str] = []
     assumptions: list[str] = []
     problems: list[str] = []
     D = spec.depth_m
-    walkable = geo.rect(0, 0, spec.width_m, D)
+    parts = solve_passages(spec, problems, notes, assumptions)
+    walkable = walkable_with(spec, parts)
+    main_floor = geo.rect(0, 0, spec.width_m, D)
     obstacles, stage_params = _stage_parts(spec, notes)
     stage_poly = geo.to_polygon(obstacles[0].polygon) if spec.stage is not None else None
+    obstacles += dividers(spec)
 
     upper = stair = None
     if spec.upper_floor is not None:
@@ -510,16 +524,24 @@ def _build_single(spec: VenueSpec, venue_id: str) -> BuildResult:
             "Exits on other levels need a building: put them on the ground floor or describe "
             "the storeys in building."
         )
+    # exits stay off the stage, the passage openings and the fences
+    keep_off = [g for g in [stage_poly] if g is not None]
+    keep_off += [p.opening for p in parts]
+    keep_off += [geo.to_polygon(o.polygon) for o in obstacles if o.id.startswith("divider_")]
+    blocked = unary_union(keep_off) if keep_off else None
     exits = _distinct_labels(
-        [x for _, x in _place_exits(spec, spec.exits, walkable, stage_poly, notes)]
+        [x for _, x in _place_exits(spec, spec.exits, main_floor, blocked, notes)]
     )
+    exits += [x for p in parts for x in p.exits]
     if not exits:
         notes.append("No exit could be placed. Add at least one exit on a free wall.")
     if not spec.zones:
         problems.append("No people: add a zone with the headcount.")
+    obstacles += [o for p in parts for o in p.obstacles]
 
     exit_clear = [geo.to_polygon(e.polygon).buffer(EXIT_CLEAR_M) for e in exits]
     avoid: list[Polygon] = [geo.to_polygon(o.polygon).buffer(1.0) for o in obstacles]
+    avoid += [p.opening.buffer(1.0) for p in parts]
     if stair is not None:
         avoid.append(geo.to_polygon(stair.bottom_polygon).buffer(1.5))
     obstacles += _features(
@@ -530,6 +552,8 @@ def _build_single(spec: VenueSpec, venue_id: str) -> BuildResult:
     if stair is not None:
         blockers = blockers.union(geo.to_polygon(stair.bottom_polygon).buffer(1.0))
     zones = _single_zones(spec, upper is not None, blockers, notes)
+    zones += _area_zones(spec, parts, blockers, exits, problems)
+    zones = _with_headings(spec, zones, exits, problems)
     floors = [
         Floor(
             floor_id="F0",
@@ -557,14 +581,24 @@ def _build_single(spec: VenueSpec, venue_id: str) -> BuildResult:
     return BuildResult(venue=venue, notes=notes, assumptions=assumptions, problems=problems)
 
 
-def _single_zones(spec: VenueSpec, has_upper: bool, blockers: Any, notes: list[str]) -> list[Zone]:
-    """Each region once, split across the zones sharing it, never overlapping each other."""
+DENSE_PPM2 = 3.5  # a zone this dense uses the floor up to TIGHT_MARGIN_M from the walls
+TIGHT_MARGIN_M = 0.4
+
+
+def _single_zones(
+    spec: VenueSpec, has_upper: bool, blockers: Any, notes: list[str]
+) -> list[tuple[int, Zone]]:
+    """Each region once, split across the zones sharing it, never overlapping each other.
+    Returns each zone with the index of the spec zone it comes from."""
     stage_wall = _facing(spec)
     inner = _inner(spec)
+    tight = _inner(spec, TIGHT_MARGIN_M)
     used: Polygon = Polygon()
-    zones: list[Zone] = []
+    zones: list[tuple[int, Zone]] = []
     by_region: dict[str, list[int]] = defaultdict(list)
     for i, z in enumerate(spec.zones):
+        if z.area is not None:
+            continue  # in a passage or the area at its end (_area_zones)
         if has_upper and any(w in z.label.lower() for w in UPPER_WORDS):
             notes.append(f"“{z.label}” is on the upper floor, so it was not added downstairs too.")
             continue
@@ -576,22 +610,86 @@ def _single_zones(spec: VenueSpec, has_upper: bool, blockers: Any, notes: list[s
         for j, i in enumerate(idx):
             a = u0 + (u1 - u0) * j / len(idx)
             b = u0 + (u1 - u0) * (j + 1) / len(idx)
-            rect = box(*_frame(stage_wall, inner, a, b, v0, v1)).buffer(-0.3)
-            area = rect.difference(blockers).difference(used)
             z = spec.zones[i]
+            rect = box(*_frame(stage_wall, inner, a, b, v0, v1)).buffer(-0.3)
+            if z.people > DENSE_PPM2 * max(rect.area, 1e-9):  # a packed crowd: up to the walls
+                rect = box(*_frame(stage_wall, tight, a, b, v0, v1)).buffer(-0.3)
+            area = rect.difference(blockers).difference(used)
             if area.is_empty or area.area < 4:
                 notes.append(f"No room left for “{z.label}”; overlapping zones were merged away.")
                 continue
-            part = geo.largest_part(area).simplify(0.05)
-            used = used.union(part)
+            if spec.dividers:  # a crowd across several pens: every pen gets its share
+                found = [g for g in getattr(area, "geoms", [area]) if g.area >= 4]
+                parts = [g.simplify(0.05) for g in found]
+            else:
+                parts = [geo.largest_part(area).simplify(0.05)]
+            for part in parts:
+                used = used.union(part)
             # a crowd all round a central stage: two halves, as zones have no holes
-            pieces = [q for q in split_holes(part) if q.area >= 1] or [part]
+            pieces = [q for part in parts for q in split_holes(part) if q.area >= 1] or parts
             counts = _split_people(z.people, [q.area for q in pieces])
             for n, (q, people) in enumerate(zip(pieces, counts, strict=True), start=1):
                 zid = "zone_" + str(len(zones) + 1)
                 label = z.label if len(pieces) == 1 else f"{z.label} {n}"
-                zones.append(Zone(id=zid, polygon=geo.to_points(q), people=people, label=label))
+                zones.append(
+                    (i, Zone(id=zid, polygon=geo.to_points(q), people=people, label=label))
+                )
     return zones
+
+
+def _area_zones(
+    spec: VenueSpec, parts: list[PassagePart], blockers: Any, exits: list[Exit], problems: list[str]
+) -> list[tuple[int, Zone]]:
+    """People standing in a passage or in the area at its end."""
+    out: list[tuple[int, Zone]] = []
+    keep = unary_union([blockers, *[geo.to_polygon(e.polygon).buffer(1.0) for e in exits]])
+    for i, z in enumerate(spec.zones):
+        if z.area is None:
+            continue
+        shape = area_shape(parts, z.area)
+        if shape is None:
+            names = ", ".join(f"“{n}”" for n in area_labels(parts)) or "none"
+            problems.append(
+                f"“{z.label}” stands in “{z.area}”, but no passage or end area has that name "
+                f"(there are: {names}); use one of those labels or leave area empty."
+            )
+            continue
+        q = clear_of(shape, keep)
+        if q is None:
+            problems.append(f"No room for “{z.label}” in “{z.area}”: make it larger.")
+            continue
+        out.append(
+            (
+                i,
+                Zone(
+                    id=f"area_{len(out) + 1}",
+                    polygon=geo.to_points(q),
+                    people=z.people,
+                    label=z.label,
+                ),
+            )
+        )
+    return out
+
+
+def _with_headings(
+    spec: VenueSpec, zones: list[tuple[int, Zone]], exits: list[Exit], problems: list[str]
+) -> list[Zone]:
+    """Zones whose people are going somewhere get those exits; ids are renumbered in order."""
+    out: list[Zone] = []
+    for n, (i, z) in enumerate(zones, start=1):
+        heading = spec.zones[i].heading
+        targets: list[str] = []
+        if heading:
+            targets = heading_exits(exits, heading)
+            if not targets:
+                names = ", ".join(f"“{e.label}”" for e in exits)
+                problems.append(
+                    f"“{z.label}” heads for “{heading}”, but no exit has that name "
+                    f"(there are: {names}); use an exit label or leave heading empty."
+                )
+        out.append(z.model_copy(update={"id": f"zone_{n}", "exit_ids": targets}))
+    return out
 
 
 def _split_people(total: int, weights: list[float]) -> list[int]:
@@ -695,6 +793,11 @@ def _build_building(spec: VenueSpec, b: BuildingSpec, venue_id: str) -> BuildRes
     notes: list[str] = []
     assumptions: list[str] = []
     problems: list[str] = []
+    if spec.passages or spec.dividers:
+        problems.append(
+            "Passages and dividers are drawn on one-level sites only: set building to null, or "
+            "describe the tunnel or corridor as part of a storey."
+        )
     W, D = spec.width_m, spec.depth_m
     per = _level_people(spec, b, problems, assumptions)
     b, per = _trim_empty_storeys(spec, b, per, notes)

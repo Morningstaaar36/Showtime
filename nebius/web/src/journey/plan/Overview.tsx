@@ -53,6 +53,8 @@ export interface OverviewProps {
   next: React.ReactNode;
   /** the AI's own words (judge text, evaluation reasons, recommendations) */
   summary: { judge: string | null; reasons: string[]; recommendations: string[] };
+  /** the real case this venue rebuilds (a compact card above the verdict), if any */
+  realCase?: React.ReactNode;
 }
 
 function Tile({ icon, tone, label, value, unit, visual, foot, testId }: {
@@ -141,6 +143,7 @@ export function Overview(p: OverviewProps) {
 
   return (
     <div className="space-y-4">
+      {p.realCase}
       <section aria-label={t("yourplan.verdict")} className="grid grid-cols-1 gap-4 lg:grid-cols-5">
         <div className={cn("relative flex flex-col gap-4 overflow-hidden rounded-[var(--radius-panel)] border-2 p-5 shadow-sm lg:col-span-2",
                            tone.soft, p.level === "holds" ? "border-egress/35" : p.level === "fails" ? "border-danger/35" : p.level === "at_risk" ? "border-caution/35" : "border-border")}>

@@ -211,6 +211,22 @@ def validate_venue(venue: Venue) -> ValidationReport:
                         hint="Enlarge the zone or lower its headcount.",
                     )
                 )
+            exit_ids = {e.id for fl in venue.floors for e in fl.exits}
+            unknown = [x for x in z.exit_ids if x not in exit_ids]
+            if unknown:
+                checks.append(
+                    Check(
+                        code="zone_heading_unknown",
+                        severity="error",
+                        floor_id=f.floor_id,
+                        target_ids=[z.id, *unknown],
+                        x=c.x,
+                        y=c.y,
+                        message=f"People in zone '{z.id}' head for '{unknown[0]}', "
+                        "which is not an exit.",
+                        hint="Pick one of the exits, or let them use any exit.",
+                    )
+                )
 
     stair_links: dict[tuple[str, int], list[tuple[str, int]]] = {}
     for s in venue.stairs:

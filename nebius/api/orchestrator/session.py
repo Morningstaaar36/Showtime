@@ -113,6 +113,7 @@ class SessionConfigIn(BaseModel):
     max_tokens: int | None = Field(default=None, ge=1)
     parallel_branches: bool | None = None
     agents: str | None = None  # an unknown mode falls back to "hybrid"
+    judge: bool | None = None  # false: keep the computed summary, no model call at the end
 
 
 def session_config(settings: Any, config: dict[str, Any] | None) -> dict[str, Any]:
@@ -1657,11 +1658,18 @@ class SessionManager:
         }
         template = self._template(facts)
         facts_for_judge = plain_keys(facts)
-        self._status(live, "judging", len(scoreboard), "Judge is checking every number")
-        try:
-            text, recs, checked = await judge(env, facts_for_judge, template, computed_summary=True)
-        except (AgentUnavailable, BudgetExceeded, LLMError):
+        if live.config.get("judge", True) is False:
+            # a session that must not call the model (rule-based real cases): the computed
+            # summary stands as written
             text, recs, checked = template, [], False
+        else:
+            self._status(live, "judging", len(scoreboard), "Judge is checking every number")
+            try:
+                text, recs, checked = await judge(
+                    env, facts_for_judge, template, computed_summary=True
+                )
+            except (AgentUnavailable, BudgetExceeded, LLMError):
+                text, recs, checked = template, [], False
         summary = {
             "baseline_run_id": baseline.run_id if baseline else None,
             "final_run_id": final_run_id,
