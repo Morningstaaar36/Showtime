@@ -18,6 +18,12 @@ export const OBSTACLE_HEIGHT: Record<string, number> = {
 };
 
 export const SLAB_M = 0.3;
+
+/** A footprint kept clear for a stair (its label names a stair): drawn as a faint void in 3D and
+ * left out of the exported model, where the stair itself stands. */
+export function isStairVoid(o: Obstacle): boolean {
+  return (o.label ?? o.id).toLowerCase().includes("stair");
+}
 /** Storey height of the top floor (nothing above it to measure to). */
 const TOP_STOREY_M = 3.2;
 
@@ -132,6 +138,7 @@ export function buildVenueModel(venue: Venue, palette: ScenePalette): THREE.Grou
     add(mesh("Guard rail glass", rails.glass, mats.glass));
     if (below) add(mesh("Columns", columnGeometry(edges.open, (floor.elevation_m ?? 0) - (below.elevation_m ?? 0), SLAB_M), mats.wall));
     for (const o of floor.obstacles) {
+      if (isStairVoid(o)) continue;
       const name = o.label ?? o.id;
       if (o.kind === "stage") {
         const s = stageGeometry(o, venue.stage ?? null);

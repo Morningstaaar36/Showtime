@@ -157,6 +157,6 @@ describe("triangle budget", () => {
     const tris = modelTriangles(model);
     disposeModel(model);
     expect(tris).toBeGreaterThan(1000);
-    expect(tris).toBeLessThan(60_000);
+    expect(tris).toBeLessThan(25_000);
   });
 });

@@ -19,7 +19,7 @@ import {
   WALL_INDOOR_M,
   WALL_T,
 } from "./geom";
-import { OBSTACLE_HEIGHT, SLAB_M } from "./mesh/building";
+import { isStairVoid, OBSTACLE_HEIGHT, SLAB_M } from "./mesh/building";
 import {
   columnGeometry,
   DOOR_HEAD_M,
@@ -277,7 +277,7 @@ function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, l
     return g;
   }, [obstacle.polygon]);
   useEffect(() => () => capGeo.dispose(), [capGeo]);
-  const ghost = (obstacle.label ?? obstacle.id).toLowerCase().includes("stair");
+  const ghost = isStairVoid(obstacle);
   const isWater = obstacle.id.startsWith("water_");
   const isWall = obstacle.kind === "wall";
   const isBarrier = obstacle.kind === "barrier" || obstacle.kind === "fence";
