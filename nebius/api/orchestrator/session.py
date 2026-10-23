@@ -78,8 +78,10 @@ from api.orchestrator.archive import (
 )
 from api.orchestrator.fallbacks import rule_attacks, rule_attacks_for_cells, rule_fixes
 
-# who proposes attacks and fixes in a session (`config["agents"]`)
-AGENT_MODES = ("hybrid", "rules", "model")
+# who proposes attacks and fixes in a session (`config["agents"]`): "model" (the default) lets
+# the AI design them and uses the rules only when no model answers; "hybrid" also mixes rule
+# attacks and standard fixes in; "rules" uses no model (the evaluation's baseline arm)
+AGENT_MODES = ("model", "hybrid", "rules")
 
 log = logging.getLogger("showtime.session")
 
@@ -146,11 +148,11 @@ def session_config(settings: Any, config: dict[str, Any] | None) -> dict[str, An
         "parallel_branches": True,
         # who proposes attacks and fixes (S-01 evaluation arms): "hybrid" = the model plus
         # the rule-based ones (the product), "rules" = rules only, "model" = model only
-        "agents": "hybrid",
+        "agents": "model",
         **given,
     }
     if cfg["agents"] not in AGENT_MODES:
-        cfg["agents"] = "hybrid"
+        cfg["agents"] = "model"
     return cfg
 
 
@@ -760,7 +762,7 @@ class SessionManager:
                     seen,
                     len(attacks_all),
                     live.tested,
-                    mode=str(cfg.get("agents", "hybrid")),
+                    mode=str(cfg.get("agents", "model")),
                     archive=archive,
                     aim=aim + aim_script,
                 )
@@ -985,7 +987,7 @@ class SessionManager:
                         r,
                         int(cfg["fixes_per_attack"]),
                         f"F{len(fixes_all) + 1}_",
-                        mode=str(cfg.get("agents", "hybrid")),
+                        mode=str(cfg.get("agents", "model")),
                     )
                     fixes = [
                         fx.model_copy(update={"title": readable(fx.title, working)}) for fx in fixes
@@ -1272,7 +1274,7 @@ class SessionManager:
         seen: set[str],
         offset: int,
         tested: list[str],
-        mode: str = "hybrid",
+        mode: str = "model",
         archive: Archive | None = None,
         aim: list[Cell] | None = None,
     ) -> list[Attack]:
@@ -1306,6 +1308,8 @@ class SessionManager:
                         "message": f"Red team model unavailable ({exc}); using rule-based attacks",
                     },
                 )
+            if mode == "model":  # the AI designs the attacks; the rules stand in only now
+                return self._rule_fill(venue, baseline, incidents, n, seen, offset, archive, aim)
             out = []
         if mode == "model":
             return out
@@ -1410,13 +1414,23 @@ class SessionManager:
         result: RunResult,
         n: int,
         prefix: str,
-        mode: str = "hybrid",
+        mode: str = "model",
     ) -> list[Fix]:
         if mode == "rules":
             return rule_fixes(self.st.registry, venue, attack, result, n, prefix + "R")
         try:
             out = await blue_team(env, self.st.registry, venue, attack, result, n, prefix)
-        except (AgentUnavailable, LLMError):
+        except (AgentUnavailable, LLMError) as exc:
+            if mode == "model":  # the AI designs the fixes; standard ones stand in only now
+                if env.emit:
+                    env.emit(
+                        "log",
+                        {
+                            "level": "warning",
+                            "message": f"Blue team model unavailable ({exc}); using standard fixes",
+                        },
+                    )
+                return rule_fixes(self.st.registry, venue, attack, result, n, prefix + "R")
             out = []
         if mode == "model":
             return out
