@@ -15,13 +15,23 @@ import {
   FENCE_M,
   floorY,
   shapeOf,
-  stairProfile,
-  stairRun,
   wallThickness,
   WALL_INDOOR_M,
   WALL_T,
-  wallPieces,
 } from "./geom";
+import { OBSTACLE_HEIGHT, SLAB_M } from "./mesh/building";
+import {
+  columnGeometry,
+  DOOR_HEAD_M,
+  fencePostGeometry,
+  floorBelow,
+  guardRailGeometry,
+  guardRailRuns,
+  outerEdges,
+  outerWallGeometry,
+} from "./mesh/floor";
+import { slabGeometry } from "./mesh/slab";
+import { stairGeometry, stairOpenings, stairPlacement } from "./mesh/stairs";
 import type { ScenePalette } from "./palette";
 import { RouteLayer } from "./RouteLayer";
 import { SceneHtml } from "./SceneHtml";
@@ -66,11 +76,6 @@ const FOCUS_WALL_M = 1.1;
 
 const may = (p: Props, id: string) => p.labels && (!p.labelled || p.labelled.has(id));
 
-const OBSTACLE_HEIGHT: Record<string, number> = {
-  wall: WALL_INDOOR_M, booth: 2.6, bar: 2.4, seating: 0.55, column: 3.0, barrier: 1.1,
-  fence: 1.2, other: 1.4, stage: 1.0,
-};
-
 export function VenueModel(props: Props) {
   const { venue, exploded } = props;
   const focus = props.focusFloor && venue.floors.some((f) => f.floor_id === props.focusFloor) ? props.focusFloor : null;
@@ -82,7 +87,7 @@ export function VenueModel(props: Props) {
       {venue.floors.map((f) => {
         const y = floorY(venue, f.floor_id, exploded);
         if (focus && f.floor_id !== focus) {
-          return <GhostFloor key={f.floor_id} floor={f} y={y} palette={props.palette} above={(f.elevation_m ?? 0) > focusElev}
+          return <GhostFloor key={f.floor_id} floor={f} venue={venue} y={y} palette={props.palette} above={(f.elevation_m ?? 0) > focusElev}
                              tag={exploded ? tags.get(f.floor_id) : undefined} />;
         }
         return <FloorGroup key={f.floor_id} {...props} floor={f} y={y} />;
@@ -121,15 +126,14 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
   const isUpper = (floor.elevation_m ?? 0) > 0.01;
   const dim = props.dimOtherFloors && props.dimOtherFloors !== floor.floor_id;
   const locked = useMemo(() => lockedIds(venue), [venue]);
+  const openings = useMemo(() => stairOpenings(venue, floor.floor_id), [venue, floor.floor_id]);
   return (
     <group position={[0, y, 0]}>
-      <Slab floor={floor} palette={palette} outdoor={venue.mode === "outdoor"} upper={isUpper}
+      <Slab floor={floor} openings={openings} palette={palette} outdoor={venue.mode === "outdoor"} upper={isUpper}
             onClick={props.onFloorClick} onMove={props.onFloorMove} onDouble={props.onFloorDoubleClick}
             dim={!!dim} seeThrough={!!props.onMap && !isUpper} />
-      <Walls floor={floor} palette={palette} outdoor={venue.mode === "outdoor"} upper={isUpper || !!props.stacked} />
-      {isUpper && !props.exploded && (
-        <BalconyStructure floor={floor} base={venue.floors[0]} height={y} palette={palette} />
-      )}
+      <Walls floor={floor} venue={venue} palette={palette} outdoor={venue.mode === "outdoor"} upper={isUpper || !!props.stacked}
+             columns={isUpper && !props.exploded} />
       {floor.obstacles.map((o) => (
         o.kind === "stage" ? (
           <StageModel key={o.id} obstacle={o} stage={venue.stage ?? null} palette={palette}
@@ -162,31 +166,24 @@ function FloorGroup(props: Props & { floor: Floor; y: number }) {
   );
 }
 
-function Slab({ floor, palette, outdoor, upper, onClick, onMove, onDouble, dim, seeThrough }: {
-  floor: Floor; palette: ScenePalette; outdoor: boolean; upper: boolean; dim: boolean; seeThrough?: boolean;
+function Slab({ floor, openings, palette, outdoor, upper, onClick, onMove, onDouble, dim, seeThrough }: {
+  floor: Floor; openings: Pt[][]; palette: ScenePalette; outdoor: boolean; upper: boolean; dim: boolean; seeThrough?: boolean;
   onClick?: ModelHandlers["onFloorClick"]; onMove?: ModelHandlers["onFloorMove"];
   onDouble?: ModelHandlers["onFloorDoubleClick"];
 }) {
-  const geo = useMemo(() => {
-    const shape = shapeOf(floor.walkable as Pt[]);
-    if (upper) {
-      const g = new THREE.ExtrudeGeometry(shape, { depth: 0.3, bevelEnabled: false });
-      g.rotateX(-Math.PI / 2);
-      g.translate(0, -0.3, 0);
-      return g;
-    }
-    const g = new THREE.ShapeGeometry(shape);
-    g.rotateX(-Math.PI / 2);
-    g.translate(0, 0.005, 0);
-    return g;
-  }, [floor.walkable, upper]);
-  useEffect(() => () => geo.dispose(), [geo]);
-  const outline = useMemo(() => [...(floor.walkable as Pt[]), floor.walkable[0] as Pt]
-    .map((p) => new THREE.Vector3(p[0], 0.012, -p[1])), [floor.walkable]);
+  // an upper floor is a real slab (thickness, stairwell openings); the ground is its top face
+  const slab = useMemo(() => {
+    const s = slabGeometry(floor.walkable as Pt[], openings, upper ? SLAB_M : 0);
+    if (!upper) s.geometry.translate(0, 0.005, 0);
+    return s;
+  }, [floor.walkable, openings, upper]);
+  useEffect(() => () => slab.geometry.dispose(), [slab]);
+  const edges = useMemo(() => slab.edges.flatMap(([a, b]) => [new THREE.Vector3(a[0], 0.012, -a[1]), new THREE.Vector3(b[0], 0.012, -b[1])]),
+    [slab]);
   const toVenue = (e: ThreeEvent<MouseEvent | PointerEvent>): [number, number] => [e.point.x, -e.point.z];
   return (
     <group>
-      <mesh geometry={geo} receiveShadow
+      <mesh geometry={slab.geometry} receiveShadow castShadow={upper}
             onClick={(e) => { if (onClick) { e.stopPropagation(); const [x, y] = toVenue(e); onClick(floor, x, y, e); } }}
             onDoubleClick={(e) => { if (onDouble) { e.stopPropagation(); const [x, y] = toVenue(e); onDouble(floor, x, y); } }}
             onPointerMove={(e) => { if (onMove) { const [x, y] = toVenue(e); onMove(floor, x, y); } }}>
@@ -194,108 +191,66 @@ function Slab({ floor, palette, outdoor, upper, onClick, onMove, onDouble, dim, 
                               metalness={0} transparent={dim || seeThrough} opacity={dim ? 0.25 : seeThrough ? 0.3 : 1}
                               depthWrite={!seeThrough} polygonOffset polygonOffsetFactor={-1} />
       </mesh>
-      <Line points={outline} color={palette.slabEdge} lineWidth={1.2} transparent opacity={dim ? 0.2 : 0.9} />
+      {edges.length > 0 && <Line points={edges} segments color={palette.slabEdge} lineWidth={1.2} transparent opacity={dim ? 0.2 : 0.9} />}
     </group>
   );
 }
 
-function Walls({ floor, palette, outdoor, upper }: { floor: Floor; palette: ScenePalette; outdoor: boolean; upper: boolean }) {
-  const pieces = useMemo(() => wallPieces(floor), [floor]);
+/** A floor's outer walls (door openings, a lintel over each door), guard rails along its open
+ * edges and stairwell openings, and columns under a balcony. One merged mesh per material. */
+function Walls({ floor, venue, palette, outdoor, upper, columns }: {
+  floor: Floor; venue: Venue; palette: ScenePalette; outdoor: boolean; upper: boolean; columns: boolean;
+}) {
   const h = outdoor ? FENCE_M : upper ? 1.1 : WALL_INDOOR_M;
   const t = outdoor ? 0.08 : upper ? 0.06 : WALL_T;
-  return (
-    <group>
-      {pieces.map((p, i) => {
-        const dx = p.b[0] - p.a[0];
-        const dy = p.b[1] - p.a[1];
-        const len = Math.hypot(dx, dy);
-        const mx = (p.a[0] + p.b[0]) / 2 + p.edge.nx * t / 2;
-        const my = (p.a[1] + p.b[1]) / 2 + p.edge.ny * t / 2;
-        const rot = Math.atan2(dy, dx);
-        return (
-          <group key={i} position={[mx, 0, -my]} rotation={[0, rot, 0]}>
-            <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-              <boxGeometry args={[len + t, h, t]} />
-              <meshStandardMaterial color={outdoor ? palette.barrier : palette.wall} roughness={0.85}
-                                    transparent={outdoor || upper} opacity={outdoor ? 0.55 : upper ? 0.35 : 1} />
-            </mesh>
-            {!outdoor && !upper && (
-              <mesh position={[0, h + 0.015, 0]}>
-                <boxGeometry args={[len + t, 0.03, t + 0.002]} />
-                <meshBasicMaterial color={palette.wallCut} />
-              </mesh>
-            )}
-            {outdoor && <FencePosts len={len} h={h} color={palette.barrier} />}
-          </group>
-        );
-      })}
-    </group>
-  );
-}
-
-/** Columns under the open edge of a balcony and a glass railing along it. */
-function BalconyStructure({ floor, base, height, palette }: { floor: Floor; base: Floor; height: number; palette: ScenePalette }) {
-  const edges = useMemo(() => {
-    const outer = base.walkable as Pt[];
-    const ring = floor.walkable as Pt[];
-    const segDist = (p: Pt, a: Pt, b: Pt) => {
-      const dx = b[0] - a[0], dy = b[1] - a[1];
-      const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)));
-      return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+  const below = useMemo(() => floorBelow(venue, floor), [venue, floor]);
+  const edges = useMemo(() => outerEdges(floor, below), [floor, below]);
+  const geo = useMemo(() => {
+    const walls = outerWallGeometry(edges, { height: h, thickness: t, cap: !outdoor && !upper });
+    const rails = outdoor ? null : guardRailGeometry(guardRailRuns(venue, floor, edges));
+    const drop = below ? (floor.elevation_m ?? 0) - (below.elevation_m ?? 0) : 0;
+    return {
+      ...walls, rails,
+      posts: outdoor ? fencePostGeometry(edges.walls, h) : null,
+      columns: columns && below && !outdoor ? columnGeometry(edges.open, drop, SLAB_M) : null,
     };
-    const toOuter = (p: Pt) => Math.min(...outer.map((a, i) => segDist(p, a, outer[(i + 1) % outer.length])));
-    const out: [Pt, Pt][] = [];
-    ring.forEach((a, i) => {
-      const b = ring[(i + 1) % ring.length];
-      const mid: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-      if (toOuter(mid) > 0.5) out.push([a, b]);
-    });
-    return out;
-  }, [floor.walkable, base.walkable]);
+  }, [edges, h, t, outdoor, upper, venue, floor, below, columns]);
+  useEffect(() => () => {
+    for (const g of [geo.body, geo.cap, geo.rails?.frame, geo.rails?.glass, geo.posts, geo.columns]) g?.dispose();
+  }, [geo]);
   return (
     <group>
-      {edges.map(([a, b], i) => {
-        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        const rot = Math.atan2(b[1] - a[1], b[0] - a[0]);
-        const n = Math.max(2, Math.round(len / 6) + 1);
-        return (
-          <group key={i}>
-            {Array.from({ length: n }, (_, k) => {
-              const t = n === 1 ? 0.5 : k / (n - 1);
-              const x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t;
-              return (
-                <mesh key={k} position={[x, -(height + 0.3) / 2, -y]} castShadow>
-                  <boxGeometry args={[0.35, Math.max(0.1, height - 0.3), 0.35]} />
-                  <meshStandardMaterial color={palette.wall} roughness={0.8} />
-                </mesh>
-              );
-            })}
-            <mesh position={[(a[0] + b[0]) / 2, 0.55, -(a[1] + b[1]) / 2]} rotation={[0, rot, 0]}>
-              <boxGeometry args={[len, 1.1, 0.04]} />
-              <meshStandardMaterial color={palette.signal} transparent opacity={0.18} roughness={0.1} metalness={0.1} />
-            </mesh>
-            <mesh position={[(a[0] + b[0]) / 2, 1.1, -(a[1] + b[1]) / 2]} rotation={[0, rot, 0]}>
-              <boxGeometry args={[len, 0.05, 0.08]} />
-              <meshStandardMaterial color={palette.edge} roughness={0.5} metalness={0.4} />
-            </mesh>
-          </group>
-        );
-      })}
-    </group>
-  );
-}
-
-function FencePosts({ len, h, color }: { len: number; h: number; color: string }) {
-  const n = Math.max(2, Math.floor(len / 5) + 1);
-  return (
-    <>
-      {Array.from({ length: n }, (_, i) => (
-        <mesh key={i} position={[-len / 2 + (len * i) / (n - 1), h / 2, 0]}>
-          <boxGeometry args={[0.05, h + 0.05, 0.05]} />
-          <meshStandardMaterial color={color} roughness={0.6} metalness={0.3} />
+      <mesh geometry={geo.body} castShadow receiveShadow>
+        <meshStandardMaterial color={outdoor ? palette.barrier : palette.wall} roughness={0.85}
+                              transparent={outdoor || upper} opacity={outdoor ? 0.55 : upper ? 0.35 : 1} depthWrite={!outdoor && !upper} />
+        {!outdoor && !upper && <Edges color={palette.edge} threshold={20} />}
+      </mesh>
+      {geo.cap && (
+        <mesh geometry={geo.cap}>
+          <meshBasicMaterial color={palette.wallCut} />
         </mesh>
-      ))}
-    </>
+      )}
+      {geo.posts && (
+        <mesh geometry={geo.posts}>
+          <meshStandardMaterial color={palette.barrier} roughness={0.6} metalness={0.3} />
+        </mesh>
+      )}
+      {geo.rails && (
+        <>
+          <mesh geometry={geo.rails.frame} castShadow>
+            <meshStandardMaterial color={palette.edge} roughness={0.5} metalness={0.4} />
+          </mesh>
+          <mesh geometry={geo.rails.glass}>
+            <meshStandardMaterial color={palette.dark ? "#9fc4e0" : "#cfe3f2"} transparent opacity={0.28} roughness={0.1} depthWrite={false} />
+          </mesh>
+        </>
+      )}
+      {geo.columns && (
+        <mesh geometry={geo.columns} castShadow receiveShadow>
+          <meshStandardMaterial color={palette.wall} roughness={0.8} />
+        </mesh>
+      )}
+    </group>
   );
 }
 
@@ -494,7 +449,8 @@ function ExitGate({ exit, floor, palette, outdoor, blocked, selected, proposed, 
 }) {
   const door = useMemo(() => doorwayOf(floor.walkable as Pt[], exit), [floor.walkable, exit]);
   const color = blocked ? palette.danger : palette.egress;
-  const h = outdoor ? 2.8 : 2.25;
+  // the frame fits under the door head (and its lintel)
+  const h = outdoor ? 2.8 : DOOR_HEAD_M - 0.06;
   if (!door) {
     const [cx, cy] = centroid(exit.polygon as Pt[]);
     return (
@@ -615,37 +571,26 @@ function StairMesh({ stair, venue, palette, exploded, selected, labels, highligh
   highlight?: boolean;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
 }) {
-  const yFrom = floorY(venue, stair.from_floor, exploded);
-  const yTo = floorY(venue, stair.to_floor, exploded);
-  // a basement stair is walked upward: its upper end is the landing on to_floor
-  const up = yFrom < yTo;
-  const [yTop, yBot] = up ? [yTo, yFrom] : [yFrom, yTo];
-  const upper = (up ? stair.bottom_polygon : stair.top_polygon) as Pt[];
-  const lower = (up ? stair.top_polygon : stair.bottom_polygon) as Pt[];
-  const rise = yTop - yBot;
-  const climb = useMemo(() => stairRun(upper, lower), [upper, lower]);
-  // the flight's side profile (steps over a soffit) extruded across the stair's width
-  const geo = useMemo(() => {
-    const g = new THREE.ExtrudeGeometry(shapeOf(stairProfile(climb.run, rise)), { depth: stair.width_m, bevelEnabled: false });
-    g.translate(0, 0, -stair.width_m / 2);
-    return g;
-  }, [climb.run, rise, stair.width_m]);
-  useEffect(() => () => geo.dispose(), [geo]);
+  const place = useMemo(() => stairPlacement(venue, stair, exploded), [venue, stair, exploded]);
+  const { run, rise } = place;
+  // the flight's side profile (steps over a soffit) across the stair's width, landings at both
+  // ends, closed stringers and handrails on both sides
+  const geo = useMemo(() => stairGeometry(run, rise, stair.width_m), [run, rise, stair.width_m]);
+  useEffect(() => () => { geo.body.dispose(); geo.rails.dispose(); }, [geo]);
+  const tone = selected ? palette.signal : highlight ? palette.stairHot : palette.stair;
   return (
-    <group position={[climb.bx, yBot, -climb.by]} rotation={[0, climb.angle, 0]}
+    <group position={[place.foot[0], place.yBot, -place.foot[1]]} rotation={[0, place.angle, 0]}
            onClick={(e) => { e.stopPropagation(); onClick(e); }}>
-      <mesh geometry={geo} castShadow receiveShadow>
-        <meshStandardMaterial color={selected ? palette.signal : highlight ? palette.stairHot : palette.stair} roughness={0.8}
+      <mesh geometry={geo.body} castShadow receiveShadow>
+        <meshStandardMaterial color={tone} roughness={0.8}
                               emissive={highlight && !selected ? palette.stairHot : "#000000"} emissiveIntensity={highlight ? 0.25 : 0} />
         <Edges color={selected ? palette.signal : highlight ? palette.stairHot : palette.edge} threshold={30} />
       </mesh>
-      {[-1, 1].map((s) => (
-        <Line key={s} points={[new THREE.Vector3(0, 1.0, (s * stair.width_m) / 2),
-                               new THREE.Vector3(climb.run, rise + 1.0, (s * stair.width_m) / 2)]}
-              color={highlight ? palette.stairHot : palette.edge} lineWidth={highlight ? 2.5 : 1.5} />
-      ))}
+      <mesh geometry={geo.rails} castShadow>
+        <meshStandardMaterial color={selected ? palette.signal : highlight ? palette.stairHot : palette.edge} roughness={0.5} metalness={0.35} />
+      </mesh>
       {labels && (
-        <SceneHtml position={[climb.run / 2, rise / 2 + 1.6, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
+        <SceneHtml position={[run / 2, rise / 2 + 1.6, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs text-muted shadow-sm">
             Stair · {fmtNum(stair.width_m, 1)} m
           </div>
@@ -720,12 +665,9 @@ const NO_RAYCAST = () => null;
 
 /** A storey out of focus: a faint plate with its outline and room walls as thin lines. Floors
  * above the focus are outlines only, so they never hide the floor in focus. Not clickable. */
-function GhostFloor({ floor, y, palette, above, tag }: { floor: Floor; y: number; palette: ScenePalette; above: boolean; tag?: string }) {
-  const geo = useMemo(() => {
-    const g = new THREE.ShapeGeometry(shapeOf(floor.walkable as Pt[]));
-    g.rotateX(-Math.PI / 2);
-    return g;
-  }, [floor.walkable]);
+function GhostFloor({ floor, venue, y, palette, above, tag }: { floor: Floor; venue: Venue; y: number; palette: ScenePalette; above: boolean; tag?: string }) {
+  // the plate keeps its stairwell openings, so the highlighted stairs read through it
+  const geo = useMemo(() => slabGeometry(floor.walkable as Pt[], stairOpenings(venue, floor.floor_id), 0).geometry, [floor.walkable, floor.floor_id, venue]);
   useEffect(() => () => geo.dispose(), [geo]);
   const ring = useMemo(() => [...(floor.walkable as Pt[]), floor.walkable[0] as Pt].map((p) => new THREE.Vector3(p[0], 0.02, -p[1])), [floor.walkable]);
   const walls = useMemo(() => floor.obstacles.filter((o) => o.kind === "wall").map((o) => {
