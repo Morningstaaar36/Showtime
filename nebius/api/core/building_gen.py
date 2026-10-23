@@ -223,7 +223,11 @@ class _Frame:
         rect = foot.minimum_rotated_rectangle
         pts = list(rect.exterior.coords)[:4]
         edges = [(pts[i], pts[(i + 1) % 4]) for i in range(2)]
-        (ax, ay), (bx, by) = max(edges, key=lambda e: math.dist(*e))
+        # the long axis; for a square (equal sides) the one nearest east-west, so the rooms
+        # line the north and south walls, as the builder's door placement expects
+        (ax, ay), (bx, by) = max(
+            edges, key=lambda e: (round(math.dist(*e), 6), abs(e[1][0] - e[0][0]))
+        )
         self.angle = math.degrees(math.atan2(by - ay, bx - ax))
         c = rect.centroid
         self.cx, self.cy = c.x, c.y

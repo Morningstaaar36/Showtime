@@ -257,7 +257,19 @@ def signature(events: list[dict[str, Any]]) -> str:
     """Identity of an attack for de-duplication (ignores timing details)."""
     keys = []
     for e in events:
-        ref = e.get("exit_id") or e.get("zone_id") or ""
+        # every place the event names: two redirects between different exits are different
+        ref = "/".join(
+            str(e[k])
+            for k in (
+                "exit_id",
+                "zone_id",
+                "from_exit_id",
+                "to_exit_id",
+                "target_zone_id",
+                "floor_id",
+            )
+            if e.get(k)
+        )
         if e.get("type") == SCRIPT_EVENT:
             ref = hashlib.sha256(str(e.get("code", "")).encode()).hexdigest()[:12]
         keys.append(f"{e.get('type')}:{ref}")

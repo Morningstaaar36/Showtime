@@ -214,8 +214,34 @@ def rule_attacks_for_cells(
             key=lambda e: (-loads.get(e.id, 0), -e.width_m, e.id),
         )
         r_zones = sorted((zones[x] for x in region.zones if x in zones), key=lambda z: -z.people)
+        # an upper floor's ways out are its stair flights: lose one (when the floor has another)
+        # or meet people coming up it
+        r_stairs = [s for s in venue.stairs if s.id in region.exits]
+        ways_from = {
+            f: sum(1 for s in venue.stairs if s.from_floor == f)
+            for f in {s.from_floor for s in r_stairs}
+        }
         options: list[tuple[str, list[dict[str, Any]], str]] = []
-        if kind == "exit_blocked" and len(open_exits) > 1:
+        if kind == "exit_blocked" and r_stairs and not r_exits:
+            options = [
+                (
+                    f"{s.id} lost to smoke one minute in",
+                    [{"type": "block_exit", "exit_id": s.id, "at_s": 60}],
+                    f"With {s.id} gone, its floor has to use its other stairs.",
+                )
+                for s in r_stairs
+                if ways_from[s.from_floor] > 1
+            ]
+        elif kind == "counterflow" and r_stairs and not r_exits:
+            options = [
+                (
+                    f"People come up {s.id} against the crowd",
+                    [{"type": "counterflow", "exit_id": s.id, "people": 4, "at_s": 60}],
+                    f"A group climbing {s.id} halves its flow down.",
+                )
+                for s in r_stairs
+            ]
+        elif kind == "exit_blocked" and len(open_exits) > 1:
             options = [
                 (
                     f"{name(e.id)} lost one minute into the exit",
@@ -412,10 +438,18 @@ def _stair_fixes(
     out: list[tuple[str, list[dict[str, Any]], list[dict[str, Any]], str, str]] = []
     if not venue.stairs:
         return out
-    ground = min(venue.floors, key=lambda f: f.elevation_m).floor_id
+    # the street level (a basement lies below it): the highest floor at or below elevation 0
+    at_or_below = [f for f in venue.floors if f.elevation_m <= 0.01]
+    ground = (
+        max(at_or_below, key=lambda f: f.elevation_m)
+        if at_or_below
+        else min(venue.floors, key=lambda f: f.elevation_m)
+    ).floor_id
+    # stairs into the street level carry everyone (down from above, or up from a basement)
+    into_ground = [s for s in venue.stairs if s.to_floor == ground or s.from_floor == ground]
     seen: set[str] = set()
     # the flights into the ground floor, narrowest first: each one is a stairwell to widen
-    for st in sorted((s for s in venue.stairs if s.to_floor == ground), key=lambda s: s.width_m):
+    for st in sorted(into_ground, key=lambda s: s.width_m):
         if st.id in seen or st.width_m >= 2.4:
             continue
         seen.update(stairwell(venue, st.id))

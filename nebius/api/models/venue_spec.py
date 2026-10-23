@@ -148,7 +148,8 @@ class LevelSpec(_Spec):
     """One level of a building whose headcount or name differs from the others."""
 
     level: int = Field(ge=-3, le=39, description="0 = street level, 1 = first floor, -1 = basement")
-    people: int = Field(default=0, ge=0, le=20_000)
+    # None: the level has building.people_per_floor (naming a level does not empty it)
+    people: int | None = Field(default=None, ge=0, le=20_000)
     name: str | None = Field(default=None, max_length=30, description="'Lobby', 'Platform'")
 
 
@@ -207,7 +208,7 @@ class VenueSpec(_Spec):
         b = self.building
         if b is None or (b.people_per_floor is None and not b.levels):
             return None
-        given = {lv.level: lv.people for lv in b.levels}
+        given = {lv.level: lv.people for lv in b.levels if lv.people is not None}
         return [given.get(k, b.people_per_floor or 0) for k in b.level_numbers]
 
     def ground_zones(self) -> list[ZoneSpec]:

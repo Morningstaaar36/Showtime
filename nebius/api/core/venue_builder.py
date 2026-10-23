@@ -472,10 +472,13 @@ def build_venue(spec: VenueSpec, venue_id: str = "draft") -> BuildResult:
             return res
         b = spec.building
         if b.storeys == 1 and not b.basements and b.interior == "open":
-            # one open level is a hall: keep its regions, stage front and balcony
-            total = spec.total_people()
+            # one open level is a hall: keep its regions, stage front and balcony. The ground
+            # zone holds the main floor only: the balcony's people are built with the balcony.
+            per = spec.level_people()
+            up = spec.upper_floor.people if spec.upper_floor is not None else 0
+            ground = per[0] if per else max(spec.total_people() - up, 0)
             zones = spec.zones or (
-                [ZoneSpec(label=b.room_label or "People", people=total)] if total else []
+                [ZoneSpec(label=b.room_label or "People", people=ground)] if ground else []
             )
             return _build_single(
                 spec.model_copy(update={"building": None, "zones": zones}), venue_id
@@ -848,6 +851,11 @@ def _stair_cores(
         ends = ("west", "east") if W >= D else ("south", "north")
         wanted = [(ends[0], 1.2), (ends[1], 1.2)]
         assumptions.append(f"Two 1.2 m stairs, near the {ends[0]} and {ends[1]} ends.")
+    elif not wanted and via_stair:
+        assumptions.append(
+            "No stair cores were described, so the only stairs are the ones beside the exits "
+            "on other levels; everyone above the street uses them. Add building.stairs for more."
+        )
     cores: list[Core] = []
 
     def taken() -> list[Any]:
