@@ -10,7 +10,7 @@ export interface FloorStat {
   start: number;
   /** people on the floor over time (about `points` samples) */
   series: number[];
-  /** seconds until nobody is left on the floor (null: never cleared in the replay) */
+  /** seconds until nobody is left on the floor for good (null: never cleared in the replay) */
   clearS: number | null;
 }
 
@@ -73,7 +73,9 @@ export function floorsSummary(traj: TrajLike, venue: Venue, points = 120, allOut
     }
     if (k === 0) counts.forEach((c, j) => { start[j] = c; });
     counts.forEach((c, j) => {
-      if (clear[j] === null && start[j] > 0 && c === 0) clear[j] = traj.index.times[k];
+      // clear when it is finally empty: people coming down from above can fill it again
+      if (c > 0) clear[j] = null;
+      else if (clear[j] === null && start[j] > 0) clear[j] = traj.index.times[k];
     });
     if (k % step === 0 || k === total - 1) counts.forEach((c, j) => series[j].push(c));
   }

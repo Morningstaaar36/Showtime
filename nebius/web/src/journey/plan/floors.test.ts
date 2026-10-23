@@ -47,4 +47,9 @@ describe("floors summary", () => {
     expect(s.floors[0].series.at(-1)).toBe(0);
     expect(s.floors[1].clearS).toBeNull(); // nobody started on F1
   });
+  it("a floor that fills again from the stairs clears when it is empty for good", () => {
+    // F0 empties at 10 s, then someone comes down to it and leaves at 30 s
+    const frames: [number, number, number, number][][] = [[[1, 5, 5, 0], [2, 5, 5, 1]], [[2, 5, 5, 1]], [[2, 5, 5, 0]], []];
+    expect(floorsSummary(traj(frames), venue).floors[0].clearS).toBe(30);
+  });
 });

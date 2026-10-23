@@ -1730,6 +1730,8 @@
     "fl_stair_use": "{side} stair down · {n}",
     "fl_west": "West",
     "fl_east": "East",
-    "fl_middle": "Middle"
+    "fl_middle": "Middle",
+    "estimate": "Estimate",
+    "estimate_hint": "One side never reached 95% out: its time is extrapolated from the exit flow, so no percentage is given."
   }
 }

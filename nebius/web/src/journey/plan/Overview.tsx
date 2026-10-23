@@ -100,9 +100,13 @@ function NeedsBar({ countdown: c }: { countdown: Countdown | null | undefined })
 }
 
 /** Before → after, one metric per row, as two bars on the same scale. */
-function CompareRow({ label, icon, before, after, fmt, lowerBetter = true }: {
+function CompareRow({ label, icon, before, after, fmt, lowerBetter = true, estimate }: {
   label: string; icon: React.ReactNode; before: number | null; after: number | null; fmt: (v: number | null) => string; lowerBetter?: boolean;
+  /** which side is an estimate (extrapolated, not measured): no percentage is shown then */
+  estimate?: { before: boolean; after: boolean };
 }) {
+  const est = estimate?.before || estimate?.after;
+  const side = (v: number | null, approx?: boolean) => (approx && v != null ? t("yourplan.about", { d: fmt(v) }) : fmt(v));
   const top = Math.max(before ?? 0, after ?? 0, 1e-6);
   const bar = (v: number | null, cls: string) => (
     <div className="h-2.5 flex-1 rounded-full bg-surface-3">
@@ -114,10 +118,13 @@ function CompareRow({ label, icon, before, after, fmt, lowerBetter = true }: {
     <li className="grid grid-cols-[minmax(0,10.5rem)_1fr_auto] items-center gap-x-3 gap-y-1 py-2 max-sm:grid-cols-[1fr_auto]">
       <span className="flex min-w-0 items-center gap-2 text-sm font-medium max-sm:col-span-1"><span className="text-muted [&_svg]:size-4" aria-hidden>{icon}</span><span className="truncate">{label}</span></span>
       <span className="space-y-1 max-sm:col-span-2 max-sm:row-start-2">
-        <span className="flex items-center gap-2"><span className="w-10 text-2xs text-muted">{t("yourplan.before")}</span>{bar(before, "bg-line")}<span className="w-20 text-right text-xs tabular">{fmt(before)}</span></span>
-        <span className="flex items-center gap-2"><span className="w-10 text-2xs font-semibold text-signal">{t("yourplan.after")}</span>{bar(after, "bg-signal")}<span className="w-20 text-right text-xs font-semibold tabular">{fmt(after)}</span></span>
+        <span className="flex items-center gap-2"><span className="w-10 text-2xs text-muted">{t("yourplan.before")}</span>{bar(before, "bg-line")}<span className="w-20 text-right text-xs tabular">{side(before, estimate?.before)}</span></span>
+        <span className="flex items-center gap-2"><span className="w-10 text-2xs font-semibold text-signal">{t("yourplan.after")}</span>{bar(after, "bg-signal")}<span className="w-20 text-right text-xs font-semibold tabular">{side(after, estimate?.after)}</span></span>
       </span>
-      <span className="justify-self-end max-sm:row-start-1 max-sm:col-start-2"><DeltaChip before={before} after={after} lowerBetter={lowerBetter} /></span>
+      <span className="justify-self-end max-sm:row-start-1 max-sm:col-start-2">
+        {est ? <span className="rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-muted" title={t("plan.estimate_hint")}>{t("plan.estimate")}</span>
+          : <DeltaChip before={before} after={after} lowerBetter={lowerBetter} />}
+      </span>
     </li>
   );
 }
@@ -136,6 +143,8 @@ export function Overview(p: OverviewProps) {
   const tone = LEVEL_TONE[p.level];
   const b = p.before, a = p.after;
   const evacOf = (x: SessionMetrics | null | undefined) => num(x?.evac_time_p95_s) ?? num(x?.evac_time_estimate_s);
+  // an estimate (95% not reached, extrapolated from the exit flow) is never shown as measured
+  const isEstimate = (x: SessionMetrics | null | undefined) => num(x?.evac_time_p95_s) == null && num(x?.evac_time_estimate_s) != null;
   const hasCompare = !!b && !!a && p.fixes > 0;
   const hasSummary = !!p.summary.judge || p.summary.reasons.length > 0 || p.summary.recommendations.length > 0;
 
@@ -216,6 +225,7 @@ export function Overview(p: OverviewProps) {
           {hasCompare ? (
             <ul className="mt-1 divide-y divide-border">
               <CompareRow label={t("plan.fix_evac")} icon={<Clock3 />} before={evacOf(b)} after={evacOf(a)}
+                          estimate={{ before: isEstimate(b), after: isEstimate(a) }}
                           fmt={(v) => (v == null ? t("plan.not_all_out") : fmtDuration(v))} />
               <CompareRow label={t("yourplan.n_peak")} icon={<Gauge />} before={num(b?.peak_density_ppm2)} after={num(a?.peak_density_ppm2)}
                           fmt={(v) => (v == null ? "–" : `${fmtNum(v, 1)} /m²`)} />

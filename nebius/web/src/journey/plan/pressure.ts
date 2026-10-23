@@ -1,12 +1,10 @@
 /** Crowd pressure ("turbulence") of a run: GET /runs/{id}/pressure/index + /runs/{id}/pressure,
  * the same encoding as the density grid (uint8 frames × scale), read by {@link DensityGrid}.
- * Servers without it answer 404: the route is then marked missing for this page load and the
- * Turbulence toggle stays hidden. */
+ * A run simulated before pressure existed answers 404: that run has no layer (and no Turbulence
+ * toggle); other runs still do. */
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { DensityGrid, type DensityIndex } from "@/replay/density";
-
-let missing = false;
 
 export interface PressureLayer {
   grid: DensityGrid;
@@ -27,13 +25,18 @@ export function pressureRange(idx: DensityIndex & { unit?: string; max?: number 
   series.forEach((v, i) => { if (k < 0 || v > series[k]) k = i; });
   const peak = k >= 0 ? series[k] : null;
   const max = Math.max(idx.max ?? 0, idx.danger * 1.4, peak ?? 0, 1e-6);
-  return { peak, peakAtS: k >= 0 ? idx.times[k] ?? null : null, warn: idx.warn, danger: idx.danger, max, unit: idx.unit ?? null };
+  // the series has one value per simulation frame, thinned evenly; the stored frames are fewer
+  // (one a second), so its index maps to the run's time by position, not to idx.times[k]
+  const times = idx.times ?? [];
+  const end = times.length ? times[times.length - 1] : null;
+  const peakAtS = k >= 0 && end != null ? (series.length > 1 ? (k / (series.length - 1)) * end : 0) : null;
+  return { peak, peakAtS, warn: idx.warn, danger: idx.danger, max, unit: idx.unit ?? null };
 }
 
 export function usePressure(runId: string | null | undefined, enabled: boolean) {
   return useQuery({
     queryKey: ["pressure", runId],
-    enabled: !!runId && enabled && !missing,
+    enabled: !!runId && enabled,
     retry: false,
     staleTime: Infinity,
     gcTime: 90_000,
@@ -43,9 +46,8 @@ export function usePressure(runId: string | null | undefined, enabled: boolean) 
         const buf = await api.binary(`/runs/${runId}/pressure`, signal);
         const range = pressureRange(idx);
         return { grid: new DensityGrid(idx, buf, range.max), ...range };
-      } catch (e) {
-        if ((e as { status?: number }).status === 404) missing = true;
-        return null;
+      } catch {
+        return null; // this run has no pressure grid (simulated before it existed)
       }
     },
   });
