@@ -33,7 +33,7 @@ export interface ScenePalette {
   stairHot: string;
 }
 
-const LIGHT: ScenePalette = {
+export const LIGHT_PALETTE: ScenePalette = {
   dark: false,
   bg: "#eef0ff",
   ground: "#e9ecfd",
@@ -118,5 +118,5 @@ export function useScenePalette(night = false): ScenePalette {
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
     return () => obs.disconnect();
   }, []);
-  return night ? NIGHT : dark ? DARK : LIGHT;
+  return night ? NIGHT : dark ? DARK : LIGHT_PALETTE;
 }

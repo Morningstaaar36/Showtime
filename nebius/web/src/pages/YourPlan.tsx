@@ -472,7 +472,7 @@ export function YourPlanPage() {
           )}
 
           <TabsContent value="handover" className="animate-tab-in">
-            <HandOver sessionId={sessionId} projectId={p.id} onTestAgain={testAgain} testing={start.isPending}>
+            <HandOver sessionId={sessionId} projectId={p.id} venue={venue} projectName={p.name} onTestAgain={testAgain} testing={start.isPending}>
               <CostCard cost={summary?.cost} tokens={session.data?.tokens ?? 0} costUsd={session.data?.cost_usd ?? 0} />
             </HandOver>
           </TabsContent>
