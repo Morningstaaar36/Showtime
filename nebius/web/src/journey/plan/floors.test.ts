@@ -39,4 +39,12 @@ describe("floors summary", () => {
     expect(s.stairs).toEqual({ west: 1, east: 1 });
     expect(s.floors[1].series).toEqual([2, 1, 0, 0]);
   });
+  it("a floor whose last person is stepping out in the final frame clears when the run says everyone is out", () => {
+    const frames: [number, number, number, number][][] = [[[1, 5, 5, 0], [2, 6, 5, 0]], [[2, 7, 5, 0]]];
+    expect(floorsSummary(traj(frames), venue).floors[0].clearS).toBeNull();
+    const s = floorsSummary(traj(frames), venue, 120, 12.5);
+    expect(s.floors[0].clearS).toBe(12.5);
+    expect(s.floors[0].series.at(-1)).toBe(0);
+    expect(s.floors[1].clearS).toBeNull(); // nobody started on F1
+  });
 });

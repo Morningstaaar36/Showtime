@@ -27,7 +27,10 @@ export interface TrajLike {
   frame(k: number): { n: number; ids: Uint16Array; xs: Int16Array; ys: Int16Array; floors: Uint8Array };
 }
 
-export function floorsSummary(traj: TrajLike, venue: Venue, points = 120): FloorsSummary {
+/** `allOutS`: when the run reports everyone out, the time the last person left. The final
+ * trajectory frame can still hold people stepping through an exit at that instant; their floor
+ * is clear then, not "never". */
+export function floorsSummary(traj: TrajLike, venue: Venue, points = 120, allOutS: number | null = null): FloorsSummary {
   const fl = traj.index.floors;
   const total = traj.frameCount;
   const [ox, oy] = traj.index.origin;
@@ -73,6 +76,14 @@ export function floorsSummary(traj: TrajLike, venue: Venue, points = 120): Floor
       if (clear[j] === null && start[j] > 0 && c === 0) clear[j] = traj.index.times[k];
     });
     if (k % step === 0 || k === total - 1) counts.forEach((c, j) => series[j].push(c));
+  }
+  if (allOutS != null) {
+    fl.forEach((_, j) => {
+      if (clear[j] === null && start[j] > 0) {
+        clear[j] = Math.max(allOutS, traj.index.times[total - 1] ?? allOutS);
+        series[j].push(0);
+      }
+    });
   }
   return { floors: fl.map((id, j) => ({ floorId: id, start: start[j], series: series[j], clearS: clear[j] })), stairs };
 }

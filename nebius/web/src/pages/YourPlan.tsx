@@ -81,6 +81,12 @@ export function countdownText(c: Countdown | null | undefined): string {
 const usable = (r: RunOut | undefined) => !!r && (r.status === "ok" || r.status === "partial");
 const noop = () => {};
 
+/** When the run got everyone out, the time the last person left (null otherwise). */
+function allOut(run: { result?: { metrics?: { agents_not_evacuated?: number | null; evac_time_max_s?: number | null } | null } | null } | undefined): number | null {
+  const m = run?.result?.metrics;
+  return m && m.agents_not_evacuated === 0 && m.evac_time_max_s != null ? m.evac_time_max_s : null;
+}
+
 export function YourPlanPage() {
   const { projectId = "" } = useParams();
   const [params, setParams] = useSearchParams();
@@ -460,6 +466,7 @@ export function YourPlanPage() {
           {multi && (
             <TabsContent value="floors" className="animate-tab-in">
               <FloorsTab venue={venue} traj={(afterReplay.data ?? beforeReplay.data)?.traj ?? null}
+                         allOutS={allOut(afterReplay.data ? after.data : before.data)}
                          onWatch={(floorId) => { useUi.getState().setFloorView(floorId); go("replay"); }} />
             </TabsContent>
           )}
