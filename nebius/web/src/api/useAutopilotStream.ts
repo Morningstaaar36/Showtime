@@ -20,7 +20,9 @@ export function useAutopilotStream(runId: string | null | undefined): AutopilotS
     let failures = 0;
     const open = () => {
       es = new EventSource(`/api/v1/autopilot/${runId}/events?after=${lastSeq.current}`);
-      es.onopen = () => { failures = 0; dispatch({ kind: "conn", v: true }); };
+      // only a delivered event proves the stream works: a stream that opens and drops at once
+      // must still back off
+      es.onopen = () => dispatch({ kind: "conn", v: true });
       es.onmessage = (m) => {
         failures = 0;
         try {

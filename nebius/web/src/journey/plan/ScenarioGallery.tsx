@@ -34,8 +34,10 @@ function OutcomeBadge({ outcome }: { outcome: Outcome }) {
   return <Badge tone="neutral">{t(outcome === "preview" ? "work.preview" : "work.unknown")}</Badge>;
 }
 
-export function ScenarioCards({ rows, attacks, name, stress, onPlay }: {
+export function ScenarioCards({ rows, attacks, name, stress, onPlay, danger = 5 }: {
   rows: ScenarioRow[]; attacks: Attack[]; name: (id: string) => string; stress: Map<string, StressCount>; onPlay: (row: ScenarioRow) => void;
+  /** the danger density (people per m²) from Settings */
+  danger?: number;
 }) {
   const shown = rows.filter((r) => r.kind === "baseline" || (r.kind === "attack" && !r.key.includes(":current:")));
   if (!shown.length) return <p className="text-sm text-muted">{t("yourplan.no_risks")}</p>;
@@ -68,7 +70,7 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay }: {
                 </div>
                 <div className="rounded-[8px] bg-surface-2 px-2 py-1.5">
                   <dt className="text-2xs text-muted">{t("plan.sc_peak")}</dt>
-                  <dd className={cn("text-lg font-bold tabular", r.peak != null && r.peak >= 5 && "text-danger")}>{r.peak != null ? fmtNum(r.peak, 1) : "–"}</dd>
+                  <dd className={cn("text-lg font-bold tabular", r.peak != null && r.peak >= danger && "text-danger")}>{r.peak != null ? fmtNum(r.peak, 1) : "–"}</dd>
                 </div>
               </dl>
               <div className="flex flex-wrap gap-1.5 text-xs">
@@ -158,7 +160,9 @@ function useCatalogue(projectId: string) {
 
 /** Pick scenarios from the catalogue (or the six standard what-ifs on a server without one), run
  * them in parallel sandboxes, and watch any result in the replay. */
-export function ScenarioCatalogue({ projectId, version, onPlay }: { projectId: string; version: number; onPlay: (runId: string, title: string) => void }) {
+export function ScenarioCatalogue({ projectId, version, onPlay, danger = 5 }: {
+  projectId: string; version: number; onPlay: (runId: string, title: string) => void; danger?: number;
+}) {
   const qc = useQueryClient();
   const catalogue = useCatalogue(projectId);
   const items = catalogue.data?.items ?? [];
@@ -233,7 +237,7 @@ export function ScenarioCatalogue({ projectId, version, onPlay }: { projectId: s
           <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
             {results.map((it) => {
               const m = it.metrics;
-              const bad = !!m && (m.peak_density_ppm2 >= 5 || m.agents_not_evacuated > 0);
+              const bad = !!m && (m.peak_density_ppm2 >= danger || m.agents_not_evacuated > 0);
               const title = it.title ?? it.label;
               return (
                 <li key={it.key} className={cn("flex items-center gap-3 rounded-[var(--radius-panel)] border-2 bg-surface p-3 shadow-sm",
@@ -242,7 +246,10 @@ export function ScenarioCatalogue({ projectId, version, onPlay }: { projectId: s
                     {it.icon ? namedIcon(it.icon) : <Boxes />}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="line-clamp-2 block text-sm font-semibold leading-snug">{title}</span>
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="line-clamp-2 block text-sm font-semibold leading-snug">{title}</span>
+                      {m && <Badge tone={bad ? "danger" : "egress"}>{bad ? t("work.breaks") : t("work.holds")}</Badge>}
+                    </span>
                     {it.skipped ? <span className="block text-2xs text-muted">{it.skipped}</span> : !m ? (
                       <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-surface-3"><span className="block h-full animate-pulse rounded-full bg-signal" style={{ width: `${Math.max(8, (it.progress ?? 0) * 100)}%` }} /></span>
                     ) : (

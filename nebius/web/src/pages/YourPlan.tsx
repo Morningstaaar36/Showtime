@@ -29,6 +29,7 @@ import { FloorsTab } from "@/journey/plan/FloorsTab";
 import { stressByAttack } from "@/journey/plan/gallery";
 import { HandOver } from "@/journey/plan/HandOver";
 import { Overview, type SessionMetrics } from "@/journey/plan/Overview";
+import { FOCUS_FROM } from "@/scene/geom";
 import { usePressure } from "@/journey/plan/pressure";
 import { rangeVerdict } from "@/journey/plan/range";
 import { RangePanel } from "@/journey/plan/RangePanel";
@@ -46,7 +47,7 @@ import { planState } from "@/journey/plan/state";
 import { rowOutcome, stressCounter } from "@/journey/plan/stress";
 import { StressPanel } from "@/journey/plan/StressPanel";
 import { runBasisLabel } from "@/lib/evidence";
-import { fmtClock, fmtDuration, fmtHM, fmtNum } from "@/lib/format";
+import { fmtClock, fmtDuration, fmtHM, fmtNum, withoutRunIds } from "@/lib/format";
 import { cn, UNDO_TOAST_ID } from "@/lib/utils";
 import { displayNames, textHumanizer } from "@/lib/venueText";
 import { FloorSwitch } from "@/panels/FloorSwitch";
@@ -59,7 +60,8 @@ import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import { QUICK_TEST } from "./CheckVenue";
 
-export type PlanTab = "overview" | "replay" | "scenarios" | "fixes" | "floors" | "handover";
+export const PLAN_TABS = ["overview", "replay", "scenarios", "fixes", "floors", "handover"] as const;
+export type PlanTab = (typeof PLAN_TABS)[number];
 
 /** Showtime's planning targets for "everyone out" when no hazard time is known (api settings
  * `target_evac_indoor_s` / `target_evac_outdoor_s`); shown as targets, never as results. */
@@ -80,6 +82,20 @@ export function countdownText(c: Countdown | null | undefined): string {
 
 const usable = (r: RunOut | undefined) => !!r && (r.status === "ok" || r.status === "partial");
 const noop = () => {};
+
+/** A run's numbers in the shape of the session's before/after summary (for a version that
+ * holds only some of the kept fixes, whose own run is the "after"). */
+function metricsOf(run: { result?: { metrics?: Record<string, unknown> | null } | null } | undefined): SessionMetrics | undefined {
+  const m = run?.result?.metrics as (Record<string, unknown> & { extra?: Record<string, unknown> }) | undefined;
+  if (!m) return undefined;
+  return {
+    evac_time_p95_s: m.evac_time_p95_s ?? null,
+    evac_time_estimate_s: m.evac_time_p95_s == null ? m.extra?.rset_extrapolated_s ?? null : null,
+    peak_density_ppm2: m.peak_density_ppm2 ?? null,
+    time_above_danger_s: m.time_above_danger_s ?? null,
+    agents_not_evacuated: m.agents_not_evacuated ?? null,
+  } as SessionMetrics;
+}
 
 /** When the run got everyone out, the time the last person left (null otherwise). */
 function allOut(run: { result?: { metrics?: { agents_not_evacuated?: number | null; evac_time_max_s?: number | null } | null } | null } | undefined): number | null {
@@ -108,8 +124,12 @@ export function YourPlanPage() {
   const stress = useStress(projectId);
   const seedCheck = useSeedCheck(sessionId);
   const sensitivity = useSensitivity(sessionId);
-  // the tab lives in the URL (?tab=replay), so a link or a reload opens the same view
-  const tab = (params.get("tab") ?? "overview") as PlanTab;
+  // the tab lives in the URL (?tab=replay), so a link or a reload opens the same view; an
+  // unknown tab (or Floors for a one-floor venue) is the Overview, for every hook below too
+  const wanted = params.get("tab") ?? "overview";
+  const multiFloor = (project.data?.version.venue.floors.length ?? 1) > 1;
+  const tab: PlanTab = (PLAN_TABS as readonly string[]).includes(wanted) && (wanted !== "floors" || multiFloor)
+    ? (wanted as PlanTab) : "overview";
   const go = (next: PlanTab) => setParams((prev) => {
     const q = new URLSearchParams(prev);
     if (next === "overview") q.delete("tab"); else q.set("tab", next);
@@ -162,6 +182,22 @@ export function YourPlanPage() {
   const turb = turbulence && !split && pressure.data ? pressure.data : null;
   // one clock: the replay the open tab shows drives it; the worst moment starts just before its peak
   const clockReplay = tab === "overview" ? heroReplay : activeReplayTab ? replay.data : null;
+  // a tall building opens on one floor: the one where the crowd was densest, not always the ground
+  const peakFloor = useMemo(() => {
+    const idx = clockReplay?.density?.index;
+    if (!idx?.peak_map?.length) return null;
+    let best = -1, at: string | null = null;
+    idx.peak_map.forEach((rows, f) => {
+      const top = Math.max(0, ...rows.map((r) => Math.max(0, ...r)));
+      if (top > best) { best = top; at = idx.floors[f] ?? null; }
+    });
+    return at;
+  }, [clockReplay]);
+  useEffect(() => {
+    const storeys = project.data?.version.venue.floors.length ?? 0;
+    // only where "auto" would focus one floor anyway (two floors are shown together)
+    if (peakFloor && storeys >= FOCUS_FROM && useUi.getState().floorView === "auto") useUi.getState().setFloorView(peakFloor);
+  }, [peakFloor, project.data]);
   const compareReplay = activeReplayTab && split ? beforeReplay.data : null;
   useEffect(() => {
     if (!clockReplay) return;
@@ -274,7 +310,7 @@ export function YourPlanPage() {
   const basis = runBasisLabel(verdictRun);
   const cd = summary?.countdown;
   const cdBasis = [(cd?.status === "ok" || cd?.status === "too_late") ? cd.hazard_explanation : "",
-    cd?.rset_source ? t("yourplan.cd_from", { source: cd.rset_source }) : t("yourplan.cd_source")].filter(Boolean).join(" · ");
+    withoutRunIds(cd?.rset_source) ? t("yourplan.cd_from", { source: withoutRunIds(cd?.rset_source) }) : t("yourplan.cd_source")].filter(Boolean).join(" · ");
   const worst = summary?.attacks?.find((a) => a.attack_id === summary.worst_attack_id);
   const judge = summary?.judge_text ? `${human(summary.judge_text)}${summary.numbers_checked ? ` ${t("yourplan.numbers_checked")}` : ""}` : null;
   const attackTitle = (id: string) => summary?.attacks?.find((a) => a.attack_id === id)?.title ?? id;
@@ -403,7 +439,8 @@ export function YourPlanPage() {
                       score={{ attacks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.attacks, 0) || (summary?.attacks?.length ?? 0),
                                breaks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.breaks, 0), fixes: kept.length }} basis={basis} countdown={cd} countdownBasis={cdBasis} th={th}
                       targetS={venue.mode === "indoor" ? TARGET_INDOOR_S : TARGET_OUTDOOR_S}
-                      before={summary?.before as SessionMetrics | undefined} after={summary?.after as SessionMetrics | undefined}
+                      before={summary?.before as SessionMetrics | undefined}
+                      after={subsetRun ? metricsOf(after.data) : summary?.after as SessionMetrics | undefined}
                       insideSeries={insideSeries(afterReplay.data ?? null)} hero={hero} next={next}
                       summary={{ judge, reasons: summary?.evaluation?.reasons ?? [], recommendations: (summary?.recommendations ?? []).map(human) }} />
           </TabsContent>
@@ -443,10 +480,10 @@ export function YourPlanPage() {
           </TabsContent>
 
           <TabsContent value="scenarios" className="animate-tab-in space-y-6">
-            <ScenarioCards rows={rows} attacks={summary?.attacks ?? []} name={label} stress={stressByAttack(stressRec)}
+            <ScenarioCards rows={rows} attacks={summary?.attacks ?? []} name={label} stress={stressByAttack(stressRec)} danger={th.danger}
                            onPlay={(row) => { pick(row); go("replay"); }} />
             <FailureMapSlot projectId={p.id} sessionId={sessionId} onSelectRun={playRun} />
-            <ScenarioCatalogue projectId={p.id} version={p.current_version} onPlay={playRun} />
+            <ScenarioCatalogue projectId={p.id} version={p.current_version} onPlay={playRun} danger={th.danger} />
             <DeeperChecks status={checkStatus} panels={{
               seeds: <SeedPanel sessionId={sessionId} human={human} />,
               range: <RangePanel sessionId={sessionId} />,

@@ -181,13 +181,16 @@ const HEAT_FRAG = /* glsl */ `
   uniform float uWarn;
   uniform float uMaxD;
   uniform float uOpacity;
+  uniform float uFadeLo;
+  uniform float uFadeHi;
   uniform float uSolid;
   uniform vec3 uDangerColor;
   uniform vec3 uWarnColor;
   void main() {
     float d = mix(texture2D(uA, vUv).r, texture2D(uB, vUv).r, uMix) * 255.0 * uScale;
     vec3 col = texture2D(uLut, vec2(clamp(d / uMaxD, 0.0, 1.0), 0.5)).rgb;
-    float alpha = mix(smoothstep(0.35, 1.6, d) * uOpacity, step(0.12, d) * 0.92, uSolid);
+    // heat fades in over the layer's own range (people per m² or, for turbulence, 1/s²)
+    float alpha = mix(smoothstep(uFadeLo, uFadeHi, d) * uOpacity, step(uFadeLo * 0.35, d) * 0.92, uSolid);
     float w = max(fwidth(d), 1e-4);
     float danger = 1.0 - smoothstep(0.0, w * 1.6, abs(d - uDanger));
     float warn = (1.0 - smoothstep(0.0, w * 1.2, abs(d - uWarn))) * 0.55;
@@ -228,6 +231,10 @@ export function DensityLayer({ density, venue, exploded, palette, terrain, onlyF
       uA: { value: L.a }, uB: { value: L.b }, uMix: { value: 0 }, uLut: { value: lut },
       uScale: { value: scale }, uDanger: { value: danger }, uWarn: { value: warn },
       uMaxD: { value: density.displayMax ?? DENSITY_MAX }, uOpacity: { value: 0.8 }, uLift: { value: 0 }, uSolid: { value: 0 },
+      // a density grid fades in from about a third of a person per m²; another layer (crowd
+      // pressure) from half its warning level up to its danger level
+      uFadeLo: { value: density.displayMax == null ? 0.35 : warn * 0.5 },
+      uFadeHi: { value: density.displayMax == null ? 1.6 : Math.max(danger, warn * 1.01) },
       uDangerColor: { value: new THREE.Color(palette.danger) },
       uWarnColor: { value: new THREE.Color(palette.caution) },
     },

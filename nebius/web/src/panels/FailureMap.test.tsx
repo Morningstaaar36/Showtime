@@ -86,7 +86,9 @@ describe("failure map", () => {
     act(() => cells[0].click());
     expect(onSelectRun).not.toHaveBeenCalled(); // picking a cell only shows what landed there
     expect(el.textContent).toContain("Attack A2");
-    const show = [...el.querySelectorAll<HTMLButtonElement>("button")].find((x) => x.textContent?.includes("Show attack"));
+    // each attack in the cell has its own button; A2's plays A2's run
+    const block = [...el.querySelectorAll<HTMLElement>("div")].find((d) => d.firstElementChild?.textContent?.startsWith("Attack A2"));
+    const show = [...(block?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find((x) => x.textContent?.includes("Show attack"));
     act(() => show!.click());
     expect(onSelectRun).toHaveBeenCalledWith("r_A2");
   });

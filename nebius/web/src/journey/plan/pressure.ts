@@ -24,13 +24,16 @@ export function pressureRange(idx: DensityIndex & { unit?: string; max?: number 
   let k = -1;
   series.forEach((v, i) => { if (k < 0 || v > series[k]) k = i; });
   const peak = k >= 0 ? series[k] : null;
-  const max = Math.max(idx.max ?? 0, idx.danger * 1.4, peak ?? 0, 1e-6);
+  // values are stored as uint8 steps of `scale`, so nothing above 255 × scale can be shown
+  const top = idx.scale ? 255 * idx.scale : Infinity;
+  const max = Math.min(Math.max(idx.max ?? 0, idx.danger * 1.4, peak ?? 0, 1e-6), top);
   // the series has one value per simulation frame, thinned evenly; the stored frames are fewer
   // (one a second), so its index maps to the run's time by position, not to idx.times[k]
   const times = idx.times ?? [];
   const end = times.length ? times[times.length - 1] : null;
   const peakAtS = k >= 0 && end != null ? (series.length > 1 ? (k / (series.length - 1)) * end : 0) : null;
-  return { peak, peakAtS, warn: idx.warn, danger: idx.danger, max, unit: idx.unit ?? null };
+  const unit = idx.unit ? idx.unit.replace(/s2$/, "s²") : null; // the index writes "1/s2"
+  return { peak, peakAtS, warn: idx.warn, danger: idx.danger, max, unit };
 }
 
 export function usePressure(runId: string | null | undefined, enabled: boolean) {

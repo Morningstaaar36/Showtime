@@ -153,7 +153,9 @@ export function useSessionStream(sessionId: string | null | undefined): SessionV
     let failures = 0;
     const open = () => {
       es = new EventSource(`/api/v1/sessions/${sessionId}/events?after=${lastSeq.current}`);
-      es.onopen = () => { failures = 0; dispatch({ kind: "conn", v: true }); };
+      // only a delivered event proves the stream works: a stream that opens and drops at once
+      // must still back off
+      es.onopen = () => dispatch({ kind: "conn", v: true });
       es.onmessage = (m) => {
         failures = 0;
         try {
@@ -172,6 +174,8 @@ export function useSessionStream(sessionId: string | null | undefined): SessionV
         dispatch({ kind: "conn", v: false });
         const wait = closed ? null : reconnectDelay(++failures);
         if (wait != null) retry = window.setTimeout(open, wait);
+        // given up: stop waiting on the stream (the page re-reads the session from the API)
+        else if (!closed) dispatch({ kind: "end" });
       };
     };
     open();

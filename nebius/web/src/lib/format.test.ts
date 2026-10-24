@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fmtClock, fmtDensity, fmtDuration, fmtHM, fmtLength, fmtMoney, fmtTokens } from "./format";
+import { withoutRunIds } from "./format";
 
 describe("format", () => {
   it("formats clocks, including negative (already too late)", () => {
@@ -32,5 +33,11 @@ describe("format", () => {
   it("reads hours and minutes from local ISO times", () => {
     expect(fmtHM("2026-10-16T10:44:00")).toBe("10:44");
     expect(fmtHM(null)).toBe("–");
+  });
+  it("drops internal run ids from 'based on' text", () => {
+    expect(withoutRunIds("full simulation, run r_20d2c613a0ba")).toBe("full simulation");
+    expect(withoutRunIds("run r_a4fbe4e31664")).toBe("");
+    expect(withoutRunIds("Worst attack (full simulation, run r_20d2c613a0ba)")).toBe("Worst attack (full simulation)");
+    expect(withoutRunIds(null)).toBe("");
   });
 });
