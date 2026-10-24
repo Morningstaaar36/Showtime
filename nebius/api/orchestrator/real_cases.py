@@ -64,13 +64,15 @@ async def open_case(st: Any, case_id: str) -> dict[str, Any]:
         sid = _latest_session(st, pid)
         if sid is not None:
             return {"project_id": pid, "session_id": sid, "status": "existing"}
-        # built before but never tested: its layout needed a fix
+        # built before but never tested: its layout needed a fix. Edited since (a new version):
+        # test it if it is valid now, else leave it to whoever is fixing it. Untouched: build
+        # it again (a model's second answer, or a better solver, may get it right)
         from api.core.geometry import validate_venue
 
-        if validate_venue(st.projects.venue(pid)).ok:  # fixed since: test it now
-            row = st.sessions.start(pid, CASE_TEST)
-            return {"project_id": pid, "session_id": row.id, "status": "testing"}
-        if st.projects.get(pid).current_version > 1:  # someone is fixing it: leave it to them
+        if st.projects.get(pid).current_version > 1:
+            if validate_venue(st.projects.venue(pid)).ok:
+                row = st.sessions.start(pid, CASE_TEST)
+                return {"project_id": pid, "session_id": row.id, "status": "testing"}
             return {"project_id": pid, "session_id": None, "status": "needs_fixes", "problems": []}
         st.projects.delete(pid)  # untouched and still broken: design it again
     env = AgentEnv(llm=st.llm, project_id=None, on_usage=st.usage.add)
