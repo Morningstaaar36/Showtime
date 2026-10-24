@@ -100,7 +100,8 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
   await expect(page.getByRole("button", { name: /^South door 1/ }).getByText("Locked")).toBeVisible();
 
   await page.getByRole("button", { name: "Test this plan" }).click();
-  await expect(page).toHaveURL(/\/work\?session=/);
+  // starting a test is quick, but the API may still be finishing an earlier journey's runs
+  await expect(page).toHaveURL(/\/work\?session=/, { timeout: 30_000 });
   // the visible step, not its screen-reader announcement
   await expect(page.getByText("Simulating the crowd").and(page.locator(":not(.sr-only)"))).toBeVisible();
   // a test the organizer just started moves on to the plan by itself
