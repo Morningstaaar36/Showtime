@@ -10,6 +10,13 @@ second, and you get a tested plan, a report and a handover checklist. Every numb
 simulator, never from the AI. **[Read the pitch, the evidence and the limits](nebius/docs/PITCH.md)**
 · [Demo script](nebius/docs/DEMO.md) · [Simulator validation](nebius/docs/VALIDATION.md)
 
+**Engineering novelty, with the papers behind it and numbers measured here:** a red team that
+fills a *failure map* by quality-diversity search, judged by physics, not by a language model
+(after Rainbow Teaming, NeurIPS 2024); crowd-pressure turbulence warnings (Helbing et al. 2007);
+whole multi-storey buildings from one sentence; and a simulated people mix (older people,
+children, wheelchair users, patients in beds). See
+[Engineering novelty](nebius/README.md#engineering-novelty-and-the-papers-behind-it).
+
 ## The problem
 
 Planning a safe event is slow, expensive and specialist work. Someone draws the site and works

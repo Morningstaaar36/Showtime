@@ -15,6 +15,8 @@ test("seed range on Your plan", async ({ page, request }) => {
       .toMatch(/finished|stopped/);
 
     await page.goto(`/p/${id}?session=${sid}`);
+    await page.getByRole("tab", { name: /^Scenarios/ }).click();
+    await page.getByRole("button", { name: /^Check with more seeds/ }).first().click();
     const panel = page.getByTestId("seed-check");
     await expect(panel.getByRole("heading", { name: "Check with more seeds" })).toBeVisible({ timeout: 30_000 });
     await expect(panel.getByText(/^Repeats: /)).toBeVisible();

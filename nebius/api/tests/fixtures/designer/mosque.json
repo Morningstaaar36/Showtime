@@ -1,0 +1,53 @@
+{
+ "description": "A mosque 40 x 30 m with a main prayer hall for 1,200 men and a women's gallery upstairs for 300, entrances on the east and north.",
+ "spec": {
+  "name": "Mosque",
+  "mode": "indoor",
+  "width_m": 40.0,
+  "depth_m": 30.0,
+  "stage": null,
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "east",
+    "width_m": 2.0,
+    "position": 0.5,
+    "label": "East entrance",
+    "level": 0
+   },
+   {
+    "wall": "north",
+    "width_m": 2.0,
+    "position": 0.5,
+    "label": "North entrance",
+    "level": 0
+   }
+  ],
+  "zones": [
+   {
+    "label": "Main prayer hall",
+    "people": 1200,
+    "region": "whole"
+   }
+  ],
+  "features": [],
+  "upper_floor": {
+   "along": "south",
+   "depth_m": 8.0,
+   "people": 300,
+   "label": "Women's gallery",
+   "stair_end": "west",
+   "stair_width_m": 1.2
+  },
+  "building": null,
+  "location": null,
+  "assumptions": [
+   "Main prayer hall uses 0.5 m\u00b2 per person for standing prayer.",
+   "Women's gallery is a balcony along the south wall.",
+   "Entrances are 2.0 m wide each.",
+   "Stair to gallery is 1.2 m wide at west end.",
+   "No stage or barriers in prayer hall.",
+   "Total area fits 1,200 + 300 people with circulation."
+  ]
+ }
+}

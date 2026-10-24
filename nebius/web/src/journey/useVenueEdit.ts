@@ -6,6 +6,7 @@ import { usePatchProject, useUndo } from "@/api/queries";
 import type { PatchOpIn, ProjectDetail } from "@/api/types";
 import { qk } from "@/api/queries";
 import { t } from "@/i18n";
+import { UNDO_TOAST_ID } from "@/lib/utils";
 
 export function useVenueEdit(projectId: string) {
   const qc = useQueryClient();
@@ -16,6 +17,7 @@ export function useVenueEdit(projectId: string) {
     patch.mutate({ patch: { ops }, message, expected_version: version }, {
       onSuccess: (r) => {
         toast.success(t("check.saved", { what: message, n: r.version.version }), {
+          id: UNDO_TOAST_ID,
           action: { label: t("common.undo"), onClick: () => undo.mutate() },
         });
         onDone?.();

@@ -112,15 +112,43 @@ def main(work: Path) -> int:
                 extra[f"exit_density_peak:{eid}"] = val
         except Exception as exc:  # PedPy is a bonus metric; never fail the run for it
             notes.append(f"PedPy exit-area density skipped: {type(exc).__name__}")
+        extra.update(dens["los"])
+        turbulence: dict[str, Any] = {"hotspots": []}
+        try:
+            turbulence = metrics.pressure_and_turbulence(
+                work,
+                venue,
+                times,
+                frames,
+                x0,
+                y0,
+                nx,
+                ny,
+                min_density=float(settings.get("pressure_min_density_ppm2", warn)),
+                threshold=float(settings.get("turbulence_pressure", 0.02)),
+            )
+            extra["peak_pressure"] = round(turbulence["peak"], 4)
+            extra["time_turbulent_s"] = round(turbulence["turbulent_s"], 1)
+            extra["turbulence_threshold"] = turbulence["threshold"]
+        except Exception as exc:  # a bonus layer: never fail the run for it
+            notes.append(f"Crowd pressure skipped: {type(exc).__name__}: {exc}"[:200])
         extra.update(
             {
-                "trapped": float(sum(o.trapped for o in outputs)),
+                "trapped": float(sum(o.trapped + o.no_exit for o in outputs)),
                 "sim_dt_s": float(settings["dt"]),
                 "frame_hz": frame_hz,
                 "stair_transfers": float(sum(len(o.stair_arrivals) for o in outputs)),
                 **raw.get("rewind", {}),
             }
         )
+        # who each person is when a zone has a people mix (ids as in traj.bin)
+        kinds = raw.get("kinds") or {}
+        if kinds:
+            (work / "agents.json").write_text(
+                json.dumps({"schema": 1, "kinds": {str(g): k for g, k in sorted(kinds.items())}})
+            )
+            for kind in sorted(set(kinds.values())):
+                extra[f"people_{kind}"] = float(sum(1 for k in kinds.values() if k == kind))
         statuses = {o.status for o in outputs}
         status = (
             "timeout"
@@ -154,12 +182,19 @@ def main(work: Path) -> int:
                     "trajectory_index": "traj_index.json",
                     "density_grid": "density.bin",
                     "density_index": "density_index.json",
+                    **(
+                        {"pressure_grid": "pressure.bin", "pressure_index": "pressure_index.json"}
+                        if (work / "pressure.bin").exists()
+                        else {}
+                    ),
+                    **({"agents": "agents.json"} if kinds else {}),
                 },
                 "sim_time_s": max((o.sim_time for o in outputs), default=0.0),
                 "notes": notes,
                 "extensions": {
                     "marshals": [m for o in outputs for m in o.marshals],
                     "event_log": [e for o in outputs for e in o.event_log],
+                    "turbulence_hotspots": turbulence["hotspots"],
                 },
             }
         )

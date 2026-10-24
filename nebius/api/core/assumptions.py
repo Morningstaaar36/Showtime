@@ -31,6 +31,17 @@ def assumptions(settings: Any) -> list[dict[str, str]]:
             "source": "SFPE Handbook stair speeds and flows (conservative values)",
         },
         {
+            "name": "Crowd pressure (turbulence)",
+            "value": "local density × local velocity variance; turbulent above 0.02 per s², "
+            f"reported where density is at least {s.density_warn_ppm2} people per m²",
+            "source": "Helbing, Johansson & Al-Abideen (2007), Phys. Rev. E 75, 046109",
+        },
+        {
+            "name": "Level of service",
+            "value": "Fruin walkway bands A–F (F above about 2.2 people per m²)",
+            "source": "Fruin (1971), Pedestrian Planning and Design",
+        },
+        {
             "name": "Warning and danger density",
             "value": f"{s.density_warn_ppm2} and {s.density_danger_ppm2} people per m²"
             f" (danger counts when sustained ≥ {s.danger_min_duration_s:g} s)",

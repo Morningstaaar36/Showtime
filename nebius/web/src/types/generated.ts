@@ -54,6 +54,7 @@ export type Share = number;
 export type Groups = PeopleGroup[];
 export type PreMovementS = number | null;
 export type RouteId = string | null;
+export type ExitIds = string[];
 export type Zones = Zone[];
 export type Id3 = string;
 export type FromFloor = string;
@@ -247,6 +248,9 @@ export type Trajectory = string | null;
 export type TrajectoryIndex = string | null;
 export type DensityGrid = string | null;
 export type DensityIndex = string | null;
+export type PressureGrid = string | null;
+export type PressureIndex = string | null;
+export type Agents = string | null;
 export type Raw = string | null;
 export type RuntimeS = number;
 export type Provider = string;
@@ -276,7 +280,8 @@ export type Type1 =
   | "countdown"
   | "log"
   | "status"
-  | "marshal";
+  | "marshal"
+  | "archive";
 export type Ts = string;
 export type Status1 = "ok" | "too_late" | "no_hazard" | "unknown";
 export type THazardS = number | null;
@@ -568,6 +573,44 @@ export type FinishedAt1 = string | null;
 export type Seq1 = number;
 export type Type2 = "step" | "project" | "session" | "cost" | "log" | "done";
 export type Ts1 = string;
+export type Method = "map_elites";
+export type PerCell = number;
+export type Id7 = string;
+export type Label8 = string;
+export type Kinds = FailureMapAxis[];
+export type Id8 = string;
+export type Label9 = string;
+export type Exits2 = string[];
+export type Zones2 = string[];
+export type Wheres = FailureMapWhere[];
+export type Kind4 = string;
+export type Where = string;
+export type AttackId3 = string;
+export type Title2 = string;
+export type RunId3 = string;
+export type Severity2 = number;
+export type IsBreak = boolean;
+export type Round = number;
+export type Basis3 = string | null;
+export type GeneratedBy = string;
+export type FixedBy = string | null;
+export type SeverityAfter = number | null;
+export type AfterRunId = string | null;
+export type Elites = FailureMapElite[];
+export type Cells = FailureMapCell[];
+export type CellsTotal = number;
+export type Filled = number;
+export type Coverage = number;
+export type QdScore = number;
+export type OpenBreaks = number;
+export type Targeted = number;
+export type Hit = number;
+export type Round1 = number;
+export type Coverage1 = number;
+export type QdScore1 = number;
+export type Filled1 = number;
+export type History = FailureMapRound[];
+export type Fitness = string;
 
 export interface ShowtimeContracts {
   Venue: Venue;
@@ -599,6 +642,7 @@ export interface ShowtimeContracts {
   AutopilotRequest: AutopilotRequest;
   AutopilotRun: AutopilotRun;
   AutopilotEvent: AutopilotEvent;
+  FailureMap: FailureMap;
   [k: string]: unknown;
 }
 /**
@@ -678,6 +722,7 @@ export interface Zone {
   groups: Groups;
   pre_movement_s: PreMovementS;
   route_id: RouteId;
+  exit_ids: ExitIds;
 }
 /**
  * A share of a zone's headcount that moves differently; the rest are "general".
@@ -995,6 +1040,9 @@ export interface RunArtifacts {
   trajectory_index: TrajectoryIndex;
   density_grid: DensityGrid;
   density_index: DensityIndex;
+  pressure_grid: PressureGrid;
+  pressure_index: PressureIndex;
+  agents: Agents;
   raw: Raw;
   [k: string]: unknown;
 }
@@ -1677,5 +1725,107 @@ export interface AutopilotEvent {
   [k: string]: unknown;
 }
 export interface Payload1 {
+  [k: string]: unknown;
+}
+/**
+ * MAP-Elites grid: rows are hazard kinds, columns are places; only possible cells.
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "FailureMap".
+ */
+export interface FailureMap {
+  method: Method;
+  per_cell: PerCell;
+  kinds: Kinds;
+  wheres: Wheres;
+  cells: Cells;
+  cells_total: CellsTotal;
+  filled: Filled;
+  coverage: Coverage;
+  qd_score: QdScore;
+  open_breaks: OpenBreaks;
+  aim: FailureMapAim;
+  history: History;
+  fitness: Fitness;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "FailureMapAxis".
+ */
+export interface FailureMapAxis {
+  id: Id7;
+  label: Label8;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "FailureMapWhere".
+ */
+export interface FailureMapWhere {
+  id: Id8;
+  label: Label9;
+  exits: Exits2;
+  zones: Zones2;
+  [k: string]: unknown;
+}
+/**
+ * A (hazard kind × where) cell; empty when no attack has landed there yet.
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "FailureMapCell".
+ */
+export interface FailureMapCell {
+  kind: Kind4;
+  where: Where;
+  elites: Elites;
+  [k: string]: unknown;
+}
+/**
+ * One simulated attack kept in a cell. Every number comes from its simulation.
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "FailureMapElite".
+ */
+export interface FailureMapElite {
+  attack_id: AttackId3;
+  title: Title2;
+  run_id: RunId3;
+  severity: Severity2;
+  is_break: IsBreak;
+  round: Round;
+  metrics: Metrics1;
+  parts: Parts1;
+  basis: Basis3;
+  generated_by: GeneratedBy;
+  fixed_by: FixedBy;
+  severity_after: SeverityAfter;
+  after_run_id: AfterRunId;
+  [k: string]: unknown;
+}
+export interface Metrics1 {
+  [k: string]: number | null;
+}
+export interface Parts1 {
+  [k: string]: number;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "FailureMapAim".
+ */
+export interface FailureMapAim {
+  targeted: Targeted;
+  hit: Hit;
+  [k: string]: unknown;
+}
+/**
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "FailureMapRound".
+ */
+export interface FailureMapRound {
+  round: Round1;
+  coverage: Coverage1;
+  qd_score: QdScore1;
+  filled: Filled1;
   [k: string]: unknown;
 }

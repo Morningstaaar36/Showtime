@@ -1,0 +1,82 @@
+{
+ "note": "A scripted designer reply for offline tests: what a model plausibly writes for the case description. Not a product template.",
+ "spec": {
+  "name": "Love Parade access, Duisburg 2010",
+  "mode": "outdoor",
+  "width_m": 126,
+  "depth_m": 20,
+  "exits": [
+   {
+    "wall": "west",
+    "width_m": 18,
+    "position": 0.5,
+    "label": "Tunnel west end"
+   },
+   {
+    "wall": "east",
+    "width_m": 18,
+    "position": 0.5,
+    "label": "Tunnel east end"
+   }
+  ],
+  "passages": [
+   {
+    "label": "Main ramp",
+    "wall": "north",
+    "position": 0.5,
+    "width_m": 26,
+    "length_m": 130,
+    "exits": [
+     {
+      "side": "end",
+      "width_m": 26,
+      "label": "Festival grounds"
+     },
+     {
+      "side": "left",
+      "at": 0.1,
+      "width_m": 1.5,
+      "label": "Narrow staircase"
+     }
+    ],
+    "narrowing": {
+     "width_m": 10.6,
+     "at": 0.5,
+     "length_m": 10,
+     "label": "Fences on the ramp"
+    }
+   }
+  ],
+  "zones": [
+   {
+    "label": "Arriving from the west",
+    "people": 1150,
+    "region": "left",
+    "heading": "Festival grounds"
+   },
+   {
+    "label": "Arriving from the east",
+    "people": 1150,
+    "region": "right",
+    "heading": "Festival grounds"
+   },
+   {
+    "label": "Leaving the festival",
+    "people": 700,
+    "area": "Main ramp",
+    "heading": "Tunnel"
+   }
+  ],
+  "location": "Duisburg",
+  "assumptions": [
+   "200 m of the tunnel is drawn; visitors kept arriving, so its ends are not exits.",
+   "The staircase is taken as 1.5 m wide."
+  ],
+  "stage": null,
+  "front_barrier": false,
+  "features": [],
+  "upper_floor": null,
+  "building": null,
+  "dividers": []
+ }
+}

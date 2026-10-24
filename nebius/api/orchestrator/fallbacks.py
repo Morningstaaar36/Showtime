@@ -10,12 +10,23 @@ from api.core.extensions import IncidentRecord, Registry
 from api.core.extensions import geometry as geo
 from api.core.scripts import EXAMPLE_SCRIPT
 from api.models import Attack, Fix, RunResult, Venue
+from api.orchestrator.archive import EVERYWHERE, Region
 
 PREFERRED_KEYWORDS = {
     "block_exit": ["locked", "exit", "gate", "blocked"],
     "surge": ["surge", "crush", "rush", "density"],
     "counterflow": ["counterflow", "alley", "narrow", "crush"],
     "slowdown": ["fire", "smoke", "power", "stairs"],
+    "marshal_redirect": ["panic", "exit", "gate", "crush"],
+}
+# hazard kind (archive row) -> the incident keywords of the event that stages it
+KIND_CITE = {
+    "exit_blocked": "block_exit",
+    "surge": "surge",
+    "counterflow": "counterflow",
+    "slowdown": "slowdown",
+    "route_change": "marshal_redirect",
+    "adaptive": "block_exit",
 }
 
 
@@ -142,6 +153,251 @@ def rule_attacks(
     return out
 
 
+def _exit_script(exit_id: str) -> str:
+    """A gate that fails when its queue peaks (adaptive: it watches the crowd)."""
+    return (
+        f"TARGET = {exit_id!r}\n"
+        'state = {"best": 0, "done": False}\n\n\n'
+        "def on_step(view, act):\n"
+        '    if state["done"] or TARGET not in view.exit_ids:\n'
+        "        return\n"
+        '    q = view.exits[TARGET]["queue"]\n'
+        '    if q > state["best"]:\n'
+        '        state["best"] = q\n'
+        '    elif view.t >= 15 and q > 0 and q < 0.9 * state["best"]:\n'
+        "        act.close_exit(TARGET)\n"
+        '        act.note(TARGET + " jams as its queue peaks")\n'
+        '        state["done"] = True\n'
+    )
+
+
+def _zone_script(zone_id: str, n: int) -> str:
+    """A late group pushes into a zone while it is still crowded (adaptive)."""
+    return (
+        f"TARGET = {zone_id!r}\n"
+        'state = {"done": False}\n\n\n'
+        "def on_step(view, act):\n"
+        '    if state["done"] or TARGET not in view.zone_ids or view.t < 10:\n'
+        "        return\n"
+        '    if view.zones[TARGET]["people"] > 0:\n'
+        f"        act.add_people(TARGET, {n})\n"
+        '        act.note("A late group pushes into " + TARGET)\n'
+        '        state["done"] = True\n'
+    )
+
+
+def rule_attacks_for_cells(
+    venue: Venue,
+    baseline: RunResult | None,
+    incidents: list[IncidentRecord],
+    targets: list[tuple[str, Region]],
+    seen: set[str],
+    id_offset: int = 0,
+) -> list[Attack]:
+    """One deterministic attack per failure-map cell (hazard kind × region) when it can be
+    staged there; cells it cannot stage are skipped."""
+    exits = {e.id: e for f in venue.floors for e in f.exits}
+    zones = {z.id: z for f in venue.floors for z in f.zones}
+    open_exits = [e for e in exits.values() if not e.blocked]
+    loads = {p.exit_id: p.people for p in (baseline.metrics.per_exit if baseline else [])}
+    total = venue.total_people()
+
+    def name(x: str) -> str:
+        obj = exits.get(x) or zones.get(x)
+        return (obj.label if obj is not None else None) or x
+
+    out: list[Attack] = []
+    used: set[int] = set()
+    for kind, region in targets:
+        r_exits = sorted(
+            (exits[x] for x in region.exits if x in exits and not exits[x].blocked),
+            key=lambda e: (-loads.get(e.id, 0), -e.width_m, e.id),
+        )
+        r_zones = sorted((zones[x] for x in region.zones if x in zones), key=lambda z: -z.people)
+        # an upper floor's ways out are its stair flights: lose one (when the floor has another)
+        # or meet people coming up it
+        r_stairs = [s for s in venue.stairs if s.id in region.exits]
+        ways_from = {
+            f: sum(1 for s in venue.stairs if s.from_floor == f)
+            for f in {s.from_floor for s in r_stairs}
+        }
+        options: list[tuple[str, list[dict[str, Any]], str]] = []
+        if kind == "exit_blocked" and r_stairs and not r_exits:
+            options = [
+                (
+                    f"{s.id} lost to smoke one minute in",
+                    [{"type": "block_exit", "exit_id": s.id, "at_s": 60}],
+                    f"With {s.id} gone, its floor has to use its other stairs.",
+                )
+                for s in r_stairs
+                if ways_from[s.from_floor] > 1
+            ]
+        elif kind == "counterflow" and r_stairs and not r_exits:
+            options = [
+                (
+                    f"People come up {s.id} against the crowd",
+                    [{"type": "counterflow", "exit_id": s.id, "people": 4, "at_s": 60}],
+                    f"A group climbing {s.id} halves its flow down.",
+                )
+                for s in r_stairs
+            ]
+        elif kind == "exit_blocked" and len(open_exits) > 1:
+            options = [
+                (
+                    f"{name(e.id)} lost one minute into the exit",
+                    [{"type": "block_exit", "exit_id": e.id, "at_s": 60}],
+                    f"Losing {e.id} sends its share of the crowd to the other exits.",
+                )
+                for e in r_exits
+            ]
+        elif kind == "surge":
+            options = [
+                (
+                    f"Late surge into {name(z.id)}",
+                    [
+                        {
+                            "type": "surge",
+                            "zone_id": z.id,
+                            "extra_people": max(20, min(z.people // 4, total // 2)),
+                            "at_s": 0 if i == 0 else 90,
+                        }
+                    ],
+                    f"{z.id} holds {z.people} people; a quarter more arrive as it empties.",
+                )
+                for i, z in enumerate(r_zones)
+                if z.people > 0
+            ]
+        elif kind == "counterflow":
+            options = [
+                (
+                    f"People push in through {name(e.id)}",
+                    [
+                        {
+                            "type": "counterflow",
+                            "exit_id": e.id,
+                            "people": max(20, min(total // 8, 400)),
+                            "at_s": 30,
+                        }
+                    ],
+                    f"A group entering through {e.id} meets the outgoing crowd head-on.",
+                )
+                for e in r_exits
+            ]
+        elif kind == "slowdown":
+            if region.id == EVERYWHERE:
+                options = [
+                    (
+                        "Power cut slows everyone down",
+                        [{"type": "slowdown", "factor": 0.6, "at_s": 20}],
+                        "With lights out people walk at about 60% of normal speed.",
+                    )
+                ]
+            else:
+                options = [
+                    (
+                        f"Smoke slows people in {name(z.id)}",
+                        [{"type": "slowdown", "zone_id": z.id, "factor": 0.5, "at_s": 20}],
+                        f"Smoke in {z.id} halves walking speed where the crowd starts.",
+                    )
+                    for z in r_zones
+                ]
+        elif kind == "route_change":
+            others = sorted(
+                (e for e in open_exits if e.id not in region.exits),
+                key=lambda e: (-loads.get(e.id, 0), e.id),
+            )
+            if r_exits and len(r_exits) > 1 and not others:
+                others = r_exits[1:]
+            options = [
+                (
+                    f"Wrong directions send people to {name(e.id)}",
+                    [
+                        {
+                            "type": "marshal_redirect",
+                            "from_exit_id": others[0].id,
+                            "to_exit_id": e.id,
+                            "fraction": 0.6,
+                            "at_s": 15,
+                            "speech": f"Everyone use {name(e.id)}!",
+                        }
+                    ],
+                    f"Misdirection piles people from {others[0].id} onto {e.id}.",
+                )
+                for e in r_exits
+                if others and others[0].id != e.id
+            ]
+        elif kind == "adaptive":
+            if region.id == EVERYWHERE and len(open_exits) > 1:
+                options = [
+                    (
+                        "Busiest gate jams 20 seconds in",
+                        [{"script": EXAMPLE_SCRIPT}],
+                        "A gate that reacts to the crowd: whichever exit has the most people "
+                        "heading to it fails at 20 s.",
+                    )
+                ]
+            elif r_exits and len(open_exits) > 1:
+                e = r_exits[0]
+                options = [
+                    (
+                        f"{name(e.id)} jams as its queue peaks",
+                        [{"script": _exit_script(e.id)}],
+                        f"{e.id} fails at the worst moment: when its queue is longest.",
+                    )
+                ]
+            elif r_zones and r_zones[0].people > 0:
+                z = r_zones[0]
+                n = max(20, min(z.people // 4, total // 2))
+                options = [
+                    (
+                        f"Late group pushes into {name(z.id)}",
+                        [{"script": _zone_script(z.id, n)}],
+                        f"{n} more people join {z.id} while it is still crowded.",
+                    )
+                ]
+        for title, events, why in options:
+            cite = _cite(incidents, KIND_CITE[kind], used)
+            if cite is None:
+                break
+            aid = f"A{id_offset + len(out) + 1}"
+            if "script" in events[0]:
+                a = script_attack(
+                    title, str(events[0]["script"]), cite, aid, why, generated_by="rules"
+                )
+            else:
+                a = _rule_attack(aid, title, events, why, cite)
+            sig = signature([e.model_dump() for e in a.events])
+            if sig in seen:
+                continue
+            seen.add(sig)
+            used.add(cite.row_id)
+            out.append(a)
+            break
+    return out
+
+
+def _rule_attack(
+    attack_id: str, title: str, events: list[dict[str, Any]], why: str, r: IncidentRecord
+) -> Attack:
+    name = getattr(r, "name", "") or f"{r.event_type} crowd accident, {r.country}"
+    return Attack.model_validate(
+        {
+            "attack_id": attack_id,
+            "title": title,
+            "events": events,
+            "inspired_by": {
+                "incident": name,
+                "year": r.year,
+                "source_url": _source_url(r),
+                "evidence": _evidence(r),
+                "dataset_row": r.row_id,
+            },
+            "rationale": why,
+            "extensions": {"generated_by": "rules"},
+        }
+    )
+
+
 def _wall_for_new_exit(venue: Venue, floor_id: str) -> tuple[str, float] | None:
     f = venue.floor(floor_id)
     x0, y0, x1, y1 = geo.to_polygon(f.walkable).bounds
@@ -173,6 +429,79 @@ def _wall_for_new_exit(venue: Venue, floor_id: str) -> tuple[str, float] | None:
     return None
 
 
+def _stair_fixes(
+    registry: Registry, venue: Venue, attack: Attack, check_fix: Any
+) -> list[tuple[str, list[dict[str, Any]], list[dict[str, Any]], str, str]]:
+    """Wider stairwells and a phased evacuation, for buildings with stairs."""
+    from plugins.ops_core.structure import stairwell
+
+    out: list[tuple[str, list[dict[str, Any]], list[dict[str, Any]], str, str]] = []
+    if not venue.stairs:
+        return out
+    # the street level (a basement lies below it): the highest floor at or below elevation 0
+    at_or_below = [f for f in venue.floors if f.elevation_m <= 0.01]
+    ground = (
+        max(at_or_below, key=lambda f: f.elevation_m)
+        if at_or_below
+        else min(venue.floors, key=lambda f: f.elevation_m)
+    ).floor_id
+    # stairs into the street level carry everyone (down from above, or up from a basement)
+    into_ground = [s for s in venue.stairs if s.to_floor == ground or s.from_floor == ground]
+    seen: set[str] = set()
+    # the flights into the ground floor, narrowest first: each one is a stairwell to widen
+    for st in sorted(into_ground, key=lambda s: s.width_m):
+        if st.id in seen or st.width_m >= 2.4:
+            continue
+        seen.update(stairwell(venue, st.id))
+        width = round(min(st.width_m + 0.8, 2.4), 1)
+        ops = [{"op": "widen_stair", "stair_id": st.id, "width_m": width}]
+        if not check_fix(registry, venue, ops, []):
+            out.append(
+                (
+                    "layout",
+                    ops,
+                    [],
+                    f"Widen {st.id} to {width:g} m on every floor",
+                    f"A {width:g} m stair carries about {width / st.width_m:.1f} times as many "
+                    "people per second down the building.",
+                )
+            )
+        if len(out) >= 2:
+            break
+    # phased evacuation: the floor in trouble leaves first, the floors above wait a minute
+    floors = {f.floor_id: f for f in venue.floors}
+    hit: str | None = None
+    for e in attack.events:
+        d = e.model_dump()
+        if d.get("floor_id") in floors:
+            hit = str(d["floor_id"])
+        elif d.get("zone_id"):
+            hit = next(
+                (f.floor_id for f in venue.floors for z in f.zones if z.id == d["zone_id"]), hit
+            )
+    if hit is not None and hit != ground:
+        level = floors[hit].elevation_m
+        wait = [
+            z.id for f in venue.floors if f.elevation_m > level for z in f.zones if z.people > 0
+        ]
+        if wait:
+            name = floors[hit].name or hit
+            out.append(
+                (
+                    "ops",
+                    [],
+                    [
+                        {"type": "staggered_release", "zone_id": zid, "delay_s": 60, "at_s": 0}
+                        for zid in wait
+                    ],
+                    f"Phased evacuation: the {name.lower()} goes first",
+                    "The floors above wait a minute, so the stairs are clear for the floor at "
+                    "risk.",
+                )
+            )
+    return out
+
+
 def rule_fixes(
     registry: Registry, venue: Venue, attack: Attack, result: RunResult, n: int, id_prefix: str
 ) -> list[Fix]:
@@ -186,6 +515,8 @@ def rule_fixes(
         else min(venue.floors, key=lambda f: f.elevation_m)
     )
     per = sorted(result.metrics.per_exit, key=lambda p: -p.people)
+    # In a building the way down is usually the bottleneck, so those fixes come first.
+    candidates += _stair_fixes(registry, venue, attack, check_fix)
     widest = max((e.width_m for e in floor.exits), default=2.0)
     spot = _wall_for_new_exit(venue, floor.floor_id)
     if spot is not None:

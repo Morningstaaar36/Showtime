@@ -75,7 +75,7 @@ def check_scenario_event(registry: Registry, venue: Venue, params: dict[str, Any
     )
     ev.tier1_effect(state, p)
     bad = dict(params)
-    for key in ("exit_id", "zone_id", "to_exit_id"):
+    for key in ("exit_id", "zone_id", "to_exit_id", "floor_id"):
         if key in bad:
             bad[key] = "does_not_exist"
             assert ev.validate_refs(venue, ev.params_model.model_validate(bad)), (

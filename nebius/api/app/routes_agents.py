@@ -18,7 +18,12 @@ from api.app.state import AppState
 from api.core.venue_ops import PatchError
 from api.models import RunResult, ScenarioEventIn, Venue
 from api.orchestrator import together
-from api.orchestrator.session import FixConflict, FixSelectionError, StalePlan
+from api.orchestrator.session import (
+    FixConflict,
+    FixSelectionError,
+    SessionConfigError,
+    StalePlan,
+)
 
 router = APIRouter(prefix="/api/v1")
 log = logging.getLogger("showtime.api")
@@ -29,6 +34,50 @@ class EditIn(BaseModel):
 
     text: str = Field(min_length=2, max_length=500)
     apply: bool = True
+
+
+TOOL_LABELS: dict[str, str] = {
+    "simulator": "Crowd simulator (JuPedSim) in a sealed sandbox",
+    "instant_estimate": "Instant estimate (network flow, milliseconds)",
+    "solver": "Layout solver (a design becomes exact geometry)",
+    "map": "OpenStreetMap sites",
+    "incidents": "388 real crowd accidents, 1900–2024",
+    "edit_ops": "Validated venue edits",
+    "scenario_events": "Scenario events (blocked exit, surge, smoke, …)",
+    "number_check": "Number check (only numbers the tools produced)",
+}
+
+
+@router.get("/agents")
+async def list_agents(st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The AI team: every Nemotron agent, the model it runs on now, what it decides and the
+    tools it may use; and the sandbox every simulation runs in."""
+    from api.agents.team import TEAM
+
+    sandbox = await st.runner.health()
+    return {
+        "provider": st.settings.llm_label,
+        "agents": [
+            {
+                "name": m.agent.name,
+                "label": m.label,
+                "stage": m.stage,
+                "decides": m.decides,
+                "role": m.agent.role,
+                "model": st.llm.model_for(m.agent.role),
+                "prompt_version": m.agent.prompt_version,
+                "tools": list(m.tools),
+            }
+            for m in TEAM
+        ],
+        "tools": TOOL_LABELS,
+        "sandbox": {
+            "provider": st.settings.sandbox_provider,
+            "ok": bool(sandbox.get("ok")),
+            "detail": str(sandbox.get("detail", "")),
+            "isolation": "no network, memory and CPU limits, one container per scenario",
+        },
+    }
 
 
 @router.post("/projects/{project_id}/edit")
@@ -133,7 +182,24 @@ async def start_session(body: SessionIn, st: AppState = Depends(get_state)) -> d
     ]
     if running:
         return session_out(running[0])
-    return session_out(st.sessions.start(body.project_id, body.config))
+    try:
+        return session_out(st.sessions.start(body.project_id, body.config))
+    except SessionConfigError as exc:
+        raise ApiException(
+            422,
+            "invalid_config",
+            f"Red team can't start: {exc}",
+            "Use whole numbers in range for rounds, attacks, fixes and budgets.",
+            {"errors": exc.errors},
+        ) from exc
+
+
+def _live_status(st: AppState, row: Any) -> Any:
+    """A session stored as running that this server is not running stopped with a restart."""
+    live = st.sessions.live.get(row.id)
+    if row.status == "running" and (live is None or live.finished):
+        row.status = "stopped"  # server restarted mid-session
+    return row
 
 
 @router.get("/sessions/{session_id}")
@@ -141,14 +207,12 @@ def get_session(session_id: str, st: AppState = Depends(get_state)) -> dict[str,
     row = st.sessions.get(session_id)
     if row is None:
         raise ApiException(404, "not_found", f"Session {session_id} does not exist.")
-    if row.status == "running" and session_id not in st.sessions.live:
-        row.status = "stopped"  # server restarted mid-session
-    return session_out(row)
+    return session_out(_live_status(st, row))
 
 
 @router.get("/projects/{project_id}/sessions")
 def list_sessions(project_id: str, st: AppState = Depends(get_state)) -> list[dict[str, Any]]:
-    return [session_out(s) for s in st.sessions.list_sessions(project_id)]
+    return [session_out(_live_status(st, s)) for s in st.sessions.list_sessions(project_id)]
 
 
 @router.get("/sessions/{session_id}/events")
@@ -167,6 +231,31 @@ async def session_events(session_id: str, after: int = 0, st: AppState = Depends
         yield {"event": "end", "data": "{}"}
 
     return EventSourceResponse(gen(), ping=15)
+
+
+@router.get("/sessions/{session_id}/archive")
+def session_archive(session_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The red team's failure map (quality-diversity archive): hazard kind × where, with the
+    strongest simulated attacks per cell, coverage and QD-score (docs/RAINBOW.md). Live while
+    the session runs, from the summary once it has finished."""
+    row = st.sessions.get(session_id)
+    if row is None:
+        raise ApiException(404, "not_found", f"Session {session_id} does not exist.")
+    live = st.sessions.live.get(session_id)
+    snap = live.archive if live is not None else None
+    if snap is None and row.summary:
+        snap = row.summary.get("archive")
+    if snap is None:
+        stored = [e for e in st.sessions.stored_events(session_id) if e.type == "archive"]
+        snap = stored[-1].payload.get("archive") if stored else None
+    if snap is None:
+        raise ApiException(
+            404,
+            "no_archive",
+            "This session has no failure map yet.",
+            "Sessions started before the failure map existed have none: run the red team again.",
+        )
+    return {"session_id": session_id, "status": row.status, **snap}
 
 
 @router.post("/sessions/{session_id}/stop")

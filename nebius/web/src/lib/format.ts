@@ -82,3 +82,13 @@ export function fmtRelative(iso: string): string {
   if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
+
+/** The server's "based on" text without internal run ids ("full simulation, run r_20d2…" →
+ * "full simulation"); empty when nothing but an id is left. */
+export function withoutRunIds(text: string | null | undefined): string {
+  return (text ?? "")
+    .replace(/,?\s*\brun r_[0-9a-f]{6,}\b/gi, "")
+    .replace(/\(\s*\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}

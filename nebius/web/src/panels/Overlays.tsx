@@ -68,12 +68,13 @@ export function PeopleLegend({ replay, className }: { replay: Replay | null | un
   const total = replay.traj.index.max_agents;
   const listed = PEOPLE_KINDS.reduce((n, k) => n + (k === "general" ? 0 : replay.kinds!.listed[k]), 0);
   const count = (k: PeopleKindId) => (k === "general" ? Math.max(0, total - listed) : replay.kinds!.listed[k]);
+  const shown = present.filter((k) => count(k) > 0); // a school of children and staff has no "general adults" row
   return (
     <section aria-label={t("replay.people_legend")}
              className={cn("pointer-events-none rounded-[var(--radius-control)] border border-border bg-surface/90 px-3 py-2 shadow-sm backdrop-blur", className)}>
       <p className="text-2xs font-medium text-muted">{t("replay.people_legend")}</p>
       <ul className="mt-1 grid gap-0.5">
-        {present.map((k) => (
+        {shown.map((k) => (
           <li key={k} className="flex items-center gap-2 text-xs">
             <svg viewBox="0 0 16 16" className="size-3.5 shrink-0" aria-hidden>
               <path d={PEOPLE_LOOK[k].icon} fillRule="evenodd" fill={PEOPLE_LOOK[k].color ?? "currentColor"} stroke="var(--ink)" strokeWidth={0.6} />

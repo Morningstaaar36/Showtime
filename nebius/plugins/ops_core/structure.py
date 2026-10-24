@@ -427,6 +427,62 @@ class RemoveStairOp:
         ]  # fmt: skip
 
 
+class WidenStairParams(_P):
+    op: Literal["widen_stair"] = "widen_stair"
+    stair_id: str
+    width_m: float = Field(ge=0.8, le=6.0)
+    # every flight of the same stairwell (stacked within 4 m), so the whole way down is wider
+    whole_stairwell: bool = True
+    restore: dict[str, float] | None = None  # used by undo: stair id -> previous width
+
+
+def stairwell(venue: Venue, stair_id: str) -> list[str]:
+    """The flights stacked with `stair_id` in one stairwell (tops within 4 m of each other)."""
+    base = next(s for s in venue.stairs if s.id == stair_id)
+    cx, cy = geo.centroid(base.top_polygon)
+    out = []
+    for s in venue.stairs:
+        x, y = geo.centroid(s.top_polygon)
+        if (x - cx) ** 2 + (y - cy) ** 2 <= 16.0:
+            out.append(s.id)
+    return out
+
+
+class WidenStairOp:
+    name = "widen_stair"
+    description = (
+        "Change a stair's width in metres (how many people per second it carries); by "
+        "default every flight of the same stairwell changes, so the whole way down is wider."
+    )
+    example = '{"op": "widen_stair", "stair_id": "stair_a_1", "width_m": 2.0}'
+    params_model = WidenStairParams
+
+    def validate(self, venue: Venue, params: WidenStairParams) -> list[str]:
+        if params.restore is None and not any(s.id == params.stair_id for s in venue.stairs):
+            known = ", ".join(s.id for s in venue.stairs) or "none"
+            return [f"Unknown stair '{params.stair_id}'. Stairs: {known}."]
+        return []
+
+    def _targets(self, venue: Venue, params: WidenStairParams) -> dict[str, float]:
+        if params.restore is not None:
+            return dict(params.restore)
+        ids = stairwell(venue, params.stair_id) if params.whole_stairwell else [params.stair_id]
+        return {sid: params.width_m for sid in ids}
+
+    def apply(self, venue: Venue, params: WidenStairParams) -> Venue:
+        v = venue.model_copy(deep=True)
+        widths = self._targets(v, params)
+        for s in v.stairs:
+            if s.id in widths:
+                s.width_m = widths[s.id]
+        return v
+
+    def invert(self, before: Venue, params: WidenStairParams) -> list[PatchOpIn]:
+        ids = self._targets(before, params)
+        old = {s.id: s.width_m for s in before.stairs if s.id in ids}
+        return [_op("widen_stair", stair_id=params.stair_id, width_m=1.0, restore=old)]
+
+
 # --- walls and doors ---------------------------------------------------------------
 
 
@@ -972,6 +1028,7 @@ STRUCTURE_OPS = [
     RemoveFloorOp(),
     AddStairOp(),
     RemoveStairOp(),
+    WidenStairOp(),
     AddWallOp(),
     AddDoorOp(),
     AddRoomOp(),

@@ -178,9 +178,12 @@ class AddExitOp:
         floor = venue.floors[fi]
         first = geo.exit_on_wall(floor.walkable, p.wall, p.center, p.width_m)
         others = [geo.to_polygon(e.polygon).buffer(0.5) for e in floor.exits if e.id != p.id]
+        # a door must open into one space: never across an interior wall (a door straddling
+        # the wall between a room and the corridor leaves the room's people pinned to it)
+        others += [geo.to_polygon(o.polygon).buffer(0.05) for o in floor.obstacles]
         if not any(geo.to_polygon(first).intersects(o) for o in others):
             return first
-        # an exit is already there: take the nearest free spot on the same wall
+        # an exit or a wall is already there: take the nearest free spot on the same wall
         minx, miny, maxx, maxy = geo.to_polygon(floor.walkable).bounds
         lo, hi = (miny, maxy) if p.wall in ("east", "west") else (minx, maxx)
         want = p.center if p.center is not None else (lo + hi) / 2
@@ -195,7 +198,9 @@ class AddExitOp:
                 continue
             if not any(geo.to_polygon(cand).intersects(o) for o in others):
                 return cand
-        raise ValueError(f"the {p.wall} wall has no free {p.width_m:g} m stretch left")
+        raise ValueError(
+            f"the {p.wall} wall has no free {p.width_m:g} m stretch left between exits and walls"
+        )
 
     def validate(self, venue: Venue, params: AddExitParams) -> list[str]:
         if _floor_index(venue, params.floor_id) is None:
@@ -485,6 +490,8 @@ class AddZoneParams(_P):
     people: int = Field(ge=0, le=100_000)
     label: str | None = None
     index: int | None = Field(default=None, ge=0)  # position in the list (used by undo)
+    # used by undo: the whole removed zone, so its people mix, start delay and route come back
+    restore: dict[str, Any] | None = None
 
 
 class AddZoneOp:
@@ -503,11 +510,14 @@ class AddZoneOp:
         v = venue.model_copy(deep=True)
         fi = _floor_index(v, params.floor_id)
         assert fi is not None
-        _insert(
-            v.floors[fi].zones,
-            params.index,
-            Zone(id=params.id, polygon=params.polygon, people=params.people, label=params.label),
+        zone = (
+            Zone.model_validate(params.restore)
+            if params.restore is not None
+            else Zone(
+                id=params.id, polygon=params.polygon, people=params.people, label=params.label
+            )
         )
+        _insert(v.floors[fi].zones, params.index, zone)
         return v
 
     def invert(self, before: Venue, params: AddZoneParams) -> list[PatchOpIn]:
@@ -549,6 +559,7 @@ class RemoveZoneOp:
                 people=z.people,
                 label=z.label,
                 index=ii,
+                restore=z.model_dump(mode="json"),
             ),
             *_restore_annotations(before, z.id),
         ]
@@ -621,6 +632,7 @@ class SetEventParams(_P):
     kind: str | None = Field(default=None, max_length=60)
     start: str | None = Field(default=None, max_length=25, description="local ISO time")
     restore: dict[str, Any] | None = None  # used by undo: the whole previous event record
+    clear_start: bool = False  # used by undo: the venue had no start time before
 
 
 class SetEventOp:
@@ -648,14 +660,18 @@ class SetEventOp:
                 event[key] = val
         rest = {k: val for k, val in v.extensions.items() if k != "event"}
         v.extensions = {**rest, "event": event} if event else rest
-        if params.start is not None and v.location is not None:
-            v.location = v.location.model_copy(update={"event_start": params.start})
+        if v.location is not None and (params.start is not None or params.clear_start):
+            start = None if params.clear_start else params.start
+            v.location = v.location.model_copy(update={"event_start": start})
         return v
 
     def invert(self, before: Venue, params: SetEventParams) -> list[PatchOpIn]:
         back: dict[str, Any] = {"restore": dict(before.extensions.get("event") or {})}
         if params.start is not None and before.location is not None:
-            back["start"] = before.location.event_start
+            if before.location.event_start is None:
+                back["clear_start"] = True
+            else:
+                back["start"] = before.location.event_start
         return [_op("set_event", **back)]
 
 

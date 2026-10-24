@@ -205,6 +205,50 @@
 .animate-deal-in {
   animation: deal-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
+@keyframes tab-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-tab-in {
+  animation: tab-in 220ms ease-out both;
+}
+@keyframes ring-in {
+  from {
+    stroke-dasharray: 0 1000;
+  }
+}
+.animate-ring-in {
+  animation: ring-in 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+/* a pipeline node that is working: a soft halo that breathes */
+@keyframes halo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--signal) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--signal) 0%, transparent);
+  }
+}
+.animate-halo {
+  animation: halo 1.6s ease-in-out infinite;
+}
+@keyframes flow {
+  to {
+    background-position: 24px 0;
+  }
+}
+.animate-flow {
+  background-image: repeating-linear-gradient(90deg, var(--signal) 0 8px, transparent 8px 16px);
+  background-size: 24px 100%;
+  animation: flow 700ms linear infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

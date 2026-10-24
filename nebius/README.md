@@ -9,6 +9,7 @@ AI fixes are simulated again, the worst moment can be rewound to test responses 
 second, and you get a tested plan, a report and a handover checklist. Every number comes from the
 simulator, never from the AI. **[Read the pitch, the evidence and the limits](docs/PITCH.md)**
 · [Demo script](docs/DEMO.md) · [Simulator validation](docs/VALIDATION.md)
+· [Real cases: Love Parade, Hillsborough, Itaewon rebuilt and simulated](docs/REAL_CASES.md)
 
 Event safety planning and crowd simulation are slow, expensive and need specialists, so most
 events never get stress-tested. Showtime lets AI do that work. NVIDIA Nemotron agents drive
@@ -28,17 +29,21 @@ measured improvements, down to **the latest safe time to start evacuating**.
 
 > Planning aid, not a safety certification.
 
-![Event Copilot planning a concert at Ramna Park](docs/screenshots/copilot.png)
+![Your plan: a 4-floor hospital with its patients and staff, tested by the red team](docs/screenshots/overhaul/hospital-overview.png)
 
-| The real site in 3D, laid out for the event | Pick any building or park on a 3D map |
+| **Failure map**: every way the plan broke, by hazard and floor (Rainbow red teaming) | **Fixes**, each simulated on its own; none may make an outcome worse |
 | --- | --- |
-| ![Site](docs/screenshots/site-3d.png) | ![Map](docs/screenshots/map-select.png) |
-| **Red Team Night** | **Crowd replay with density heatmap** |
-| ![Red team](docs/screenshots/redteam.png) | ![Simulate](docs/screenshots/simulate.png) |
-| **Check your venue** (step 1 of the simple view) | **Your plan**: the verdict, why, and what was tested |
-| ![Check your venue](docs/screenshots/check.png) | ![Your plan](docs/screenshots/plan-simple.png) |
-| **Any building**: a 4-storey hospital drawn on the map, floors spread apart | **Building tools**: walls, doors, rooms, stairs, routes, floors |
-| ![Hospital, 4 floors](docs/screenshots/hospital-spread.png) | ![Building tools](docs/screenshots/building-tools.png) |
+| ![Failure map](docs/screenshots/overhaul/failure-map.png) | ![Fixes](docs/screenshots/overhaul/school-fixes.png) |
+| **Floors**: when each storey clears and how many use each stair | **Scenarios** the AI and the rules tried, with the incident that inspired each |
+| ![Floors](docs/screenshots/overhaul/school-floors.png) | ![Scenarios](docs/screenshots/overhaul/hospital-scenarios.png) |
+| **Start from your event**: map, one sentence, or a use case | **AI at work**: the red team, the simulator and the judge, live |
+| ![Home](docs/screenshots/overhaul/home.png) | ![AI at work](docs/screenshots/overhaul/work-live.png) |
+| **The AI team**: twelve Nemotron agents, the model each runs on, the tools each may use | **Real cases** rebuilt by the AI from published reports and simulated |
+| ![AI team](docs/screenshots/overhaul/ai-team.png) | ![Real case](docs/screenshots/overhaul/real-case-itaewon.png) |
+| **Test modes**: Quick, Standard, Deep or Offline | |
+| ![Test modes](docs/screenshots/overhaul/test-modes.png) | |
+| **The real site in 3D**, laid out for the event | **Event Copilot**: one sentence to a tested plan |
+| ![Site](docs/screenshots/site-3d.png) | ![Copilot](docs/screenshots/copilot.png) |
 
 ## Why
 
@@ -52,7 +57,8 @@ stress-tested. Showtime makes "what happens if…?" a two-minute question for an
 
 - **Event Copilot (a LangGraph agent graph)**: one sentence → Brief agent → the real site
   (OpenStreetMap) or the Designer agent → layout solver → planning ratios → project → full
-  simulation in a sandbox → **scenario sweep** (six what-ifs, each branched into its own sandbox)
+  simulation in a sandbox → **scenario sweep** (what-ifs from an 18-scenario library, each
+  branched into its own sandbox)
   → **Safety officer** agent with prioritised, number-checked actions. The graph is drawn live
   as nodes run.
 - **Planning score** (A–F) with an explained breakdown, and a **what-if lab** (crowd size,
@@ -69,7 +75,7 @@ stress-tested. Showtime makes "what happens if…?" a two-minute question for an
 - **Plan for the day**: safe capacity (floor space × planning density; exits by the Green Guide
   width × flow × time method; stairs), exit width needed, stewards, first aiders, toilets (Purple
   Guide table by duration and alcohol), fencing, barrier and a budget. Every ratio is cited.
-- **3D venue** (React Three Fiber): (React Three Fiber): section-cut walls, exits with direction arrows, stage truss
+- **3D venue** (React Three Fiber): section-cut walls, exits with direction arrows, stage truss
   and roof, zones, stairs, two floors. Edit by **typing** ("add a 3 m exit on the east wall";
   the Venue agent turns it into a validated patch) or by **dragging**. Every save is a version
   with undo/redo.
@@ -97,11 +103,46 @@ Densities, times, forces and wind limits come from the simulator, formulas or ci
 UI always says whether you are looking at an *instant estimate* or a result *confirmed by
 simulation*.
 
+## How it works: Nemotron agents decide, sandboxed tools measure
+
+Showtime is a multi-agent system. Twelve NVIDIA Nemotron agents make every decision, in five
+stages: **build** (Brief, Designer, Editor, Router), **attack** (What-if planner, Red team),
+**defend** (Blue team), **judge** (Judge, Safety officer) and **explain** (Explainer, Analyst).
+Tools produce every number: a layout solver turns a design into exact geometry, an instant
+estimate screens ideas in milliseconds, and the JuPedSim crowd simulator tests every scenario
+and every fix in its own sealed sandbox (Docker with no network locally, Nebius Sandboxes in
+the cloud). A number checker rejects any agent text that quotes a number the tools did not
+produce. Nothing about a venue is hand-made: a sentence, a map or a real case's sourced
+description goes in, and the agents and tools do the rest. The live team, with the model each
+agent runs on, is at `/team` in the app and `GET /api/v1/agents`.
+
+**Models.** Roles map to models in `.env`: `MODEL_FAST`, `MODEL_MAIN` and `MODEL_LONG` for the
+everyday agents and `MODEL_JUDGE` for the final verdict, as the hackathon suggests (a fast
+Nemotron for most calls, Nemotron 3 Ultra for the judgement). `MODEL_FALLBACK` is tried when a
+role's model fails at the provider, and `OPENAI_COMPAT_API_KEY_FALLBACK` when a key runs out.
+Tested on OpenRouter with Nemotron 3.5 Lightning and Nemotron 3 Ultra (the free Nemotron 3
+Super endpoint was unavailable at the provider during the last tests).
+
+**Test modes** (above *Test this plan*): **Quick** (one round, a few attacks), **Standard** (the
+AI attacks and fixes; the default), **Deep** (three rounds on the improved plan, findings
+confirmed in full) and **Offline** (no model: rule-based attacks and standard fixes, still
+simulated).
+
+## Engineering novelty (and the papers behind it)
+
+| Idea | What Showtime does | Measured here |
+| --- | --- | --- |
+| **Rainbow red teaming with a physics judge** (Samvelyan et al., *Rainbow Teaming*, NeurIPS 2024; *RainbowPlus*, 2025) | The red team fills a **failure map**: a MAP-Elites archive of hazard kind × place (floor, exit or side), keeping the two worst attacks per cell. Nemotron is asked to fill the empty cells. The fitness is a severity score from **simulated metrics only**, so the search cannot flatter its judge, the failure mode Rainbow Teaming reports for LLM judges. | Matched two-round sessions with Nemotron (mock simulator, same budget): the school wing's map went from 29 % to 57 % coverage and from 4 to 6 of 6 hazard kinds. Live with JuPedSim, a 3-storey school filled 8 of 14 cells, every one a confirmed break. [docs/RAINBOW.md](docs/RAINBOW.md) |
+| **Crowd pressure, the turbulence warning** (Helbing, Johansson & Al-Abideen, *Phys. Rev. E* 75, 046109, 2007) | Every simulation computes crowd pressure P = ρ·Var(v) per cell and time, the measure that rose before the 2006 Mina crush, with their 0.02/s² threshold. It shows as a **Turbulence** layer in the replay, together with Fruin level-of-service shares (A–F). | A 0.8 m bottleneck: 28 s of turbulence, against none for a 6 m exit. A 3-storey school with 960 children: 40 s of turbulence on its stairs. |
+| **Describe → solve → check → repair for whole buildings** (in the spirit of Text2BIM, *J. Comput. Civ. Eng.* 2026) | One sentence becomes a multi-storey building: storeys and basements, people per floor, wards or classrooms off a corridor, atriums, stair cores. Nemotron writes only the structure; a solver builds the geometry and the checks send errors back once. | Live with Nemotron 3 Super: 12 of 12 test descriptions built correctly (a 5-storey office, a 4-floor hospital, a 3-level mall, a basement nightclub, a 10-storey hotel, a metro platform, …). Before this, every multi-storey description collapsed to one floor. |
+| **Who is in the crowd** | Older people, children, wheelchair users and patients in beds walk at cited speeds and take their real width, down the stairs too. The replay draws each kind with its own shape. | The 4-floor hospital takes 207 s to get 95 % out with its patients and staff, against 109 s if everyone moved like a healthy adult. |
+| **Scenarios for buildings** | 18 named what-ifs with targets picked from the venue: a stairwell lost to smoke, firefighters climbing the stairs, phased evacuation, a power cut, a gate closed, a late surge… | 3-storey office, 300 people: losing one stairwell raises the time to get 95 % out from 104 s to 174 s (+68 %). |
+
 ## How NVIDIA and Nebius technology is used
 
 | Technology | Role in Showtime |
 | --- | --- |
-| **NVIDIA Nemotron** (Nano 9B v2 locally; Nemotron 3 Nano / Super / Ultra on Token Factory) | Seven agents: **Brief** (one sentence → event brief for the Copilot), **Designer** (description → layout spec that a solver builds and the checks verify), **Venue** (text → validated edit ops; 12/12 on our scripted edits with the local model), **Red team** (attacks grounded in incidents), **Blue team** (fixes), **Judge** (final plan text, number-checked), **Explainer** ("Ask the venue"). Roles map to models: `fast` for drafting, `main` for edits and fixes, `judge` for the final reasoning. JSON is schema-constrained, validated with Pydantic and repaired once. |
+| **NVIDIA Nemotron** (Nano 9B v2 locally; Nemotron 3.5 Lightning / 3 Super / 3 Ultra hosted) | Twelve agents (see *How it works*), among them: **Brief** (one sentence → event brief for the Copilot), **Designer** (description → layout spec that a solver builds and the checks verify), **Venue** (text → validated edit ops; 12/12 on our scripted edits with the local model), **Red team** (attacks grounded in incidents), **Blue team** (fixes), **Judge** (final plan text, number-checked), **Explainer** ("Ask the venue"). Roles map to models: `fast` for drafting, `main` for edits and fixes, `judge` for the final reasoning. JSON is schema-constrained, validated with Pydantic and repaired once. |
 | **Nebius Token Factory** | OpenAI-compatible endpoint behind `LLM_PROVIDER=nebius`; per-role model ids and prices in `.env`; tokens and cost are metered per agent call and shown live. |
 | **Nebius Sandboxes** (contree-sdk) | `SANDBOX_PROVIDER=nebius`: every scenario is a child snapshot of the venue image (attack → fix branches; the Copilot's six-scenario sweep branches from the plan's run), run in parallel. Locally the same interface runs Docker containers with `--network=none`, one at a time. |
 | **LangGraph** | The Event Copilot is a compiled `StateGraph` with conditional routes, checkpointing and custom streaming; `GET /api/v1/copilot/graph` serves its structure, which the UI draws live. |

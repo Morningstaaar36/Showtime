@@ -7,6 +7,81 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- **Crowd pressure and turbulence** (Helbing, Johansson & Al-Abideen 2007): every simulation writes
+  `pressure.bin` / `pressure_index.json` (same layout as the density grid, GET
+  `/runs/{id}/pressure`) and reports `peak_pressure`, `time_turbulent_s` (pressure ≥ 0.02/s² in a
+  crowd of at least the warning density) and turbulent hotspots. Fruin level of service A–F as
+  shares of person-seconds (`los_share_A` … `los_share_F`).
+- **Scenario library**: 18 named what-ifs (GET `/api/v1/scenarios?project_id=…`) with targets
+  picked from the venue, including multi-storey ones (stairwell lost to smoke, smoke on the fire
+  floor, phased evacuation, firefighters on the stairs, lift out of service, more
+  mobility-impaired people). The sweep accepts `{"scenarios": [...]}`; the default is still the
+  original six.
+- Scenario events: `block_exit`, `unblock_exit`, `counterflow` and `one_way` take a stair id;
+  `slowdown` takes a `floor_id`; new `mobility_share` (a share of people at a given speed, slower
+  on stairs too).
+- **Venues with storeys from a description**: the designer can now describe buildings with
+  several storeys and basements, people per floor (or per named level such as "Lobby"), rooms off
+  a corridor (with a room count), an atrium, stair cores near named walls or in the centre, exits
+  on other levels, and basement exits that are stairs up to a street door. The solver builds them
+  with the map's storey generator and places exactly the headcount described on each level.
+  A stage can stand in the centre; repeated exit names are numbered ("South gate 1, 2, 3").
+  Repair messages name the zone and level instead of internal ids (designer prompt v5).
+### Changed
+- **Your plan is tabbed and visual**: Overview (traffic-light verdict ring, four key numbers with a
+  target bar, the density scale, the people-inside curve and the time needed, before vs after
+  fixes as paired bars, the worst moment replaying in 3D), Replay (before, after or side by side on
+  one clock, every scenario), Scenarios (cards, the scenario library and sweep, deeper checks as
+  tiles), Fixes (cards with before → after numbers and a switch each), Floors (one small plan per
+  storey with stair use and when it clears) and Hand over (report, map, checklist, data, cost). The
+  AI's prose sits behind "Read the AI's summary"; the tab is in the URL (`?tab=`).
+- **Buildings of 3+ storeys open on one floor in focus** with the others ghosted (outlines, faint
+  plates, no labels), every stair highlighted, room walls cut low, and a lift-style floor switcher;
+  "All floors" draws clean floor plates, "Spread apart" stays. People on other floors stay as faint
+  markers in replays. Map neighbours standing on the venue's own footprint are no longer drawn.
+- **AI at work is a live pipeline** (red team → screen → simulate → fix → judge) with a scoreboard,
+  an AI usage meter and attack cards dealt in.
+- **Home** adds "Events like yours" (concert, hospital fire drill, school drill, stadium, festival
+  pandal, mall, nightclub, street party, conference): tested samples open with results, the others
+  fill in "Describe it". **Check your venue** has floor tabs, door chips and people steppers.
+
+### Added
+- Turbulence layer toggle on the replay (GET /runs/{id}/pressure, same encoding as density) and the
+  scenario library (GET /scenarios, POST /projects/{id}/sweep with chosen ids); both stay hidden on
+  servers that answer 404. A slot for the red team's failure map in Scenarios.
+
+### Fixed
+- **Basements in the simulation**: floors now run in stair order, so people climbing out of a
+  basement reach the street level instead of arriving after it was simulated; stairs leading up
+  are drawn and labelled the right way in 3D and counted in safe capacity.
+- **Instant estimate in buildings of 3+ storeys**: routes now follow chains of stairs, so upper
+  floors are no longer "stranded"; the 4-storey hospital sample went from 298 people with no route
+  to 95% out in 200 s (simulation: 223 s). Each stair's capacity window starts when people reach it.
+- **Safe capacity with stacked stairwells**: the tightest storey's stairs govern instead of the sum
+  of every flight (4-storey block: 960, not 1,560).
+- **Simulation with every exit blocked** reported 0 people, all evacuated, "ok": people who could
+  not be placed because no exit was open now count as not evacuated and trapped.
+- **Countdown**: a scenario or user-set hazard (seconds after the alarm) no longer prints a wrong
+  "start evacuating by" clock time, and is never compared with a forecast hazard measured from the
+  event start. Wind: gusts already over the limit when the window opens hit at the start, and the
+  "no hazard" text quotes the peak inside the window.
+- **Undo**: removing a zone restores its people mix, start delay and route; undoing a first start
+  time clears it.
+- **Scenario sweep** from the API skipped every scenario ("no running event loop").
+- **Red-team sessions** could stay "running" forever on an LLM replay miss or a failure while
+  finishing, locking the project; attack ids could repeat across rounds; session config could
+  override budgets (and `"lots"` gave a 500, now 422).
+- Runs and sessions left running by a server restart are marked failed / stopped at startup;
+  stopping one user of a shared run no longer cancels it for the others; reports of imported
+  projects keep their baseline and final runs; `GET /weather` with a bad date gives 422.
+- Forecast cache refreshes after 3 h (kept as a fallback when offline); Nebius sandbox no longer
+  uploads a stale `result.json`; trajectories of sites over ~650 m are no longer clamped.
+- Web: clearing a number field no longer saves 0; shortcuts no longer fire in dropdowns; the 3D
+  view stays on the run you picked during a live session; geometries are disposed; Autopilot "Try
+  again" no longer shows "Stopping…"; Undo toasts always undo their own edit; Ask shows the answer
+  for the hotspot asked about; "Not all% of" wording; event streams back off and stop on 404.
+
+### Added
 - **How sure are these numbers?** (P2-04) on Your plan: the run the verdict rests on again with
   20% fewer and more people and walking 15% slower and faster (same seed, layout and scenario),
   with the range, which assumptions break the plan, and every run's basis

@@ -3,19 +3,20 @@
 .env.*
 !.env.example
 # toolchains, weights, data, outputs (downloaded at setup time)
-# anchored to the repo root: api/models, api/data and web/src/state are source code
-/.tools/
-/models/
-/data/
-/runs/
-/logs/
+# anchored to the repo root: api/models, api/data and web/src/state are source code.
+# No trailing "/": a symlinked folder (e.g. in a git worktree) must be ignored too.
+/.tools
+/models
+/data
+/runs
+/logs
 /cache/*
 !/cache/demos/
 /cache/demos/**/*.tmp
 *.sqlite
 *.db
 # python
-.venv/
+.venv
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -24,11 +25,11 @@ __pycache__/
 .coverage
 htmlcov/
 # node
-node_modules/
+node_modules
 dist/
 web/test-results/
 web/playwright-report/
 *.tsbuildinfo
 .DS_Store
-/state/
+/state
 .import_linter_cache/

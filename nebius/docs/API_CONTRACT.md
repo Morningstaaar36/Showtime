@@ -37,6 +37,7 @@ Response:
 | GET | `/sessions/{id}` | session row: `{id, project_id, venue_version, status, config, summary, tokens, cost_usd, created_at, finished_at, error}` |
 | GET | `/projects/{id}/sessions` | list (newest first) |
 | GET | `/sessions/{id}/events?after=<seq>` | SSE stream; every message `data:` is a SessionEvent JSON; replays from `after` (default 0) then streams live; ends with an `event: end` message when the session is finished |
+| GET | `/sessions/{id}/archive` | the red team's failure map (`FailureMap`, `api/models/failure_map.py`, docs/RAINBOW.md): `{session_id, status, kinds, wheres, cells: [{kind, where, elites: [{attack_id, title, run_id, severity, is_break, round, metrics, parts, fixed_by, severity_after, after_run_id}]}], cells_total, filled, coverage, qd_score, open_breaks, aim: {targeted, hit}, history: [{round, coverage, qd_score, filled}], fitness}`; live while running, from `summary.archive` afterwards; 404 `no_archive` for older sessions |
 | POST | `/sessions/{id}/stop` | stop gracefully (finishes with partial results) |
 | POST | `/sessions/{id}/apply` | save the session's final fixed venue as a new project version; body `{fix_ids?}` accepts only some kept fixes, and then starts simulating them together (`applied.together`) |
 | GET / POST | `/sessions/{id}/together` | the latest subset version's run of its fixes together: `status` `none`, `not_started`, `running`, `done` (simulated; `record.together.evaluation`), `preview` (mock sandbox) or `failed`; POST starts it again (409 `together_unavailable` without a subset) |
@@ -70,13 +71,14 @@ Response:
 | --- | --- |
 | `status` | `{status: "running"\|"finished"\|"stopped"\|"failed", phase: "baseline"\|"red_team"\|"screening"\|"simulating"\|"blue_team"\|"confirming"\|"judging"\|"done", round, message}` |
 | `agent_call` | `{agent, role, model, prompt_version, tokens_in, tokens_out, cost_usd, ms, ok, summary, repaired}` |
-| `tool_call` | `{tool, args, summary}` (search_web, run_tier1, run_sim, get_forecast, incidents) |
-| `attack_card` | `{round, attack: Attack, tier1: {evac_time_p95_s, peak_density_ppm2}, rank}` |
+| `tool_call` | `{tool, args, summary}` (search_web, run_tier1, run_sim, get_forecast, incidents, failure_map: `args.targets` = the cells aimed at this round) |
+| `attack_card` | `{round, attack: Attack, tier1: {evac_time_p95_s, peak_density_ppm2}, cell: {kind, where} \| null, screening?}` (only simulated attacks get a card; `cell` = the failure-map cell it lands in) |
 | `fix_card` | `{round, fix: Fix, attack_id}` |
 | `run_started` | `{run_id, tier, label, attack_id, fix_id, parent_run_id}` |
 | `run_finished` | `{run_id, status, tier, metrics: {evac_time_p95_s, peak_density_ppm2, time_above_danger_s, agents_not_evacuated}, is_break, break_reasons: ["peak density 6.1 ≥ 5", …], accepted?: bool}` |
 | `branch_node` | `{node_id, parent_id, kind: "baseline"\|"attack"\|"fix"\|"final", label, run_id, status: "pending"\|"running"\|"break"\|"ok"\|"failed"\|"rejected", metrics?, attack_id?, fix_id?, accepted?}` (re-sent with the same node_id when the status changes) |
-| `score` | `{round, breaks, attacks_tested, fixes_accepted, scoreboard: [{round, breaks, attacks}]}` |
+| `score` | `{round, breaks, attacks_tested, fixes_accepted, scoreboard: [{round, breaks, attacks, coverage, qd_score}]}` |
+| `archive` | `{round, change: {outcome: "new_cell"\|"added"\|"replaced"\|"kept_out"\|"off_map"\|"fixed", kind, where, attack_id, severity, replaced_attack_id, fix_id} \| null, archive: FailureMap}` after every insert, at the end of each round (`change: null`) and when a kept fix re-measures an elite |
 | `cost` | `{tokens_total, cost_usd, by_role: {fast, main, …}, budget_tokens}` |
 | `countdown` | `{countdown: Countdown}` |
 | `marshal` | `{run_id, t_s, x, y, floor_id, speech}` |

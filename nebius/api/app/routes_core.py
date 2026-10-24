@@ -184,15 +184,23 @@ async def weather(
             "This venue has no location.",
             "Set a location in the venue settings.",
         )
-    start = (
-        date.fromisoformat(day)
-        if day
-        else (
-            datetime.fromisoformat(venue.location.event_start).date()
-            if venue.location.event_start
-            else date.today()
-        )
-    )
+    try:
+        start = date.fromisoformat(day) if day else None
+    except ValueError as exc:
+        raise ApiException(
+            422, "invalid_day", f"“{day}” is not a date.", "Use the form YYYY-MM-DD."
+        ) from exc
+    if start is None and venue.location.event_start:
+        try:
+            start = datetime.fromisoformat(venue.location.event_start).date()
+        except ValueError as exc:
+            raise ApiException(
+                422,
+                "invalid_event_start",
+                f"The event start “{venue.location.event_start}” is not a date and time.",
+                "Set the event start in the venue settings, e.g. 2026-11-20T18:00.",
+            ) from exc
+    start = start or date.today()
     try:
         return await st.weather.hourly_gusts(
             venue.location.lat, venue.location.lon, venue.location.timezone, start

@@ -1,0 +1,132 @@
+{
+ "description": "A stadium concourse on the first floor, 150 by 15 m, 2,500 fans at half-time, food kiosks along the north wall, four wide stairs down to the street-level gates on the south.",
+ "spec": {
+  "name": "Stadium concourse",
+  "mode": "indoor",
+  "width_m": 150.0,
+  "depth_m": 15.0,
+  "stage": null,
+  "front_barrier": false,
+  "exits": [
+   {
+    "wall": "south",
+    "width_m": 3.0,
+    "position": 0.25,
+    "label": "Stair 1",
+    "level": 0
+   },
+   {
+    "wall": "south",
+    "width_m": 3.0,
+    "position": 0.42,
+    "label": "Stair 2",
+    "level": 0
+   },
+   {
+    "wall": "south",
+    "width_m": 3.0,
+    "position": 0.58,
+    "label": "Stair 3",
+    "level": 0
+   },
+   {
+    "wall": "south",
+    "width_m": 3.0,
+    "position": 0.75,
+    "label": "Stair 4",
+    "level": 0
+   }
+  ],
+  "zones": [
+   {
+    "label": "Fans",
+    "people": 2500,
+    "region": "whole"
+   }
+  ],
+  "features": [
+   {
+    "kind": "booth",
+    "label": "Food kiosk 1",
+    "place": "north",
+    "width_m": 30.0,
+    "depth_m": 3.0,
+    "level": null
+   },
+   {
+    "kind": "booth",
+    "label": "Food kiosk 2",
+    "place": "north",
+    "width_m": 30.0,
+    "depth_m": 3.0,
+    "level": null
+   },
+   {
+    "kind": "booth",
+    "label": "Food kiosk 3",
+    "place": "north",
+    "width_m": 30.0,
+    "depth_m": 3.0,
+    "level": null
+   },
+   {
+    "kind": "booth",
+    "label": "Food kiosk 4",
+    "place": "north",
+    "width_m": 30.0,
+    "depth_m": 3.0,
+    "level": null
+   }
+  ],
+  "upper_floor": null,
+  "building": {
+   "storeys": 2,
+   "basements": 0,
+   "use": "sports",
+   "interior": "open",
+   "rooms_per_floor": null,
+   "room_label": null,
+   "people_per_floor": null,
+   "levels": [
+    {
+     "level": 0,
+     "people": 0,
+     "name": "Street level"
+    },
+    {
+     "level": 1,
+     "people": 2500,
+     "name": "Concourse"
+    }
+   ],
+   "stairs": [
+    {
+     "place": "south",
+     "width_m": 3.0
+    },
+    {
+     "place": "south",
+     "width_m": 3.0
+    },
+    {
+     "place": "south",
+     "width_m": 3.0
+    },
+    {
+     "place": "south",
+     "width_m": 3.0
+    }
+   ],
+   "floor_height_m": 3.5
+  },
+  "location": null,
+  "assumptions": [
+   "Stairs are 3 m wide to accommodate high flow.",
+   "Food kiosks are 30 m long and 3 m deep, spaced along north wall.",
+   "Street level has no occupants; all 2,500 fans are on the concourse.",
+   "No stage or front barrier as it is a concourse.",
+   "Building use is sports.",
+   "Stairs serve as vertical circulation only; exits are at street level."
+  ]
+ }
+}

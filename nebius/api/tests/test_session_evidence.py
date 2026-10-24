@@ -238,14 +238,20 @@ async def test_sim_counts_match_the_runs_in_the_stream(make_state: Callable[...,
     simulated = [f for f in finished if int(f["tier"]) > 1]
     assert sims["failed"] == sum(f["basis"] == "unknown" for f in simulated) >= 1
     assert sims["cache_hits"] == sum(bool(f.get("cache_hit")) for f in simulated) == 0
-    # every simulation started in the stream also finished there, failed ones included
-    assert {e.payload["run_id"] for e in started} == {f["run_id"] for f in simulated}
+    # every simulation started in the stream also finished there, failed ones included,
+    # or was closed as not needed (a candidate fix left over once an earlier one was kept)
+    skipped = {
+        e.payload["run_id"] for e in _events(st, row.id, "branch_node") if e.payload.get("skipped")
+    }
+    assert {e.payload["run_id"] for e in started} - skipped == {f["run_id"] for f in simulated}
     fallbacks = [f for f in finished if f.get("fallback_for")]
     assert len(fallbacks) == sims["failed"]
     attack_cards = len(_events(st, row.id, "attack_card"))
     assert sims["instant_estimates"] >= attack_cards + len(fallbacks)
     # compute time counts fresh sandbox runs: 2.5 s each, 30 s for the failed one
-    assert sims["sim_seconds"] == pytest.approx(2.5 * (len(simulated) - 1) + 30.0)
+    # (a candidate left over after an earlier fix was kept still used its sandbox time)
+    left_over = len({e.payload["run_id"] for e in started} & skipped)
+    assert sims["sim_seconds"] == pytest.approx(2.5 * (len(simulated) - 1 + left_over) + 30.0)
 
 
 async def test_reused_runs_count_as_cache_hits(make_state: Callable[..., Any]) -> None:

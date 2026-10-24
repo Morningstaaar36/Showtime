@@ -1,6 +1,7 @@
 /** Collaborative editing on the "Check your venue" screen: one card for the selected door,
  * barrier or area (numbers, existing/proposed, provenance, lock) and lists to find them. */
-import { DoorOpen, Lock, LockOpen, MapPin, Move, Trash2, Users } from "lucide-react";
+import { DoorOpen, Fence, Info, Lock, LockOpen, MapPin, Minus, Move, Plus, Trash2, Users } from "lucide-react";
+import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Exit, Obstacle, ProjectDetail, SceneSnapshot, Venue, Zone } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,9 @@ import { annotateOp, annotationOf, BASES, type Basis, type ChangeStatus, type Ob
 import { fmtInt, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { displayNames } from "@/lib/venueText";
-import { centroid } from "@/scene/geom";
+import { Tip } from "@/components/ui/tooltip";
+import { floorNamer } from "@/panels/FloorMenu";
+import { centroid, floorsBottomUp, resolveFloorView } from "@/scene/geom";
 import { type Selection, useUi } from "@/state/ui";
 import { useVenueEdit } from "./useVenueEdit";
 import { ZoneProfileEditor } from "@/panels/ZoneProfile";
@@ -60,6 +63,8 @@ function NumberInput({ id, label, unit, value, step, min, disabled, onCommit }: 
   const sent = useRef<number | null>(null);
   useEffect(() => { setV(String(value)); sent.current = null; }, [value]);
   const commit = () => {
+    // an emptied field means "never mind", not 0
+    if (!v.trim()) { setV(String(value)); return; }
     const n = Number(v);
     if (n === sent.current) return;
     if (Number.isFinite(n) && n !== value && (min == null || n >= min)) { sent.current = n; onCommit(n); }
@@ -252,37 +257,52 @@ function SimpleBadges({ a, blocked }: { a: ObjectAnnotation; blocked?: boolean }
   );
 }
 
-function Step({ n, tone, title, hint, aside, children }: {
-  n: number; tone: string; title: string; hint?: string; aside?: React.ReactNode; children: React.ReactNode;
+function Step({ icon, tone, title, hint, aside, children }: {
+  icon: React.ReactNode; tone: string; title: string; hint?: string; aside?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
     <section className="space-y-2.5">
-      <div className="flex items-start gap-3">
-        <span className={cn("grid size-7 shrink-0 place-items-center rounded-full text-sm font-bold text-white", tone)}>{n}</span>
-        <div className="min-w-0 flex-1">
-          <h2 className="flex items-center justify-between gap-2 text-base font-semibold">{title}{aside}</h2>
-          {hint && <p className="text-sm text-muted">{hint}</p>}
-        </div>
+      <div className="flex items-center gap-2.5">
+        <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-white [&_svg]:size-4", tone)} aria-hidden>{icon}</span>
+        <h2 className="text-base font-semibold">{title}</h2>
+        {hint && (
+          <Tip content={hint} side="bottom">
+            <button type="button" aria-label={hint} className="grid size-8 place-items-center rounded-full text-muted hover:bg-surface-2 hover:text-ink"><Info className="size-4" /></button>
+          </Tip>
+        )}
+        <span className="ml-auto">{aside}</span>
       </div>
-      <div className="pl-10">{children}</div>
+      {children}
     </section>
   );
 }
 
-/** Inline headcount for one crowd area (saved on Enter or when leaving the field). */
+/** Headcount for one crowd area: − / number / + (saved on Enter, when leaving the field, or per press). */
 function PeopleInput({ id, name, value, disabled, onCommit }: { id: string; name: string; value: number; disabled: boolean; onCommit: (v: number) => void }) {
   const [v, setV] = useState(String(value));
   const sent = useRef<number | null>(null);
   useEffect(() => { setV(String(value)); sent.current = null; }, [value]);
   const commit = () => {
+    if (!v.trim()) { setV(String(value)); return; }
     const n = Math.round(Number(v));
     if (n === sent.current) return;
     if (Number.isFinite(n) && n >= 0 && n !== value) { sent.current = n; onCommit(n); } else setV(String(value));
   };
+  const step = value < 50 ? 5 : value < 500 ? 10 : 50;
+  const bump = (d: number) => {
+    const n = Math.max(0, value + d);
+    if (n !== value) { sent.current = n; setV(String(n)); onCommit(n); }
+  };
+  const btn = "grid size-10 place-items-center text-muted transition hover:bg-surface-2 hover:text-ink disabled:opacity-40";
   return (
-    <Input id={`pp-${id}`} aria-label={t("check.people_of", { name })} type="number" inputMode="numeric" min={0} step={50}
-           value={v} disabled={disabled} onChange={(e) => setV(e.target.value)} onBlur={commit}
-           onKeyDown={(e) => e.key === "Enter" && commit()} className="h-10 w-24 text-right text-base tabular" />
+    <div className="flex h-10 shrink-0 items-center overflow-hidden rounded-[var(--radius-control)] border border-border bg-surface">
+      <button type="button" className={btn} disabled={disabled || value <= 0} onClick={() => bump(-step)} aria-label={t("check.fewer", { n: step, name })}><Minus className="size-4" /></button>
+      <input id={`pp-${id}`} aria-label={t("check.people_of", { name })} type="number" inputMode="numeric" min={0} step={step}
+             value={v} disabled={disabled} onChange={(e) => setV(e.target.value)} onBlur={commit}
+             onKeyDown={(e) => e.key === "Enter" && commit()}
+             className="h-full w-16 border-x border-border bg-transparent text-center text-base font-semibold tabular outline-none [appearance:textfield] focus-visible:bg-signal-soft [&::-webkit-inner-spin-button]:appearance-none" />
+      <button type="button" className={btn} disabled={disabled} onClick={() => bump(step)} aria-label={t("check.more", { n: step, name })}><Plus className="size-4" /></button>
+    </div>
   );
 }
 
@@ -291,68 +311,110 @@ const kindName = (kind: string) => {
   return name.startsWith("check.") ? kind.replace(/_/g, " ") : name;
 };
 
-/** The venue as three questions an organizer can answer in a minute. */
+/** The venue as three glances: the doors as chips, the people per area with steppers (grouped
+ * per floor), and what is in the way. Several floors: tabs pick the floor, in the list and in 3D. */
 export function VenueChecklist({ project, scene }: { project: ProjectDetail; scene: SceneSnapshot | undefined }) {
   const venue = project.version.venue;
   const names = useMemo(() => displayNames(venue), [venue]);
+  const floorName = useMemo(() => floorNamer(venue), [venue]);
   const select = useUi((s) => s.select);
   const fly = useUi((s) => s.flyToPoint);
+  const floorView = useUi((s) => s.floorView);
   const { submit, pending } = useVenueEdit(project.id);
+  const multi = venue.floors.length > 1;
+  const view = resolveFloorView(venue, floorView);
+  const onFloor = multi && view !== "all" && view !== "exploded" ? view : null;
+  const floors = onFloor ? venue.floors.filter((f) => f.floor_id === onFloor) : floorsBottomUp(venue);
   const pick = (kind: Selection["kind"], id: string, floorId: string, poly: number[][]) => {
     const [x, y] = centroid(poly);
     select({ kind, id, floorId });
     fly(x, y, floorId);
   };
-  const row = (r: { kind: Selection["kind"]; id: string; floorId: string; poly: number[][]; detail: string; blocked?: boolean; dot: string }) => {
+  const chip = (r: { kind: Selection["kind"]; id: string; floorId: string; poly: number[][]; detail: string; blocked?: boolean; dot: string }) => {
     const a = annotationWithScene(venue, scene, project.current_version, r.id);
     return (
       <li key={r.id}>
         <button type="button" onClick={() => pick(r.kind, r.id, r.floorId, r.poly)}
-                className="flex min-h-11 w-full items-center gap-2.5 rounded-[10px] px-2.5 py-1.5 text-left text-sm transition hover:bg-surface-2">
-          <span className={cn("size-2.5 shrink-0 rounded-full", r.dot)} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium">{names.get(r.id) ?? r.id}</span>
-            <span className="block text-xs text-muted">{r.detail}</span>
-          </span>
+                className={cn("inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border bg-surface px-3 text-left text-sm shadow-sm transition hover:border-signal hover:bg-signal-soft/50",
+                              r.blocked ? "border-danger/40" : "border-border")}>
+          <span className={cn("size-2.5 shrink-0 rounded-full", r.dot)} aria-hidden />
+          <span className="truncate font-medium">{names.get(r.id) ?? r.id}</span>
+          <span className="shrink-0 text-xs text-muted tabular">{r.detail}</span>
           <SimpleBadges a={a} blocked={r.blocked} />
         </button>
       </li>
     );
   };
-  const exits = venue.floors.flatMap((f) => f.exits.map((e) => ({ kind: "exit" as const, id: e.id, floorId: f.floor_id, poly: e.polygon as number[][], detail: `${fmtNum(e.width_m, 1)} m wide`, blocked: !!e.blocked, dot: e.blocked ? "bg-danger" : "bg-emerald-500" })));
-  const features = venue.floors.flatMap((f) => f.obstacles.filter((o) => o.kind !== "wall").map((o) => ({
+  const exits = floors.flatMap((f) => f.exits.map((e) => ({ kind: "exit" as const, id: e.id, floorId: f.floor_id, poly: e.polygon as number[][], detail: `${fmtNum(e.width_m, 1)} m`, blocked: !!e.blocked, dot: e.blocked ? "bg-danger" : "bg-egress" })));
+  const features = floors.flatMap((f) => f.obstacles.filter((o) => o.kind !== "wall").map((o) => ({
     kind: (o.kind === "stage" ? "stage" : "obstacle") as Selection["kind"], id: o.id, floorId: f.floor_id, poly: o.polygon as number[][],
-    detail: kindName(o.kind), dot: o.kind === "stage" ? "bg-violet-500" : "bg-amber-500",
+    detail: kindName(o.kind), dot: o.kind === "stage" ? "bg-signal" : "bg-orange",
   })));
-  const zones = venue.floors.flatMap((f) => f.zones.map((z) => ({ ...z, floorId: f.floor_id })));
-  const total = zones.reduce((n, z) => n + z.people, 0);
+  const peopleOn = (fl: typeof venue.floors[number]) => fl.zones.reduce((n, z) => n + z.people, 0);
+  const total = venue.floors.reduce((n, f) => n + peopleOn(f), 0);
+  const allExits = venue.floors.reduce((n, f) => n + f.exits.length, 0);
+
   return (
-    <div className="space-y-6">
-      <Step n={1} tone="bg-emerald-500" title={t("check.step_doors")} hint={t("check.step_doors_hint")}
-            aside={<Badge tone="neutral" className="tabular">{exits.length}</Badge>}>
-        {exits.length ? <ul className="-mx-2.5">{exits.map(row)}</ul> : <p className="text-sm text-danger">{t("check.no_exits")}</p>}
-      </Step>
-      <Step n={2} tone="bg-sky-500" title={t("check.step_people")} hint={t("check.people_total", { n: fmtInt(total) })}>
-        <ul className="space-y-1">
-          {zones.map((z) => {
-            const name = names.get(z.id) ?? z.id;
-            const locked = annotationWithScene(venue, scene, project.current_version, z.id).locked;
+    <div className="space-y-5">
+      {multi && (
+        <div role="group" aria-label={t("check.floor_tabs")} className="scrollbar-thin -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+          {[{ id: "all", label: t("check.all_floors"), n: total }, ...floorsBottomUp(venue).map((f) => ({ id: f.floor_id, label: floorName(f.floor_id), n: peopleOn(f) }))].map((o) => {
+            const on = o.id === "all" ? !onFloor : onFloor === o.id;
             return (
-              <li key={z.id} className="flex items-center gap-2">
-                <button type="button" onClick={() => pick("zone", z.id, z.floorId, z.polygon as number[][])}
-                        className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-[10px] px-2.5 text-left text-sm font-medium hover:bg-surface-2 -ml-2.5">
-                  <Users className="size-4 shrink-0 text-sky-500" /><span className="truncate">{name}</span>
-                </button>
-                <PeopleInput id={z.id} name={name} value={z.people} disabled={pending || locked}
-                             onCommit={(v) => submit([{ op: "set_people", zone_id: z.id, people: v } as never], t("check.msg_people", { name, n: fmtInt(v) }))} />
-              </li>
+              <button key={o.id} type="button" aria-pressed={on} onClick={() => useUi.getState().setFloorView(o.id)}
+                      className={cn("flex min-h-11 shrink-0 flex-col items-start justify-center rounded-[10px] border px-3 py-1 text-left transition",
+                                    on ? "border-signal bg-signal text-signal-ink" : "border-border bg-surface hover:border-border-strong")}>
+                <span className="text-sm font-semibold leading-tight">{o.label}</span>
+                <span className={cn("flex items-center gap-1 text-2xs tabular", on ? "text-signal-ink/85" : "text-muted")}><Users className="size-3" aria-hidden />{fmtInt(o.n)}</span>
+              </button>
             );
           })}
-        </ul>
+        </div>
+      )}
+
+      <Step icon={<DoorOpen />} tone="bg-egress-strong" title={t("check.step_doors")} hint={t("check.step_doors_hint")}
+            aside={<Badge tone="neutral" className="tabular">{onFloor ? `${exits.length} / ${allExits}` : exits.length}</Badge>}>
+        {exits.length ? <ul className="flex flex-wrap gap-1.5">{exits.map(chip)}</ul>
+          : <p className="text-sm text-muted">{allExits ? t("check.no_exits_here") : <span className="text-danger">{t("check.no_exits")}</span>}</p>}
       </Step>
+
+      <Step icon={<Users />} tone="bg-sky-strong" title={t("check.step_people")}
+            aside={<span className="text-right"><span className="block text-xl font-bold leading-none tabular">{fmtInt(onFloor ? peopleOn(floors[0]) : total)}</span><span className="text-2xs text-muted">{t(onFloor ? "check.on_floor" : "check.in_total")}</span></span>}>
+        <div className="space-y-3">
+          {floors.map((fl) => (
+            <div key={fl.floor_id} className="space-y-1">
+              {multi && !onFloor && (
+                <p className="flex items-center justify-between text-xs font-semibold text-muted">
+                  <span>{floorName(fl.floor_id)}</span><span className="tabular">{fmtInt(peopleOn(fl))}</span>
+                </p>
+              )}
+              <ul className="space-y-1">
+                {fl.zones.map((z) => {
+                  const name = names.get(z.id) ?? z.id;
+                  const locked = annotationWithScene(venue, scene, project.current_version, z.id).locked;
+                  const share = total ? z.people / Math.max(...fl.zones.map((x) => x.people), 1) : 0;
+                  return (
+                    <li key={z.id} className="flex items-center gap-2">
+                      <button type="button" onClick={() => pick("zone", z.id, fl.floor_id, z.polygon as number[][])}
+                              className="relative flex min-h-10 min-w-0 flex-1 items-center overflow-hidden rounded-[10px] px-2.5 text-left text-sm font-medium hover:bg-surface-2">
+                        <span aria-hidden className="absolute inset-y-1.5 left-0 rounded-r-[6px] bg-sky-soft" style={{ width: `${Math.max(4, share * 100)}%` }} />
+                        <span className="relative truncate">{name}</span>
+                      </button>
+                      <PeopleInput id={z.id} name={name} value={z.people} disabled={pending || locked}
+                                   onCommit={(v) => submit([{ op: "set_people", zone_id: z.id, people: v } as never], t("check.msg_people", { name, n: fmtInt(v) }))} />
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </Step>
+
       {features.length > 0 && (
-        <Step n={3} tone="bg-amber-500" title={t("check.step_things")} hint={t("check.step_things_hint")}>
-          <ul className="-mx-2.5">{features.map(row)}</ul>
+        <Step icon={<Fence />} tone="bg-orange" title={t("check.step_things")} hint={t("check.step_things_hint")}
+              aside={<Badge tone="neutral" className="tabular">{features.length}</Badge>}>
+          <ul className="flex flex-wrap gap-1.5">{features.map(chip)}</ul>
         </Step>
       )}
     </div>

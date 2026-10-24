@@ -38,13 +38,42 @@ def _cards(events: list[Any], kind: str) -> list[dict[str, Any]]:
     return [e.payload[kind] for e in events if e.type == f"{kind}_card"]
 
 
-async def test_hybrid_is_the_default_and_unknown_modes_fall_back_to_it(
+def _payloads(events: Any, kind: str) -> list[dict[str, Any]]:
+    return [e.payload for e in events if e.type == kind]
+
+
+async def test_the_model_designs_by_default_and_unknown_modes_fall_back_to_it(
     make_state: Callable[..., Any],
 ) -> None:
-    row, _ = await _session(make_state())
-    assert row.config["agents"] == "hybrid"
+    row, events = await _session(make_state())
+    assert row.config["agents"] == "model"
+    # the AI designs: no rule attack or standard fix is mixed in while the model answers
+    assert all(
+        c["attack"]["extensions"].get("generated_by") != "rules"
+        for c in _payloads(events, "attack_card")
+    )
     row, _ = await _session(make_state(), agents="something else")
-    assert row.config["agents"] == "hybrid"
+    assert row.config["agents"] == "model"
+
+
+async def test_rules_stand_in_only_when_the_model_does_not_answer(
+    make_state: Callable[..., Any],
+) -> None:
+    from api.adapters.llm import LLMError
+
+    st = make_state()
+
+    def down(_: Any) -> Any:
+        raise LLMError("connection refused")
+
+    st.llm.script["red_team"] = down
+    st.llm.script["blue_team"] = down
+    row, events = await _session(st)
+    assert row.status == "finished"
+    cards = _payloads(events, "attack_card")
+    assert cards and all(c["attack"]["extensions"].get("generated_by") == "rules" for c in cards)
+    logs = [p["message"] for p in _payloads(events, "log")]
+    assert any("Red team model unavailable" in m for m in logs)
 
 
 async def test_rules_only_never_asks_the_model_for_attacks_or_fixes(

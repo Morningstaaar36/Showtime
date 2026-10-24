@@ -66,6 +66,7 @@ export function HelpPage() {
         <div>
           <h1 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">{t("help.title")}</h1>
           <p className="mt-2 max-w-prose text-lg text-muted">{t("help.lead")}</p>
+          <Link to="/team" className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-signal hover:underline">{t("team.link")}</Link>
           <nav aria-label={t("help.on_this_page")} className="mt-5 flex flex-wrap gap-2">
             {SECTIONS.map((s) => (
               <a key={s} href={`#${s}`} className="inline-flex min-h-11 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium shadow-sm hover:border-signal hover:text-signal">

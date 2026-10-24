@@ -5,6 +5,7 @@ import { AiAtWorkPage } from "@/pages/AiAtWork";
 import { AutopilotRunPage } from "@/pages/AutopilotRun";
 import { CheckVenuePage } from "@/pages/CheckVenue";
 import { HelpPage } from "@/pages/Help";
+import { TeamPage } from "@/pages/Team";
 import { HomePage } from "@/pages/Home";
 import { NotFound } from "@/pages/NotFound";
 import { PlacePage } from "@/pages/newproject/PlacePage";
@@ -47,6 +48,7 @@ export function App() {
         <Route path="/p/:projectId/:mode" element={<LegacyMode />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/help" element={<HelpPage />} />
+        <Route path="/team" element={<TeamPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       {/* bottom-left: the primary actions ("Test this plan", "Run stress test") sit on the right, and a

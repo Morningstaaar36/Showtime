@@ -217,3 +217,94 @@ async def test_local_health_is_not_cached(tmp_path: Path) -> None:
     assert (await c.health())["ok"]
     await c.health()
     assert probe.calls == ["models", "models"]
+
+
+@pytest.mark.asyncio
+async def test_spare_key_takes_over_when_the_first_is_out_of_credit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import openai
+
+    class _NoCredit(_Transport):
+        async def _create(self, **kwargs: Any) -> Any:
+            raise RuntimeError("Error code: 402 - Insufficient credits")
+
+    made: list[str] = []
+    spare = _Transport()
+
+    def factory(**kw: Any) -> Any:
+        made.append(kw["api_key"])
+        return spare
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", factory)
+    c = LLMClient(
+        _settings(tmp_path, openai_compat_api_key_fallback="sk-spare-123456", llm_fallback="none"),
+        transport=_NoCredit(),
+    )
+    reply = await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert reply.text == "Hello." and made == ["sk-spare-123456"]
+    assert c.api_key == "sk-spare-123456"
+    assert "sk-spare-123456" not in c.redact("failed with sk-spare-123456")
+
+
+@pytest.mark.asyncio
+async def test_spare_key_is_not_used_for_other_errors(tmp_path: Path) -> None:
+    class _Broken(_Transport):
+        async def _create(self, **kwargs: Any) -> Any:
+            raise RuntimeError("Error code: 500 - upstream exploded")
+
+    c = LLMClient(
+        _settings(tmp_path, openai_compat_api_key_fallback="sk-spare-123456", llm_fallback="none"),
+        transport=_Broken(),
+    )
+    with pytest.raises(LLMError):
+        await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert c.api_key == "k"
+
+
+@pytest.mark.asyncio
+async def test_health_switches_to_the_spare_key_when_the_first_expired(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import openai
+
+    spare = _Probe()
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kw: spare)
+    s = _settings(
+        tmp_path,
+        openai_compat_base_url="https://openrouter.ai/api/v1",
+        openai_compat_api_key_fallback="sk-spare-123456",
+    )
+    c = LLMClient(s, transport=_Probe(fail=_Unauthorized("401 API key expired")))
+    out = await c.health()
+    assert out["ok"] is True and "spare key" in out["detail"]
+    assert c.api_key == "sk-spare-123456" and spare.calls == ["/key"]
+
+
+@pytest.mark.asyncio
+async def test_a_model_that_fails_at_the_provider_hands_over_to_the_fallback_model(
+    tmp_path: Path,
+) -> None:
+    class _OneModelDown(_Transport):
+        async def _create(self, **kwargs: Any) -> Any:
+            if kwargs["model"] == "big-model":
+                raise RuntimeError("Error code: 404 - Provider returned error")
+            return await super()._create(**kwargs)
+
+    t = _OneModelDown()
+    c = LLMClient(
+        _settings(tmp_path, model_fallback="other-model", llm_fallback="none"), transport=t
+    )
+    reply = await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert reply.text == "Hello." and t.sent["model"] == "other-model"
+
+    # a quota error is not the model's fault: no model switch
+    class _Quota(_Transport):
+        async def _create(self, **kwargs: Any) -> Any:
+            raise RuntimeError("429 Rate limit exceeded")
+
+    q = LLMClient(
+        _settings(tmp_path, model_fallback="other-model", llm_fallback="none"), transport=_Quota()
+    )
+    with pytest.raises(LLMError):
+        await q.chat("fast", [{"role": "user", "content": "hi"}])

@@ -1,5 +1,7 @@
 /** Step 1b of the guided journey (route `/p/:projectId/describe`): the organizer checks the
  * drafted venue (doors, people, what is in the way), drags things into place, then tests it. */
+import { TestModePicker } from "@/journey/TestModePicker";
+import { saveTestMode, savedTestMode, testMode, type TestMode } from "@/journey/testModes";
 import { AlertTriangle, CircleAlert, Hand, MousePointerClick, RotateCcw, SlidersHorizontal, Swords } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
@@ -32,7 +34,8 @@ import { useUi } from "@/state/ui";
 import { FloorSwitch } from "@/panels/FloorSwitch";
 
 /** Quick depth (one round): finishes in minutes and keeps AI usage low. */
-export const QUICK_TEST = { max_rounds: 1, attacks_per_round: 3, fixes_per_attack: 2, fix_targets: 2 };
+/** The standard test (kept for callers that do not offer a choice). */
+export const QUICK_TEST = testMode("standard").config;
 
 export function CheckVenuePage() {
   const { projectId = "" } = useParams();
@@ -41,6 +44,7 @@ export function CheckVenuePage() {
   const p = project.data;
   const scene = useScene(projectId, p?.current_version);
   const start = useStartSession();
+  const [mode, setMode] = useState<TestMode>(() => savedTestMode().id);
   const { submit } = useVenueEdit(projectId);
   const selection = useUi((s) => s.selection);
   const layers = useUi((s) => s.layers);
@@ -106,7 +110,7 @@ export function CheckVenuePage() {
     if (d.controls) d.controls.enabled = false; // before the camera sees this press
     d.set({ grab: { kind, id, floorId: floor.floor_id, start: [start.x, start.y], client, active: false, locked: locked.has(id) }, hit: start });
   };
-  const test = () => start.mutate({ project_id: p.id, config: QUICK_TEST }, {
+  const test = () => start.mutate({ project_id: p.id, config: testMode(mode).config }, {
     onSuccess: (s) => navigate(`/p/${p.id}/work?session=${s.id}&live=1`),
     onError: (e) => toast.error(e.message, { description: (e as { hint?: string }).hint ?? undefined }),
   });
@@ -159,7 +163,7 @@ export function CheckVenuePage() {
         </main>
 
         <aside aria-label={t("check.panel")} className="scrollbar-thin flex w-full shrink-0 flex-col border-t border-border bg-surface lg:w-[400px] lg:border-l lg:border-t-0 xl:w-[440px]">
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
             <div>
               <h1 className="text-xl font-semibold tracking-tight">{t("check.title")}</h1>
               <p className="mt-1 text-base text-muted">{t("check.lead")}</p>
@@ -171,7 +175,7 @@ export function CheckVenuePage() {
             )}
             {selection && selection.kind !== "hotspot" && selection.kind !== "stair"
               ? <><ObjectCard project={p} scene={scene.data} selection={selection} /><Button variant="link" onClick={() => useUi.getState().select(null)}>{t("check.back_to_list")}</Button></>
-              : <><VenueChecklist project={p} scene={scene.data} /><div className="mt-6 border-t border-border pt-5"><EventKindControl project={p} /></div>{p.version.venue.mode === "indoor" && <div className="mt-6"><FloorsCard project={p} /></div>}</>}
+              : <><VenueChecklist project={p} scene={scene.data} /><div className="border-t border-border pt-4"><EventKindControl project={p} /></div></>}
             <details className="rounded-[10px] border border-border">
               <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm font-semibold">
                 <SlidersHorizontal className="size-4 text-muted" />{t("check.more_options")}
@@ -190,15 +194,17 @@ export function CheckVenuePage() {
                   </div>
                 </fieldset>
                 <OperationalPlan projectId={projectId} />
+                {p.version.venue.mode === "indoor" && <div className="border-t border-border pt-4"><FloorsCard project={p} /></div>}
               </div>
             </details>
           </div>
           <div className="space-y-2 border-t border-border p-4">
             {errors.length > 0 && <p className="flex gap-2 text-sm text-danger"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{t("check.fix_errors_first")}</p>}
+            <TestModePicker value={mode} disabled={start.isPending} onChange={(m) => { setMode(m); saveTestMode(m); }} />
             <Button variant="primary" size="lg" className="w-full" disabled={errors.length > 0 || start.isPending || previewing} onClick={test}>
               {start.isPending ? <Spinner /> : <Swords />}{t("check.test")}
             </Button>
-            <p className="text-xs text-muted">{t("check.test_hint")}</p>
+            <p className="text-xs text-muted">{t("check.test_hint_mode", { m: testMode(mode).minutes, what: t(`check.mode_${mode}_hint`) })}</p>
           </div>
         </aside>
       </div>

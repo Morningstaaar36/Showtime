@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Slider } from "@/components/ui/slider";
 import { Tip } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
+import { isTypingTarget } from "@/lib/keyboard";
 import { fmtClock } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { usePlayback } from "@/state/playback";
@@ -26,7 +27,7 @@ export function Timeline({ markers }: { markers: TimelineMarker[] }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
-      if (e.code === "Space" && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "BUTTON") {
+      if (e.code === "Space" && tag !== "BUTTON" && !isTypingTarget(e.target)) {
         e.preventDefault();
         usePlayback.getState().toggle();
       }

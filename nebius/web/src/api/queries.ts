@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type { PlanSnapshot } from "@/types/generated";
+import type { OpenCaseOut, RealCase } from "@/journey/realCases";
 import type {
   AskOut,
   Attack,
@@ -318,6 +319,23 @@ export function useAsk() {
 }
 
 /** Designer agent + solver: a description → venue preview (not saved yet). */
+/** Documented crowd disasters, rebuilt by the Designer agent from their sourced descriptions. */
+export const useRealCases = () =>
+  useQuery({ queryKey: ["real_cases"], queryFn: () => api.get<RealCase[]>("/real_cases") });
+
+/** Build a real case's venue (one model call) and start its rule-based test; a case built
+ * before opens its project. */
+export function useOpenRealCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<OpenCaseOut>(`/real_cases/${id}/open`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["real_cases"] });
+      qc.invalidateQueries({ queryKey: qk.projects });
+    },
+  });
+}
+
 export function useDesignVenue() {
   return useMutation({ mutationFn: (text: string) => api.post<VenueDraft>("/venues/design", { text }) });
 }
@@ -663,4 +681,27 @@ export function useStartTogether(sessionId: string | null | undefined) {
       if (sessionId) void qc.invalidateQueries({ queryKey: qk.session(sessionId) });
     },
   });
+}
+
+export interface AgentInfo {
+  name: string;
+  label: string;
+  stage: "build" | "attack" | "defend" | "judge" | "explain";
+  decides: string;
+  role: string;
+  model: string;
+  prompt_version: string;
+  tools: string[];
+}
+
+export interface AgentsOut {
+  provider: string;
+  agents: AgentInfo[];
+  tools: Record<string, string>;
+  sandbox: { provider: string; ok: boolean; detail: string; isolation: string };
+}
+
+/** The AI team (GET /agents): every Nemotron agent, its model, job and tools. */
+export function useAgents() {
+  return useQuery({ queryKey: ["agents"], queryFn: () => api.get<AgentsOut>("/agents"), staleTime: 60_000 });
 }

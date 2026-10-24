@@ -129,30 +129,6 @@ export function doorwayOf(walkable: Pt[] | number[][], exit: Exit): Doorway | nu
            width: exit.width_m };
 }
 
-/** Wall pieces along each outline edge, with door openings cut out. */
-export function wallPieces(floor: Floor): { a: Pt; b: Pt; edge: Edge }[] {
-  const doors = floor.exits.map((e) => doorwayOf(floor.walkable as Pt[], e)).filter((d): d is Doorway => !!d);
-  const out: { a: Pt; b: Pt; edge: Edge }[] = [];
-  for (const e of edgesOf(floor.walkable as Pt[])) {
-    const cuts = doors
-      .filter((d) => d.edge.a === e.a && d.edge.b === e.b)
-      .map((d) => [Math.max(0, d.s - d.width / 2), Math.min(e.len, d.s + d.width / 2)] as [number, number])
-      .sort((p, q) => p[0] - q[0]);
-    let cursor = 0;
-    for (const [s0, s1] of [...cuts, [e.len, e.len] as [number, number]]) {
-      if (s0 - cursor > 0.05) {
-        out.push({
-          a: [e.a[0] + e.ux * cursor, e.a[1] + e.uy * cursor],
-          b: [e.a[0] + e.ux * s0, e.a[1] + e.uy * s0],
-          edge: e,
-        });
-      }
-      cursor = Math.max(cursor, s1);
-    }
-  }
-  return out;
-}
-
 /** Exit rectangle (0.4 m deep, inside the outline) for a click at (x, y) near a wall. */
 export function exitRectAt(walkable: Pt[] | number[][], x: number, y: number, width: number): Pt[] | null {
   let best: { e: Edge; d: number; t: number } | null = null;
@@ -194,9 +170,15 @@ export function floorsBottomUp(v: Venue): Floor[] {
   return [...v.floors].sort((a, b) => (a.elevation_m ?? 0) - (b.elevation_m ?? 0));
 }
 
-/** The floor view the scene can draw: an unknown floor id (another venue's) falls back to all. */
+/** From this many storeys up, the 3D view opens on one floor with the others ghosted: every room
+ * wall of four floors at once reads as a stack of ribbed slabs. */
+export const FOCUS_FROM = 3;
+
+/** The floor view the scene can draw: an unknown floor id (another venue's) falls back to all;
+ * "auto" (the default) focuses the lowest floor of a building with {@link FOCUS_FROM} storeys. */
 export function resolveFloorView(v: Venue, view: string | null | undefined): string {
-  if (!view || view === "all") return "all";
+  if (!view || view === "auto") return v.floors.length >= FOCUS_FROM ? floorsBottomUp(v)[0].floor_id : "all";
+  if (view === "all") return "all";
   if (view === "exploded") return v.floors.length > 1 ? "exploded" : "all";
   return v.floors.some((f) => f.floor_id === view) ? view : "all";
 }

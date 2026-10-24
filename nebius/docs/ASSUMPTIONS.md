@@ -14,13 +14,16 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | Warning density | 3.5 people/m² | Fruin level of service F begins near 2.2/m²; 3.5 marks dense, restricted movement | `DENSITY_WARN_PPM2` |
 | Danger density | 5 people/m², sustained ≥ 5 s | Still (2014): crush risk rises sharply above about 5/m²; persistence filter removes single-frame peaks | `DENSITY_DANGER_PPM2`, `DANGER_MIN_DURATION_S` |
 | Density measurement | 1 m grid, Gaussian smoothing σ = 0.8 m, divided by walkable fraction | Comparable to a 2–3 m² measurement area | — |
+| Crowd pressure | P = ρ · Var(v): Gaussian-weighted (R = 1 m) local density times the local variance of walking velocities, pooled over 1 s windows on the 1 m grid | Helbing, Johansson & Al-Abideen (2007), Phys. Rev. E 75, 046109 (arXiv:physics/0701203), Eq. 9; per-person form in Yu & Johansson (2007), arXiv:0708.3282, Eq. 5. Velocities are position differences between 0.25 s frames; jumps over 3 m/s (model sidesteps) are dropped | — |
+| Turbulence threshold | 0.02 /s²; pressure is reported (layer, peak, turbulent time) only where the local 1 s density is at least the warning density (3.5 people/m²) | Helbing et al. (2007): "turbulent" crowd motion at the 2006 Hajj began "when the 'pressure' exceeds the value 0.02/s²" (Fig. 3c), about 10 minutes before the disaster; Yu & Johansson use the same value. Both measured it at 5.5–10 people/m², and individual speed differences at low density would otherwise exceed it, hence the density floor. Screening indicator: a speed-based model reproduces irregular motion only partly | sim settings `turbulence_pressure`, `pressure_min_density_ppm2` |
+| Level of service | Fruin walkway LoS by area per person: A ≥ 3.25 m², B 2.32–3.25, C 1.39–2.32, D 0.93–1.39, E 0.46–0.93, F < 0.46 m² (≈ 2.2 people/m²) | Fruin, J. J. (1971), *Pedestrian Planning and Design*; reported as the share of person-seconds in each band, from the density grid at each person's cell | — |
 | Evacuation target without a hazard | Indoor 5 min, open-air 8 min (× safety factor) | Planning targets, not code limits; open-air follows UK Green Guide 8-minute egress practice | `TARGET_EVAC_INDOOR_S`, `TARGET_EVAC_OUTDOOR_S` |
 | Pre-movement time | 60 s | Typical for alerted, awake audiences; set per event | `PRE_MOVEMENT_S` |
 | Safety factor | 1.5 | Common engineering margin on egress time | `SAFETY_FACTOR` |
 | Crowd model | JuPedSim collision-free speed model, Δt 0.025 s (≤ 2,500 people) or 0.05 s | Tordeux et al. (2016). Δt 0.05 s is ~8% conservative vs 0.01 s on the 1,200-person hall | — |
 | Deadlock handling | Door "squeeze" (radius 0.15 m after 4 s without flow) and 1 m sidestep for isolated deadlocks | Known artefact of collision-free models; bodies compress under pressure. Dense jams are left alone | — |
 | Door model | 0.6 m passage through the wall; people standing in a doorway leave through it | Prevents side-entry and doorway "plugs" (measured, `docs/PROGRESS.md`) | — |
-| Multi-floor | Upper floor first; stair queue; people re-enter at the stair bottom | Approximation of stair flow; stairs are not walkable ramps | — |
+| Multi-floor | Each floor runs before the floors its stairs lead to (top down; a basement before street level); stair queue; people re-enter at the far landing | Approximation of stair flow; stairs are not walkable ramps; climbing out of a basement uses the same stair speed as going down | — |
 | Tier 1 queue density | D = 1.9 + 3.5·(1 − e^(−Q/150)) people/m² | Screening formula between SFPE capacity density (1.9) and Weidmann jam density (5.4); calibrated on Tier 3 | — |
 | Wind pressure | q = 0.613·Kz·Kzt·Kd·V², Kz 1.0, Kzt 1.0, Kd 0.85, G 0.85, uplift 0.8, roof dead load 0.25 kN/m² | ASCE 7 velocity pressure form; screening only | plugin config |
 | Stage wind limit | Lowest gust for uplift, sliding or overturning of a ballasted frame | Pynite linear frame; reactions scale with V² | stage parameters |
@@ -29,9 +32,60 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | Real-place path widths when not mapped | footway 3 m, pedestrian 6 m, service 4 m, residential 6 m, main roads 8 m; tag `width` wins | Typical urban widths; check on site | `_PATH_WIDTH_M` |
 | Real-place narrow gaps | Gaps under 1.2 m between buildings, fences, water and the edge are closed; pockets without an exit are filled | Nobody plans egress through a 1 m slot between buildings; the crowd model would route people into it | `GAP_CLOSE_M` |
 | Designed venues | Margins 1.5 m (less in small rooms), 2 m clear in front of a stage, features ≥ 3 m from exits, balcony 4.5 m up with a 9 m stair | Solver defaults; every value the AI assumed is listed in the preview | `api/core/venue_builder.py` |
+| Designed buildings | Storeys 3.5 m apart unless the description says otherwise; stairs 1.2 m wide, two near the ends when none are named; an exit on a basement is a stair up to a street door on that wall; an atrium void spans 30% of the width and depth on the upper floors; escalators are obstacles, not ways out | Solver defaults (the model chooses storeys, stairs and headcounts per level; the solver computes the geometry) | `api/core/venue_builder.py`, `api/core/building_gen.py` |
 | T-alley template | Alley 3.2 m wide, 45 m long | Wikipedia, "Seoul Halloween crowd crush" (sources vary 3.2–4 m; we use 3.2 m) | template |
 | Sensitivity: headcount | Every zone × 0.8 and × 1.2 | Planning bracket set by the team (R-02 in `TEAM_TASK_ALLOCATION.md`), not a published forecast error: headcounts on the day differ from the plan both ways | `api/orchestrator/sensitivity.py` (`VARIANTS`) |
 | Sensitivity: walking speed | Free walking speeds × 0.85 and × 1.15 (level mean and spread, stairs) | Planning bracket set by the team (R-02). It stays inside the spread of the default itself (1.34 ± 0.26 m/s, about ±19%, Weidmann) | `api/orchestrator/sensitivity.py` (`VARIANTS`) |
+
+## People mix (zone `groups`)
+
+A zone's people mix (Check your venue › people, or `set_zone_profile`) is simulated: each share
+of the zone's people gets its own walking speed and body size, decided once per person so they
+stay that slow on the stairs (stair travel scales by speed / 1.34 m/s) and on the floors below.
+Who is who is drawn with the run's seed (exact shares, largest remainder) and saved as
+`agents.json`, so the replay shows each kind with its own shape and colour.
+
+| Kind | Level speed | Radius | Source |
+| --- | --- | --- | --- |
+| general adult, staff | normal distribution, mean 1.34 m/s | 0.22 m | as above |
+| elderly | 0.97 m/s | 0.22 m | 15th-percentile walking speed of older pedestrians, Knoblauch, Pietrucha & Nitzburg 1996, *Transportation Research Record* 1538 [VERIFY] |
+| child | 1.0 m/s | 0.17 m | [VERIFY] e.g. Larusdottir & Dederichs 2012, *Fire Technology* 48 (children's evacuation) |
+| wheelchair | 0.69 m/s | 0.35 m | Boyce, Shields & Silcock 1999, *Fire Technology* 35(1) [VERIFY]; radius = half the 0.7 m width of a wheelchair (ISO 7193) |
+| hospital bed | 0.5 m/s | 0.45 m | [VERIFY] a bed pushed by staff along a corridor; radius = half a 0.9 m bed width (a circle cannot model its length) |
+
+Each person's speed varies ±10 % around the value. A wide body that does not fit where people
+were placed keeps its speed and takes an ordinary person's room (the run is never stopped for
+it). Limits: wheelchair users and beds use stairs like everyone else, only slower; real plans
+use refuges, evacuation chairs and horizontal evacuation, which are not modelled. The instant
+estimate uses the share-weighted mean walking time of the mix (`api/core/tier1.py`).
+
+## Scenario library (`api/core/scenarios.py`)
+
+Named what-ifs (GET /api/v1/scenarios, and the scenario sweep). Targets are picked by fixed rules:
+the **main exit** is the widest open exit; the **busiest exit** and **main stairwell** are the
+ones the instant estimate sends most people through; a **stairwell** is the chain of stair
+flights stacked within 4 m of each other; the **fire floor** is the most occupied floor above
+the ground (ties: the lowest). Strengths:
+
+| Scenario | Value | Source / reasoning |
+| --- | --- | --- |
+| Heavy rain | walking speed × 0.85 | Planning assumption kept from the original sweep |
+| Night-time power cut, late surge in the dark | walking speed × 0.7 | Planning assumption kept from the original sweep (emergency lighting only) |
+| Smoke on the fire floor | walking speed × 0.5 on that floor (people reaching it later too) | Planning assumption: walking speed in dense irritant smoke falls to roughly half (Jin 1978, *J. Fire & Flammability* 9) [VERIFY exact factor] |
+| Stairwell lost to smoke | every flight of the main stairwell blocked from 0 s | Only offered with at least two stairwells; with one, everyone above the ground would be trapped |
+| Phased evacuation | fire floor and the floor above leave at 0 s; other floors wait 120 s per floor of distance | Phased evacuation practice (e.g. BS 9999); 120 s per phase is a planning value |
+| Firefighters climb the stairs | 4 firefighters per floor up the main stairwell from 60 s, to each floor up to the fire floor; each flight's flow halves from then | Halving matches the instant estimate's counterflow rule. The crews then leave with the crowd and are counted in its totals |
+| Lift out of service | 5% of people above the ground floor take the stairs at 0.57 m/s (stair speed scaled by 0.57 / 1.34) | The simulator never uses lifts, so this models the people who rely on one. 0.57 m/s is the walking-frame speed reported by Boyce, Shields & Silcock (1999), *Fire Technology* 35(1) [VERIFY against the paper's table] |
+| More mobility-impaired people | 15% of people at 0.69 m/s (manual wheelchair, Boyce et al. 1999 [VERIFY]) | Chosen by a fixed hash of the person id, so the same people are slow on every floor and stair |
+| Late surge at the stage | +25% of the zone nearest the stage arrives at 30 s | Planning assumption |
+| Counterflow toward the stage | 5% of the headcount (20–400 people) push in through the busiest exit at 0 s | Planning assumption |
+| Exit blocked mid-evacuation | busiest exit closes at 60 s | Planning assumption |
+| Staggered release | the half of the zones farthest from a way out waits 60 s | Operations measure, not a hazard |
+| Stewards redirect the crowd | 50% of people heading to the busiest exit are sent to the least loaded exit on the same floor at 20 s | Operations measure |
+
+Not in the catalogue: **gate crush at entry** (ingress). The simulator models people leaving;
+an arrival queue at a gate cannot be expressed with these events, so it is left out rather than
+approximated.
 
 ## Sensitivity: how sure Your plan's numbers are
 

@@ -1,4 +1,4 @@
-import { Braces, Download, FileText, Map, Printer, RefreshCw } from "lucide-react";
+import { Box, Braces, Download, FileText, Loader2, Map, Printer, RefreshCw } from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "@/api/client";
 import { useRuns, useSessions } from "@/api/queries";
@@ -6,6 +6,7 @@ import type { ProjectDetail } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/states";
 import { t } from "@/i18n";
+import { useModelDownload } from "@/journey/plan/HandOver";
 import { fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ export function ReportView({ project }: { project: ProjectDetail }) {
   const hasStress = (runs.data ?? []).some((r) => r.tier === 3 && (r.status === "ok" || r.status === "partial"));
   const ready = !!sid || hasStress;
   const reportUrl = api.url(`/projects/${project.id}/report${q}`);
+  const model = useModelDownload(project.version.venue, project.name);
 
   return (
     <div className="flex h-full min-h-0">
@@ -58,6 +60,9 @@ export function ReportView({ project }: { project: ProjectDetail }) {
           </Button>
           <Button className="w-full justify-start" disabled={!ready} asChild={ready}>
             {ready ? <a href={api.url(`/projects/${project.id}/bundle.json${q}`)} download><Braces />{t("report.export_json")}</a> : <span><Braces />{t("report.export_json")}</span>}
+          </Button>
+          <Button className="w-full justify-start" onClick={model.run} disabled={model.busy}>
+            {model.busy ? <Loader2 className="animate-spin" /> : <Box />}{t("report.export_model")}
           </Button>
           <Button className="w-full justify-start" asChild>
             <a href={api.url(`/projects/${project.id}/export`)} download><Download />{t("report.export_project")}</a>

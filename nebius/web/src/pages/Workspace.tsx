@@ -11,8 +11,9 @@ import { Skeleton } from "@/components/ui/misc";
 import { Banner, ErrorState } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
 import { t } from "@/i18n";
+import { isTypingTarget } from "@/lib/keyboard";
 import { fmtNum } from "@/lib/format";
-import { shortId } from "@/lib/utils";
+import { shortId, UNDO_TOAST_ID } from "@/lib/utils";
 import { AskDialog } from "@/panels/AskDialog";
 import { CommandBar } from "@/panels/CommandBar";
 import { PlanInspector } from "@/panels/Inspector";
@@ -166,6 +167,7 @@ export function WorkspacePage() {
   const submitOps = useCallback((ops: PatchOpIn[], message?: string) => {
     patch.mutate({ patch: { ops }, message }, {
       onSuccess: (r) => toast.success(t("workspace.saved", { n: r.version.version }), {
+        id: UNDO_TOAST_ID,
         action: { label: t("common.undo"), onClick: () => undo.mutate() },
       }),
       onError: (e) => toast.error(e.message, { description: (e as { hint?: string }).hint }),
@@ -190,8 +192,7 @@ export function WorkspacePage() {
   // Keyboard shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement)?.isContentEditable) return;
+      if (isTypingTarget(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
@@ -380,7 +381,7 @@ export function WorkspacePage() {
             <div className="pointer-events-none absolute inset-0 z-40">
               <div className="absolute left-3 top-3"><ToolRail mode={mode} project={p} onResetView={() => setResetNonce((n) => n + 1)} /></div>
               {!compareId && (
-                <div className="absolute right-3 top-3 flex items-center gap-2">
+                <div className="absolute right-3 top-3 flex items-start gap-2">
                   <FloorSwitch venue={venue} />
                   <ViewMenu multiFloor={venue.floors.length > 1} tour={tour} />
                 </div>

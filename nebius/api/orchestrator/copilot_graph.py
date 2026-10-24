@@ -345,12 +345,19 @@ async def simulate(state: CopilotState, config: RunnableConfig) -> CopilotState:
 
 
 async def sweep_node(state: CopilotState, config: RunnableConfig) -> CopilotState:
-    """Scenario sweep: six what-ifs, each simulated in its own sandbox branch."""
+    """Scenario sweep: what-ifs the AI chose for this venue, each in its own sandbox branch."""
     w = get_stream_writer()
     st = _st(config)
-    w(_step("sweep", "running", "Branching six what-if scenarios into sandboxes", node="sweep"))
+    w(_step("sweep", "running", "The AI is choosing what-ifs for this venue", node="sweep"))
     try:
-        rec = sweep.start_sweep(st, state["project_id"], parent_run_id=state.get("run_id"))
+        resolved, chosen_by = await sweep.design(st, state["project_id"])
+        rec = sweep.start_sweep(
+            st,
+            state["project_id"],
+            parent_run_id=state.get("run_id"),
+            resolved=resolved,
+            chosen_by=chosen_by,
+        )
     except Exception as exc:  # the plan is still useful without the sweep
         log.exception("sweep failed")
         w(_step("sweep", "warn", "Scenario sweep not started", str(exc)[:200], node="sweep"))

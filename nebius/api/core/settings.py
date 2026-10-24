@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     model_long: str = ""
     model_main: str = ""
     model_judge: str = ""
+    # a second model for any role whose model fails at the provider (removed, overloaded, 404)
+    model_fallback: str = ""
     price_fast_in: float = 0.0
     price_fast_out: float = 0.0
     price_long_in: float = 0.0
@@ -66,6 +68,8 @@ class Settings(BaseSettings):
     # --- Any other OpenAI-compatible API (LLM_PROVIDER=openai; uses MODEL_* and PRICE_*) ---
     openai_compat_base_url: str = ""
     openai_compat_api_key: str = ""
+    # a second key for the same API, used once the first is out of credit or rate limited
+    openai_compat_api_key_fallback: str = ""
     openai_compat_label: str = "CLOUD"
     # Extra JSON fields for every hosted chat request, e.g. OpenRouter's
     # {"reasoning": {"enabled": false}} so reasoning models answer instead of thinking.

@@ -1,0 +1,92 @@
+{
+ "description": "Rock concert in an open field 120 by 80 m, 8,000 standing fans, big stage on the north with a crowd barrier, three gates in the south fence, two bars and toilets on the east side.",
+ "spec": {
+  "name": "Rock concert field",
+  "mode": "outdoor",
+  "width_m": 120.0,
+  "depth_m": 80.0,
+  "stage": {
+   "wall": "north",
+   "width_m": 30.0,
+   "depth_m": 15.0,
+   "roof_height_m": 12.0
+  },
+  "front_barrier": true,
+  "exits": [
+   {
+    "wall": "south",
+    "width_m": 6.0,
+    "position": 0.25,
+    "label": "South gate 1",
+    "level": 0
+   },
+   {
+    "wall": "south",
+    "width_m": 6.0,
+    "position": 0.5,
+    "label": "South gate 2",
+    "level": 0
+   },
+   {
+    "wall": "south",
+    "width_m": 6.0,
+    "position": 0.75,
+    "label": "South gate 3",
+    "level": 0
+   }
+  ],
+  "zones": [
+   {
+    "label": "Front of stage",
+    "people": 3000,
+    "region": "front"
+   },
+   {
+    "label": "Middle",
+    "people": 3000,
+    "region": "middle"
+   },
+   {
+    "label": "Back",
+    "people": 2000,
+    "region": "back"
+   }
+  ],
+  "features": [
+   {
+    "kind": "bar",
+    "label": "North bar",
+    "place": "east",
+    "width_m": 10.0,
+    "depth_m": 4.0,
+    "level": null
+   },
+   {
+    "kind": "bar",
+    "label": "South bar",
+    "place": "east",
+    "width_m": 10.0,
+    "depth_m": 4.0,
+    "level": null
+   },
+   {
+    "kind": "toilets",
+    "label": "Toilets",
+    "place": "east",
+    "width_m": 12.0,
+    "depth_m": 6.0,
+    "level": null
+   }
+  ],
+  "upper_floor": null,
+  "building": null,
+  "location": null,
+  "assumptions": [
+   "Gates 6 m wide each.",
+   "Stage 30 m wide with 12 m roof height.",
+   "Bars 10 m wide \u00d7 4 m deep, toilets 12 m wide \u00d7 6 m deep on east side.",
+   "Crowd split 3000 front, 3000 middle, 2000 back for standing density.",
+   "Total area 9600 m\u00b2 fits 8000 standing at ~0.5 m\u00b2/person plus stage and margins."
+  ]
+ }
+}

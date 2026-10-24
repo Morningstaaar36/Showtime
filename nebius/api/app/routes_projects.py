@@ -13,7 +13,7 @@ from api.adapters.weather import WeatherUnavailable
 from api.app.errors import ApiException
 from api.app.routes_core import get_state
 from api.app.state import AppState
-from api.core.countdown import compute_countdown
+from api.core.countdown import choose_hazard, compute_countdown
 from api.core.estimates import compute_estimates, scale_people
 from api.core.evidence import describe_run
 from api.core.extensions import HazardContext, HazardResult
@@ -549,18 +549,13 @@ async def countdown(
         if res_h is not None:
             hazards.append(res_h)
     timed = [h for h in hazards if h.t_hazard_s is not None]
-    chosen = (
-        min(timed, key=lambda h: h.t_hazard_s or 0.0)
-        if timed
-        else (hazards[0] if hazards else None)
-    )
+    chosen = choose_hazard(hazards)
     cd = compute_countdown(
         chosen,
         rset,
         s.pre_movement_s,
         s.safety_factor,
         rset_source,
-        venue.location.event_start if venue.location else None,
     )
     return {
         "countdown": cd.model_dump(),

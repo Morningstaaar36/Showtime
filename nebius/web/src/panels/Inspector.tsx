@@ -154,8 +154,10 @@ function NumberField({ label, unit, value, step, onCommit }: { label: string; un
   const [v, setV] = useState(String(value));
   useEffect(() => setV(String(value)), [value]);
   const commit = () => {
-    const n = Number(v);
+    // an emptied field means "never mind", not 0
+    const n = v.trim() ? Number(v) : NaN;
     if (Number.isFinite(n) && n !== value) onCommit(n);
+    else setV(String(value));
   };
   const id = `f-${label.replace(/\W/g, "")}`;
   return (

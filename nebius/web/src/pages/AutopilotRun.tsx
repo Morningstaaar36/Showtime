@@ -41,6 +41,11 @@ function StepIcon({ status }: { status: AutopilotStep["status"] }) {
 
 export function AutopilotRunPage() {
   const { runId = "" } = useParams();
+  // "Try again" navigates to a new run on the same route: start it with fresh state (stop mutation, dialogs)
+  return <AutopilotRunView key={runId} runId={runId} />;
+}
+
+function AutopilotRunView({ runId }: { runId: string }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const run = useAutopilot(runId);

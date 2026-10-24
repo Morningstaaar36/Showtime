@@ -1,6 +1,6 @@
 /** Step 1 of the guided journey (route `/`): one question, "Where is your event?", with three
  * big answers: pick it on the map, describe it, or try a sample. Everything else stays out of the way. */
-import { ArrowRight, ArrowUpRight, Building2, ClipboardCheck, Loader2, Map as MapIcon, PencilLine, ShieldCheck, Sparkles, Trees, Users, Wand2 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Bot, Building2, ClipboardCheck, Loader2, Map as MapIcon, PencilLine, ShieldCheck, Sparkles, Trees, Users, Wand2 } from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/misc";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
 import { JourneyShell } from "@/journey/JourneyShell";
+import { UseCaseGallery } from "@/journey/UseCaseGallery";
 import { fmtInt, fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,8 @@ const HOW = [
 ];
 
 type Way = "describe" | "sample" | null;
+
+const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 export function HomePage() {
   const templates = useTemplates();
@@ -87,14 +90,25 @@ export function HomePage() {
           <section className="space-y-5">
             <h1 className="text-balance text-3xl font-bold leading-tight tracking-tight sm:text-4xl">{t("home.title")}</h1>
             <p className="max-w-prose text-lg text-muted">{t("home.lead")}</p>
-            <ol className="grid gap-3 sm:grid-cols-3" aria-label={t("home.how")}>
+            <ol className="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-label={t("home.how")}>
               {HOW.map((h, i) => (
-                <li key={h.key} className="flex items-center gap-3 rounded-[var(--radius-panel)] border border-border bg-surface/80 p-3 shadow-sm">
-                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-full [&_svg]:size-5", h.tone)}>{h.icon}</span>
-                  <span className="text-sm"><span className="font-semibold">{t("home.step_n", { n: i + 1 })}</span> {t(h.key)}</span>
+                <li key={h.key} className="animate-deal-in relative flex items-center gap-3 rounded-[var(--radius-panel)] border border-border bg-surface/80 p-3 shadow-sm"
+                    style={{ animationDelay: `${150 + i * 180}ms` }}>
+                  <span className={cn("relative grid size-12 shrink-0 place-items-center rounded-full [&_svg]:size-6", h.tone)}>
+                    {h.icon}
+                    <span className="absolute -left-1 -top-1 grid size-5 place-items-center rounded-full bg-ink text-2xs font-bold text-plan tabular">{i + 1}</span>
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-semibold">{t(h.key)}</span>
+                    <span className="block text-xs text-muted">{t(`${h.key}_sub`)}</span>
+                  </span>
+                  {i < HOW.length - 1 && <span aria-hidden className="animate-flow absolute -right-3 top-1/2 z-10 hidden h-1 w-6 -translate-y-1/2 rounded-full sm:block" />}
                 </li>
               ))}
             </ol>
+            <Link to="/team" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-signal hover:underline">
+              <Bot className="size-4" aria-hidden />{t("team.link")}
+            </Link>
           </section>
 
           <section aria-labelledby="where-h" className="space-y-4">
@@ -122,7 +136,7 @@ export function HomePage() {
                 <p className="mt-1 text-sm text-muted">{t("autopilot.describe_lead")}</p>
                 <form className="mt-3 space-y-3" onSubmit={(e) => { e.preventDefault(); planIt(); }}>
                   <Label htmlFor="venue-text" className="sr-only">{t("autopilot.describe_title")}</Label>
-                  <textarea id="venue-text" rows={3} value={text} onChange={(e) => setText(e.target.value)} maxLength={500} autoFocus
+                  <textarea id="venue-text" rows={3} value={text} onChange={(e) => setText(e.target.value)} maxLength={500} autoFocus={!text}
                             placeholder={t("autopilot.describe_ph")}
                             className="w-full resize-y rounded-[var(--radius-control)] border border-border bg-surface px-3 py-2 text-base outline-none placeholder:text-muted/80 focus:border-signal focus:ring-2 focus:ring-signal/20" />
                   <div className="flex flex-wrap items-center gap-2">
@@ -176,6 +190,13 @@ export function HomePage() {
               </section>
             )}
           </section>
+
+          <UseCaseGallery projects={projects.data} onSample={(id) => navigate(`/p/${id}`)}
+                          onDescribe={(value) => {
+                            setText(value);
+                            setWay("describe");
+                            window.setTimeout(() => document.getElementById("desc-h")?.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block: "center" }), 50);
+                          }} />
 
           <section aria-labelledby="plans-h" className="space-y-3">
             <div className="flex items-baseline justify-between gap-2">

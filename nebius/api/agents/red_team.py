@@ -19,7 +19,9 @@ from api.core.extensions import IncidentRecord, Registry
 from api.core.scripts import MAX_SCRIPT_CHARS, check_script
 from api.models import Attack, RunResult, Venue
 
-ATTACK_EVENTS = {"block_exit", "surge", "slowdown", "counterflow"}
+# marshal_redirect as an attack is misdirection: wrong signs or a marshal sending people the
+# wrong way (the "wrong route" row of the failure map)
+ATTACK_EVENTS = {"block_exit", "surge", "slowdown", "counterflow", "marshal_redirect"}
 DOI = "https://doi.org/10.5281/zenodo.19483010"
 SCRIPT_EVENT = "script"
 MAX_SCRIPT_ATTACKS = 1  # per round, on top of the menu attacks
@@ -255,7 +257,19 @@ def signature(events: list[dict[str, Any]]) -> str:
     """Identity of an attack for de-duplication (ignores timing details)."""
     keys = []
     for e in events:
-        ref = e.get("exit_id") or e.get("zone_id") or ""
+        # every place the event names: two redirects between different exits are different
+        ref = "/".join(
+            str(e[k])
+            for k in (
+                "exit_id",
+                "zone_id",
+                "from_exit_id",
+                "to_exit_id",
+                "target_zone_id",
+                "floor_id",
+            )
+            if e.get(k)
+        )
         if e.get("type") == SCRIPT_EVENT:
             ref = hashlib.sha256(str(e.get("code", "")).encode()).hexdigest()[:12]
         keys.append(f"{e.get('type')}:{ref}")
@@ -272,8 +286,15 @@ async def red_team(
     seen: set[str],
     id_offset: int = 0,
     tested: list[str] | None = None,
+    aim: list[str] | None = None,
+    aim_script: str | None = None,
 ) -> list[Attack]:
-    """Ask the model for up to n attacks; invalid or duplicate ones are discarded."""
+    """Ask the model for up to n attacks; invalid or duplicate ones are discarded.
+
+    `aim` names the failure-map cells (hazard kind · where) the attacks should fill, one
+    line per attack, and `aim_script` the cell for the scenario script (quality-diversity
+    search, docs/RAINBOW.md). Which cell an attack really lands in is decided from its
+    events afterwards, never from the model's claim."""
     feats = venue_features(venue, baseline)
     rows = {r.row_id: r for r in incidents}
     total = venue.total_people()
@@ -319,6 +340,9 @@ async def red_team(
         "events": events_doc(registry, ATTACK_EVENTS),
         "n": str(n),
         "tested": "\n".join(f"- {t}" for t in (tested or [])) or "- nothing yet",
+        "aim": "\n".join(f"{i + 1}. {line}" for i, line in enumerate(aim or []))
+        or "- any new weakness",
+        "aim_script": aim_script or "any part of the venue",
     }
     call = await call_agent(
         env,

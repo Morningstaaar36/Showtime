@@ -14,20 +14,15 @@ export interface Replay {
 }
 
 /** Who each person is. Only a venue with people groups has anyone but general adults, so other
- * runs never ask; a server without GET /runs/{id}/agents (before G2-04) answers 404, after which
- * this page load stops asking. */
-let agentsUnsupported = false;
+ * runs never ask; a run simulated before the people mix was simulated has no list (404). */
 
 const hasGroups = (v: Venue) => v.floors.some((f) => f.zones.some((z) => (z.groups ?? []).some((g) => g.kind !== "general" && g.share > 0)));
 
 async function agentKinds(runId: string, signal: AbortSignal): Promise<AgentKinds | null> {
-  if (agentsUnsupported) return null;
   try {
     if (!hasGroups(await api.get<Venue>(`/runs/${runId}/venue`, signal))) return null;
     return parseAgentKinds(await api.get<unknown>(`/runs/${runId}/agents`, signal));
-  } catch (e) {
-    // the run itself exists (its trajectory just loaded), so a 404 means the route is missing
-    if ((e as { status?: number }).status === 404) agentsUnsupported = true;
+  } catch {
     return null;
   }
 }

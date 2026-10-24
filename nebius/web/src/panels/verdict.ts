@@ -55,7 +55,7 @@ export function verdictOf(r: RunResult | null | undefined, th: Thresholds, exitL
     sentences.push(`95% of ${total.toLocaleString()} people are out in ${fmtDuration(m.evac_time_p95_s)}.`);
   } else if (total) {
     const frac = (m.extra as Record<string, number> | undefined)?.evacuated_fraction;
-    sentences.push(`${frac != null ? Math.round(frac * 100) : "Not all"}% of ${total.toLocaleString()} people got out within the simulated time.`);
+    sentences.push(`${frac != null ? `${Math.round(frac * 100)}%` : "Not all"} of ${total.toLocaleString()} people got out within the simulated time.`);
   }
   if (top) {
     const where = top.near ? ` near ${exitLabel(top.near)}` : "";

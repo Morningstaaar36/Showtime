@@ -76,15 +76,22 @@ async def plan_event(st: Any, text: str) -> AsyncIterator[dict[str, Any]]:
     """Run the Copilot graph; each yielded dict is a progress update (the last has project_id)."""
     from api.orchestrator.copilot_graph import GRAPH  # the graph imports helpers from here
 
-    config = {"configurable": {"st": st, "thread_id": f"copilot-{uuid.uuid4().hex[:10]}"}}
+    thread = f"copilot-{uuid.uuid4().hex[:10]}"
+    config = {"configurable": {"st": st, "thread_id": thread}}
     final: dict[str, Any] = {}
-    async for mode, chunk in GRAPH.astream(
-        {"text": text}, config, stream_mode=["custom", "values"]
-    ):
-        if mode == "custom":
-            yield chunk
-        else:
-            final = chunk
+    try:
+        async for mode, chunk in GRAPH.astream(
+            {"text": text}, config, stream_mode=["custom", "values"]
+        ):
+            if mode == "custom":
+                yield chunk
+            else:
+                final = chunk
+    finally:
+        try:
+            GRAPH.checkpointer.delete_thread(thread)
+        except Exception:  # checkpoints are only a cache here
+            log.debug("could not drop checkpoints of %s", thread)
     if final.get("project_id"):
         yield {
             "step": "finished",

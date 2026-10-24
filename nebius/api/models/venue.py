@@ -100,6 +100,8 @@ class Zone(_Strict):
     pre_movement_s: float | None = Field(default=None, ge=0, le=1800)
     # people walk this route (a march or procession) before heading to an exit
     route_id: str | None = None
+    # people here head for these exits only (where they were going); empty = the best exit
+    exit_ids: list[str] = Field(default_factory=list)
 
     @field_validator("polygon")
     @classmethod

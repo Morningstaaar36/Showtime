@@ -797,3 +797,60 @@ How to test: [P2_04_TESTING.md](P2_04_TESTING.md); method and limits: ASSUMPTION
   Mac (x86 simulator under emulation, several stacks running): the test took 4.5 h, the range 2.2 h.
 - The 120- and 400-person School wing tests with normal exits never broke, so they kept nothing:
   there a subset can't exist, and the range repeats the baseline (120 people: 24.0–31.3 s).
+
+## 2026-10-18 — Bug sweep (branch `fix/bug-sweep`)
+
+Three code reviews (API/orchestrator, core/sim/plugins, web) found 30 defects the tests missed;
+each was checked against the code, fixed, and covered by a regression test that fails on `main`
+(`api/tests/test_bug_sweep_core.py`, `api/tests/test_bug_sweep_api.py`, a sim test, vitest cases).
+The list is in CHANGELOG.md under Fixed. The most visible: the instant estimate stranded every
+floor above the second in 3+ storey buildings (the 4-storey hospital sample: 298 people "with no
+route", now 95% out in 200 s against 223 s simulated, ratio 0.90), and safe capacity summed
+stacked stairwells (1,560 instead of 960).
+
+- Checks: ruff, format, import contracts, mypy strict clean; pytest including slow and sim tests
+  647 passed / 1 skipped; eslint, tsc -b clean; vitest 177 passed; web build OK.
+- Live (Docker stack rebuilt, OpenRouter Nemotron 3 Super, local JuPedSim): `make smoke` OK; the
+  restart marked 8 runs and 4 sessions left "running" by earlier restarts as failed / stopped; the
+  scenario sweep on the hospital ran all six scenarios (all were skipped before).
+- Playwright: 19/19 journeys before the fixes; after, 18/19 in the full run, and the one failure
+  (stress test not finished within 150 s) happened while a 6-run sweep held the single simulation
+  slot; run alone it passes in 20 s.
+- Kept as notes, not counted as "not evacuated": people left out because a zone was too full or a
+  spot was too close to a wall (1 person in some festival runs); counting them would turn those
+  runs partial.
+- Note: run `npm ci` in web/ before `make e2e` after pulling; `@axe-core/playwright` is new (a stale
+  node_modules gave "Cannot find package").
+
+## 2026-10-19 — Demo overhaul (branch `feat/demo-overhaul`)
+
+Built on `fix/bug-sweep`. Four parallel branches merged (`ov/designer`, `ov/novelty`,
+`ov/rainbow`, `ov/ui`), then integrated and checked live with Nemotron 3 Super (OpenRouter,
+spare key) and local Nemotron Nano 9B v2 when the free quota ran out, and real JuPedSim.
+
+- Text to 3D: multi-storey buildings, basements, rooms off corridors, atriums, stair cores; 12 of
+  12 test descriptions built correctly live (before: every multi-storey description collapsed to
+  one floor).
+- Physics: crowd pressure and turbulence layer (Helbing et al. 2007), Fruin level of service, an
+  18-scenario library incl. stair smoke, firefighters on the stairs, phased evacuation; the people
+  mix (older people, children, wheelchairs, beds) is now simulated (it was only drawn).
+- Red team: quality-diversity failure map (Rainbow Teaming, physics as the judge); fixes include
+  widening a whole stairwell and phased evacuation; a fix is never kept if it makes the time out,
+  people inside or peak density worse.
+- UI: tabbed Your plan (Overview, Replay with split view and turbulence, Scenarios with the
+  failure map, Fixes, Floors, Hand over), mission-control AI at work, use-case gallery,
+  one-floor-at-a-time 3D for buildings.
+- Fixed on the way: a door added across an interior wall pinned a ward's people in place; the
+  Compose API could not reach the local model; the local model's 8K context was too small for
+  the edit agent; the sim image was never rebuilt by `make up`; health ignored the spare key.
+- Checks: pytest 708 passed / 1 skipped (fast) and the sim suite (real JuPedSim); vitest 190;
+  eslint, tsc -b, mypy strict, ruff, import contracts clean; Playwright 19 journeys pass (two
+  re-run alone after a load-related timing failure and a stale copy assertion were fixed).
+- Live, 3-storey school (960 children and staff): every attack broke the plan; three fixes kept
+  (an east exit, a north exit, Stair A widened to 2 m) cut the worst attack's time to get 95 % out
+  from about 36 min 7 s (an estimate: before the fixes 95 % never got out within the
+  simulated time, so it was extrapolated from the exit flow) to a measured 6 min 46 s; the plan
+  still fails the 5-minute target and says so. (Correction 2026-10-25: this line first gave
+  the change as a measured −81 %; an estimate and a measurement cannot be compared that way.)
+- Open: Nebius Token Factory not run live (no key); Tavily not wired into the agents; the
+  OpenRouter free quota (about 50 requests a day per account) runs out during a long test.

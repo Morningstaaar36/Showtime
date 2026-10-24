@@ -225,6 +225,22 @@ def marshal_redirect(ctx: Any, ev: dict[str, Any]) -> Step | None:
     return None
 
 
+def mobility_share(ctx: Any, ev: dict[str, Any]) -> Step | None:
+    """A share of people walk at speed_mps from now on (and later arrivals of that share)."""
+    ctx.mobility_rules.append((float(ev["share"]), float(ev["speed_mps"])))
+    affected = 0
+    for jid, info in ctx.agents.items():
+        if info.kind != "normal":
+            continue
+        new = ctx.mobility_speed(info.gid, info.speed)
+        if new < info.speed:
+            info.speed = new
+            ctx.apply_speed(jid)
+            affected += 1
+    ctx.log_event("mobility_share", ev, affected=affected)
+    return None
+
+
 def script(ctx: Any, ev: dict[str, Any]) -> Step | None:
     """An AI- or user-written scenario: on_step(view, act) every every_s seconds."""
     runner = ScriptRunner(ctx, ev)
@@ -242,8 +258,10 @@ HANDLERS: dict[str, Callable[[Any, dict[str, Any]], Step | None]] = {
     "one_way": one_way,
     "staggered_release": staggered_release,
     "marshal_redirect": marshal_redirect,
+    "mobility_share": mobility_share,
     "script": script,
 }
 
-# Which id field ties an event to a floor (events without one apply to every floor).
-FLOOR_KEYS = ("exit_id", "zone_id", "to_exit_id")
+# Which id field ties an event to a floor (events without one apply to every floor). A stair
+# id belongs to the stair's upper floor; a floor_id to that floor.
+FLOOR_KEYS = ("exit_id", "zone_id", "to_exit_id", "floor_id")

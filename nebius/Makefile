@@ -34,7 +34,7 @@ llm-up: ## Start the local Nemotron server on the GPU (background, logs/llm.log)
 llm-down: ## Stop the local LLM server
 	@./scripts/llm_down.sh
 
-up: ## Start the stack with Docker Compose (api + web) → http://localhost:5173
+up: build-sim ## Start the stack with Docker Compose (api + web) → http://localhost:5173
 	@test -f .env || cp .env.example .env
 	@mkdir -p runs cache state data
 	@docker compose up -d --build

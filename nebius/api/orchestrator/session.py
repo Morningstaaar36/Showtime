@@ -17,15 +17,23 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlmodel import col, select
 
-from api.adapters.llm import Budget, BudgetExceeded
+from api.adapters.llm import Budget, BudgetExceeded, LLMError
 from api.agents.base import AgentEnv, AgentUnavailable, audit_decision
 from api.agents.blue_team import blue_team
+from api.agents.context import readable
 from api.agents.judge import judge
-from api.agents.red_team import incident_query, is_script_attack, red_team, venue_features
+from api.agents.red_team import (
+    incident_query,
+    is_script_attack,
+    red_team,
+    signature,
+    venue_features,
+)
 from api.core.annotations import carry_annotations
-from api.core.countdown import compute_countdown
+from api.core.countdown import choose_hazard, compute_countdown
 from api.core.evidence import (
     CostMeter,
     attempt_id,
@@ -58,16 +66,95 @@ from api.models import (
     Venue,
     VenuePatch,
 )
-from api.orchestrator.fallbacks import rule_attacks, rule_fixes
+from api.orchestrator.archive import (
+    KIND_IDS,
+    Archive,
+    BreakRule,
+    Cell,
+    Elite,
+    Insert,
+    pick_candidates,
+    severity_score,
+)
+from api.orchestrator.fallbacks import rule_attacks, rule_attacks_for_cells, rule_fixes
 
-# who proposes attacks and fixes in a session (`config["agents"]`)
-AGENT_MODES = ("hybrid", "rules", "model")
+# who proposes attacks and fixes in a session (`config["agents"]`): "model" (the default) lets
+# the AI design them and uses the rules only when no model answers; "hybrid" also mixes rule
+# attacks and standard fixes in; "rules" uses no model (the evaluation's baseline arm)
+AGENT_MODES = ("model", "hybrid", "rules")
 
 log = logging.getLogger("showtime.session")
 
 
 class StopSession(Exception):
     """A budget or the user ended the session."""
+
+
+class SessionConfigError(ValueError):
+    """A session setting from the request has the wrong type or is out of range."""
+
+    def __init__(self, message: str, errors: list[dict[str, Any]]) -> None:
+        super().__init__(message)
+        self.errors = errors
+
+
+class SessionConfigIn(BaseModel):
+    """The session settings a caller may choose; other keys are ignored. The budgets (runs,
+    wall clock, tokens) can only be lowered: values above the Settings caps are capped."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    max_rounds: int | None = Field(default=None, ge=1, le=10)
+    attacks_per_round: int | None = Field(default=None, ge=1, le=10)
+    fixes_per_attack: int | None = Field(default=None, ge=1, le=10)
+    fix_targets: int | None = Field(default=None, ge=1, le=10)
+    seed: int | None = Field(default=None, ge=0, le=2**31 - 1)
+    confirm_tier3: bool | None = None
+    max_runs: int | None = Field(default=None, ge=1)
+    max_wall_s: float | None = Field(default=None, gt=0)
+    max_tokens: int | None = Field(default=None, ge=1)
+    parallel_branches: bool | None = None
+    agents: str | None = None  # an unknown mode falls back to "hybrid"
+    judge: bool | None = None  # false: keep the computed summary, no model call at the end
+
+
+def session_config(settings: Any, config: dict[str, Any] | None) -> dict[str, Any]:
+    """Validated session settings over the defaults (raises SessionConfigError)."""
+    try:
+        given = SessionConfigIn.model_validate(config or {}).model_dump(exclude_none=True)
+    except ValidationError as exc:
+        errs = [
+            {"loc": [str(x) for x in e.get("loc", [])], "msg": e.get("msg", "")}
+            for e in exc.errors()
+        ]
+        first = errs[0]
+        raise SessionConfigError(f"{'.'.join(first['loc'])}: {first['msg']}", errs) from exc
+    caps = {
+        "max_runs": settings.session_max_runs,
+        "max_wall_s": settings.session_max_wall_s,
+        "max_tokens": settings.session_max_tokens,
+    }
+    for key, cap in caps.items():
+        if key in given:
+            given[key] = min(given[key], cap)
+    cfg = {
+        "max_rounds": settings.max_rounds,
+        "attacks_per_round": settings.attacks_per_round,
+        "fixes_per_attack": settings.fixes_per_attack,
+        "fix_targets": settings.fix_targets,
+        "seed": settings.default_seed,
+        "confirm_tier3": True,
+        **caps,
+        # independent branches of a step run at once (the runner bounds how many)
+        "parallel_branches": True,
+        # who proposes attacks and fixes (S-01 evaluation arms): "hybrid" = the model plus
+        # the rule-based ones (the product), "rules" = rules only, "model" = model only
+        "agents": "model",
+        **given,
+    }
+    if cfg["agents"] not in AGENT_MODES:
+        cfg["agents"] = "model"
+    return cfg
 
 
 class StalePlan(PlanConflict):
@@ -215,9 +302,36 @@ class LiveSession:
     stop_event: asyncio.Event = field(default_factory=asyncio.Event)
     branch_runs: dict[str, str] = field(default_factory=dict)  # node id -> run id
     inflight: set[str] = field(default_factory=set)  # node ids waiting for their run
+    archive: dict[str, Any] | None = None  # latest failure-map snapshot (GET .../archive)
 
 
 Maker = tuple[str, Callable[[], Awaitable[RunResult]]]
+
+
+def _time_out(r: RunResult) -> float | None:
+    """Time for 95% to get out: measured, else extrapolated from the exit flow at the end."""
+    m = r.metrics
+    if m.evac_time_p95_s is not None:
+        return float(m.evac_time_p95_s)
+    ext = (m.extra or {}).get("rset_extrapolated_s")
+    return float(ext) if ext is not None else None
+
+
+def made_worse(before: RunResult, after: RunResult, margin: float, danger: float) -> str:
+    """What a change makes clearly worse under the same attack ("" when nothing does)."""
+    worse: list[str] = []
+    t0, t1 = _time_out(before), _time_out(after)
+    if t0 is not None and t1 is not None and t1 > t0 * (1 + margin):
+        worse.append("the time to get out")
+    n0 = before.metrics.agents_not_evacuated or 0
+    n1 = after.metrics.agents_not_evacuated or 0
+    if n1 > n0:
+        worse.append("the number of people left inside")
+    d0 = before.metrics.peak_density_ppm2 or 0.0
+    d1 = after.metrics.peak_density_ppm2 or 0.0
+    if d1 >= danger and d1 > d0 * (1 + margin):
+        worse.append("the peak density")
+    return " and ".join(worse)
 
 
 class Branches:
@@ -228,7 +342,8 @@ class Branches:
     The runner bounds how many sandboxes actually run at once. With `parallel` off each
     simulation starts only when it is read (the sequential behaviour). A stop request ends a
     wait at once. Leaving the block cancels every unfinished branch, its sandbox run
-    included, and closes the tree node of every branch that was started but not read.
+    included unless another caller still waits for that run, and closes the tree node of
+    every branch that was started but not read.
     """
 
     def __init__(
@@ -274,16 +389,14 @@ class Branches:
         return task.result()
 
     async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
-        live, runs = self.live, self.mgr.st.runs
+        live = self.live
         pending: list[asyncio.Task[RunResult]] = []
         # a branch whose wait was cut short by a stop was never used either
         self.read = {i for i in self.read if (t := self.tasks[i]) is not None and t.done()}
-        for i, task in enumerate(self.tasks):
+        for task in self.tasks:
             if task is None or task.done():
                 continue
-            node_id = self.makers[i][0]
-            if node_id in live.inflight and node_id in live.branch_runs:
-                await runs.cancel(live.branch_runs[node_id])
+            # its wait ends; the sandbox run stops too unless another caller still waits for it
             task.cancel()
             pending.append(task)
         if pending:
@@ -321,28 +434,11 @@ class SessionManager:
 
     # ------------------------------------------------------------------ API
     def start(self, project_id: str, config: dict[str, Any] | None = None) -> RedTeamSession:
-        """Create a session row and launch the loop in the background."""
+        """Create a session row and launch the loop in the background.
+
+        Raises SessionConfigError for a setting of the wrong type or out of range."""
+        cfg = session_config(self.st.settings, config)
         p = self.st.projects.get(project_id)
-        s = self.st.settings
-        cfg = {
-            "max_rounds": s.max_rounds,
-            "attacks_per_round": s.attacks_per_round,
-            "fixes_per_attack": s.fixes_per_attack,
-            "fix_targets": s.fix_targets,
-            "seed": s.default_seed,
-            "confirm_tier3": True,
-            "max_runs": s.session_max_runs,
-            "max_wall_s": s.session_max_wall_s,
-            "max_tokens": s.session_max_tokens,
-            # independent branches of a step run at once (the runner bounds how many)
-            "parallel_branches": True,
-            # who proposes attacks and fixes (S-01 evaluation arms): "hybrid" = the model plus
-            # the rule-based ones (the product), "rules" = rules only, "model" = model only
-            "agents": "hybrid",
-        }
-        cfg.update({k: v for k, v in (config or {}).items() if k in cfg and v is not None})
-        if cfg["agents"] not in AGENT_MODES:
-            cfg["agents"] = "hybrid"
         sid = f"s_{uuid.uuid4().hex[:10]}"
         row = RedTeamSession(
             id=sid,
@@ -379,6 +475,22 @@ class SessionManager:
                     .order_by(col(RedTeamSession.created_at).desc())
                 )
             )
+
+    def recover_interrupted(self) -> int:
+        """At server start: sessions left running by the previous process are stopped
+        (returns how many)."""
+        with db_session() as db:
+            rows = list(db.exec(select(RedTeamSession).where(RedTeamSession.status == "running")))
+            rows = [r for r in rows if r.id not in self.live]
+            for row in rows:
+                row.status = "stopped"
+                row.error = "Stopped when the server restarted."
+                row.finished_at = datetime.now(UTC)
+                db.add(row)
+            db.commit()
+        if rows:
+            log.warning("marked %d interrupted sessions as stopped", len(rows))
+        return len(rows)
 
     def stop(self, sid: str) -> bool:
         live = self.live.get(sid)
@@ -618,30 +730,104 @@ class SessionManager:
                 },
             )
             seen: set[str] = set()
+            archive = Archive(venue)
+            rule = BreakRule(
+                s.density_danger_ppm2, s.danger_min_duration_s, self._target(venue), s.safety_factor
+            )
+            self._archive_event(live, archive, 0, None)
+            n_menu = int(cfg["attacks_per_round"])
+            menu_kinds = set(KIND_IDS) - {"adaptive"}
             for rnd in range(1, int(cfg["max_rounds"]) + 1):
                 self._check(live)
+                # quality-diversity search: aim at empty cells of the failure map first, then
+                # at the weakest ones (docs/RAINBOW.md)
+                aim = archive.targets(n_menu, menu_kinds)
+                aim_script = archive.targets(1, {"adaptive"})
                 self._status(live, "red_team", rnd, "Red team is designing attacks")
-                attacks = await self._attacks(
+                self.emit(
+                    live,
+                    "tool_call",
+                    {
+                        "tool": "failure_map",
+                        "args": {"targets": [list(c) for c in aim + aim_script]},
+                        "summary": "Aiming at "
+                        + "; ".join(archive.describe(c).split(":")[0] for c in aim + aim_script),
+                    },
+                )
+                proposed = await self._attacks(
                     env,
                     working,
                     baseline,
                     incidents,
-                    int(cfg["attacks_per_round"]),
+                    n_menu,
                     seen,
                     len(attacks_all),
                     live.tested,
-                    mode=str(cfg.get("agents", "hybrid")),
+                    mode=str(cfg.get("agents", "model")),
+                    archive=archive,
+                    aim=aim + aim_script,
                 )
-                if not attacks:
+                proposed = [
+                    x.model_copy(update={"title": readable(x.title, working)}) for x in proposed
+                ]
+                if not proposed:
                     reason = "no new attacks"
                     break
                 self._status(live, "screening", rnd, "Ranking attacks with the instant estimate")
-                ranked: list[tuple[float, Attack]] = []
+                cells = {a.attack_id: archive.cell_of(a) for a in proposed}
+                if cfg.get("agents") != "rules":
+                    # how well the model follows the map (rule fills hit by construction)
+                    landed = {
+                        cells[a.attack_id]
+                        for a in proposed
+                        if a.extensions.get("generated_by") != "rules"
+                    }
+                    archive.aimed += len(aim) + len(aim_script)
+                    archive.hit += sum(1 for c in aim + aim_script if c in landed)
+                tier1: dict[str, RunResult] = {}
+                menu: list[tuple[Attack, Cell | None, float]] = []
                 scripted: list[Attack] = []
-                for a in attacks:
+                for a in proposed:
                     if is_script_attack(a):
-                        # the instant estimate cannot run code: straight to a quick simulation
                         scripted.append(a)
+                        continue
+                    est = self._estimate(live, working, a, extra=live.measures)
+                    tier1[a.attack_id] = est
+                    menu.append((a, cells[a.attack_id], severity_score(est, rule)[0]))
+                # the instant estimate cannot run code: at most one script, the model's first
+                scripted.sort(key=lambda a: a.extensions.get("generated_by") == "rules")
+                picked = [menu[i] for i in pick_candidates(menu, archive, n_menu, aim)]
+                chosen = list(scripted[:1]) + [a for a, _, _ in picked]
+                chosen_ids = {a.attack_id for a in chosen}
+                # what was not simulated may be proposed again in a later round
+                for a in proposed:
+                    if a.attack_id not in chosen_ids:
+                        seen.discard(signature([e.model_dump() for e in a.events]))
+                left_out = [a.title for a in proposed if a.attack_id not in chosen_ids]
+                if left_out:
+                    self.emit(
+                        live,
+                        "log",
+                        {
+                            "level": "info",
+                            "message": "Screened out by the instant estimate (not simulated): "
+                            + "; ".join(left_out),
+                        },
+                    )
+                # ids follow the simulated attacks, so they stay in sequence
+                renamed = {
+                    a.attack_id: f"A{len(attacks_all) + i + 1}" for i, a in enumerate(chosen)
+                }
+                ranked: list[tuple[float, Attack]] = []
+                cell_by_id: dict[str, Cell | None] = {}
+                for a in chosen:
+                    cell = cells[a.attack_id]
+                    old_id = a.attack_id
+                    a = a.model_copy(update={"attack_id": renamed[old_id]})
+                    cell_by_id[a.attack_id] = cell
+                    where = {"cell": {"kind": cell[0], "where": cell[1]} if cell else None}
+                    if is_script_attack(a):
+                        ranked.append((math.inf, a))
                         self.emit(
                             live,
                             "attack_card",
@@ -650,6 +836,7 @@ class SessionManager:
                                 "attack": a.model_dump(mode="json"),
                                 "tier1": {},
                                 "screening": SCRIPT_SCREENING,
+                                **where,
                             },
                         )
                         self.emit(
@@ -663,15 +850,19 @@ class SessionManager:
                             },
                         )
                         continue
-                    est = self._estimate(live, working, a, extra=live.measures)
+                    est = tier1[old_id]
                     ranked.append((severity(est), a))
                     self.emit(
                         live,
                         "attack_card",
-                        {"round": rnd, "attack": a.model_dump(mode="json"), "tier1": headline(est)},
+                        {
+                            "round": rnd,
+                            "attack": a.model_dump(mode="json"),
+                            "tier1": headline(est),
+                            **where,
+                        },
                     )
                 ranked.sort(key=lambda x: -x[0])
-                ranked = [(math.inf, a) for a in scripted] + ranked
                 attacks_all.extend(a for _, a in ranked)
                 live.tested = [
                     f"{a.title} ({', '.join(e.type for e in a.events)})" for a in attacks_all
@@ -708,11 +899,39 @@ class SessionManager:
                             s.safety_factor,
                         )
                         self._node_done(live, f"atk:{a.attack_id}", r, reasons)
+                        if r.status not in ("failed", "timeout", "cancelled"):
+                            score, parts = severity_score(r, rule)
+                            ins = archive.insert(
+                                Elite(
+                                    attack_id=a.attack_id,
+                                    title=a.title,
+                                    run_id=r.run_id,
+                                    severity=score,
+                                    is_break=bool(reasons),
+                                    round=rnd,
+                                    metrics=headline(r),
+                                    parts=parts,
+                                    basis=r.basis,
+                                    generated_by=str(a.extensions.get("generated_by", "ai")),
+                                ),
+                                cell_by_id.get(a.attack_id),
+                            )
+                            self._archive_event(live, archive, rnd, ins, a.attack_id, score)
                         if reasons:
                             breaks.append((severity(r), a, r))
                             if worst is None or severity(r) > worst[0]:
                                 worst = (severity(r), a, r)
-                scoreboard.append({"round": rnd, "breaks": len(breaks), "attacks": len(ranked)})
+                point = archive.end_round(rnd)
+                scoreboard.append(
+                    {
+                        "round": rnd,
+                        "breaks": len(breaks),
+                        "attacks": len(ranked),
+                        "coverage": point["coverage"],
+                        "qd_score": point["qd_score"],
+                    }
+                )
+                self._archive_event(live, archive, rnd, None)
                 self.emit(
                     live,
                     "score",
@@ -725,9 +944,12 @@ class SessionManager:
                     },
                 )
                 if not breaks:
-                    reason = "no new breaks"
-                    break
-                breaks.sort(key=lambda x: -x[0])
+                    if not archive.empty():
+                        reason = "no new breaks"
+                        break
+                    continue  # nothing to fix, but the map still has gaps to search
+                # the worst elites of the map first, then other breaks of this round
+                breaks.sort(key=lambda x: (not archive.contains(x[1].attack_id), -x[0]))
                 accepted_before_round = len(accepted)
                 for sev, a, r in breaks[: int(cfg["fix_targets"])]:
                     self._check(live)
@@ -766,8 +988,11 @@ class SessionManager:
                         r,
                         int(cfg["fixes_per_attack"]),
                         f"F{len(fixes_all) + 1}_",
-                        mode=str(cfg.get("agents", "hybrid")),
+                        mode=str(cfg.get("agents", "model")),
                     )
+                    fixes = [
+                        fx.model_copy(update={"title": readable(fx.title, working)}) for fx in fixes
+                    ]
                     # every candidate is checked against the same plan (it changes only when
                     # a fix is kept, which ends this attack), so the checks and the
                     # simulations of all candidates can happen up front
@@ -842,8 +1067,24 @@ class SessionManager:
                             # enough to keep a change.
                             helps = (not fr_reasons and gain > 0) or gain >= float(s.fix_min_gain)
                             evidence_ok = comparable(r, fr)
+                            # a better composite score is not enough when an outcome people
+                            # read first (time out, people inside, peak density) gets worse
+                            worse = made_worse(
+                                r, fr, float(s.fix_min_gain), float(s.density_danger_ppm2)
+                            )
+                            if helps and worse:
+                                self.emit(
+                                    live,
+                                    "log",
+                                    {
+                                        "level": "info",
+                                        "message": f"{fx.title}: not kept, because it makes "
+                                        f"{worse} worse under this attack",
+                                    },
+                                )
                             ok = (
                                 helps
+                                and not worse
                                 and evidence_ok
                                 and not self._hurts_baseline(working, fx, baseline, live)
                             )
@@ -879,7 +1120,21 @@ class SessionManager:
                             if ok:
                                 accepted.append(fx.fix_id)
                                 working = candidate
+                                archive.learn(working)
                                 live.measures.extend(fx.operational)
+                                fixed_cell = archive.mark_fixed(
+                                    a.attack_id, fx.fix_id, severity_score(fr, rule)[0], fr.run_id
+                                )
+                                if fixed_cell is not None:
+                                    self._archive_event(
+                                        live,
+                                        archive,
+                                        rnd,
+                                        Insert("fixed", fixed_cell),
+                                        a.attack_id,
+                                        severity_score(fr, rule)[0],
+                                        fix_id=fx.fix_id,
+                                    )
                                 self.emit(
                                     live,
                                     "score",
@@ -903,20 +1158,72 @@ class SessionManager:
             self.emit(live, "log", {"level": "error", "message": f"Session error: {exc}"})
             reason = f"error: {type(exc).__name__}"
         live.final_venue = working
-        await self._finish(
-            live,
-            env,
-            venue,
-            working,
-            baseline,
-            worst,
-            attacks_all,
-            fixes_all,
-            results,
-            accepted,
-            scoreboard,
-            reason,
-        )
+        try:
+            await self._finish(
+                live,
+                env,
+                venue,
+                working,
+                baseline,
+                worst,
+                attacks_all,
+                fixes_all,
+                results,
+                accepted,
+                scoreboard,
+                reason,
+            )
+        except Exception as exc:  # the row must never stay "running"
+            log.exception("session %s could not finish", live.id)
+            self._fail(live, exc)
+        finally:
+            live.finished = True
+            await self._notify(live)
+
+    def _archive_event(
+        self,
+        live: LiveSession,
+        archive: Archive,
+        rnd: int,
+        change: Insert | None,
+        attack_id: str | None = None,
+        score: float | None = None,
+        fix_id: str | None = None,
+    ) -> None:
+        """Stream the failure map after a change (and keep it for GET .../archive)."""
+        snap = archive.snapshot()
+        live.archive = snap
+        payload: dict[str, Any] = {"round": rnd, "change": None, "archive": snap}
+        if change is not None:
+            payload["change"] = {
+                "outcome": change.outcome,
+                "kind": change.cell[0] if change.cell else None,
+                "where": change.cell[1] if change.cell else None,
+                "attack_id": attack_id,
+                "severity": score,
+                "replaced_attack_id": change.replaced,
+                "fix_id": fix_id,
+            }
+        self.emit(live, "archive", payload)
+
+    def _fail(self, live: LiveSession, exc: Exception) -> None:
+        """Mark a session that could not write its summary as failed (status, error, end)."""
+        message = f"{type(exc).__name__}: {exc}"[:500]
+        b = live.budget
+        try:
+            with db_session() as db:
+                row = db.get(RedTeamSession, live.id)
+                if row is not None:
+                    row.status = "failed"
+                    row.error = message
+                    row.tokens = b.used if b else 0
+                    row.cost_usd = round(b.cost_usd, 6) if b else 0.0
+                    row.finished_at = datetime.now(UTC)
+                    db.add(row)
+                    db.commit()
+        except Exception:
+            log.exception("could not mark session %s failed", live.id)
+        self._status(live, "done", 0, f"The session failed: {message}", status="failed")
 
     def _target(self, venue: Venue) -> float:
         s = self.st.settings
@@ -968,15 +1275,32 @@ class SessionManager:
         seen: set[str],
         offset: int,
         tested: list[str],
-        mode: str = "hybrid",
+        mode: str = "model",
+        archive: Archive | None = None,
+        aim: list[Cell] | None = None,
     ) -> list[Attack]:
+        """Candidate attacks for one round. With a failure map, the model is asked to fill the
+        `aim` cells; the rules fill the cells it missed (hybrid) or all of them (rules)."""
+        aim = aim or []
         if mode == "rules":
-            return rule_attacks(venue, baseline, incidents, n, seen, offset)
+            return self._rule_fill(venue, baseline, incidents, n, seen, offset, archive, aim)
+        menu_aim = [c for c in aim if c[0] != "adaptive"]
+        script_aim = [c for c in aim if c[0] == "adaptive"]
         try:
             out = await red_team(
-                env, self.st.registry, venue, baseline, incidents, n, seen, offset, tested=tested
+                env,
+                self.st.registry,
+                venue,
+                baseline,
+                incidents,
+                n,
+                seen,
+                offset,
+                tested=tested,
+                aim=[archive.describe(c) for c in menu_aim] if archive else None,
+                aim_script=archive.describe(script_aim[0]) if archive and script_aim else None,
             )
-        except AgentUnavailable as exc:
+        except (AgentUnavailable, LLMError) as exc:  # LLMError: e.g. a replay-cache miss
             if env.emit:
                 env.emit(
                     "log",
@@ -985,19 +1309,64 @@ class SessionManager:
                         "message": f"Red team model unavailable ({exc}); using rule-based attacks",
                     },
                 )
+            if mode == "model":  # the AI designs the attacks; the rules stand in only now
+                return self._rule_fill(venue, baseline, incidents, n, seen, offset, archive, aim)
             out = []
         if mode == "model":
             return out
         if not out:
-            out = rule_attacks(venue, baseline, incidents, n, seen, offset)
+            out = self._rule_fill(venue, baseline, incidents, n, seen, offset, archive, aim)
             if out and env.emit:
                 env.emit("log", {"level": "info", "message": "Rule-based attacks were added."})
-        elif not any(is_script_attack(a) for a in out):
+            return out
+        if archive is not None and aim:
+            # cells of the map the model aimed at but missed: the rules fill them, and the
+            # instant estimate decides which candidates are simulated
+            landed = {archive.cell_of(a) for a in out}
+            missed = [c for c in aim if c not in landed]
+            if not any(is_script_attack(a) for a in out) and not any(
+                c[0] == "adaptive" for c in missed
+            ):
+                missed += [c for c in archive.targets(1, {"adaptive"}) if c not in missed]
+            fills = rule_attacks_for_cells(
+                venue,
+                baseline,
+                incidents,
+                [(k, archive.region(w)) for k, w in missed],
+                seen,
+                offset + len(out),
+            )
+            if fills and env.emit:
+                env.emit(
+                    "log",
+                    {
+                        "level": "info",
+                        "message": "Rule-based attacks for gaps in the failure map the AI "
+                        "missed: " + "; ".join(a.title for a in fills),
+                    },
+                )
+                if not any(is_script_attack(a) for a in out) and any(
+                    is_script_attack(a) for a in fills
+                ):
+                    env.emit(
+                        "log",
+                        {
+                            "level": "info",
+                            "message": "The AI wrote no scenario script this round, so the "
+                            "built-in example script was added.",
+                        },
+                    )
+            return out + fills
+        if not any(is_script_attack(a) for a in out):
             # every test includes a scenario written as code; the built-in example stands in
             extra = rule_attacks(venue, baseline, incidents, n, set(seen), offset + len(out))
             example = [a for a in extra if is_script_attack(a)][:1]
             if example:
-                out.append(example[0])
+                # the next id in sequence (its id from `extra` skips ahead), and remembered so
+                # later rounds neither repeat it nor reuse its id
+                ex = example[0].model_copy(update={"attack_id": f"A{offset + len(out) + 1}"})
+                seen.add(signature([e.model_dump() for e in ex.events]))
+                out.append(ex)
                 if env.emit:
                     env.emit(
                         "log",
@@ -1009,6 +1378,35 @@ class SessionManager:
                     )
         return out
 
+    def _rule_fill(
+        self,
+        venue: Venue,
+        baseline: RunResult | None,
+        incidents: list[IncidentRecord],
+        n: int,
+        seen: set[str],
+        offset: int,
+        archive: Archive | None,
+        aim: list[Cell],
+    ) -> list[Attack]:
+        """Rule-based attacks for the aimed cells, topped up to n menu attacks by the
+        standard rule set (one scenario script at most)."""
+        out: list[Attack] = []
+        if archive is not None and aim:
+            out = rule_attacks_for_cells(
+                venue, baseline, incidents, [(k, archive.region(w)) for k, w in aim], seen, offset
+            )
+        menu = [a for a in out if not is_script_attack(a)]
+        if len(menu) < n:
+            more = rule_attacks(venue, baseline, incidents, n - len(menu), seen, offset + len(out))
+            has_script = any(is_script_attack(a) for a in out)
+            for a in more:
+                if is_script_attack(a) and has_script:
+                    seen.discard(signature([e.model_dump() for e in a.events]))
+                    continue
+                out.append(a.model_copy(update={"attack_id": f"A{offset + len(out) + 1}"}))
+        return out
+
     async def _fixes(
         self,
         env: AgentEnv,
@@ -1017,13 +1415,23 @@ class SessionManager:
         result: RunResult,
         n: int,
         prefix: str,
-        mode: str = "hybrid",
+        mode: str = "model",
     ) -> list[Fix]:
         if mode == "rules":
             return rule_fixes(self.st.registry, venue, attack, result, n, prefix + "R")
         try:
             out = await blue_team(env, self.st.registry, venue, attack, result, n, prefix)
-        except AgentUnavailable:
+        except (AgentUnavailable, LLMError) as exc:
+            if mode == "model":  # the AI designs the fixes; standard ones stand in only now
+                if env.emit:
+                    env.emit(
+                        "log",
+                        {
+                            "level": "warning",
+                            "message": f"Blue team model unavailable ({exc}); using standard fixes",
+                        },
+                    )
+                return rule_fixes(self.st.registry, venue, attack, result, n, prefix + "R")
             out = []
         if mode == "model":
             return out
@@ -1044,6 +1452,12 @@ class SessionManager:
                     and "one_way" not in kinds
                 )
                 or (any(o.op == "add_exit" for o in f.patch.ops) and "add_exit" not in kinds)
+                # buildings: a wider stairwell and a phased evacuation (several zones held)
+                or (any(o.op == "widen_stair" for o in f.patch.ops) and "widen_stair" not in kinds)
+                or (
+                    sum(e.type == "staggered_release" for e in f.operational) > 1
+                    and "staggered_release" not in kinds
+                )
             )
         ]
         if not out:
@@ -1258,11 +1672,19 @@ class SessionManager:
         }
         template = self._template(facts)
         facts_for_judge = plain_keys(facts)
-        self._status(live, "judging", len(scoreboard), "Judge is checking every number")
-        try:
-            text, recs, checked = await judge(env, facts_for_judge, template, computed_summary=True)
-        except (AgentUnavailable, BudgetExceeded):
+        recs: list[str]
+        if live.config.get("judge", True) is False:
+            # a session that must not call the model (rule-based real cases): the computed
+            # summary stands as written
             text, recs, checked = template, [], False
+        else:
+            self._status(live, "judging", len(scoreboard), "Judge is checking every number")
+            try:
+                text, recs, checked = await judge(
+                    env, facts_for_judge, template, computed_summary=True
+                )
+            except (AgentUnavailable, BudgetExceeded, LLMError):
+                text, recs, checked = template, [], False
         summary = {
             "baseline_run_id": baseline.run_id if baseline else None,
             "final_run_id": final_run_id,
@@ -1281,6 +1703,8 @@ class SessionManager:
             "final_venue": working.model_dump(mode="json"),
             "measures": [m.model_dump() for m in live.measures],
             "evaluation": evaluation,
+            # the failure map (quality-diversity archive) the red team searched
+            "archive": live.archive,
             # measured after the judge, so every model call of the session is included
             "cost": live.cost.record(wall_s=time.monotonic() - live.started),
         }
@@ -1301,8 +1725,6 @@ class SessionManager:
             self.st.host.pm.hook.on_session_finished(session_id=live.id, summary=summary)
         except Exception:
             log.exception("plugin hook on_session_finished failed")
-        live.finished = True
-        await self._notify(live)
 
     def _attack_fact(
         self, a: Attack, results: dict[str, RunResult], target: float
@@ -1407,12 +1829,7 @@ class SessionManager:
                 continue
             if h is not None:
                 hazards.append(h)
-        timed = [h for h in hazards if h.t_hazard_s is not None]
-        chosen = (
-            min(timed, key=lambda h: h.t_hazard_s or 0.0)
-            if timed
-            else (hazards[0] if hazards else None)
-        )
+        chosen = choose_hazard(hazards)
         # the wording follows the run's basis; it never claims more than that run shows
         source = f"{scenario} ({describe_run(run)})" if run else ""
         return compute_countdown(
@@ -1421,7 +1838,6 @@ class SessionManager:
             s.pre_movement_s,
             s.safety_factor,
             source,
-            venue.location.event_start if venue.location else None,
         )
 
     def apply_final(self, sid: str, fix_ids: list[str] | None = None) -> Any:

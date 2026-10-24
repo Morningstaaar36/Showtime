@@ -23,9 +23,13 @@ flowchart TD
 1. **Baseline** (Tier 3) in the sandbox; result cached by request hash.
 2. **Red team** (Nemotron) reads computed venue facts and 8 similar real incidents and returns
    attacks as JSON (schema-constrained). Ids are validated; the citation URL is copied from the
-   incident record, never from the model.
-3. **Screening** with the Tier 1 flow model (milliseconds) ranks attacks.
-4. **Branches**: every attack runs as a Tier 2 simulation (a child of the baseline).
+   incident record, never from the model. It is aimed at gaps of the **failure map**, a
+   quality-diversity archive over hazard kind × where (see [RAINBOW.md](RAINBOW.md)); rule-based
+   attacks fill the gaps it misses.
+3. **Screening** with the Tier 1 flow model (milliseconds) picks which candidates are simulated:
+   aimed gaps first, then other gaps, then attacks that would beat a cell's elites.
+4. **Branches**: every picked attack runs as a Tier 2 simulation (a child of the baseline). Its
+   severity, computed from the simulated metrics only, decides whether it enters the map.
 5. **Blue team** proposes layout edits and operational measures; standard engineering responses
    (one-way flow, new exit) compete. Each fix is simulated as a child of its attack and is kept
    only if it removes the break or improves severity by `FIX_MIN_GAIN` without hurting the
@@ -44,10 +48,11 @@ flowchart TD
 | `api/core/geometry.py`, `venue_ops.py` | Validation and atomic, undoable patches |
 | `api/adapters/` | The only provider-aware code (LLM, sandbox, search, weather) |
 | `api/orchestrator/session.py` | Red Team Night loop, budgets, events, judge, countdown |
+| `api/orchestrator/archive.py` | Failure map: MAP-Elites archive, physics severity score, target cells |
 | `sim/plugins/engine_jupedsim.py` | Per-floor JuPedSim runs, stair chaining, events, squeeze/sidestep |
 | `sim/metrics.py` | Density grid, hotspots, RSET, binary artifacts |
 | `web/src/scene/` | R3F scene: section-cut walls, instanced people, shader heatmap |
-| `web/src/panels/` | Inspector, Simulate, Red Team (cards, tree), Report |
+| `web/src/panels/` | Inspector, Simulate, Red Team (cards, failure map, tree), Report |
 
 ## Data on disk
 `state/showtime.sqlite` (projects, versions, runs, sessions, events, audit) · `runs/<run_id>/`

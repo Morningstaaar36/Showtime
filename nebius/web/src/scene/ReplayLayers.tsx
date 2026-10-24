@@ -49,10 +49,12 @@ function useFloorYs(venue: Venue, floors: string[], exploded: boolean): number[]
   return useMemo(() => floors.map((fid) => floorY(venue, fid, exploded)), [venue, floors, exploded]);
 }
 
-export function Agents({ traj, density, venue, exploded, palette, onlyFloor = null, kinds = null }: {
+export function Agents({ traj, density, venue, exploded, palette, onlyFloor = null, ghostOthers = false, kinds = null }: {
   traj: Trajectory; density: DensityGrid | null; venue: Venue; exploded: boolean; palette: ScenePalette;
   /** draw only the people on this floor (one-floor view) */
   onlyFloor?: string | null;
+  /** with `onlyFloor`: keep the people on the other floors as faint markers instead of hiding them */
+  ghostOthers?: boolean;
   /** who each person is: shape and colour per kind; null = everyone as a general adult */
   kinds?: AgentKinds | null;
 }) {
@@ -75,6 +77,8 @@ export function Agents({ traj, density, venue, exploded, palette, onlyFloor = nu
   const geometries = useMemo(() => shown.map((k) => PEOPLE_LOOK[k].geometry()), [shown]);
   useEffect(() => () => geometries.forEach((g) => g.dispose()), [geometries]);
   const tmp = useMemo(() => new THREE.Color(), []);
+  const faint = useMemo(() => new THREE.Color(palette.bg), [palette.bg]);
+  const heatMax = density?.displayMax ?? DENSITY_MAX;
   const only = onlyFloor ? traj.index.floors.indexOf(onlyFloor) : -1;
   const densFloor = useMemo(() => {
     // traj floor index -> density floor index
@@ -101,7 +105,8 @@ export function Agents({ traj, density, venue, exploded, palette, onlyFloor = nu
       const x = buf[j * 3];
       const y = buf[j * 3 + 1];
       const f = buf[j * 3 + 2] | 0;
-      if (only >= 0 && f !== only) continue;
+      const other = only >= 0 && f !== only;
+      if (other && !ghostOthers) continue;
       const s = kinds ? slotOf[kinds.lookup[ids[j]]] : 0;
       const m = ms[s];
       if (!m) continue;
@@ -109,10 +114,19 @@ export function Agents({ traj, density, venue, exploded, palette, onlyFloor = nu
       dummy.position.set(x, (ys[f] ?? 0) + 0.02, -y);
       dummy.updateMatrix();
       m.setMatrixAt(i, dummy.matrix);
-      if (density && frame >= 0 && densFloor[f] >= 0) {
+      if (only >= 0) {
+        // slots move between frames once some people are faint: every marker gets its colour
+        if (other) tmp.copy(bases[s]).lerp(faint, 0.62);
+        else tmp.copy(bases[s]);
+        if (!other && density && frame >= 0 && densFloor[f] >= 0) {
+          const d = density.at(frame, densFloor[f], x, y);
+          tmp.lerp(LUT_COLORS[Math.min(255, Math.round((d / heatMax) * 255))], Math.min(1, Math.max(0, (d - 1.0) / 2.5)));
+        }
+        m.setColorAt(i, tmp);
+      } else if (density && frame >= 0 && densFloor[f] >= 0) {
         const d = density.at(frame, densFloor[f], x, y);
         const k = Math.min(1, Math.max(0, (d - 1.0) / 2.5));
-        const lut = LUT_COLORS[Math.min(255, Math.round((d / DENSITY_MAX) * 255))];
+        const lut = LUT_COLORS[Math.min(255, Math.round((d / heatMax) * 255))];
         // with people kinds the shape carries the kind, so a crush still tints every marker
         tmp.copy(bases[s]).lerp(lut, k);
         m.setColorAt(i, tmp);
@@ -167,13 +181,16 @@ const HEAT_FRAG = /* glsl */ `
   uniform float uWarn;
   uniform float uMaxD;
   uniform float uOpacity;
+  uniform float uFadeLo;
+  uniform float uFadeHi;
   uniform float uSolid;
   uniform vec3 uDangerColor;
   uniform vec3 uWarnColor;
   void main() {
     float d = mix(texture2D(uA, vUv).r, texture2D(uB, vUv).r, uMix) * 255.0 * uScale;
     vec3 col = texture2D(uLut, vec2(clamp(d / uMaxD, 0.0, 1.0), 0.5)).rgb;
-    float alpha = mix(smoothstep(0.35, 1.6, d) * uOpacity, step(0.12, d) * 0.92, uSolid);
+    // heat fades in over the layer's own range (people per m² or, for turbulence, 1/s²)
+    float alpha = mix(smoothstep(uFadeLo, uFadeHi, d) * uOpacity, step(uFadeLo * 0.35, d) * 0.92, uSolid);
     float w = max(fwidth(d), 1e-4);
     float danger = 1.0 - smoothstep(0.0, w * 1.6, abs(d - uDanger));
     float warn = (1.0 - smoothstep(0.0, w * 1.2, abs(d - uWarn))) * 0.55;
@@ -213,11 +230,15 @@ export function DensityLayer({ density, venue, exploded, palette, terrain, onlyF
     uniforms: {
       uA: { value: L.a }, uB: { value: L.b }, uMix: { value: 0 }, uLut: { value: lut },
       uScale: { value: scale }, uDanger: { value: danger }, uWarn: { value: warn },
-      uMaxD: { value: DENSITY_MAX }, uOpacity: { value: 0.8 }, uLift: { value: 0 }, uSolid: { value: 0 },
+      uMaxD: { value: density.displayMax ?? DENSITY_MAX }, uOpacity: { value: 0.8 }, uLift: { value: 0 }, uSolid: { value: 0 },
+      // a density grid fades in from about a third of a person per m²; another layer (crowd
+      // pressure) from half its warning level up to its danger level
+      uFadeLo: { value: density.displayMax == null ? 0.35 : warn * 0.5 },
+      uFadeHi: { value: density.displayMax == null ? 1.6 : Math.max(danger, warn * 1.01) },
       uDangerColor: { value: new THREE.Color(palette.danger) },
       uWarnColor: { value: new THREE.Color(palette.caution) },
     },
-  })), [layers, lut, scale, danger, warn, palette.danger, palette.caution]);
+  })), [layers, lut, scale, danger, warn, palette.danger, palette.caution, density.displayMax]);
 
   useEffect(() => () => {
     for (const L of layers) { L.a.dispose(); L.b.dispose(); }

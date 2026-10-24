@@ -31,6 +31,10 @@ T = TypeVar("T", bound=BaseModel)
 THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 # key-shaped tokens (sk-..., sk-or-v1-..., Bearer ...) masked in errors shown to people
 KEY_RE = re.compile(r"\b(sk-|Bearer\s+)[A-Za-z0-9_\-.*]{6,}")
+# errors that mean "this key can't be used now" (out of credit, quota, rate limit, revoked)
+QUOTA_RE = re.compile(
+    r"\b(401|402|429)\b|credit|quota|rate.?limit|per.?day|insufficient|unauthori[sz]ed", re.I
+)
 HEALTH_TTL_OK_S = 300.0  # a working key is re-checked every 5 minutes
 HEALTH_TTL_FAIL_S = 60.0  # a failing one every minute (fixing .env needs a restart anyway)
 
@@ -155,6 +159,7 @@ class LLMClient:
         # request features a hosted model rejected once ("schema", "extra"), per model:
         # later calls leave them out instead of failing again
         self._unsupported: set[tuple[str, str]] = set()
+        self._on_spare_key = False  # switched to OPENAI_COMPAT_API_KEY_FALLBACK
         self._health_cache: tuple[float, dict[str, Any]] | None = None
 
     @property
@@ -174,10 +179,27 @@ class LLMClient:
     @property
     def api_key(self) -> str:
         """Key for the active provider (llama-server needs none)."""
+        if self.provider == "openai" and self._on_spare_key:
+            return self.settings.openai_compat_api_key_fallback
         return {
             "nebius": self.settings.nebius_api_key,
             "openai": self.settings.openai_compat_api_key,
         }.get(self.provider, "local")
+
+    def _switch_to_spare_key(self, reason: str) -> bool:
+        """Move to the spare key when the first one ran out of credit or hit a quota."""
+        spare = self.settings.openai_compat_api_key_fallback
+        if self.provider != "openai" or self._on_spare_key or not spare:
+            return False
+        if not QUOTA_RE.search(reason):
+            return False
+        self._on_spare_key = True
+        self._client = None
+        self._health_cache = None
+        log.warning(
+            "first API key unavailable (%s); using the spare key", self.redact(reason)[:120]
+        )
+        return True
 
     @property
     def where(self) -> str:
@@ -238,6 +260,12 @@ class LLMClient:
             out = dict(self._health_cache[1])
         else:
             out = await self._hosted_health()
+            # an expired, revoked or empty first key: the spare key takes over here too, so the
+            # badge (and the first-run checklist) tells the truth about what calls will use
+            if not out["ok"] and self._switch_to_spare_key(str(out.get("detail", ""))):
+                out = await self._hosted_health()
+                if out["ok"]:
+                    out["detail"] = f"{out['detail']} (spare key)"
             ttl = HEALTH_TTL_OK_S if out["ok"] else HEALTH_TTL_FAIL_S
             self._health_cache = (now + ttl, out)
             out = dict(out)
@@ -302,7 +330,11 @@ class LLMClient:
 
     def redact(self, text: str) -> str:
         """`text` with the configured keys and anything key-shaped masked."""
-        for key in (self.settings.nebius_api_key, self.settings.openai_compat_api_key):
+        for key in (
+            self.settings.nebius_api_key,
+            self.settings.openai_compat_api_key,
+            self.settings.openai_compat_api_key_fallback,
+        ):
             if key and len(key) >= 6:
                 text = text.replace(key, "***")
         return KEY_RE.sub(lambda m: m.group(1) + "***", text)
@@ -486,6 +518,20 @@ class LLMClient:
         try:
             return await self._adaptive(kwargs, role, model, schema)
         except LLMError as exc:
+            if self._switch_to_spare_key(str(exc)):
+                return await self._live(role, model, msgs, schema, temperature, max_tokens)
+            spare_model = self.settings.model_fallback
+            if (
+                spare_model
+                and spare_model != model
+                and self.provider != "local"
+                and not QUOTA_RE.search(str(exc))
+            ):
+                # the role's model failed at the provider (not a quota): one try on the other model
+                log.warning(
+                    "%s failed (%s); trying %s", model, self.redact(str(exc))[:100], spare_model
+                )
+                return await self._live(role, spare_model, msgs, schema, temperature, max_tokens)
             if self.provider == "local" or self.settings.llm_fallback != "local":
                 raise
             self._pause_primary(str(exc))
