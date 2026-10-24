@@ -38,9 +38,11 @@ function MiniPlan({ venue, floorId, bounds }: { venue: Venue; floorId: string; b
   );
 }
 
-export function FloorsTab({ venue, traj, onWatch }: { venue: Venue; traj: Trajectory | null; onWatch: (floorId: string) => void }) {
+export function FloorsTab({ venue, traj, allOutS = null, onWatch }: {
+  venue: Venue; traj: Trajectory | null; allOutS?: number | null; onWatch: (floorId: string) => void;
+}) {
   const name = useMemo(() => floorNamer(venue), [venue]);
-  const summary = useMemo(() => (traj ? floorsSummary(traj, venue) : null), [traj, venue]);
+  const summary = useMemo(() => (traj ? floorsSummary(traj, venue, 120, allOutS) : null), [traj, venue, allOutS]);
   const bounds = useMemo(() => venueBounds(venue), [venue]);
   const floors = floorsBottomUp(venue).reverse();
   const stairsOf = (id: string) => (venue.stairs ?? []).filter((x) => x.from_floor === id);

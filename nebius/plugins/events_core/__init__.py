@@ -192,7 +192,11 @@ class Counterflow:
         ex = state.exits.get(p.exit_id)
         if ex is not None:
             ex.capacity_pps *= COUNTERFLOW_CAPACITY_FACTOR
-            state.notes.append(f"Counterflow at {p.exit_id}: instant estimate halves its capacity.")
+            when = f" from {p.at_s:g} s in a simulation" if p.at_s else ""
+            state.notes.append(
+                f"Counterflow at {p.exit_id}: the instant estimate halves its capacity for the "
+                f"whole evacuation (it cannot change mid-run; it halves{when})."
+            )
 
 
 class StaggeredReleaseEvent(_E):
@@ -293,9 +297,10 @@ class MobilityShare:
         return []
 
     def tier1_effect(self, state: Tier1State, p: MobilityShareEvent) -> None:
-        # one speed per group: use the mean speed of the mix (the slow tail shows in Tier 3)
-        ratio = min(1.0, p.speed_mps / max(state.walk_speed_mps, 0.1))
-        factor = (1.0 - p.share) + p.share * ratio
+        # one speed per group: the share-weighted mean walking *time* of the mix, as for a
+        # zone's people mix (api/core/tier1.py mix_speed_factor); the slow tail shows in Tier 3
+        slow = min(max(state.walk_speed_mps, 0.1) / max(p.speed_mps, 0.05), 10.0)
+        factor = 1.0 / ((1.0 - p.share) + p.share * max(slow, 1.0))
         for g in state.groups.values():
             if p.floor_id is None or g.floor_id == p.floor_id:
                 g.speed_factor *= factor

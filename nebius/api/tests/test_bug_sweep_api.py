@@ -105,7 +105,9 @@ async def test_attack_ids_are_unique_and_the_example_script_is_not_repeated(
     state: Any,  # noqa: F811
 ) -> None:
     p = state.projects.create("Hall", template_id="conference_hall_2f")
-    row = state.sessions.start(p.id, {"max_rounds": 3, "attacks_per_round": 3, "fix_targets": 1})
+    row = state.sessions.start(
+        p.id, {"max_rounds": 3, "attacks_per_round": 3, "fix_targets": 1, "agents": "hybrid"}
+    )
     await asyncio.wait_for(state.sessions.live[row.id].task, timeout=60)
     attacks = state.sessions.get(row.id).summary["attacks"]
     ids = [a["attack_id"] for a in attacks]
@@ -139,7 +141,7 @@ def test_session_config_coerces_caps_and_ignores_unknown_keys(state: Any) -> Non
     assert cfg["max_wall_s"] == s.session_max_wall_s
     assert cfg["max_tokens"] == s.session_max_tokens
     assert "density_danger_ppm2" not in cfg
-    assert cfg["agents"] == "hybrid"
+    assert cfg["agents"] == "model"
     assert session_config(s, {"max_tokens": 10})["max_tokens"] == 10  # lowering is fine
     for bad in ({"max_tokens": "lots"}, {"max_rounds": 0}, {"seed": -1}, {"max_runs": 2.5}):
         with pytest.raises(SessionConfigError):

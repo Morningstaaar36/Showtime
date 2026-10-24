@@ -235,7 +235,11 @@ async def start_sweep(
     if not report.ok:
         raise ApiException(422, "venue_invalid", report.errors[0].message, report.errors[0].hint)
     try:
-        return sweep.start_sweep(st, project_id, scenario_ids=body.scenarios if body else None)
+        if body and body.scenarios:  # the organizer picked them
+            return sweep.start_sweep(st, project_id, scenario_ids=body.scenarios)
+        # the AI chooses and composes the what-ifs for this venue (standard six as a fallback)
+        resolved, chosen_by = await sweep.design(st, project_id)
+        return sweep.start_sweep(st, project_id, resolved=resolved, chosen_by=chosen_by)
     except sweep.UnknownScenario as exc:
         raise ApiException(
             422, "unknown_scenario", str(exc), "GET /api/v1/scenarios lists them."

@@ -555,6 +555,7 @@
     "export_map": "Evacuation map (SVG)",
     "export_json": "Data bundle (JSON)",
     "export_project": "Project file (.showtime.zip)",
+    "export_model": "3D model (.glb)",
     "print_hint": "PDF uses your browser's print dialog: choose “Save as PDF”.",
     "empty": "No report yet. Run a stress test or a red-team session first.",
     "assumptions": "Assumptions",
@@ -1684,6 +1685,10 @@
     "ho_map_body": "Exits, routes and hot spots on one page.",
     "ho_checklist": "Checklist",
     "ho_checklist_body": "Doors, gates and staff actions to tick off.",
+    "ho_model": "3D model · .glb",
+    "ho_model_body": "Open it in Blender or any 3D or BIM viewer.",
+    "ho_model_label": "Download the venue as a 3D model (.glb)",
+    "ho_model_failed": "The 3D model could not be made",
     "ho_data": "Data bundle",
     "ho_data_body": "All runs and numbers as JSON.",
     "cost_more": "Models and calls",
@@ -1730,7 +1735,9 @@
     "fl_stair_use": "{side} stair down · {n}",
     "fl_west": "West",
     "fl_east": "East",
-    "fl_middle": "Middle"
+    "fl_middle": "Middle",
+    "estimate": "Estimate",
+    "estimate_hint": "One side never reached 95% out: its time is extrapolated from the exit flow, so no percentage is given."
   },
   "realcase": {
     "title": "Learn from real cases",

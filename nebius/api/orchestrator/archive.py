@@ -83,7 +83,7 @@ KIND_EVENT = {
 # kinds that may hit the whole venue at once (no exit or zone named)
 GLOBAL_KINDS = {"slowdown", "adaptive"}
 # reference fields of an event, in the order that names its target
-REF_FIELDS = ("exit_id", "to_exit_id", "zone_id", "target_zone_id", "from_exit_id")
+REF_FIELDS = ("exit_id", "to_exit_id", "zone_id", "target_zone_id", "from_exit_id", "floor_id")
 
 
 def kind_of(event_type: str) -> str:
@@ -148,7 +148,9 @@ def regions(venue: Venue) -> list[Region]:
                 Region(
                     id="floor:" + "+".join(f.floor_id for f in g),
                     label=names[0] if len(names) == 1 else f"{names[0]} to {names[-1]}",
-                    exits=tuple(e.id for f in g for e in f.exits),
+                    # a floor's ways out: its exits and the stair flights people leave it by
+                    exits=tuple(e.id for f in g for e in f.exits)
+                    + tuple(s.id for s in venue.stairs if s.from_floor in {f.floor_id for f in g}),
                     zones=tuple(z.id for f in g for z in f.zones),
                 )
             )
@@ -338,8 +340,28 @@ class Archive:
         for r in self.regions:
             for x in (*r.exits, *r.zones):
                 self.region_of.setdefault(x, r.id)
+        # stairs and floors are places too: an attack on Stair A or on the 2nd floor lands in
+        # that floor's column (a stair belongs to the floor people leave by it)
+        for f in venue.floors:
+            where = self._region_for(f.floor_id, geo.centroid(f.walkable))
+            if where is not None and len(venue.floors) > 1:
+                self.region_of.setdefault(f.floor_id, where)
+        for st in venue.stairs:
+            where = self._region_for(st.from_floor, geo.centroid(st.top_polygon))
+            if where is not None:
+                self.region_of.setdefault(st.id, where)
+        stair_ids = {st.id for st in venue.stairs}
+
+        def possible(kind: str, r: Region) -> bool:
+            if not r.has(NEEDS[kind]):
+                return False
+            # a floor whose only ways out are stairs: losing one, or being sent to another,
+            # needs a second stair to go to
+            only_one_stair = len(r.exits) == 1 and r.exits[0] in stair_ids
+            return not (kind in ("exit_blocked", "route_change") and only_one_stair)
+
         self.valid: list[Cell] = [
-            (k, r.id) for k in KIND_IDS for r in self.regions if r.has(NEEDS[k])
+            (k, r.id) for k in KIND_IDS for r in self.regions if possible(k, r)
         ] + [(k, EVERYWHERE) for k in KIND_IDS if k in GLOBAL_KINDS]
         self.valid.sort(key=lambda c: (KIND_IDS.index(c[0]), self._col(c[1])))
         self.cells: dict[Cell, list[Elite]] = {c: [] for c in self.valid}

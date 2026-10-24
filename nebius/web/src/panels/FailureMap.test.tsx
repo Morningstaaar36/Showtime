@@ -73,7 +73,7 @@ describe("failure map", () => {
     expect(s.attacks[0].cell).toEqual({ kind: "surge", where: "floor:F0" });
   });
 
-  it("shows coverage and QD-score, and a clicked cell opens its strongest attack", () => {
+  it("shows coverage and total severity; a picked cell shows its attacks, whose buttons play them", () => {
     const onSelectRun = vi.fn();
     const el = render(<FailureMapView map={MAP} onSelectRun={onSelectRun} />);
     expect(el.textContent).toContain("67%");
@@ -84,7 +84,10 @@ describe("failure map", () => {
     expect(cells[0].getAttribute("aria-label")).toContain("Breaks the plan");
     expect(cells[1].textContent).toContain("gap");
     act(() => cells[0].click());
-    expect(onSelectRun).toHaveBeenCalledWith("r_A2");
+    expect(onSelectRun).not.toHaveBeenCalled(); // picking a cell only shows what landed there
     expect(el.textContent).toContain("Attack A2");
+    const show = [...el.querySelectorAll<HTMLButtonElement>("button")].find((x) => x.textContent?.includes("Show attack"));
+    act(() => show!.click());
+    expect(onSelectRun).toHaveBeenCalledWith("r_A2");
   });
 });

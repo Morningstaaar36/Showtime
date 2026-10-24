@@ -43,6 +43,7 @@ COUNTERFLOW_SHARE = 0.05
 COUNTERFLOW_PEOPLE = (20, 400)
 EXIT_LOST_AT_S = 60.0
 PHASE_DELAY_S = 120.0
+PHASE_MAX_DELAY_S = 360.0  # the last phase of a tall building starts within 6 minutes
 FIREFIGHTERS_PER_FLOOR = 4
 FIREFIGHTERS_AT_S = 60.0
 LIFT_USER_SHARE = 0.05
@@ -101,10 +102,22 @@ class VenueFacts:
             return None
         return max(self.stairwells, key=lambda s: (s.load, s.width_m, len(s.flights), s.name))
 
+    def ground(self) -> str:
+        """The street level: the highest floor at or below elevation 0 (basements lie below it);
+        the lowest floor when every floor is raised."""
+        elev = {f.floor_id: f.elevation_m for f in self.venue.floors}
+        at_or_below = [f for f in self.floors if elev.get(f, 0.0) <= 0.01]
+        return at_or_below[-1] if at_or_below else self.floors[0]
+
+    def off_ground(self) -> list[str]:
+        """Every floor but the street level: the storeys above and the basements below."""
+        g = self.ground()
+        return [f for f in self.floors if f != g]
+
     def fire_floor(self) -> str:
-        """The most occupied floor above the ground (ties: the lowest); the ground floor in a
-        single-storey building."""
-        upper = self.floors[1:] or self.floors[:1]
+        """The most occupied floor off the street level (ties: the lowest); the ground floor in
+        a single-storey building."""
+        upper = self.off_ground() or self.floors[:1]
         people = {f: sum(z.people for fid, z in self.zones if fid == f) for f in upper}
         return max(upper, key=lambda f: (people[f], -self.floors.index(f)))
 
@@ -174,37 +187,44 @@ class ScenarioSpec:
 
 
 def _stair_name(stair_id: str) -> str:
-    m = re.fullmatch(r"stairs?[_\- ]?([a-z0-9]+?)(?:_\d+)?", stair_id, flags=re.IGNORECASE)
+    m = re.fullmatch(r"stairs?[_\- ]?([a-z0-9]+?)(?:_b?\d+)?", stair_id, flags=re.IGNORECASE)
     return f"Stair {m.group(1).upper()}" if m else stair_id
 
 
+def _landing(stair: Stair, floor_id: str) -> tuple[float, float] | None:
+    """Where a flight meets `floor_id` (its top or its bottom), or None if it does not."""
+    if stair.from_floor == floor_id:
+        return geo.centroid(stair.top_polygon)
+    if stair.to_floor == floor_id:
+        return geo.centroid(stair.bottom_polygon)
+    return None
+
+
 def _stairwells(venue: Venue, load: dict[str, float]) -> list[Stairwell]:
+    """Flights grouped into stairwells: two flights are one core when they meet the same floor
+    within STAIRWELL_LINK_M of each other, whichever way they go (a basement flight climbs to
+    the street where the flights from the storeys above arrive)."""
     elev = {f.floor_id: f.elevation_m for f in venue.floors}
     flights = sorted(venue.stairs, key=lambda s: (-elev.get(s.from_floor, 0.0), s.id))
-    below: dict[str, str] = {}  # flight -> the flight that continues it one floor down
-    taken: set[str] = set()
-    for up in flights:
-        ux, uy = geo.centroid(up.top_polygon)
-        bx, by = geo.centroid(up.bottom_polygon)
-        best, best_d = None, STAIRWELL_LINK_M
-        for low in flights:
-            if low.from_floor != up.to_floor or low.id in taken:
-                continue
-            lx, ly = geo.centroid(low.top_polygon)
-            d = min(math.hypot(lx - ux, ly - uy), math.hypot(lx - bx, ly - by))
-            if d <= best_d:
-                best, best_d = low.id, d
-        if best is not None:
-            below[up.id] = best
-            taken.add(best)
-    by_id = {s.id: s for s in flights}
+    parent = {s.id: s.id for s in flights}
+
+    def root(x: str) -> str:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    for i, a in enumerate(flights):
+        for b in flights[i + 1 :]:
+            for fl in {a.from_floor, a.to_floor} & {b.from_floor, b.to_floor}:
+                pa, pb = _landing(a, fl), _landing(b, fl)
+                if pa and pb and math.hypot(pa[0] - pb[0], pa[1] - pb[1]) <= STAIRWELL_LINK_M:
+                    parent[root(a.id)] = root(b.id)
+    groups: dict[str, list[Stair]] = {}
+    for s in flights:  # flights keep their top-down order inside a stairwell
+        groups.setdefault(root(s.id), []).append(s)
     out: list[Stairwell] = []
-    for s in flights:
-        if s.id in taken:
-            continue  # continues a flight from above
-        chain = [s]
-        while chain[-1].id in below:
-            chain.append(by_id[below[chain[-1].id]])
+    for chain in groups.values():
         names = {_stair_name(f.id) for f in chain}
         name = names.pop() if len(names) == 1 else _stair_name(chain[0].id)
         out.append(
@@ -348,7 +368,9 @@ def _phased(f: VenueFacts) -> Built | str:
             continue
         # one phase per floor of distance from the fire floor's group
         dist = min(abs(f.floors.index(fl) - f.floors.index(g)) for g in first)
-        delay = PHASE_DELAY_S * dist
+        # capped: a tall building still starts its last phase within minutes (and within the
+        # event's limit of 1,800 s)
+        delay = min(PHASE_DELAY_S * dist, PHASE_MAX_DELAY_S)
         for fid, z in f.zones:
             if fid == fl and z.people > 0:
                 events.append(_ev("staggered_release", zone_id=z.id, delay_s=delay, at_s=0))
@@ -391,7 +413,7 @@ def _firefighters(f: VenueFacts) -> Built | str:
 
 
 def _lift_out(f: VenueFacts) -> Built | str:
-    upper = f.floors[1:]
+    upper = f.off_ground()
     if not upper:
         return "Single storey: nobody needs a lift."
     return Built(
@@ -406,7 +428,7 @@ def _lift_out(f: VenueFacts) -> Built | str:
             for fl in upper
         ],
         targets=[
-            f"{round(LIFT_USER_SHARE * 100)}% of people above the ground floor take the stairs "
+            f"{round(LIFT_USER_SHARE * 100)}% of people off the street level take the stairs "
             f"at {WALKING_FRAME_SPEED} m/s"
         ],
     )

@@ -83,6 +83,12 @@ export function countdownText(c: Countdown | null | undefined): string {
 const usable = (r: RunOut | undefined) => !!r && (r.status === "ok" || r.status === "partial");
 const noop = () => {};
 
+/** When the run got everyone out, the time the last person left (null otherwise). */
+function allOut(run: { result?: { metrics?: { agents_not_evacuated?: number | null; evac_time_max_s?: number | null } | null } | null } | undefined): number | null {
+  const m = run?.result?.metrics;
+  return m && m.agents_not_evacuated === 0 && m.evac_time_max_s != null ? m.evac_time_max_s : null;
+}
+
 export function YourPlanPage() {
   const { projectId = "" } = useParams();
   const [params, setParams] = useSearchParams();
@@ -466,12 +472,13 @@ export function YourPlanPage() {
           {multi && (
             <TabsContent value="floors" className="animate-tab-in">
               <FloorsTab venue={venue} traj={(afterReplay.data ?? beforeReplay.data)?.traj ?? null}
+                         allOutS={allOut(afterReplay.data ? after.data : before.data)}
                          onWatch={(floorId) => { useUi.getState().setFloorView(floorId); go("replay"); }} />
             </TabsContent>
           )}
 
           <TabsContent value="handover" className="animate-tab-in">
-            <HandOver sessionId={sessionId} projectId={p.id} onTestAgain={testAgain} testing={start.isPending}>
+            <HandOver sessionId={sessionId} projectId={p.id} venue={venue} projectName={p.name} onTestAgain={testAgain} testing={start.isPending}>
               <CostCard cost={summary?.cost} tokens={session.data?.tokens ?? 0} costUsd={session.data?.cost_usd ?? 0} />
             </HandOver>
           </TabsContent>
@@ -499,12 +506,17 @@ function NextCard({ icon, tone, title, body, action }: { icon: React.ReactNode; 
 }
 
 /** Seconds into the replay where density peaks (from the density index), a few seconds early. */
+/** When the crowd was densest. `peak_series` has one value per trajectory frame (4 per second),
+ * thinned to at most about 600 values by keeping every `step`-th frame (sim/metrics.py), so its
+ * index maps to the trajectory's frame times, not to the density grid's stored frames. */
 function peakMoment(r: Replay | null | undefined): number | null {
   const idx = r?.density?.index;
-  if (!idx?.peak_series?.length) return null;
+  const times = r?.traj.index.times;
+  if (!idx?.peak_series?.length || !times?.length) return null;
   let k = 0;
   idx.peak_series.forEach((v, i) => { if (v > idx.peak_series[k]) k = i; });
-  return idx.times[k] ?? null;
+  const step = Math.max(1, Math.floor(times.length / 600));
+  return times[Math.min(k * step, times.length - 1)] ?? null;
 }
 
 /** People still inside over the replay, about 60 samples. */

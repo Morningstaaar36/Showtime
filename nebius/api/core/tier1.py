@@ -227,6 +227,9 @@ def build_state(venue: Venue, settings: Any) -> tuple[Tier1State, dict[str, Any]
     return state, {"grids": grids}
 
 
+STAIRWELL_M = 4.0  # flights whose landings are this close belong to one stairwell
+
+
 @dataclass
 class _Route:
     group: str
@@ -264,14 +267,31 @@ def _follow(
     chain_t: tuple[float, ...],
     seen: frozenset[str],
 ) -> None:
-    """Routes from `area` on `floor` to every exit, going down any chain of stairs."""
+    """Routes from `area` on `floor` to every exit, going down chains of stairs.
+
+    From a stair landing people keep to the same stairwell when it continues (a flight whose
+    top is within STAIRWELL_M of where they arrived) and cross the floor to another stair only
+    when it does not: one route per stairwell instead of every combination of flights, which
+    would grow exponentially with the number of storeys.
+    """
     grid = w.grids[floor]
     v = w.speed
+    same_core: set[str] | None = None
+    if chain:
+        lx, ly = geo.centroid(area)
+        same_core = {
+            sid
+            for sid, st in w.stairs.items()
+            if st.from_floor == floor
+            and math.dist(geo.centroid(st.top_polygon), (lx, ly)) <= STAIRWELL_M
+        } or None
     for ex in w.state.exits.values():
         if ex.floor_id != floor or ex.id not in grid.dist:
             continue
         if w.heading and ex.kind == "exit" and ex.id not in w.heading:
             continue  # these people are going somewhere else
+        if same_core is not None and ex.kind == "stair" and ex.id not in same_core:
+            continue
         dmin, dmean, dmax = _area_dist(grid, area, ex.id)
         if not math.isfinite(dmean):
             continue
@@ -284,7 +304,8 @@ def _follow(
         st = w.stairs[ex.id]
         if st.to_floor in seen or st.to_floor not in w.grids:
             continue
-        d = ex.stair_delay_s
+        # slow walkers are slower on the stairs too (as in the simulator's stair schedule)
+        d = ex.stair_delay_s / min(1.0, max(v / max(w.state.walk_speed_mps, 0.1), 0.05))
         _follow(
             w,
             st.to_floor,

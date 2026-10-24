@@ -38,21 +38,18 @@ export function FailureMap({ map, onSelectRun, activeRunId, className }: {
   const sel = picked ? map.cells.find((c) => `${c.kind}|${c.where}` === picked) ?? null : null;
   const kindLabel = (id: string) => map.kinds.find((k) => k.id === id)?.label ?? id;
   const whereLabel = (id: string) => map.wheres.find((w) => w.id === id)?.label ?? id;
-  const choose = (c: FailureMapCell) => {
-    setPicked(`${c.kind}|${c.where}`);
-    const b = best(c);
-    if (b && onSelectRun) onSelectRun(b.run_id);
-  };
+  // picking a cell shows what landed there; its buttons play the attack or the fixed plan
+  const choose = (c: FailureMapCell) => setPicked(`${c.kind}|${c.where}`);
   return (
     <section aria-label="Failure map" className={cn("space-y-3", className)}>
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-[var(--radius-panel)] border border-border p-2.5">
           <span className="block text-2xl font-semibold leading-none tabular">{fmtCoverage(map)}</span>
-          <span className="text-2xs text-muted">coverage · {map.filled} of {map.cells_total} cells found</span>
+          <span className="text-2xs text-muted">of the map tried · {map.filled} of {map.cells_total} places and hazards</span>
         </div>
         <div className="rounded-[var(--radius-panel)] border border-border p-2.5">
           <span className="block text-2xl font-semibold leading-none tabular">{fmtSeverity(map.qd_score)}</span>
-          <span className="text-2xs text-muted">QD-score · sum of the strongest severities</span>
+          <span className="text-2xs text-muted">total severity · of the worst attack in each place</span>
         </div>
       </div>
       {map.history.length > 0 && <p className="text-xs text-muted tabular">{historyLine(map)}</p>}
@@ -117,7 +114,7 @@ export function FailureMap({ map, onSelectRun, activeRunId, className }: {
               <div key={e.attack_id} className="space-y-1 border-t border-border pt-2 first:border-t-0 first:pt-0">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold leading-snug">{e.title}</p>
-                  <span className="text-xs text-muted tabular">{e.attack_id} · round {e.round}</span>
+                  <span className="text-xs text-muted tabular">round {e.round}</span>
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs tabular">
                   <span>Severity <b>{fmtSeverity(e.severity)}</b>{e.severity >= 1 ? " (breaks)" : ""}</span>
@@ -127,7 +124,7 @@ export function FailureMap({ map, onSelectRun, activeRunId, className }: {
                   {Number(m.agents_not_evacuated ?? 0) > 0 && <span>Still inside <b>{fmtInt(m.agents_not_evacuated as number)}</b></span>}
                 </div>
                 {e.fixed_by && e.severity_after != null && (
-                  <p className="flex items-center gap-1 text-xs text-muted"><Wrench className="size-3" aria-hidden />Kept fix {e.fixed_by}: severity {fmtSeverity(e.severity)} → <b className="text-ink">{fmtSeverity(e.severity_after)}</b></p>
+                  <p className="flex items-center gap-1 text-xs text-muted"><Wrench className="size-3" aria-hidden />With the kept fix: severity {fmtSeverity(e.severity)} → <b className="text-ink">{fmtSeverity(e.severity_after)}</b></p>
                 )}
                 <div className="flex flex-wrap gap-1">
                   {onSelectRun && <Button size="sm" variant="ghost" className="h-7" onClick={() => onSelectRun(e.run_id)}><Eye />Show attack</Button>}
@@ -138,10 +135,11 @@ export function FailureMap({ map, onSelectRun, activeRunId, className }: {
           })}
         </div>
       )}
-      <p className="text-2xs text-muted">
-        Severity is computed from each simulation’s numbers only (the AI proposes attacks; it never scores them): {map.fitness}.
-        {map.aim.targeted > 0 && ` The red team was aimed at ${map.aim.targeted} gaps and landed in ${map.aim.hit}.`}
-      </p>
+      <details className="text-2xs text-muted">
+        <summary className="cursor-pointer">Scored by the simulator, never by the AI. How?</summary>
+        <p className="mt-1">Severity comes from each simulation’s numbers only: {map.fitness}. 1 or more means the run breaks the plan.
+          {map.aim.targeted > 0 && ` The red team was aimed at ${map.aim.targeted} gaps and landed in ${map.aim.hit}.`}</p>
+      </details>
     </section>
   );
 }

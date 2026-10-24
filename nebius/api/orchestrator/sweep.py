@@ -10,12 +10,16 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from api.adapters.llm import LLMError
+from api.agents.base import AgentEnv, AgentUnavailable
+from api.agents.what_if import design_what_ifs
 from api.core.estimates import scale_people
 from api.core.scenarios import (
     BY_ID,
     CATALOGUE,
     LEGACY_SWEEP,
     Resolved,
+    catalogue_for,
     resolve,
     venue_facts,
 )
@@ -50,6 +54,23 @@ def _resolve(
     return [resolve(BY_ID[i], facts) for i in ids]
 
 
+async def design(st: Any, project_id: str) -> tuple[list[Resolved], str]:
+    """The what-ifs for a project, chosen and composed by the AI from the scenario library and
+    the scenario events; the standard six only when no model answers. Returns them and who
+    chose them ("ai" or "standard")."""
+    venue: Venue = st.projects.venue(project_id)
+    library = catalogue_for(venue, st.runs.estimate(venue))
+    env = AgentEnv(llm=st.llm, project_id=project_id, on_usage=st.usage.add)
+    try:
+        plan = await design_what_ifs(env, st.registry, venue, library)
+    except (AgentUnavailable, LLMError) as exc:
+        log.warning("what-if designer unavailable (%s); running the standard six", exc)
+        return _resolve(st, venue, None), "standard"
+    if not plan.scenarios:
+        return _resolve(st, venue, None), "standard"
+    return plan.scenarios, "ai"
+
+
 def _item(r: Resolved, **kw: Any) -> dict[str, Any]:
     """A sweep row: the original fields (key, label, run_id, skipped, closed_exit) plus the
     catalogue's title, icon, category and targets."""
@@ -78,15 +99,18 @@ def start_sweep(
     project_id: str,
     parent_run_id: str | None = None,
     scenario_ids: list[str] | None = None,
+    resolved: list[Resolved] | None = None,
+    chosen_by: str = "standard",
 ) -> dict[str, Any]:
-    """Submit every scenario (default: the original six); returns the sweep record
-    (scenario → run id). Raises UnknownScenario for ids outside the catalogue."""
+    """Submit every scenario (`resolved`, e.g. designed by the AI, else `scenario_ids`, else
+    the original six); returns the sweep record (scenario → run id). Raises UnknownScenario
+    for ids outside the catalogue."""
     p = st.projects.get(project_id)
     version = p.current_version
     venue: Venue = st.projects.venue(project_id, version)
     tier = sweep_tier(st.settings)
     items: list[dict[str, Any]] = []
-    for r in _resolve(st, venue, scenario_ids):
+    for r in resolved if resolved is not None else _resolve(st, venue, scenario_ids):
         if r.built is None:
             items.append(_item(r, run_id=None, skipped=r.reason))
             continue
@@ -124,6 +148,7 @@ def start_sweep(
         "tier": tier,
         "scenarios": [it["key"] for it in items],
         "items": items,
+        "chosen_by": chosen_by if resolved is not None else "you" if scenario_ids else "standard",
     }
     with db_session(st.projects.db_url) as s:
         row = s.get(UserSetting, _key(project_id)) or UserSetting(key=_key(project_id))
