@@ -38,6 +38,10 @@ measured improvements, down to **the latest safe time to start evacuating**.
 | ![Floors](docs/screenshots/overhaul/school-floors.png) | ![Scenarios](docs/screenshots/overhaul/hospital-scenarios.png) |
 | **Start from your event**: map, one sentence, or a use case | **AI at work**: the red team, the simulator and the judge, live |
 | ![Home](docs/screenshots/overhaul/home.png) | ![AI at work](docs/screenshots/overhaul/work-live.png) |
+| **The AI team**: twelve Nemotron agents, the model each runs on, the tools each may use | **Real cases** rebuilt by the AI from published reports and simulated |
+| ![AI team](docs/screenshots/overhaul/ai-team.png) | ![Real case](docs/screenshots/overhaul/real-case-itaewon.png) |
+| **Test modes**: Quick, Standard, Deep or Offline | |
+| ![Test modes](docs/screenshots/overhaul/test-modes.png) | |
 | **The real site in 3D**, laid out for the event | **Event Copilot**: one sentence to a tested plan |
 | ![Site](docs/screenshots/site-3d.png) | ![Copilot](docs/screenshots/copilot.png) |
 

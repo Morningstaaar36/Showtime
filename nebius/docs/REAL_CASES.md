@@ -49,7 +49,7 @@ venue. Numbers are the simulator's; "where" is the densest cell of the run.
 
 | Case | What the AI built | Peak density | Time above 5 /m² | Where | Where the real crush was |
 |---|---|---|---|---|---|
-| Itaewon 2022 | the upper street and Itaewon-ro joined by a 3.2 × 45 m alley; 1,200 + 400 people heading down, 800 heading up | **5.7 /m²** | 98 s | at the top of the alley, where it meets the upper street, 31 s in | in the alley, between the T-junction and Itaewon-ro: **same place** |
+| Itaewon 2022 | both streets side by side on one floor, with a 3.2 × 45 m alley leading off them to a 3 m opening (not quite the site: see below); 1,200 + 400 people heading for Itaewon-ro, 800 for the upper street | **5.7 /m²** | 98 s | at the top of the alley, where the crowd squeezes into it, 31 s in | in the alley, between the T-junction and Itaewon-ro: **near the same place** |
 | Love Parade 2010 | a 26 m ramp, 130 m long, with the fences narrowing it to 10.6 m, above a tunnel with exits at both ends; 2,300 arriving heading up, 700 leaving heading down | **5.5 /m²** | 56 s | the foot of the ramp, west side, 132 s in | between the staircase and the tunnel at the foot of the ramp: **same place** |
 | Hillsborough 1989 | the Leppings Lane terrace split into pens by the radial fence, perimeter gates of 0.8 m, the tunnel from the concourse | **9.9 /m²** | 894 s of 900 s; 2,788 of 3,000 still inside at the end | at the gate of pen 3, 133 s in | the front of pens 3 and 4 against the perimeter fence, most deaths in pen 3: **same place** |
 
@@ -66,16 +66,20 @@ none removed the break without making another outcome worse.
   matches nothing is sent back to the model instead of being dropped. Without the headings,
   everyone at Love Parade walked to the nearest tunnel end and no crush formed.
 
-**Approximation to know:** in the live Love Parade build the tunnel runs north–south (26 × 126 m)
-instead of west–east (126 × 20 m); the ramp, its narrowing and where the two flows meet are as
-described.
+**Approximations to know:**
+- Itaewon: the live build put the upper street and Itaewon-ro side by side on one floor instead
+  of at the two ends of the alley, so the alley is not the only way between them (the crowd can
+  also walk to the street's own ends). The danger still forms where the crowd squeezes into the
+  alley; a build that places the streets at both ends of the alley is the next step.
+- Love Parade: the tunnel runs north–south (26 × 126 m) instead of west–east (126 × 20 m); the
+  ramp, its narrowing and where the two flows meet are as described.
 
 The earlier runs on scripted designer replies (23 October) gave the same places: Love Parade
 5.7 /m² at the foot of the ramp, Hillsborough 10.8 /m² at the front of the pens.
 
 ## Gaps
 
-- One live build per case so far; a model can answer differently next time (the replies are
+- One live build per case so far (Itaewon's streets not yet placed at both ends of the alley); a model can answer differently next time (the replies are
   recorded in the LLM cache, so the app replays the ones above).
 - Slopes, crush barriers, falls and police cordons are not modelled; the crowd is capped at
   3,000 simulated people.
