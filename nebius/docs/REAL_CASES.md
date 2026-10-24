@@ -32,86 +32,51 @@ therefore the simulator's exit plan send those people only to those exits. Ramps
 
 ## The test that starts when a case opens
 
-One designer call builds the venue (replayed from the LLM cache in `record_replay` mode). The
-test then needs no model: `agents: "rules"` (rule-based what-ifs and fixes), `judge: false` (the
-computed summary is kept), one round of two what-ifs, two fixes for the worst, what-ifs at tier 2
+The Designer agent builds the venue from the case's description (one call, replayed from the LLM
+cache in `record_replay` mode). The test that follows is the normal AI-designed one: the red team
+attacks the case as it was, the blue team proposes fixes, the simulator confirms them and the
+judge writes the verdict; the rules stand in only when no model answers
 (`api/orchestrator/real_cases.py`, `CASE_TEST`). Its baseline is the case as it happened; the
-fixes are what Showtime would have suggested. A case opened before opens its existing project.
+fixes are what Showtime would have suggested. A case opened before opens its existing project; a
+case whose first build needed fixes is built again the next time it is opened (or tested as it
+stands, if someone edited it since).
 
-## Results
+## Results (live, 25 October 2026)
 
-Simulated with JuPedSim (tier 3, seed 42, 0.025 s step) on 23 Oct 2026, on the venues the solver
-builds from the scripted designer replies in `api/tests/fixtures/real_cases/` (what a model
-plausibly writes for each description). The instant estimate (tier 1, a flow formula) is shown
-for comparison. Live designer runs were not possible on 25 Oct: the hosted model (Nemotron 3
-Super on OpenRouter's free tier) returned 404 from its provider for both keys, and Docker was
-down for a re-run; see *Gaps*.
+Built live by **Nemotron 3 Ultra** (OpenRouter, free tier) from the descriptions in
+`api/data/real_cases.json`, then simulated with JuPedSim (tier 3, seed 42) on the as-it-happened
+venue. Numbers are the simulator's; "where" is the densest cell of the run.
 
-| Case | Peak density | Time above 5 /m² | Where | Where the real crush was |
-|---|---|---|---|---|
-| Love Parade 2010 | **5.7 /m²** (tier 1: 5.4) | 183 s of 542 s | foot of the ramp, west side, by the narrow staircase and the tunnel mouth (x 51.5, y 24.5) | between the staircase and the tunnel entrance at the foot of the ramp: **same place** |
-| Hillsborough 1989 | **10.8 /m²** (tier 1: 5.4) | 894 s of 900 s; 2,763 of 3,000 still in the pens at the end | front of the pens at the perimeter gate of pen 4 (x 7.5, y 14.5) | the front of pens 3 and 4 against the perimeter fence, most deaths in pen 3: **same zone, other pen** |
-| Itaewon 2022 | not yet simulated (tier 1: 5.4) | tier 1: 63 s | tier 1 puts it at the Itaewon-ro exits, not in the alley | in the alley: **not shown yet** |
+| Case | What the AI built | Peak density | Time above 5 /m² | Where | Where the real crush was |
+|---|---|---|---|---|---|
+| Itaewon 2022 | the upper street and Itaewon-ro joined by a 3.2 × 45 m alley; 1,200 + 400 people heading down, 800 heading up | **5.7 /m²** | 98 s | at the top of the alley, where it meets the upper street, 31 s in | in the alley, between the T-junction and Itaewon-ro: **same place** |
+| Love Parade 2010 | a 26 m ramp, 130 m long, with the fences narrowing it to 10.6 m, above a tunnel with exits at both ends; 2,300 arriving heading up, 700 leaving heading down | **5.5 /m²** | 56 s | the foot of the ramp, west side, 132 s in | between the staircase and the tunnel at the foot of the ramp: **same place** |
+| Hillsborough 1989 | the Leppings Lane terrace split into pens by the radial fence, perimeter gates of 0.8 m, the tunnel from the concourse | **9.9 /m²** | 894 s of 900 s; 2,788 of 3,000 still inside at the end | at the gate of pen 3, 133 s in | the front of pens 3 and 4 against the perimeter fence, most deaths in pen 3: **same place** |
 
-### Love Parade 2010, Duisburg (24 July 2010; 21 dead, more than 500 injured)
+The red team's attacks broke every case further (three of three in each, except where the
+baseline already failed), and no fix the blue team proposed was kept in these one-round tests:
+none removed the break without making another outcome worse.
 
-Sources: Helbing & Mukerji (2012), *Crowd disasters as systemic failures: analysis of the Love
-Parade disaster*, EPJ Data Science 1:7, <https://doi.org/10.1140/epjds7> (preprint
-<https://arxiv.org/abs/1206.5856>), which also summarises G. K. Still's expert report.
+**What it took to get there** (each fixed in the tools, not by drawing the sites):
+- Nemotron 3.5 Lightning misread the long descriptions (it drew Itaewon as one 80 × 170 m
+  street); Nemotron 3 Ultra got them right, so the reasoning agents now run on Ultra
+  (`MODEL_MAIN`), as the hackathon suggests for serious reasoning.
+- A crowd's heading has to reach the simulator: "Tunnel" now matches "West tunnel end" and
+  "East tunnel end", "heading for the ramp" means the ramp's ways out, and a heading that
+  matches nothing is sent back to the model instead of being dropped. Without the headings,
+  everyone at Love Parade walked to the nearest tunnel end and no crush formed.
 
-Dimensions used: tunnel about 20 m wide (smallest width); one ramp 26 m wide and 130 m long, the
-only way in and out; usable width 10.59 m at two triangular fence structures; flows 15:00–15:40 of
-450–750 people per minute in and 40–250 out; most victims between the narrow staircase and the
-tunnel entrance.
+**Approximation to know:** in the live Love Parade build the tunnel runs north–south (26 × 126 m)
+instead of west–east (126 × 20 m); the ramp, its narrowing and where the two flows meet are as
+described.
 
-Approximations: 126 m of tunnel drawn; ramp flat; staircase 1.5 m wide and fence position and
-length estimated; 3,000 people (1,150 + 1,150 arriving, 700 leaving: 30 % of the inflow, inside
-the published range) for a crowd of tens of thousands; police cordons not modelled.
-
-Run: everyone reached an exit (2,300 the festival grounds, 430 the west tunnel end, 270 the
-staircase); warning density for 300 s. With arrivals only (no one leaving) the same layout
-peaked at 5.0 /m² at the same corner: the meeting of the two flows is what pushed it into danger.
-
-### Hillsborough 1989, Sheffield (15 April 1989; 97 dead)
-
-Sources: Lord Justice Taylor, *The Hillsborough Stadium Disaster, Interim Report* (1989, Cm 765);
-HSE, G. Norton, *An investigation into the number of people in pens 3 and 4* (1989); Wikipedia,
-*Hillsborough disaster* (official toll of 97). Links in `api/data/real_cases.json`.
-
-Dimensions used: tunnel about 23 m long, 1 in 6 down to the terrace, its mouth bisected by the
-radial fence (Taylor ¶45); perimeter gates 0.82 m (pen 3) and 0.79 m (pen 4) (¶260); pen areas
-about 188 and 192 m² (HSE table 2); about 2,000 through gate C in five minutes (¶70); 1,576
-people in pen 3 at 15:03, 8.4 /m² (HSE).
-
-Approximations: pens as two 12.5 × 15 m rectangles, crush barriers not drawn; tunnel width
-4.3 m (press reports, not the inquiry) and concourse size estimated; flat; pens start at 600
-each (the simulator cannot place more than 4 /m² at the start; they were above 5.4 /m² by 14:50)
-with 1,800 arriving; the 0.79 m gate drawn 0.8 m; gates open from the start.
-
-Run: only 237 people left through the two gates in 15 minutes; the peak cell is at the pen 4
-gate. The front of both pens is where the danger is, as in the inquiry, but this run does not
-single out pen 3.
-
-### Itaewon 2022, Seoul (29 October 2022; 159 dead, 196 injured)
-
-Sources: Wikipedia, *Seoul Halloween crowd crush* (alley about 45 m long, 3.2 m at its narrowest,
-sloping up from Itaewon-ro); AP via The Boston Globe, 13 Jan 2023 (police special investigation:
-about 8 people per m² at 22:15, 9–11 at 22:25).
-
-Approximations: the upper street (6 m) and Itaewon-ro (12 m) widths and the 80 m drawn of each
-are estimates; the alley is 3.2 m over its whole length and flat; who walks which way is an
-assumption (1,600 down, 800 up); 2,400 people.
-
-No JuPedSim result yet. The instant estimate finds its peak at the Itaewon-ro exits, not in
-the alley: a flow formula does not model two crowds meeting head-on, which is the mechanism
-here, so this case needs the simulator before it can be said to show the danger.
+The earlier runs on scripted designer replies (23 October) gave the same places: Love Parade
+5.7 /m² at the foot of the ramp, Hillsborough 10.8 /m² at the front of the pens.
 
 ## Gaps
 
-- The venues above come from scripted designer replies, not yet from the live model; the
-  live run (one call per case) still has to be recorded into the LLM cache and checked against
-  the dimensions listed here.
-- Itaewon has no simulator result yet.
+- One live build per case so far; a model can answer differently next time (the replies are
+  recorded in the LLM cache, so the app replays the ones above).
 - Slopes, crush barriers, falls and police cordons are not modelled; the crowd is capped at
   3,000 simulated people.
 - Jamarat 2006, Mina 2015 and Astroworld 2021 were considered and left out: their published
