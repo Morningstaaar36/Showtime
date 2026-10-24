@@ -80,3 +80,12 @@ def test_the_sweep_route_lets_the_ai_choose(client: Any) -> None:  # noqa: F811
     assert rec["chosen_by"] == "standard" and len(rec["scenarios"]) == 6
     rec = client.post(f"/api/v1/projects/{pid}/sweep", json={"scenarios": ["gate"]}).json()
     assert rec["chosen_by"] == "you" and rec["scenarios"] == ["gate"]
+
+
+def test_the_ai_team_is_listed_with_models_and_tools(client: Any) -> None:  # noqa: F811
+    out = client.get("/api/v1/agents").json()
+    names = {a["name"] for a in out["agents"]}
+    assert {"designer", "red_team", "blue_team", "judge", "what_if"} <= names
+    for a in out["agents"]:
+        assert a["model"] and a["decides"] and all(t in out["tools"] for t in a["tools"])
+    assert out["sandbox"]["provider"] in ("docker", "nebius", "fake")

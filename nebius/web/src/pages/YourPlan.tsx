@@ -58,7 +58,7 @@ import { useReplay } from "@/replay/useReplay";
 import { SceneRoot } from "@/scene/SceneRoot";
 import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
-import { QUICK_TEST } from "./CheckVenue";
+import { savedTestMode } from "@/journey/testModes";
 
 export const PLAN_TABS = ["overview", "replay", "scenarios", "fixes", "floors", "handover"] as const;
 export type PlanTab = (typeof PLAN_TABS)[number];
@@ -248,7 +248,8 @@ export function YourPlanPage() {
   }
 
   const label = (id: string) => names.get(id) ?? id;
-  const testAgain = () => start.mutate({ project_id: p.id, config: QUICK_TEST }, {
+  // the depth this browser chose last on "Test this plan"
+  const testAgain = () => start.mutate({ project_id: p.id, config: savedTestMode().config }, {
     onSuccess: (s) => navigate(`/p/${p.id}/work?session=${s.id}&live=1`),
     onError: (e) => toast.error(e.message),
   });

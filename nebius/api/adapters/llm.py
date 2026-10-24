@@ -520,6 +520,18 @@ class LLMClient:
         except LLMError as exc:
             if self._switch_to_spare_key(str(exc)):
                 return await self._live(role, model, msgs, schema, temperature, max_tokens)
+            spare_model = self.settings.model_fallback
+            if (
+                spare_model
+                and spare_model != model
+                and self.provider != "local"
+                and not QUOTA_RE.search(str(exc))
+            ):
+                # the role's model failed at the provider (not a quota): one try on the other model
+                log.warning(
+                    "%s failed (%s); trying %s", model, self.redact(str(exc))[:100], spare_model
+                )
+                return await self._live(role, spare_model, msgs, schema, temperature, max_tokens)
             if self.provider == "local" or self.settings.llm_fallback != "local":
                 raise
             self._pause_primary(str(exc))

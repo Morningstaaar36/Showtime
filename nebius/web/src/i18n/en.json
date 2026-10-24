@@ -1091,7 +1091,17 @@
     "all_floors": "All floors",
     "no_exits_here": "No doors on this floor. Stairs lead to the others.",
     "on_floor": "on this floor",
-    "in_total": "in total"
+    "in_total": "in total",
+    "mode_label": "How deep to test",
+    "mode_quick": "Quick",
+    "mode_standard": "Standard",
+    "mode_deep": "Deep",
+    "mode_offline": "Offline",
+    "mode_quick_hint": "A first look: one round of a few AI attacks, each simulated.",
+    "mode_standard_hint": "The AI attacks the plan and fixes what breaks; every idea is simulated.",
+    "mode_deep_hint": "Three rounds on the improved plan: the failure map fills in and findings are confirmed in full.",
+    "mode_offline_hint": "No AI: standard attacks and fixes from rules, still simulated. For use without a model or a key.",
+    "test_hint_mode": "About {m} min. {what}"
   },
   "work": {
     "step_of": "Step {n} of {total}",
@@ -1738,5 +1748,31 @@
     "fl_middle": "Middle",
     "estimate": "Estimate",
     "estimate_hint": "One side never reached 95% out: its time is extrapolated from the exit flow, so no percentage is given."
+  },
+  "team": {
+    "title": "The AI team",
+    "lead": "NVIDIA Nemotron agents decide what the venue is, what could go wrong and what to change. Tools produce every number: a solver builds the geometry and a crowd simulator, sealed in a sandbox, tests every idea.",
+    "error": "The team list could not be loaded.",
+    "tools": "Tools it may use",
+    "stage_build": "Build",
+    "stage_attack": "Attack",
+    "stage_defend": "Defend",
+    "stage_judge": "Judge",
+    "stage_explain": "Explain",
+    "tool_simulator": "Simulator",
+    "tool_instant_estimate": "Instant estimate",
+    "tool_solver": "Solver",
+    "tool_map": "Map",
+    "tool_incidents": "Real incidents",
+    "tool_edit_ops": "Edits",
+    "tool_scenario_events": "Scenario events",
+    "tool_number_check": "Number check",
+    "sandbox_title": "Every simulation runs in its own sandbox",
+    "sandbox_text": "Each scenario and each fix is simulated in a sealed container {where}, branched from the plan it tests.",
+    "sandbox_docker": "on this computer (Docker)",
+    "sandbox_nebius": "on Nebius Sandboxes",
+    "numbers": "Numbers come from the tools, never from the AI",
+    "kept": "A fix is kept only if the simulator confirms it",
+    "link": "Meet the AI team"
   }
 }

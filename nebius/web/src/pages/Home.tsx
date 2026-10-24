@@ -1,6 +1,6 @@
 /** Step 1 of the guided journey (route `/`): one question, "Where is your event?", with three
  * big answers: pick it on the map, describe it, or try a sample. Everything else stays out of the way. */
-import { ArrowRight, ArrowUpRight, Building2, ClipboardCheck, Loader2, Map as MapIcon, PencilLine, ShieldCheck, Sparkles, Trees, Users, Wand2 } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Bot, Building2, ClipboardCheck, Loader2, Map as MapIcon, PencilLine, ShieldCheck, Sparkles, Trees, Users, Wand2 } from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -106,6 +106,9 @@ export function HomePage() {
                 </li>
               ))}
             </ol>
+            <Link to="/team" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-signal hover:underline">
+              <Bot className="size-4" aria-hidden />{t("team.link")}
+            </Link>
           </section>
 
           <section aria-labelledby="where-h" className="space-y-4">

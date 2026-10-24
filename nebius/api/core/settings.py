@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     model_long: str = ""
     model_main: str = ""
     model_judge: str = ""
+    # a second model for any role whose model fails at the provider (removed, overloaded, 404)
+    model_fallback: str = ""
     price_fast_in: float = 0.0
     price_fast_out: float = 0.0
     price_long_in: float = 0.0

@@ -36,6 +36,50 @@ class EditIn(BaseModel):
     apply: bool = True
 
 
+TOOL_LABELS: dict[str, str] = {
+    "simulator": "Crowd simulator (JuPedSim) in a sealed sandbox",
+    "instant_estimate": "Instant estimate (network flow, milliseconds)",
+    "solver": "Layout solver (a design becomes exact geometry)",
+    "map": "OpenStreetMap sites",
+    "incidents": "388 real crowd accidents, 1900–2024",
+    "edit_ops": "Validated venue edits",
+    "scenario_events": "Scenario events (blocked exit, surge, smoke, …)",
+    "number_check": "Number check (only numbers the tools produced)",
+}
+
+
+@router.get("/agents")
+async def list_agents(st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The AI team: every Nemotron agent, the model it runs on now, what it decides and the
+    tools it may use; and the sandbox every simulation runs in."""
+    from api.agents.team import TEAM
+
+    sandbox = await st.runner.health()
+    return {
+        "provider": st.settings.llm_label,
+        "agents": [
+            {
+                "name": m.agent.name,
+                "label": m.label,
+                "stage": m.stage,
+                "decides": m.decides,
+                "role": m.agent.role,
+                "model": st.llm.model_for(m.agent.role),
+                "prompt_version": m.agent.prompt_version,
+                "tools": list(m.tools),
+            }
+            for m in TEAM
+        ],
+        "tools": TOOL_LABELS,
+        "sandbox": {
+            "provider": st.settings.sandbox_provider,
+            "ok": bool(sandbox.get("ok")),
+            "detail": str(sandbox.get("detail", "")),
+            "isolation": "no network, memory and CPU limits, one container per scenario",
+        },
+    }
+
+
 @router.post("/projects/{project_id}/edit")
 async def edit_by_text(
     project_id: str, body: EditIn, st: AppState = Depends(get_state)

@@ -279,3 +279,32 @@ async def test_health_switches_to_the_spare_key_when_the_first_expired(
     out = await c.health()
     assert out["ok"] is True and "spare key" in out["detail"]
     assert c.api_key == "sk-spare-123456" and spare.calls == ["/key"]
+
+
+@pytest.mark.asyncio
+async def test_a_model_that_fails_at_the_provider_hands_over_to_the_fallback_model(
+    tmp_path: Path,
+) -> None:
+    class _OneModelDown(_Transport):
+        async def _create(self, **kwargs: Any) -> Any:
+            if kwargs["model"] == "big-model":
+                raise RuntimeError("Error code: 404 - Provider returned error")
+            return await super()._create(**kwargs)
+
+    t = _OneModelDown()
+    c = LLMClient(
+        _settings(tmp_path, model_fallback="other-model", llm_fallback="none"), transport=t
+    )
+    reply = await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert reply.text == "Hello." and t.sent["model"] == "other-model"
+
+    # a quota error is not the model's fault: no model switch
+    class _Quota(_Transport):
+        async def _create(self, **kwargs: Any) -> Any:
+            raise RuntimeError("429 Rate limit exceeded")
+
+    q = LLMClient(
+        _settings(tmp_path, model_fallback="other-model", llm_fallback="none"), transport=_Quota()
+    )
+    with pytest.raises(LLMError):
+        await q.chat("fast", [{"role": "user", "content": "hi"}])

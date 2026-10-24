@@ -664,3 +664,26 @@ export function useStartTogether(sessionId: string | null | undefined) {
     },
   });
 }
+
+export interface AgentInfo {
+  name: string;
+  label: string;
+  stage: "build" | "attack" | "defend" | "judge" | "explain";
+  decides: string;
+  role: string;
+  model: string;
+  prompt_version: string;
+  tools: string[];
+}
+
+export interface AgentsOut {
+  provider: string;
+  agents: AgentInfo[];
+  tools: Record<string, string>;
+  sandbox: { provider: string; ok: boolean; detail: string; isolation: string };
+}
+
+/** The AI team (GET /agents): every Nemotron agent, its model, job and tools. */
+export function useAgents() {
+  return useQuery({ queryKey: ["agents"], queryFn: () => api.get<AgentsOut>("/agents"), staleTime: 60_000 });
+}
