@@ -848,6 +848,9 @@ spare key) and local Nemotron Nano 9B v2 when the free quota ran out, and real J
   re-run alone after a load-related timing failure and a stale copy assertion were fixed).
 - Live, 3-storey school (960 children and staff): every attack broke the plan; three fixes kept
   (an east exit, a north exit, Stair A widened to 2 m) cut the worst attack's time to get 95 % out
-  from 36 min 7 s to 6 min 46 s; the plan still fails the 5-minute target and says so.
+  from about 36 min 7 s (an estimate: before the fixes 95 % never got out within the
+  simulated time, so it was extrapolated from the exit flow) to a measured 6 min 46 s; the plan
+  still fails the 5-minute target and says so. (Correction 2026-10-25: this line first gave
+  the change as a measured −81 %; an estimate and a measurement cannot be compared that way.)
 - Open: Nebius Token Factory not run live (no key); Tavily not wired into the agents; the
   OpenRouter free quota (about 50 requests a day per account) runs out during a long test.
