@@ -2,9 +2,10 @@
 (one model call, replayed from the LLM cache in record_replay mode), the project keeps the
 case's facts and sources, and a test starts at once.
 
-The test needs no further model calls: rule-based what-ifs and fixes (`agents: "rules"`) and
-the computed summary instead of the judge (`judge: false`). Its baseline is the case as it
-happened; the rest is what Showtime would have suggested.
+The test is the normal AI-designed one: the red team attacks the case as it was, the blue team
+proposes fixes, the simulator confirms them and the judge writes the verdict (the rules stand in
+only when no model answers). Its baseline is the case as it happened; the rest is what Showtime
+would have suggested.
 """
 
 from __future__ import annotations
@@ -22,8 +23,7 @@ CASE_TEST: dict[str, Any] = {
     "attacks_per_round": 2,
     "fixes_per_attack": 2,
     "fix_targets": 1,
-    "agents": "rules",
-    "judge": False,
+    "agents": "model",
     "confirm_tier3": False,
 }
 

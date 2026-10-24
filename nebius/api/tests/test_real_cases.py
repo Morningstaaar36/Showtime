@@ -2,8 +2,8 @@
 
 The scripted replies in fixtures/real_cases/ stand in for what the model writes for each case
 description; no live model is called. They exercise the solver's passages, narrowings, end
-areas, pens and headings, and the open-a-case path end to end (designer, project, rule-based
-test without the judge).
+areas, pens and headings, and the open-a-case path end to end (designer, project, and the
+normal AI-designed test; with no scripted red team here, the rules stand in).
 """
 
 from __future__ import annotations
@@ -197,7 +197,7 @@ def case_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Call
     reset_engine()
 
 
-async def test_opening_a_case_builds_it_once_and_tests_it_without_the_model(
+async def test_opening_a_case_builds_it_once_and_lets_the_ai_test_it(
     case_state: Callable[..., Any],
 ) -> None:
     st = case_state({"designer": [_spec("love_parade_2010")]})
@@ -211,9 +211,11 @@ async def test_opening_a_case_builds_it_once_and_tests_it_without_the_model(
     await st.sessions.live[out["session_id"]].task
     row = st.sessions.get(out["session_id"])
     assert row.status == "finished", row.error
-    assert row.config["agents"] == "rules" and row.config["judge"] is False
+    assert row.config["agents"] == "model"
     assert {k: row.config[k] for k in CASE_TEST} == CASE_TEST
-    assert [agent for agent, _ in st.llm.calls] == ["designer"], "only the venue is designed"
+    called = [agent for agent, _ in st.llm.calls]
+    assert called[0] == "designer" and called.count("designer") == 1
+    assert "red_team" in called, "the AI is asked to attack the case"
     assert row.summary["baseline_run_id"] and row.summary["judge_text"]
     again = await open_case(st, "love_parade_2010")
     assert again == {
@@ -221,7 +223,8 @@ async def test_opening_a_case_builds_it_once_and_tests_it_without_the_model(
         "session_id": out["session_id"],
         "status": "existing",
     }
-    assert len(st.llm.calls) == 1, "a case built before is not designed again"
+    after = [agent for agent, _ in st.llm.calls]
+    assert after == called and after.count("designer") == 1, "a case opened before is reused"
 
 
 async def test_a_layout_with_problems_opens_in_the_editor(case_state: Callable[..., Any]) -> None:
