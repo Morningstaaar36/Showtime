@@ -99,6 +99,31 @@ Densities, times, forces and wind limits come from the simulator, formulas or ci
 UI always says whether you are looking at an *instant estimate* or a result *confirmed by
 simulation*.
 
+## How it works: Nemotron agents decide, sandboxed tools measure
+
+Showtime is a multi-agent system. Twelve NVIDIA Nemotron agents make every decision, in five
+stages: **build** (Brief, Designer, Editor, Router), **attack** (What-if planner, Red team),
+**defend** (Blue team), **judge** (Judge, Safety officer) and **explain** (Explainer, Analyst).
+Tools produce every number: a layout solver turns a design into exact geometry, an instant
+estimate screens ideas in milliseconds, and the JuPedSim crowd simulator tests every scenario
+and every fix in its own sealed sandbox (Docker with no network locally, Nebius Sandboxes in
+the cloud). A number checker rejects any agent text that quotes a number the tools did not
+produce. Nothing about a venue is hand-made: a sentence, a map or a real case's sourced
+description goes in, and the agents and tools do the rest. The live team, with the model each
+agent runs on, is at `/team` in the app and `GET /api/v1/agents`.
+
+**Models.** Roles map to models in `.env`: `MODEL_FAST`, `MODEL_MAIN` and `MODEL_LONG` for the
+everyday agents and `MODEL_JUDGE` for the final verdict, as the hackathon suggests (a fast
+Nemotron for most calls, Nemotron 3 Ultra for the judgement). `MODEL_FALLBACK` is tried when a
+role's model fails at the provider, and `OPENAI_COMPAT_API_KEY_FALLBACK` when a key runs out.
+Tested on OpenRouter with Nemotron 3.5 Lightning and Nemotron 3 Ultra (the free Nemotron 3
+Super endpoint was unavailable at the provider during the last tests).
+
+**Test modes** (above *Test this plan*): **Quick** (one round, a few attacks), **Standard** (the
+AI attacks and fixes; the default), **Deep** (three rounds on the improved plan, findings
+confirmed in full) and **Offline** (no model: rule-based attacks and standard fixes, still
+simulated).
+
 ## Engineering novelty (and the papers behind it)
 
 | Idea | What Showtime does | Measured here |
@@ -113,7 +138,7 @@ simulation*.
 
 | Technology | Role in Showtime |
 | --- | --- |
-| **NVIDIA Nemotron** (Nano 9B v2 locally; Nemotron 3 Nano / Super / Ultra on Token Factory) | Seven agents: **Brief** (one sentence → event brief for the Copilot), **Designer** (description → layout spec that a solver builds and the checks verify), **Venue** (text → validated edit ops; 12/12 on our scripted edits with the local model), **Red team** (attacks grounded in incidents), **Blue team** (fixes), **Judge** (final plan text, number-checked), **Explainer** ("Ask the venue"). Roles map to models: `fast` for drafting, `main` for edits and fixes, `judge` for the final reasoning. JSON is schema-constrained, validated with Pydantic and repaired once. |
+| **NVIDIA Nemotron** (Nano 9B v2 locally; Nemotron 3.5 Lightning / 3 Super / 3 Ultra hosted) | Twelve agents (see *How it works*), among them: **Brief** (one sentence → event brief for the Copilot), **Designer** (description → layout spec that a solver builds and the checks verify), **Venue** (text → validated edit ops; 12/12 on our scripted edits with the local model), **Red team** (attacks grounded in incidents), **Blue team** (fixes), **Judge** (final plan text, number-checked), **Explainer** ("Ask the venue"). Roles map to models: `fast` for drafting, `main` for edits and fixes, `judge` for the final reasoning. JSON is schema-constrained, validated with Pydantic and repaired once. |
 | **Nebius Token Factory** | OpenAI-compatible endpoint behind `LLM_PROVIDER=nebius`; per-role model ids and prices in `.env`; tokens and cost are metered per agent call and shown live. |
 | **Nebius Sandboxes** (contree-sdk) | `SANDBOX_PROVIDER=nebius`: every scenario is a child snapshot of the venue image (attack → fix branches; the Copilot's six-scenario sweep branches from the plan's run), run in parallel. Locally the same interface runs Docker containers with `--network=none`, one at a time. |
 | **LangGraph** | The Event Copilot is a compiled `StateGraph` with conditional routes, checkpointing and custom streaming; `GET /api/v1/copilot/graph` serves its structure, which the UI draws live. |
