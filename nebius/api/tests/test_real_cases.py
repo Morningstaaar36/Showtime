@@ -253,3 +253,20 @@ def test_api_lists_cases_and_explains_a_failed_build(client: TestClient) -> None
     r = client.post("/api/v1/real_cases/itaewon_2022/open")  # the scripted model has no reply
     assert r.status_code in (422, 503), r.text
     assert client.get("/api/v1/projects").json() == []
+
+
+async def test_a_case_whose_first_build_needed_fixes_is_built_again_and_tested(
+    case_state: Callable[..., Any],
+) -> None:
+    good = _spec("itaewon_2022")
+    bad = json.loads(json.dumps(good))
+    for z in bad["zones"]:
+        z["people"] = 20_000  # far too many to place: the build needs fixes
+    st = case_state({"designer": [bad, bad, good]})
+    first = await open_case(st, "itaewon_2022")
+    assert first["status"] == "needs_fixes" and first["session_id"] is None
+    again = await open_case(st, "itaewon_2022")
+    assert again["status"] == "testing" and again["session_id"]
+    assert again["project_id"] != first["project_id"]
+    assert first["project_id"] not in {p.id for p in st.projects.list_projects()}
+    await st.sessions.live[again["session_id"]].task
