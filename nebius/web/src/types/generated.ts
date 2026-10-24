@@ -54,6 +54,7 @@ export type Share = number;
 export type Groups = PeopleGroup[];
 export type PreMovementS = number | null;
 export type RouteId = string | null;
+export type ExitIds = string[];
 export type Zones = Zone[];
 export type Id3 = string;
 export type FromFloor = string;
@@ -721,6 +722,7 @@ export interface Zone {
   groups: Groups;
   pre_movement_s: PreMovementS;
   route_id: RouteId;
+  exit_ids: ExitIds;
 }
 /**
  * A share of a zone's headcount that moves differently; the rest are "general".

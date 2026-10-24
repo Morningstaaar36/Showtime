@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import type { PlanSnapshot } from "@/types/generated";
+import type { OpenCaseOut, RealCase } from "@/journey/realCases";
 import type {
   AskOut,
   Attack,
@@ -318,6 +319,23 @@ export function useAsk() {
 }
 
 /** Designer agent + solver: a description → venue preview (not saved yet). */
+/** Documented crowd disasters, rebuilt by the Designer agent from their sourced descriptions. */
+export const useRealCases = () =>
+  useQuery({ queryKey: ["real_cases"], queryFn: () => api.get<RealCase[]>("/real_cases") });
+
+/** Build a real case's venue (one model call) and start its rule-based test; a case built
+ * before opens its project. */
+export function useOpenRealCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post<OpenCaseOut>(`/real_cases/${id}/open`, {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["real_cases"] });
+      qc.invalidateQueries({ queryKey: qk.projects });
+    },
+  });
+}
+
 export function useDesignVenue() {
   return useMutation({ mutationFn: (text: string) => api.post<VenueDraft>("/venues/design", { text }) });
 }

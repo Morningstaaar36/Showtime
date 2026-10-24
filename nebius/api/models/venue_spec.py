@@ -96,11 +96,18 @@ class ExitSpec(_Spec):
 
 
 class ZoneSpec(_Spec):
-    """People standing or seated in a region. Front is the side nearest the stage."""
+    """People standing or seated in a region. Front is the side nearest the stage.
+
+    `area` names a passage or the area at a passage's end (its label) when the people stand
+    there instead of on the main floor; `heading` names the exit (or the start of the label of
+    several exits) they walk to, when the description says where they are going.
+    """
 
     label: str = Field(default="Audience", max_length=40)
     people: int = Field(ge=0, le=20_000)
     region: Region = "whole"
+    area: str | None = Field(default=None, max_length=40)
+    heading: str | None = Field(default=None, max_length=40)
 
 
 class FeatureSpec(_Spec):
@@ -119,6 +126,65 @@ class FeatureSpec(_Spec):
     @classmethod
     def _place(cls, v: object) -> object:
         return _centre(v)
+
+
+PassageSide = Literal["left", "right", "end"]
+
+
+class PassageExitSpec(_Spec):
+    """A way out of a passage (or of the area at its end): on its left or right side as seen
+    walking into it from the main floor, or across its far end. `at` runs 0..1 from where it
+    starts (sides only)."""
+
+    side: PassageSide = "end"
+    width_m: float = Field(default=2.0, ge=0.8, le=60)
+    at: float = Field(default=0.5, ge=0, le=1)
+    label: str | None = Field(default=None, max_length=40)
+
+
+class NarrowingSpec(_Spec):
+    """Fences or stalls from both sides that leave `width_m` clear for `length_m`, `at` 0..1
+    along the passage."""
+
+    width_m: float = Field(ge=0.8, le=60)
+    at: float = Field(default=0.5, ge=0, le=1)
+    length_m: float = Field(default=6.0, ge=0.5, le=100)
+    label: str | None = Field(default=None, max_length=40)
+
+
+class EndAreaSpec(_Spec):
+    """An open area at the far end of a passage (a concourse, a forecourt, the street an
+    alley leads to), centred on it; `width_m` runs across the passage, `depth_m` along it."""
+
+    label: str = Field(default="Area", max_length=40)
+    width_m: float = Field(ge=2, le=400)
+    depth_m: float = Field(ge=2, le=400)
+    exits: list[PassageExitSpec] = Field(default_factory=list, max_length=6)
+
+
+class PassageSpec(_Spec):
+    """A strip joined to one wall of the main floor and leading away from it: a tunnel, ramp,
+    alley, corridor, bridge or access road. `position` 0..1 is where it joins along the wall
+    (same convention as exits). Slopes are not simulated: a ramp is drawn flat."""
+
+    label: str = Field(default="Passage", max_length=40)
+    wall: Wall
+    position: float = Field(default=0.5, ge=0, le=1)
+    width_m: float = Field(ge=1, le=80)
+    length_m: float = Field(ge=2, le=400)
+    exits: list[PassageExitSpec] = Field(default_factory=list, max_length=6)
+    narrowing: NarrowingSpec | None = None
+    end_area: EndAreaSpec | None = None
+
+
+class DividerSpec(_Spec):
+    """A fence across the whole main floor that splits it into pens: `along` "north_south"
+    runs from the south wall to the north wall at `position` 0..1 from the west; "east_west"
+    runs from west to east at `position` from the south."""
+
+    along: Literal["north_south", "east_west"] = "north_south"
+    position: float = Field(default=0.5, gt=0, lt=1)
+    label: str | None = Field(default=None, max_length=40)
 
 
 class UpperFloorSpec(_Spec):
@@ -187,9 +253,11 @@ class VenueSpec(_Spec):
     depth_m: float = Field(ge=6, le=400, description="north-south size")
     stage: StageSpec | None = None
     front_barrier: bool = False
-    exits: list[ExitSpec] = Field(min_length=1, max_length=16)
+    exits: list[ExitSpec] = Field(default_factory=list, max_length=16)
     zones: list[ZoneSpec] = Field(default_factory=list, max_length=8)
     features: list[FeatureSpec] = Field(default_factory=list, max_length=12)
+    passages: list[PassageSpec] = Field(default_factory=list, max_length=4)
+    dividers: list[DividerSpec] = Field(default_factory=list, max_length=6)
     upper_floor: UpperFloorSpec | None = None
     building: BuildingSpec | None = None
     location: str | None = Field(default=None, max_length=80, description="city or place name")
@@ -215,7 +283,11 @@ class VenueSpec(_Spec):
         """Zones on the main floor: with a balcony, zones named after it are the balcony."""
         if self.upper_floor is None:
             return list(self.zones)
-        return [z for z in self.zones if not any(w in z.label.lower() for w in UPPER_WORDS)]
+        return [
+            z
+            for z in self.zones
+            if z.area is not None or not any(w in z.label.lower() for w in UPPER_WORDS)
+        ]
 
     def total_people(self) -> int:
         """Everyone the spec places: per-level counts for a building, else zones and balcony."""

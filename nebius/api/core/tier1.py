@@ -255,6 +255,7 @@ class _Walk:
     grids: dict[str, FloorGrid]
     stairs: dict[str, Stair]
     out: list[_Route]
+    heading: frozenset[str] = frozenset()  # the only exits these people walk to (empty: any)
 
 
 def _follow(
@@ -287,6 +288,8 @@ def _follow(
     for ex in w.state.exits.values():
         if ex.floor_id != floor or ex.id not in grid.dist:
             continue
+        if w.heading and ex.kind == "exit" and ex.id not in w.heading:
+            continue  # these people are going somewhere else
         if same_core is not None and ex.kind == "stair" and ex.id not in same_core:
             continue
         dmin, dmean, dmax = _area_dist(grid, area, ex.id)
@@ -316,6 +319,7 @@ def _follow(
 
 def _routes(venue: Venue, state: Tier1State, grids: dict[str, FloorGrid]) -> list[_Route]:
     zones = {z.id: (f.floor_id, z.polygon) for f in venue.floors for z in f.zones}
+    heading = {z.id: frozenset(z.exit_ids) for f in venue.floors for z in f.zones}
     stairs = {s.id: s for s in venue.stairs}
     out: list[_Route] = []
     for g in state.groups.values():
@@ -325,7 +329,7 @@ def _routes(venue: Venue, state: Tier1State, grids: dict[str, FloorGrid]) -> lis
         floor_id, poly = zones[zid]
         v = state.walk_speed_mps * state.global_speed_factor * g.speed_factor
         t0 = g.release_s
-        walk = _Walk(g.id, v, state, grids, stairs, out)
+        walk = _Walk(g.id, v, state, grids, stairs, out, heading.get(zid, frozenset()))
         _follow(walk, floor_id, poly, (t0, t0, t0), (), (), frozenset({floor_id}))
     return out
 

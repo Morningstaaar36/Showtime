@@ -1,0 +1,82 @@
+{
+ "note": "A scripted designer reply for offline tests: what a model plausibly writes for the case description. Not a product template.",
+ "spec": {
+  "name": "Itaewon alley, Seoul 2022",
+  "mode": "outdoor",
+  "width_m": 80,
+  "depth_m": 6,
+  "exits": [
+   {
+    "wall": "west",
+    "width_m": 5,
+    "position": 0.5,
+    "label": "Upper street west"
+   },
+   {
+    "wall": "east",
+    "width_m": 5,
+    "position": 0.5,
+    "label": "Upper street east"
+   }
+  ],
+  "passages": [
+   {
+    "label": "Alley",
+    "wall": "south",
+    "position": 0.5,
+    "width_m": 3.2,
+    "length_m": 45,
+    "end_area": {
+     "label": "Itaewon-ro",
+     "width_m": 80,
+     "depth_m": 12,
+     "exits": [
+      {
+       "side": "left",
+       "at": 0.5,
+       "width_m": 10,
+       "label": "Itaewon-ro east"
+      },
+      {
+       "side": "right",
+       "at": 0.5,
+       "width_m": 10,
+       "label": "Itaewon-ro west"
+      }
+     ]
+    }
+   }
+  ],
+  "zones": [
+   {
+    "label": "Upper street crowd",
+    "people": 1200,
+    "region": "whole",
+    "heading": "Itaewon-ro"
+   },
+   {
+    "label": "Alley crowd",
+    "people": 400,
+    "area": "Alley",
+    "heading": "Itaewon-ro"
+   },
+   {
+    "label": "Main road crowd",
+    "people": 800,
+    "area": "Itaewon-ro",
+    "heading": "Upper street"
+   }
+  ],
+  "location": "Seoul",
+  "assumptions": [
+   "Upper street 6 m wide.",
+   "Itaewon-ro drawn 12 m wide."
+  ],
+  "stage": null,
+  "front_barrier": false,
+  "features": [],
+  "upper_floor": null,
+  "building": null,
+  "dividers": []
+ }
+}

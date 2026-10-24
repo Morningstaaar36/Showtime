@@ -46,6 +46,8 @@ import { seedRangeLines as seedLinesOf } from "@/journey/plan/seeds";
 import { planState } from "@/journey/plan/state";
 import { rowOutcome, stressCounter } from "@/journey/plan/stress";
 import { StressPanel } from "@/journey/plan/StressPanel";
+import { RealCaseCard } from "@/journey/RealCases";
+import { realCaseOf, simulatedPeak } from "@/journey/realCases";
 import { runBasisLabel } from "@/lib/evidence";
 import { fmtClock, fmtDuration, fmtHM, fmtNum, withoutRunIds } from "@/lib/format";
 import { cn, UNDO_TOAST_ID } from "@/lib/utils";
@@ -158,6 +160,9 @@ export function YourPlanPage() {
   const beforeId = view.nodes["final:before"]?.run_id ?? worstNode ?? summary?.baseline_run_id ?? null;
   const after = useRun(afterId);
   const before = useRun(beforeId);
+  // a rebuilt real case: its "as it happened" run is the session's baseline
+  const caseCard = realCaseOf(project.data?.version.venue);
+  const caseRun = useRun(caseCard ? summary?.baseline_run_id ?? null : null);
   const hasAfter = usable(after.data);
   const beforeOk = usable(before.data) ? before.data!.id : null;
   const afterOk = hasAfter ? after.data!.id : null;
@@ -443,7 +448,8 @@ export function YourPlanPage() {
                       before={summary?.before as SessionMetrics | undefined}
                       after={subsetRun ? metricsOf(after.data) : summary?.after as SessionMetrics | undefined}
                       insideSeries={insideSeries(afterReplay.data ?? null)} hero={hero} next={next}
-                      summary={{ judge, reasons: summary?.evaluation?.reasons ?? [], recommendations: (summary?.recommendations ?? []).map(human) }} />
+                      summary={{ judge, reasons: summary?.evaluation?.reasons ?? [], recommendations: (summary?.recommendations ?? []).map(human) }}
+                      realCase={caseCard ? <RealCaseCard card={caseCard} peak={simulatedPeak(caseRun.data?.result, venue, label)} /> : undefined} />
           </TabsContent>
 
           <TabsContent value="replay" className="animate-tab-in">

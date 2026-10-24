@@ -1774,5 +1774,17 @@
     "numbers": "Numbers come from the tools, never from the AI",
     "kept": "A fix is kept only if the simulator confirms it",
     "link": "Meet the AI team"
+  },
+  "realcase": {
+    "title": "Learn from real cases",
+    "lead": "Documented crowd disasters, rebuilt by the AI from published reports and tested here.",
+    "open": "Rebuild and test",
+    "building": "Building the site…",
+    "open_failed": "Couldn't rebuild this case",
+    "card_title": "Real case: {incident}, {date}",
+    "simulated": "Simulated here: peak {peak} people per m² near {where}.",
+    "simulated_anywhere": "Simulated here: peak {peak} people per m².",
+    "sources": "Sources",
+    "reconstruction": "A reconstruction from published dimensions, built by the AI and simulated: it shows the danger, it is not a forensic finding."
   }
 }

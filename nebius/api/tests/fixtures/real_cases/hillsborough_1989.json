@@ -1,0 +1,72 @@
+{
+ "note": "A scripted designer reply for offline tests: what a model plausibly writes for the case description. Not a product template.",
+ "spec": {
+  "name": "Leppings Lane terrace, Hillsborough 1989",
+  "mode": "outdoor",
+  "width_m": 25,
+  "depth_m": 15,
+  "exits": [
+   {
+    "wall": "north",
+    "width_m": 0.8,
+    "position": 0.25,
+    "label": "Pen 4 gate"
+   },
+   {
+    "wall": "north",
+    "width_m": 0.82,
+    "position": 0.75,
+    "label": "Pen 3 gate"
+   }
+  ],
+  "dividers": [
+   {
+    "along": "north_south",
+    "position": 0.5,
+    "label": "Radial fence"
+   }
+  ],
+  "passages": [
+   {
+    "label": "Tunnel",
+    "wall": "south",
+    "position": 0.5,
+    "width_m": 4.3,
+    "length_m": 23,
+    "end_area": {
+     "label": "Concourse",
+     "width_m": 40,
+     "depth_m": 20
+    }
+   }
+  ],
+  "zones": [
+   {
+    "label": "Pen 4",
+    "people": 600,
+    "region": "left"
+   },
+   {
+    "label": "Pen 3",
+    "people": 600,
+    "region": "right"
+   },
+   {
+    "label": "Fans from gate C",
+    "people": 1800,
+    "area": "Concourse"
+   }
+  ],
+  "location": "Sheffield",
+  "assumptions": [
+   "Pens drawn as rectangles of about 190 m² each.",
+   "Tunnel 4.3 m wide.",
+   "Pen 4 gate drawn 0.8 m, the narrowest door the model allows."
+  ],
+  "stage": null,
+  "front_barrier": false,
+  "features": [],
+  "upper_floor": null,
+  "building": null
+ }
+}

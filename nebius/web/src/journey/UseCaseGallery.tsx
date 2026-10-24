@@ -5,6 +5,7 @@ import type * as React from "react";
 import type { ProjectSummary } from "@/api/types";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { RealCaseRow } from "./RealCases";
 
 export interface UseCase {
   id: string;
@@ -72,6 +73,7 @@ export function UseCaseGallery({ projects, onSample, onDescribe }: {
           );
         })}
       </ul>
+      <RealCaseRow />
     </section>
   );
 }
