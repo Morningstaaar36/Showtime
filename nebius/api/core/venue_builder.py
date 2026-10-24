@@ -554,9 +554,9 @@ def _build_single(spec: VenueSpec, venue_id: str) -> BuildResult:
     blockers = unary_union([geo.to_polygon(o.polygon).buffer(0.3) for o in obstacles])
     if stair is not None:
         blockers = blockers.union(geo.to_polygon(stair.bottom_polygon).buffer(1.0))
-    zones = _single_zones(spec, upper is not None, blockers, notes)
-    zones += _area_zones(spec, parts, blockers, exits, problems)
-    zones = _with_headings(spec, zones, exits, problems)
+    placed = _single_zones(spec, upper is not None, blockers, notes)
+    placed += _area_zones(spec, parts, blockers, exits, problems)
+    zones = _with_headings(spec, placed, exits, problems)
     floors = [
         Floor(
             floor_id="F0",

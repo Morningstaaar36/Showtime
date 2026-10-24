@@ -282,7 +282,7 @@ def heading_exits(exits: list[Exit], heading: str) -> list[str]:
 
 def clear_of(shape: Polygon, blockers: object) -> Polygon | None:
     """The largest part of `shape` outside `blockers`, or None if nothing usable is left."""
-    area = shape.buffer(-0.3).difference(blockers)  # type: ignore[arg-type]
+    area = shape.buffer(-0.3).difference(blockers)
     if area.is_empty or area.area < 2:
         return None
-    return geo.largest_part(area).simplify(0.05)  # type: ignore[arg-type]
+    return geo.largest_part(area).simplify(0.05)

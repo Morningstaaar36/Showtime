@@ -9,6 +9,7 @@ AI fixes are simulated again, the worst moment can be rewound to test responses 
 second, and you get a tested plan, a report and a handover checklist. Every number comes from the
 simulator, never from the AI. **[Read the pitch, the evidence and the limits](docs/PITCH.md)**
 · [Demo script](docs/DEMO.md) · [Simulator validation](docs/VALIDATION.md)
+· [Real cases: Love Parade, Hillsborough, Itaewon rebuilt and simulated](docs/REAL_CASES.md)
 
 Event safety planning and crowd simulation are slow, expensive and need specialists, so most
 events never get stress-tested. Showtime lets AI do that work. NVIDIA Nemotron agents drive

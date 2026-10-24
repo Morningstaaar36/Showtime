@@ -1672,6 +1672,7 @@ class SessionManager:
         }
         template = self._template(facts)
         facts_for_judge = plain_keys(facts)
+        recs: list[str]
         if live.config.get("judge", True) is False:
             # a session that must not call the model (rule-based real cases): the computed
             # summary stands as written

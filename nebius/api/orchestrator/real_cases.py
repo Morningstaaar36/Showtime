@@ -41,7 +41,7 @@ def existing_project(st: Any, case_id: str) -> str | None:
     for p in st.projects.list_projects():
         try:
             ext = st.projects.venue(p.id).extensions
-        except Exception:  # noqa: BLE001 - a broken project must not hide the others
+        except Exception:  # a broken project must not hide the others
             continue
         if case_of(ext) == case_id:
             return str(p.id)

@@ -187,7 +187,9 @@ def case_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Call
     settings = use_test_settings(tmp_path, monkeypatch)
 
     def make(script: dict[str, Any]) -> Any:
-        st = build_state(settings, llm=FakeLLM(script, settings), runner=FakeRunner(settings.runs_dir))
+        st = build_state(
+            settings, llm=FakeLLM(script, settings), runner=FakeRunner(settings.runs_dir)
+        )
         st.sessions = SessionManager(st)
         return st
 
