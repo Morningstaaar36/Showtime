@@ -270,3 +270,18 @@ async def test_a_case_whose_first_build_needed_fixes_is_built_again_and_tested(
     assert again["project_id"] != first["project_id"]
     assert first["project_id"] not in {p.id for p in st.projects.list_projects()}
     await st.sessions.live[again["session_id"]].task
+
+
+def test_heading_for_a_passage_means_its_ways_out() -> None:
+    spec = _spec("love_parade_2010")
+    for z in spec["zones"]:
+        if z["label"].startswith("Arriving"):
+            z["heading"] = "Main ramp"  # as the model writes it: the ramp, not the exit at its top
+    built, problems = check_spec(VenueSpec.model_validate(spec))
+    assert problems == [], problems
+    exits = {e.id: e.label for f in built.venue.floors for e in f.exits}
+    arriving = [
+        z for f in built.venue.floors for z in f.zones if (z.label or "").startswith("Arriving")
+    ]
+    assert arriving and all(z.exit_ids for z in arriving)
+    assert all("Festival grounds" in {exits[i] for i in z.exit_ids} for z in arriving)

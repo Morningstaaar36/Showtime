@@ -32,6 +32,7 @@ from api.core.building_gen import (
 from api.core.extensions import geometry as geo
 from api.core.venue_parts import (
     PassagePart,
+    area_exits,
     area_labels,
     area_shape,
     clear_of,
@@ -556,7 +557,7 @@ def _build_single(spec: VenueSpec, venue_id: str) -> BuildResult:
         blockers = blockers.union(geo.to_polygon(stair.bottom_polygon).buffer(1.0))
     placed = _single_zones(spec, upper is not None, blockers, notes)
     placed += _area_zones(spec, parts, blockers, exits, problems)
-    zones = _with_headings(spec, placed, exits, problems)
+    zones = _with_headings(spec, placed, exits, problems, parts)
     floors = [
         Floor(
             floor_id="F0",
@@ -676,7 +677,11 @@ def _area_zones(
 
 
 def _with_headings(
-    spec: VenueSpec, zones: list[tuple[int, Zone]], exits: list[Exit], problems: list[str]
+    spec: VenueSpec,
+    zones: list[tuple[int, Zone]],
+    exits: list[Exit],
+    problems: list[str],
+    parts: list[Any] | None = None,
 ) -> list[Zone]:
     """Zones whose people are going somewhere get those exits; ids are renumbered in order."""
     out: list[Zone] = []
@@ -684,7 +689,8 @@ def _with_headings(
         heading = spec.zones[i].heading
         targets: list[str] = []
         if heading:
-            targets = heading_exits(exits, heading)
+            # an exit's name, or a passage's ("heading for the ramp": its ways out)
+            targets = heading_exits(exits, heading) or area_exits(parts or [], heading)
             if not targets:
                 names = ", ".join(f"“{e.label}”" for e in exits)
                 problems.append(

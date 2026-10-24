@@ -265,6 +265,19 @@ def area_shape(parts: list[PassagePart], label: str) -> Polygon | None:
     return None
 
 
+def area_exits(parts: list[PassagePart], label: str) -> list[str]:
+    """The ways out of a passage (or the area at its end) named `label`: people "heading for
+    the ramp" walk up it to its exits."""
+    key = label.strip().lower()
+    for p in parts:
+        names = {p.spec.label.strip().lower()}
+        if p.spec.end_area is not None:
+            names.add(p.spec.end_area.label.strip().lower())
+        if key in names:
+            return [x.id for x in p.exits]
+    return []
+
+
 def area_labels(parts: list[PassagePart]) -> list[str]:
     names = [p.spec.label for p in parts]
     names += [p.spec.end_area.label for p in parts if p.spec.end_area is not None]
