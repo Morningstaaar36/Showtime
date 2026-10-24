@@ -115,9 +115,11 @@ async def design_venue(env: AgentEnv, text: str) -> DesignOutcome:
             problems=[call.error or "The model did not return a layout."],
         )
     built, problems = check_spec(spec)
+    # anything the model still has to fix (a geometry error, a crowd heading for an exit that
+    # does not exist, a headcount that does not add up) means the layout is not ready to test
     blocking = [c for c in validate_venue(built.venue).checks if c.severity == "error"]
     return DesignOutcome(
-        status="needs_fixes" if blocking else "built",
+        status="needs_fixes" if blocking or problems else "built",
         venue=built.venue,
         spec=spec,
         notes=[n for n in built.notes if n not in problems],

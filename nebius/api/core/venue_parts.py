@@ -272,12 +272,20 @@ def area_labels(parts: list[PassagePart]) -> list[str]:
 
 
 def heading_exits(exits: list[Exit], heading: str) -> list[str]:
-    """Exits whose label is `heading`, or starts with it (one name for several gates)."""
+    """Exits whose label is `heading`, else every exit whose label holds all of its words
+    ("Tunnel" → "West tunnel end" and "East tunnel end"; one name for several gates)."""
     key = heading.strip().lower()
     exact = [e.id for e in exits if (e.label or "").strip().lower() == key]
     if exact:
         return exact
-    return [e.id for e in exits if (e.label or e.id).strip().lower().startswith(key)]
+    words = re.findall(r"[a-z0-9]+", key)
+    if not words:
+        return []
+    return [
+        e.id
+        for e in exits
+        if all(w in re.findall(r"[a-z0-9]+", (e.label or e.id).lower()) for w in words)
+    ]
 
 
 def clear_of(shape: Polygon, blockers: object) -> Polygon | None:

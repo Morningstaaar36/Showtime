@@ -484,3 +484,16 @@ async def test_recorded_model_specs_build_the_described_venue(
     assert len(set(labels)) == len(labels)
     t1 = run_tier1(v, [], registry, S)
     assert t1.metrics.agents_not_evacuated == 0
+
+
+def test_a_heading_matches_exits_by_their_words() -> None:
+    from api.core.venue_parts import heading_exits
+    from api.models import Exit
+
+    def ex(i: str, label: str) -> Exit:
+        return Exit(id=i, polygon=[(0, 0), (1, 0), (1, 0.4), (0, 0.4)], width_m=1.0, label=label)
+
+    exits = [ex("w", "West tunnel end"), ex("e", "East tunnel end"), ex("r", "Festival grounds")]
+    assert heading_exits(exits, "Tunnel") == ["w", "e"]
+    assert heading_exits(exits, "festival grounds") == ["r"]
+    assert heading_exits(exits, "Main road") == []
