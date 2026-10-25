@@ -69,7 +69,7 @@ def default_extra(st: Any) -> int:
     once (SEEDS_EXTRA_PARALLEL), fewer one at a time (SEEDS_EXTRA_SERIAL)."""
     s = st.settings
     several = int(getattr(st.runner, "parallel", 1)) > 1
-    return min(s.seeds_extra_max, s.seeds_extra_parallel if several else s.seeds_extra_serial)
+    return int(min(s.seeds_extra_max, s.seeds_extra_parallel if several else s.seeds_extra_serial))
 
 
 def _key(session_id: str) -> str:
