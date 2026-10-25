@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { qk, useProject, useRun, useRunVenue, useSession, useSessions, useStopSession } from "@/api/queries";
 import { useSessionStream } from "@/api/useSessionStream";
+import { SandboxFeed } from "@/journey/SandboxFeed";
 import { Confirm } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -222,6 +223,7 @@ export function AiAtWorkPage() {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-3"><div className="h-full rounded-full bg-signal transition-all duration-700" style={{ width: `${budget ? Math.min(100, (used / budget) * 100) : 0}%` }} /></div>
               <p className="mt-1 text-2xs text-muted tabular">{budget ? t("work.tokens_of", { n: fmtTokens(used), max: fmtTokens(budget) }) : t("work.tokens", { n: fmtTokens(used || (session.data?.tokens ?? 0)) })}</p>
             </div>
+            <SandboxFeed runs={view.sandboxes} />
           </aside>
         </div>
 
