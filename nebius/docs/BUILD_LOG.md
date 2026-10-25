@@ -182,3 +182,45 @@ Wider checks:
 - e2e `evidence.spec.ts` 1/1 and `sandbox.spec.ts` 4/4 in Chrome.
 
 Live calls in Step 4: 0.
+
+## Step 5: a designer for any venue
+
+| Item | What changed | Tests | Commit |
+| --- | --- | --- | --- |
+| 5a | Baseline with prompt v8: `scripts/design_probe.py` on 8 descriptions (convocation, concert, mall, pandal, airport concourse, mosque, metro, street market). The probe now scores each against what it asked for (`EXPECT`: levels, zones, exits, features, headcount) | — | 77fedbc |
+| 5b | `venue_designer.md` rewritten around a neutral site model: the site, where people are, ways out, things on the floor, routes and areas, upper levels. "Front" is defined for any venue; the stage is optional. The tunnel and heading wording is now corridor/concourse/platform/ramp wording. Version 8 → 11 | prompt version test | 77fedbc |
+| 5c | Examples: gym, metro, mosque (gallery), mall (atrium), airport departures hall, park concert, street market. Each one builds | guard test passes | 77fedbc |
+| 5d | `FeatureKind` + ticket_gate, shop, check_in, security, kiosk, stall. `BuildingUse` + airport, campus. `EventKind` + airport, market, campus. Event profiles, building tags, the web `EVENT_KINDS` and strings follow; `make types` was re-run. (Platforms are passages; stadiums are `sports`.) | `test_kinds_in_step.py` | 77fedbc |
+| 5e | Template order from `api/data/templates/index.json`. The incident search reads `api/data/incident_kinds.json`, keyed by event kind, using only settings and keywords the dataset has; the old list asked for nightclub, concert and school, which the dataset does not have. A red-team title that names a tunnel or bridge the venue itself has is kept. The tunnel-only builder error is now neutral. Exit headings match plurals ("Tunnel ends") | `test_generic_venues.py` 4 | 3c5f8ba |
+| 5f | Real cases give their documented headcount to the designer (`people` in `real_cases.json`), held within 5 %. A short headcount now names the passages and end areas with no zone | 2 + 1 | 6c074cb, 77fedbc |
+| 5g | Re-run with prompt v11: see below | — | — |
+
+**Fidelity probe (live, OpenRouter Nemotron):**
+
+| Prompt | Built cleanly | Asked for | Live calls |
+| --- | --- | --- | --- |
+| v8 (before) | 8/8 | 32/32 | 10 |
+| v10 | 8/8 | 32/32 (v9 had 31/32: it flattened the concourse's upper floor onto the street; the v10 rule fixed it) | 8 + 2 |
+| v11 (after) | 8/8 scored, 13/13 built (5 prompts have no `EXPECT`) | 32/32 | 14 |
+
+Each row is **one live run per prompt**, not an average.
+
+**Real cases with v11 (no case text in the prompt):**
+- **Itaewon (2,400): built.** v10 drew one 800-person crowd and dropped the 1,200 on the upper street
+  and the 400 in the alley, even after the headcount repair. With v11 and the area hint, it draws
+  three zones adding up to 2,400. Itaewon-ro and the upper street are at the two ends of the alley.
+  **Still approximate:**
+  - the alley is drawn south of Itaewon-ro, not north (mirrored);
+  - the upper street gets one extra end exit (5.8 m) beside its west and east ends.
+- **Love Parade (3,000): built.** The tunnel is the main floor, open at its west and east ends, and
+  the ramp joins its north wall up to the festival grounds, as described. **Still approximate:** the
+  ramp is drawn as wide as the tunnel (26 m), and the fences are two narrowings.
+- **Hillsborough: not re-built with v11.** The free OpenRouter quota ran out on every key during the
+  run, and the local model was not running. The v10 build was fine (3,000 people, p95 1,616 s).
+
+Wider checks:
+- `make check`: 852 passed, 1 skipped.
+- web: `tsc -b`, `eslint` and vitest 232 pass.
+
+Live calls in Step 5: 10 + 8 + 2 (probes), 6 + 7 (real cases with v10), 3 (Itaewon with v11),
+14 (probe v11), 2 (Love Parade). The free daily quota ran out at the end.
