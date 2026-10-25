@@ -308,3 +308,91 @@ async def test_a_model_that_fails_at_the_provider_hands_over_to_the_fallback_mod
     )
     with pytest.raises(LLMError):
         await q.chat("fast", [{"role": "user", "content": "hi"}])
+
+
+class _Failing(_Transport):
+    """Fails with `exc` for the first `times` calls, then answers."""
+
+    def __init__(self, exc: BaseException, times: int = 1) -> None:
+        super().__init__()
+        self.exc, self.left, self.tries = exc, times, 0
+
+    async def _create(self, **kwargs: Any) -> Any:
+        self.tries += 1
+        if self.left > 0:
+            self.left -= 1
+            raise self.exc
+        return await super()._create(**kwargs)
+
+
+class _Status(Exception):
+    def __init__(self, status: int) -> None:
+        super().__init__(f"Error code: {status}")
+        self.status_code = status
+
+
+def _with_local(c: LLMClient) -> _Transport:
+    local = _Transport()
+    c._local_client = local
+    return local
+
+
+@pytest.mark.asyncio
+async def test_a_single_timeout_falls_back_once_without_pausing(tmp_path: Path) -> None:
+    hosted = _Failing(TimeoutError("read timed out"), times=1)
+    c = LLMClient(_settings(tmp_path), transport=hosted)
+    _with_local(c)
+    first = await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert first.usage.provider == "local-fallback"
+    assert not c._primary_paused()
+    second = await c.chat("fast", [{"role": "user", "content": "again"}])
+    assert second.usage.provider == "openai"  # the hosted model is asked again
+
+
+@pytest.mark.asyncio
+async def test_a_client_error_does_not_pause(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path), transport=_Failing(_Status(400)))
+    _with_local(c)
+    await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert not c._primary_paused()
+
+
+@pytest.mark.asyncio
+async def test_a_rate_limit_pauses_and_the_pause_shows_in_health(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path), transport=_Failing(_Status(429), times=5))
+    _with_local(c)
+    await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert c._primary_paused()
+    c._health_cache = (float("inf"), {"ok": True, "detail": "OPENROUTER: big-model"})
+    h = await c.health()
+    assert h["fallback"] is True and h["paused_until"] and "rate limit" in h["pause_reason"]
+
+
+@pytest.mark.asyncio
+async def test_repeated_server_errors_pause_but_one_does_not(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path), transport=_Failing(_Status(503), times=10))
+    _with_local(c)
+    for i in range(3):
+        assert not c._primary_paused(), f"paused after {i} server errors"
+        await c.chat("fast", [{"role": "user", "content": f"hi {i}"}])
+    assert c._primary_paused()
+
+
+@pytest.mark.asyncio
+async def test_a_connection_failure_pauses(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path), transport=_Failing(ConnectionRefusedError("refused")))
+    _with_local(c)
+    await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert c._primary_paused()
+
+
+@pytest.mark.asyncio
+async def test_a_pause_expires(tmp_path: Path) -> None:
+    hosted = _Failing(_Status(429), times=1)
+    c = LLMClient(_settings(tmp_path), transport=hosted)
+    _with_local(c)
+    await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert c._primary_paused()
+    c._paused_until = 0.0  # the pause ran out
+    reply = await c.chat("fast", [{"role": "user", "content": "later"}])
+    assert reply.usage.provider == "openai"

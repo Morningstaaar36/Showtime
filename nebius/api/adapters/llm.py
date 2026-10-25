@@ -17,6 +17,7 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
@@ -35,8 +36,28 @@ KEY_RE = re.compile(r"\b(sk-|Bearer\s+)[A-Za-z0-9_\-.*]{6,}")
 QUOTA_RE = re.compile(
     r"\b(401|402|429)\b|credit|quota|rate.?limit|per.?day|insufficient|unauthori[sz]ed", re.I
 )
+# consecutive 5xx answers from the hosted model before it is paused (one is a blip)
+SERVER_ERRORS_TO_PAUSE = 3
 HEALTH_TTL_OK_S = 300.0  # a working key is re-checked every 5 minutes
 HEALTH_TTL_FAIL_S = 60.0  # a failing one every minute (fixing .env needs a restart anyway)
+
+
+def _failure_kind(exc: BaseException) -> str | None:
+    """Why a hosted call failed, when that is a reason to stop asking for a while:
+    "rate_limit" (429, quota), "connection" (refused, unreachable) or "server" (5xx).
+    None for a timeout or a client error (4xx): the next call may well work."""
+    cause = exc.__cause__ or exc
+    status = getattr(cause, "status_code", None)
+    name = type(cause).__name__
+    if status == 429 or (status is None and QUOTA_RE.search(str(exc))):
+        return "rate_limit"
+    if isinstance(cause, TimeoutError) or "Timeout" in name:
+        return None  # openai's APITimeoutError is also an APIConnectionError: check it first
+    if isinstance(cause, ConnectionError) or "Connection" in name or "Connect" in name:
+        return "connection"
+    if isinstance(status, int) and 500 <= status < 600:
+        return "server"
+    return None
 
 
 class LLMError(Exception):
@@ -155,6 +176,7 @@ class LLMClient:
         self._local_client: Any = None
         self._local_lock = asyncio.Lock()
         self._paused_until = 0.0
+        self._server_errors = 0  # consecutive 5xx answers from the hosted model
         self.fallback_reason: str | None = None
         # request features a hosted model rejected once ("schema", "extra"), per model:
         # later calls leave them out instead of failing again
@@ -275,6 +297,8 @@ class LLMClient:
                 "fallback": True,
                 "detail": f"{self.settings.llm_label} paused ({self.fallback_reason}); "
                 "using the local model",
+                "pause_reason": self.fallback_reason,
+                "paused_until": datetime.fromtimestamp(self._paused_until, UTC).isoformat(),
             }
         return out
 
@@ -516,7 +540,9 @@ class LLMClient:
         elif schema is not None and self.settings.llm_supports_json_schema:
             kwargs["messages"] = _with_json_instruction(msgs, schema)
         try:
-            return await self._adaptive(kwargs, role, model, schema)
+            out = await self._adaptive(kwargs, role, model, schema)
+            self._server_errors = 0
+            return out
         except LLMError as exc:
             if self._switch_to_spare_key(str(exc)):
                 return await self._live(role, model, msgs, schema, temperature, max_tokens)
@@ -534,7 +560,20 @@ class LLMClient:
                 return await self._live(role, spare_model, msgs, schema, temperature, max_tokens)
             if self.provider == "local" or self.settings.llm_fallback != "local":
                 raise
-            self._pause_primary(str(exc))
+            # this call goes to the local model either way; the hosted one is skipped for a
+            # while only when it is likely to keep failing (rate limit, down, unreachable)
+            kind = _failure_kind(exc)
+            if kind == "server":
+                self._server_errors += 1
+            if kind in ("rate_limit", "connection") or (
+                kind == "server" and self._server_errors >= SERVER_ERRORS_TO_PAUSE
+            ):
+                self._pause_primary(str(exc), kind)
+            else:
+                log.warning(
+                    "hosted model failed once (%s); this call uses the local model",
+                    self.redact(str(exc))[:120],
+                )
             return await self._fallback(role, msgs, schema, temperature, max_tokens)
 
     async def _adaptive(
@@ -624,7 +663,7 @@ class LLMClient:
     def _primary_paused(self) -> bool:
         return self.settings.llm_fallback == "local" and time.time() < self._paused_until
 
-    def _pause_primary(self, reason: str) -> None:
+    def _pause_primary(self, reason: str, kind: str = "rate_limit") -> None:
         """Skip the hosted model for a while: until midnight UTC for a daily quota, else 10 min."""
         now = time.time()
         if "per-day" in reason or "per day" in reason:
@@ -632,8 +671,15 @@ class LLMClient:
             self.fallback_reason = "daily free quota used up"
         else:
             self._paused_until = now + 600
-            self.fallback_reason = reason.split(":")[1].strip() if ":" in reason else reason[:80]
-        log.warning("hosted model unavailable (%s); using the local model", self.fallback_reason)
+            self.fallback_reason = {
+                "rate_limit": "rate limit",
+                "connection": "not reachable",
+                "server": f"{SERVER_ERRORS_TO_PAUSE} server errors in a row",
+            }.get(kind, "unavailable")
+        until = datetime.fromtimestamp(self._paused_until, UTC).isoformat(timespec="seconds")
+        log.warning(
+            "hosted model paused until %s (%s); using the local model", until, self.fallback_reason
+        )
 
     async def _fallback(
         self,
