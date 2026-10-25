@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
+from api.adapters.providers import llm_provider, sandbox_provider, search_provider
 from api.adapters.weather import WeatherUnavailable
 from api.app.errors import ApiException
 from api.app.state import AppState
@@ -24,6 +25,21 @@ router = APIRouter(prefix="/api/v1")
 def get_state(request: Request) -> AppState:
     """Dependency: the application container."""
     return request.app.state.showtime  # type: ignore[no-any-return]
+
+
+def _llm_facts(settings: Any) -> dict[str, Any]:
+    """What the active LLM provider is and can do, for the badge (no names to compare)."""
+    spec = llm_provider(settings.llm_provider)
+    return {
+        "title": spec.title,
+        "is_cloud": spec.is_cloud,
+        "not_configured": spec.not_configured(settings),
+        "capabilities": {
+            "json_schema": bool(settings.llm_supports_json_schema),
+            "spare_key": bool(spec.spare_key and spec.spare_key(settings)),
+            "fallback_to_local": spec.is_cloud and settings.llm_fallback == "local",
+        },
+    }
 
 
 @router.get("/health")
@@ -60,6 +76,7 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
                 **llm,
                 "provider": st.settings.llm_provider,
                 "label": st.settings.llm_label,
+                **_llm_facts(st.settings),
                 "models": {
                     r: st.settings.model_for(r)  # type: ignore[arg-type]
                     for r in ("fast", "long", "main", "judge")
@@ -68,10 +85,16 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
             "sandbox": {
                 **sandbox,
                 "provider": st.settings.sandbox_provider,
+                "title": sandbox_provider(st.settings.sandbox_provider).title,
+                "parallel": int(getattr(st.runner, "parallel", 1)),
                 "isolation": st.runner.isolation.as_dict(),
                 "time_limit_s": st.settings.max_wall_s,
             },
-            "search": search,
+            "search": {
+                **search,
+                "provider": st.settings.search_provider,
+                "title": search_provider(st.settings.search_provider).title,
+            },
             "weather": weather,
         },
         "samples": (

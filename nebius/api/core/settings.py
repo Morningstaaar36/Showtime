@@ -225,6 +225,8 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _model_ids_set(self) -> Settings:
         """An empty model id would only show up as a provider error on the first call."""
+        from api.adapters.providers import llm_provider
+
         if self.cloud_llm and not self.model_fast.strip():
             raise ValueError(
                 f"MODEL_FAST is empty: set it in .env to a model id the provider serves "
@@ -236,7 +238,8 @@ class Settings(BaseSettings):
                 "WEB_WRITE_TIMEOUT_S must be at least AGENT_STEP_TIMEOUT_S, or the app gives up "
                 "on a request while its agent is still allowed to work."
             )
-        if self.llm_provider == "local" and not self.local_llm_model.strip():
+        spec = llm_provider(self.llm_provider)
+        if not spec.is_cloud and not spec.is_fake and not self.local_llm_model.strip():
             raise ValueError("LOCAL_LLM_MODEL is empty: set it in .env (LLM_PROVIDER=local).")
         return self
 

@@ -89,7 +89,7 @@ export function TeamPage() {
             <span className={cn("grid size-10 place-items-center rounded-[10px] [&_svg]:size-5", q.data.sandbox.ok ? "bg-egress-soft text-egress-strong" : "bg-caution-soft text-caution-strong")} aria-hidden><ShieldCheck /></span>
             <div className="min-w-0 flex-1 space-y-1">
               <h2 id="sandbox-h" className="font-semibold">{t("team.sandbox_title")}</h2>
-              <p className="text-sm text-muted">{t("team.sandbox_text", { where: q.data.sandbox.provider === "nebius" ? t("team.sandbox_nebius") : t("team.sandbox_docker") })}</p>
+              <p className="text-sm text-muted">{t("team.sandbox_text", { where: q.data.sandbox.title ?? q.data.sandbox.provider })}</p>
               <p className="text-xs text-muted" data-testid="team-isolation">{q.data.sandbox.isolation.summary} · {q.data.sandbox.detail}</p>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted"><Calculator className="size-4" aria-hidden />{t("team.numbers")}</div>

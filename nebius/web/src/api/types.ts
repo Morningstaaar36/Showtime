@@ -184,6 +184,15 @@ export interface ProviderStatus {
   models?: Record<string, string>;
   isolation?: SandboxIsolation;
   time_limit_s?: number;
+  /** what the provider is, in plain words ("Nebius Token Factory", "Local Docker") */
+  title?: string;
+  /** the AI runs on a hosted service (model ids and prices apply) */
+  is_cloud?: boolean;
+  /** "<title> is not configured: set X in .env." when a requirement is missing */
+  not_configured?: string | null;
+  capabilities?: Record<string, boolean>;
+  /** how many runs the sandbox takes at once */
+  parallel?: number;
 }
 
 export interface PluginRow {

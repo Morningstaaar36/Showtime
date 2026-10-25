@@ -712,7 +712,7 @@ export interface AgentsOut {
   provider: string;
   agents: AgentInfo[];
   tools: Record<string, string>;
-  sandbox: { provider: string; ok: boolean; detail: string; isolation: SandboxIsolation; time_limit_s?: number };
+  sandbox: { provider: string; title?: string; ok: boolean; detail: string; isolation: SandboxIsolation; time_limit_s?: number };
 }
 
 /** The AI team (GET /agents): every Nemotron agent, its model, job and tools. */

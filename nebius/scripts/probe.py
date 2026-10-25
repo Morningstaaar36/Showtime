@@ -68,7 +68,7 @@ async def main() -> int:
     runner = build_runner(st)
     h = await runner.health()
     report("Sandbox", bool(h.get("ok")), f"{st.sandbox_provider}: {h.get('detail', '')}")
-    if st.sandbox_provider == "docker" and code == 0:
+    if runner.isolation.kind == "container" and code == 0:  # a local container sandbox
         code2, out2 = sh(
             "docker",
             "run",

@@ -132,3 +132,25 @@ def test_nebius_and_tavily_are_selected_by_env_alone(
         assert st.search.live is True
     finally:
         reset_engine()
+
+
+def test_health_states_what_each_provider_is_and_can_do(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi.testclient import TestClient
+
+    from api.adapters.llm import FakeLLM
+    from api.adapters.sandbox import FakeRunner
+    from api.app.main import create_app
+
+    s = use_test_settings(tmp_path, monkeypatch)
+    st = build_state(s, llm=FakeLLM({}, s), runner=FakeRunner(s.runs_dir, max_parallel=3))
+    try:
+        with TestClient(create_app(state=st, settings=s)) as c:
+            p = c.get("/api/v1/health").json()["providers"]
+        assert p["llm"]["title"] and p["llm"]["is_cloud"] is False
+        assert set(p["llm"]["capabilities"]) == {"json_schema", "spare_key", "fallback_to_local"}
+        assert p["sandbox"]["parallel"] == 3 and p["sandbox"]["title"]
+        assert p["search"]["provider"] == s.search_provider and p["search"]["title"]
+    finally:
+        reset_engine()
