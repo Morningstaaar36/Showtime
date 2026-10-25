@@ -193,6 +193,8 @@ export interface ProviderStatus {
   capabilities?: Record<string, boolean>;
   /** how many runs the sandbox takes at once */
   parallel?: number;
+  /** why this sandbox stands in for the one chosen (it is not configured yet) */
+  fallback?: string | null;
 }
 
 export interface PluginRow {

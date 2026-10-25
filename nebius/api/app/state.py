@@ -119,8 +119,19 @@ class AppState:
 
 
 def build_runner(settings: Settings) -> SandboxRunner:
-    """The sandbox of SANDBOX_PROVIDER, from its registry entry (api/adapters/providers)."""
-    runner: SandboxRunner = sandbox_provider(settings.sandbox_provider).build(settings)
+    """The sandbox of SANDBOX_PROVIDER, from its registry entry (api/adapters/providers). One
+    that is not configured yet (no key) is replaced by SANDBOX_FALLBACK, and the runner says why
+    (`fallback_reason`, shown in /health and the sandbox badge)."""
+    spec = sandbox_provider(settings.sandbox_provider)
+    missing = spec.not_configured(settings)
+    if missing is None:
+        runner: SandboxRunner = spec.build(settings)
+        return runner
+    backup = sandbox_provider(settings.sandbox_fallback)
+    reason = f"{missing} Using {backup.title}."
+    log.warning("sandbox: %s", reason)
+    runner = backup.build(settings)
+    runner.fallback_reason = reason
     return runner
 
 

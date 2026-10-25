@@ -102,7 +102,15 @@ async def test_fake(tmp_path: Path) -> None:
     ("name", "kind"), [("docker", DockerRunner), ("nebius", NebiusRunner), ("fake", FakeRunner)]
 )
 def test_sandbox_selection(tmp_path: Path, name: str, kind: type) -> None:
-    s = Settings(_env_file=None, sandbox_provider=name, runs_dir=tmp_path, cache_dir=tmp_path)
+    # selection of a configured provider (an unconfigured one falls back to Docker since step
+    # 6d, the one deliberate change; pinned in test_provider_readiness.py)
+    s = Settings(
+        _env_file=None,
+        sandbox_provider=name,
+        nebius_api_key="nb-key",
+        runs_dir=tmp_path,
+        cache_dir=tmp_path,
+    )
     runner = build_runner(s)
     assert isinstance(runner, kind) and runner.provider == name
 

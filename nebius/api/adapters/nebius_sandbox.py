@@ -86,6 +86,7 @@ class NebiusRunner:
         self.settings = settings
         self.runs_dir = settings.runs_dir
         self.parallel = max(1, settings.sandbox_max_parallel)
+        self.fallback_reason: str | None = None
         self.sem = asyncio.Semaphore(self.parallel)
         self._client = client
         self._base: Any | None = None

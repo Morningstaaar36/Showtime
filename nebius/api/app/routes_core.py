@@ -84,9 +84,11 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
             },
             "sandbox": {
                 **sandbox,
-                "provider": st.settings.sandbox_provider,
-                "title": sandbox_provider(st.settings.sandbox_provider).title,
+                # the sandbox in use (SANDBOX_FALLBACK while the chosen one is not configured)
+                "provider": st.runner.provider,
+                "title": sandbox_provider(st.runner.provider).title,
                 "parallel": int(getattr(st.runner, "parallel", 1)),
+                "fallback": getattr(st.runner, "fallback_reason", None),
                 "isolation": st.runner.isolation.as_dict(),
                 "time_limit_s": st.settings.max_wall_s,
             },
@@ -94,6 +96,9 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
                 **search,
                 "provider": st.settings.search_provider,
                 "title": search_provider(st.settings.search_provider).title,
+                "not_configured": search_provider(st.settings.search_provider).not_configured(
+                    st.settings
+                ),
             },
             "weather": weather,
         },

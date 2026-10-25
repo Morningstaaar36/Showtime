@@ -14,7 +14,7 @@ export function SandboxBadge() {
   const iso = sb?.isolation;
   const none = iso?.kind === "none";
   const label = (sb?.provider ?? "sandbox").toUpperCase();
-  const ok = !!sb?.ok && !none;
+  const ok = !!sb?.ok && !none && !sb?.fallback;
   const Icon = none ? ShieldOff : ShieldCheck;
   const facts = sandboxFacts(iso, sb?.time_limit_s);
   return (
@@ -36,6 +36,7 @@ export function SandboxBadge() {
             <p className="mt-0.5 break-words text-xs text-muted">{sb?.detail ?? t("common.provider_checking")}</p>
           </div>
         </div>
+        {sb?.fallback && <p className="rounded-[var(--radius-control)] bg-caution-soft p-2 text-xs" data-testid="sandbox-fallback">{sb.fallback}</p>}
         {!none && <p className="text-xs">{t("common.sandbox_why")}</p>}
         {facts.length > 0 && (
           <ul className="space-y-1 rounded-[var(--radius-control)] bg-surface-2 p-3 text-sm" data-testid="sandbox-facts">

@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # new module there, no edit here) ---
     llm_provider: str = "local"
     sandbox_provider: str = "docker"
+    # used while the chosen sandbox is not configured (e.g. Nebius before you have a key)
+    sandbox_fallback: str = "docker"
     search_provider: str = "tavily"  # without TAVILY_API_KEY it is off: the incident dataset only
 
     # --- Local LLM ---
@@ -202,13 +204,13 @@ class Settings(BaseSettings):
     upload_max_bytes: int = 5_000_000
     log_level: str = "INFO"
 
-    @field_validator("llm_provider", "sandbox_provider", "search_provider")
+    @field_validator("llm_provider", "sandbox_provider", "search_provider", "sandbox_fallback")
     @classmethod
     def _known_provider(cls, v: str, info: Any) -> str:
         """A registered provider name (or alias), else an error that lists the valid names."""
         from api.adapters.providers import registry
 
-        kind = str(info.field_name).removesuffix("_provider")
+        kind = str(info.field_name).removesuffix("_provider").removesuffix("_fallback")
         try:
             return registry(kind).canonical(v.strip())
         except ValueError as exc:
@@ -237,6 +239,13 @@ class Settings(BaseSettings):
             raise ValueError(
                 "WEB_WRITE_TIMEOUT_S must be at least AGENT_STEP_TIMEOUT_S, or the app gives up "
                 "on a request while its agent is still allowed to work."
+            )
+        from api.adapters.providers import sandbox_provider
+
+        if sandbox_provider(self.sandbox_fallback).not_configured(self):
+            raise ValueError(
+                f"SANDBOX_FALLBACK={self.sandbox_fallback} must work without setup: "
+                f"{sandbox_provider(self.sandbox_fallback).not_configured(self)}"
             )
         spec = llm_provider(self.llm_provider)
         if not spec.is_cloud and not spec.is_fake and not self.local_llm_model.strip():
