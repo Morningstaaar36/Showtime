@@ -55,3 +55,28 @@ root-owned folders into the bind-mounted `cache/` (344 folders) and `runs/`. A h
 write there, and `DiskCache.put` raises, which fails the whole weather lookup. Fixed in Step 2 (2i).
 
 Live calls in Step 1: 2 (probe chat + JSON).
+
+## Step 2: known bugs (each verified in the code first; one commit each)
+
+| Item | Verified? | Fix | Micro-test: before → after | Commit |
+| --- | --- | --- | --- | --- |
+| 2a pause | Yes: any error that survived the spare key and spare model paused the hosted model for 10 min | pause only for 429/quota, connection failures and 3 × 5xx in a row; `/health` shows `pause_reason`, `paused_until`; the log names the end time | 6 tests: 4 failed → 23/23 pass | 77ce8ee |
+| 2b timeouts | Yes: 120 s × SDK retries × 4 attempts × spare key × spare model, unbounded | `AGENT_STEP_TIMEOUT_S` (300 s) bounds call + repair + escalation | hanging stub: waited 30 s (fail) → cut at 0.3 s | 06ce970 |
+| 2c empty model id | Yes: reached the provider as `""` | settings validator names `MODEL_FAST` / `LOCAL_LLM_MODEL` | 3 tests: fail → pass | e526d33 |
+| 2d real cases | Yes: no lock; list loaded every venue 3× | per-case lock, `CASE_BUILD_DEADLINE_S` 360 s, one-pass index cached per (project, version) | double click, hanging build, load count: 3 fail → 20/20 | 564a954 |
+| 2e web | Partly: no fetch timeout (true); HandOver:53 and Scripts save/run already caught errors; the upload handler did not | reads 60 s, writes 330 s, binaries 120 s, `code: "timeout"`; upload error toast | vitest 2 fail → 3 pass | 46bd52c |
+| 2f e2e | Could not reproduce | none needed in code | alone in Chrome: pass (2.1 min); whole file: 5/5 pass, API latency max 0.28 s over 312 samples. The old failure was in the full 19-spec run; re-checked in Step 7 | none |
+| 2g comments | Yes: said "hybrid" where the code uses "model" | comments corrected | 3 tests pin the behaviour (comments cannot fail a test) | 177ef12 |
+| 2h sweep | Partly: sandbox.py:419/427 and osm_venue.py:103 are benign retries/parses; state.py:190 already logged | real ones: hazard source failure (log + session event), report map plan (log), samples install (in `/health`), CORS from settings; **plus the root-owned cache found by `make probe`** | hazard test fail → pass; cache, CORS, samples tests pass | e8369a0, a1ee1c9, e90c358, 3aeefeb |
+
+The ownership fix, checked live:
+- `make up` gave 490 root-owned entries back to the user.
+- The API runs as `uid=1000 groups=1000,973(docker)`.
+- A tier-2 sandbox run finished `ok` (400 people, folder owned by the user).
+- `make probe`: **All checks passed** (Open-Meteo 24 hourly gusts).
+
+Wider checks after Step 2:
+- `make check`: 766 passed, 1 skipped.
+- web: `tsc -b`, `eslint`, vitest 214 passed, build ok.
+
+Live calls in Step 2: about 8 (guided journey alone), about 12 (journeys file), 2 (probe).
