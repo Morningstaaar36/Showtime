@@ -358,8 +358,8 @@ async def red_team(
         named = [("attack", i, d) for i, d in enumerate(out.attacks)]
         named += [("script", i, d) for i, d in enumerate(getattr(out, "scripts", []))]
         probs.extend(
-            f"{kind} {i + 1}: the title repeats the target; name what happens to the crowd, "
-            'e.g. "Smoke spreads from the west stair"'
+            f"{kind} {i + 1}: the title repeats the target; name what happens to the crowd "
+            "there in a few words, using the exit, zone or floor names of this venue"
             for kind, i, d in named
             if copies_aim(d.title)
         )
