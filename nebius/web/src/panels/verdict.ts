@@ -48,13 +48,17 @@ export function verdictOf(r: RunResult | null | undefined, th: Thresholds, exitL
   const top = r.hotspots?.[0];
   if (dangerS >= th.dangerMinS) reasons.push(`density above ${fmtNum(th.danger, 0)} people per m² for ${fmtDuration(dangerS)}`);
   if (trapped > 0) reasons.push(`${trapped} people trapped with no open exit`);
-  if (notEvac > tol) reasons.push(`${notEvac.toLocaleString()} people still inside at the end`);
+  const frac = (m.extra as Record<string, number> | undefined)?.evacuated_fraction;
+  if (notEvac > tol && r.tier === 2 && m.evac_time_p95_s == null) {
+    // a quick simulation stops after its first minutes: people still walking then are not
+    // trapped. As on the server (break_reasons), it fails only if fewer than half got out
+    if (frac != null && frac < 0.5) reasons.push(`only ${Math.round(frac * 100)}% out when the quick simulation stopped at ${fmtDuration(r.sim_time_s ?? 0)}`);
+  } else if (notEvac > tol) reasons.push(`${notEvac.toLocaleString()} people still inside at the end`);
   const level: VerdictLevel = reasons.length ? "fails" : r.status === "partial" ? "unknown" : peak >= th.warn || warnS > 30 ? "at_risk" : "holds";
   const sentences: string[] = [];
   if (m.evac_time_p95_s != null) {
     sentences.push(`95% of ${total.toLocaleString()} people are out in ${fmtDuration(m.evac_time_p95_s)}.`);
   } else if (total) {
-    const frac = (m.extra as Record<string, number> | undefined)?.evacuated_fraction;
     sentences.push(`${frac != null ? `${Math.round(frac * 100)}%` : "Not all"} of ${total.toLocaleString()} people got out within the simulated time.`);
   }
   if (top) {

@@ -357,7 +357,7 @@ export function VenueChecklist({ project, scene }: { project: ProjectDetail; sce
   return (
     <div className="space-y-5">
       {multi && (
-        <div role="group" aria-label={t("check.floor_tabs")} className="scrollbar-thin -mx-1 flex gap-1 overflow-x-auto px-1 pb-1">
+        <div role="group" aria-label={t("check.floor_tabs")} className="flex flex-wrap gap-1">
           {[{ id: "all", label: t("check.all_floors"), n: total }, ...floorsBottomUp(venue).map((f) => ({ id: f.floor_id, label: floorName(f.floor_id), n: peopleOn(f) }))].map((o) => {
             const on = o.id === "all" ? !onFloor : onFloor === o.id;
             return (

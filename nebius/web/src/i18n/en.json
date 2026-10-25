@@ -1368,6 +1368,8 @@
     "evaluation": {
       "confirmed": "Confirmed by full simulations",
       "partially_confirmed": "Partly confirmed: the simulations stopped before everyone was out",
+      "partially_confirmed_before": "Partly confirmed: the worst case without the fixes stopped before everyone was out",
+      "partially_confirmed_after": "Partly confirmed: the worst case with the fixes stopped before everyone was out",
       "unconfirmed": "Not confirmed",
       "failed": "Confirmation failed: the simulations didn't finish"
     },
@@ -1661,6 +1663,7 @@
     "sc_hold": "{zone} held back",
     "sc_script": "Custom AI scenario",
     "sc_out": "95% out",
+    "sc_left": "{n} still inside",
     "sc_peak": "Peak per m²",
     "sc_fixes": "{k} of {n} fixes kept",
     "sc_stress": "Breaks in {k} of {n} crowds",

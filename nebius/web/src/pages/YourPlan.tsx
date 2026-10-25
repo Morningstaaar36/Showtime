@@ -336,7 +336,7 @@ export function YourPlanPage() {
   const previewing = !!proposal;
   /** a run from outside the session (a sweep result, the failure map) plays in the replay */
   const playRun = (runId: string, title: string) => {
-    pick({ key: `run:${runId}`, kind: "attack", title, runId, outcome: "unknown", evacS: null, peak: null, children: [] });
+    pick({ key: `run:${runId}`, kind: "attack", title, runId, outcome: "unknown", evacS: null, peak: null, inside: null, children: [] });
     go("replay");
   };
   const deciding = state === "pending" && kept.length > 0;
@@ -489,7 +489,8 @@ export function YourPlanPage() {
           <TabsContent value="scenarios" className="animate-tab-in space-y-6">
             <ScenarioCards rows={rows} attacks={summary?.attacks ?? []} name={label} stress={stressByAttack(stressRec)} danger={th.danger}
                            onPlay={(row) => { pick(row); go("replay"); }} />
-            <FailureMapSlot projectId={p.id} sessionId={sessionId} onSelectRun={playRun} />
+            <FailureMapSlot projectId={p.id} sessionId={sessionId} onSelectRun={playRun}
+                            hasArchive={session.data?.status === "running" || session.data?.status === "queued" || !session.data?.summary || "archive" in session.data.summary} />
             <ScenarioCatalogue projectId={p.id} version={p.current_version} onPlay={playRun} danger={th.danger} />
             <DeeperChecks status={checkStatus} panels={{
               seeds: <SeedPanel sessionId={sessionId} human={human} />,

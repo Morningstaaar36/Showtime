@@ -105,8 +105,14 @@ export function runBasisLabel(run: RunLike | null | undefined): string {
 
 /** Organizer words for a session's evaluation status; sessions saved before evaluations
  * existed are "Not confirmed", never confirmed. */
-export function evaluationLabel(evaluation: { status?: string | null } | null | undefined): string {
+export function evaluationLabel(evaluation: { status?: string | null; before_basis?: string | null; after_basis?: string | null } | null | undefined): string {
   const status = evaluation?.status;
+  if (status === "partially_confirmed") {
+    // say which full simulation stopped early, so "0 still inside" after the fixes reads true
+    const before = evaluation?.before_basis === "partial_simulation";
+    const after = evaluation?.after_basis === "partial_simulation";
+    if (before !== after) return t(`evidence.evaluation.partially_confirmed_${before ? "before" : "after"}`);
+  }
   if (status === "confirmed" || status === "partially_confirmed" || status === "failed") return t(`evidence.evaluation.${status}`);
   return t("evidence.evaluation.unconfirmed");
 }

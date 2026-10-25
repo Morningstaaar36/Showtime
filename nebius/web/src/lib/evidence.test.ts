@@ -75,6 +75,12 @@ describe("evaluationLabel", () => {
     expect(evaluationLabel({ status: "unconfirmed" })).toBe("Not confirmed");
     expect(evaluationLabel({ status: "failed" })).toBe("Confirmation failed: the simulations didn't finish");
   });
+  it("says which worst case stopped early when only one did", () => {
+    const partly = { status: "partially_confirmed", after_basis: "completed_simulation" };
+    expect(evaluationLabel({ ...partly, before_basis: "partial_simulation" })).toMatch(/without the fixes stopped/);
+    expect(evaluationLabel({ status: "partially_confirmed", before_basis: "completed_simulation", after_basis: "partial_simulation" })).toMatch(/with the fixes stopped/);
+    expect(evaluationLabel({ status: "partially_confirmed", before_basis: "partial_simulation", after_basis: "partial_simulation" })).toMatch(/the simulations stopped/);
+  });
   it("never confirms a session that has no evaluation", () => {
     expect(evaluationLabel(undefined)).toBe("Not confirmed");
     expect(evaluationLabel(null)).toBe("Not confirmed");

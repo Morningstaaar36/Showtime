@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/misc";
 import { t } from "@/i18n";
-import { fmtClock, fmtNum } from "@/lib/format";
+import { fmtClock, fmtNum, fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { type ScenarioKind, scenarioHeadline, scenarioKind, type StressCount } from "./gallery";
 import type { Outcome, ScenarioRow } from "./scenarios";
@@ -66,7 +66,10 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay, danger = 5 
               <dl className="grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-[8px] bg-surface-2 px-2 py-1.5">
                   <dt className="text-2xs text-muted">{t("plan.sc_out")}</dt>
-                  <dd className="text-lg font-bold tabular">{r.evacS != null ? fmtClock(r.evacS) : "–"}</dd>
+                  {r.evacS == null && r.inside ? (
+                    // the simulation stopped with people inside: say so instead of a blank
+                    <dd className="text-sm font-bold leading-7 text-danger tabular">{t("plan.sc_left", { n: fmtInt(r.inside) })}</dd>
+                  ) : <dd className="text-lg font-bold tabular">{r.evacS != null ? fmtClock(r.evacS) : "–"}</dd>}
                 </div>
                 <div className="rounded-[8px] bg-surface-2 px-2 py-1.5">
                   <dt className="text-2xs text-muted">{t("plan.sc_peak")}</dt>

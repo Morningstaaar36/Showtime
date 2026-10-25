@@ -109,7 +109,8 @@ export function WorkspacePage() {
   const runId = ui.activeRunId ?? autoRun;
   const run = useRun(runId);
   const finished = run.data && (run.data.status === "ok" || run.data.status === "partial");
-  const replay = useReplay(finished ? runId : null, mode !== "plan" && mode !== "report");
+  // an instant estimate (tier 1, e.g. standing in for a simulation that failed) has no replay
+  const replay = useReplay(finished && run.data?.tier !== 1 ? runId : null, mode !== "plan" && mode !== "report");
   // "Stress test finished" when a run the user is watching completes (not for runs opened later)
   const watched = useRef<{ id: string | null; status: string | undefined }>({ id: null, status: undefined });
   useEffect(() => {

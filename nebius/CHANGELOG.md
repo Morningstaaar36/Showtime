@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed (live browser check, Oct 25)
+- Autopilot: the venue now holds the event's headcount. The Brief agent's layout text can leave
+  the number out, and the designer then filled the floor to capacity (1,500 asked, 2,800 built).
+  The brief's headcount now goes to the designer, and a layout more than 5 % off is sent back for
+  repair (designer prompt v8, which also keeps a walkable ramp as a way out).
+- Red team: a title that only repeats the failure-map target ("Adaptive scenario (code) · West
+  side: exits …") is sent back for a real name; if the model keeps it, the rationale names it.
+- Autopilot's "Confirming the fixes" step reports time above danger density next to the
+  evacuation time, so a fix that trades a few seconds for no danger doesn't read as worse.
+- Verdict badge says which worst case stopped early ("without the fixes" / "with the fixes").
+- Scenario cards show "N still inside" instead of a blank when a run stopped with people inside.
+- Per-floor chart ends at zero when the run reports everyone out.
+- No 404 requests for an estimate's replay, for the pressure grid of runs simulated before it
+  existed, or for the failure map of sessions saved before it existed.
+- Check page: floor chips wrap instead of hiding upper floors in a side scroll; estimated sides
+  of the before/after rows read "~4:44" next to their "Estimate" badge instead of wrapping.
+
 ### Added
 - **Crowd pressure and turbulence** (Helbing, Johansson & Al-Abideen 2007): every simulation writes
   `pressure.bin` / `pressure_index.json` (same layout as the density grid, GET

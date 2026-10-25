@@ -102,9 +102,16 @@ export function ReplayCaption({ markers, className }: { markers: TimelineMarker[
 
 const FLOOR_COLORS = ["#1F5FBF", "#CC79A7", "#56B4E9", "#7E57C2", "#0072B2", "#8E9BA5", "#E8D44D", "#1C2329"];
 
-/** People still on each floor over time (multi-storey replays), with a text summary. */
-export function FloorChart({ traj, floorName }: { traj: Trajectory; floorName: (id: string) => string }) {
-  const series = useMemo(() => peoplePerFloor(traj), [traj]);
+/** People still on each floor over time (multi-storey replays), with a text summary.
+ * `allOutS`: the run reports everyone out at that time; the last frame can still hold someone
+ * stepping through an exit, so the curves end at zero then. */
+export function FloorChart({ traj, floorName, allOutS = null }: { traj: Trajectory; floorName: (id: string) => string; allOutS?: number | null }) {
+  const series = useMemo(() => {
+    const s = peoplePerFloor(traj);
+    const lastT = s.times[s.times.length - 1];
+    if (allOutS == null || lastT == null || s.counts.every((c) => !c[c.length - 1])) return s;
+    return { ...s, times: [...s.times, Math.max(allOutS, lastT)], counts: s.counts.map((c) => [...c, 0]) };
+  }, [traj, allOutS]);
   const data = useMemo(() => series.times.map((tm, i) => ({
     t: tm, ...Object.fromEntries(series.floors.map((f, j) => [f, series.counts[j][i]])),
   })), [series]);
