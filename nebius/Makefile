@@ -34,11 +34,9 @@ llm-up: ## Start the local Nemotron server on the GPU (background, logs/llm.log)
 llm-down: ## Stop the local LLM server
 	@./scripts/llm_down.sh
 
-# the API container runs as you (so runs/, cache/ and state/ stay yours) and joins the group of
-# the Docker socket so it can start sandboxes
-export HOST_UID := $(shell id -u)
-export HOST_GID := $(shell id -g)
-export DOCKER_GID := $(shell stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)
+# the API container runs as the owner of runs/ (its entrypoint reads it from the mount)
+HOST_UID := $(shell id -u)
+HOST_GID := $(shell id -g)
 
 up: build-sim ## Start the stack with Docker Compose (api + web) → http://localhost:5173
 	@test -f .env || cp .env.example .env
