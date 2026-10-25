@@ -14,6 +14,7 @@ when a configured service fails.
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -28,6 +29,8 @@ from api.adapters.providers.base import LiveCheck, Provider  # noqa: E402
 from api.core.settings import Settings  # noqa: E402
 
 STATUS_FILE = ROOT / "docs" / "LIVE_STATUS.md"
+# the latest result of every service (a single make verify-* updates its own row only)
+RESULTS_FILE = ROOT / "api" / "data" / "live_status.json"
 
 
 @dataclass
@@ -93,40 +96,69 @@ async def check(t: Target, base: Settings) -> tuple[Target, LiveCheck, str]:
     return t, result, ids(spec, t.kind, s)
 
 
-def table(rows: list[tuple[Target, LiveCheck, str]]) -> list[str]:
-    out = ["| Service | Provider | Result | Detail | Ids |", "| --- | --- | --- | --- | --- |"]
-    for t, r, ident in rows:
-        title = LOOKUP[t.kind](t.provider).title
-        mark = {"ok": "PASS", "failed": "FAIL", "skipped": "SKIPPED"}[r.status]
-        detail = r.detail.replace("|", "/") + (
-            f" Fix: {r.fix}" if r.fix and r.status != "ok" else ""
+def record(t: Target, r: LiveCheck, ident: str, when: str) -> dict[str, str]:
+    title = LOOKUP[t.kind](t.provider).title
+    detail = r.detail.replace("|", "/") + (f" Fix: {r.fix}" if r.fix and r.status != "ok" else "")
+    return {
+        "kind": t.kind,
+        "provider": t.provider,
+        "title": title,
+        "status": r.status,
+        "detail": detail,
+        "ids": ident,
+        "checked_at": when,
+    }
+
+
+def table(rows: list[dict[str, str]]) -> list[str]:
+    out = [
+        "| Service | Provider | Result | Detail | Ids | Checked |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for r in rows:
+        mark = {"ok": "PASS", "failed": "FAIL", "skipped": "SKIPPED"}[r["status"]]
+        out.append(
+            f"| {r['kind']} | {r['title']} | {mark} | {r['detail']} | {r['ids']} | {r['checked_at']} |"
         )
-        note = f" ({t.note})" if t.note else ""
-        out.append(f"| {t.kind}{note} | {title} | {mark} | {detail} | {ident} |")
     return out
 
 
-def write_status(rows: list[tuple[Target, LiveCheck, str]], argv: list[str]) -> None:
+def write_status(
+    results: list[tuple[Target, LiveCheck, str]], argv: list[str]
+) -> list[dict[str, str]]:
+    """Merge these results into the saved ones and write docs/LIVE_STATUS.md from all of them."""
     when = datetime.now(UTC).isoformat(timespec="seconds")
+    try:
+        saved: list[dict[str, str]] = json.loads(RESULTS_FILE.read_text())
+    except (OSError, ValueError):
+        saved = []
+    rows = {(r["kind"], r["provider"]): r for r in saved}
+    for t, r, ident in results:
+        rows[(t.kind, t.provider)] = record(t, r, ident, when)
+    merged = sorted(rows.values(), key=lambda r: (r["kind"], r["provider"]))
+    RESULTS_FILE.write_text(json.dumps(merged, indent=1) + "\n")
     lines = [
         "# Live status of the external services",
         "",
-        f"Written by `scripts/verify_live.py {' '.join(argv) or 'all'}` on {when}. Each row is the",
-        "provider's smallest real call (one chat, one sandbox script plus one refused network call,",
-        "one search). SKIPPED means its key is not in .env, so it has **not been run live**.",
+        "Written by `scripts/verify_live.py` (`make verify-live`, `make verify-<service>`): the latest",
+        "result of each provider's smallest real call (one chat; one sandbox script plus one network",
+        "call that must be stopped; one search). SKIPPED means its key is not in .env, so it has",
+        "**not been run live**.",
         "",
-        *table(rows),
+        *table(merged),
         "",
     ]
     STATUS_FILE.write_text("\n".join(lines))
+    return merged
 
 
 async def main(argv: list[str]) -> int:
     base = Settings()
     rows = [await check(t, base) for t in targets(argv, base)]  # one at a time (quota, memory)
-    for line in table(rows):
-        print(line)
     write_status(rows, argv)
+    when = datetime.now(UTC).isoformat(timespec="seconds")
+    for line in table([record(t, r, ident, when) for t, r, ident in rows]):
+        print(line)
     print(f"\nWrote {STATUS_FILE.relative_to(ROOT)}")
     return 1 if any(r.status == "failed" for _, r, _ in rows) else 0
 

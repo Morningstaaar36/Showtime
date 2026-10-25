@@ -1,0 +1,47 @@
+[
+ {
+  "kind": "llm",
+  "provider": "nebius",
+  "title": "Nebius Token Factory",
+  "status": "skipped",
+  "detail": "SKIPPED: set NEBIUS_API_KEY Fix: docs/WHEN_YOU_GET_THE_KEYS.md",
+  "ids": "",
+  "checked_at": "2026-10-25T10:58:12+00:00"
+ },
+ {
+  "kind": "llm",
+  "provider": "openai",
+  "title": "OpenAI-compatible API",
+  "status": "ok",
+  "detail": "OPENROUTER: nvidia/nemotron-3-ultra-550b-a55b:free; nvidia/nemotron-3.5-lightning:free answered 'ready'",
+  "ids": "OPENAI_COMPAT_BASE_URL=https://openrouter.ai/api/v1; models: nvidia/nemotron-3-ultra-550b-a55b:free, nvidia/nemotron-3.5-lightning:free",
+  "checked_at": "2026-10-25T10:58:12+00:00"
+ },
+ {
+  "kind": "sandbox",
+  "provider": "docker",
+  "title": "Local Docker",
+  "status": "ok",
+  "detail": "ran a script in 0.31 s; a network call was stopped: OSError: [Errno 101] Network is unreachable",
+  "ids": "SIM_IMAGE=showtime-sim:latest",
+  "checked_at": "2026-10-25T10:58:12+00:00"
+ },
+ {
+  "kind": "sandbox",
+  "provider": "nebius",
+  "title": "Nebius Sandboxes",
+  "status": "skipped",
+  "detail": "SKIPPED: set NEBIUS_API_KEY Fix: docs/WHEN_YOU_GET_THE_KEYS.md",
+  "ids": "",
+  "checked_at": "2026-10-25T10:58:12+00:00"
+ },
+ {
+  "kind": "search",
+  "provider": "tavily",
+  "title": "Tavily web search",
+  "status": "skipped",
+  "detail": "SKIPPED: set TAVILY_API_KEY Fix: docs/WHEN_YOU_GET_THE_KEYS.md",
+  "ids": "",
+  "checked_at": "2026-10-25T10:58:12+00:00"
+ }
+]
