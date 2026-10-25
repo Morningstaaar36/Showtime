@@ -90,7 +90,7 @@ export function TeamPage() {
             <div className="min-w-0 flex-1 space-y-1">
               <h2 id="sandbox-h" className="font-semibold">{t("team.sandbox_title")}</h2>
               <p className="text-sm text-muted">{t("team.sandbox_text", { where: q.data.sandbox.provider === "nebius" ? t("team.sandbox_nebius") : t("team.sandbox_docker") })}</p>
-              <p className="text-xs text-muted">{q.data.sandbox.isolation} · {q.data.sandbox.detail}</p>
+              <p className="text-xs text-muted" data-testid="team-isolation">{q.data.sandbox.isolation.summary} · {q.data.sandbox.detail}</p>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted"><Calculator className="size-4" aria-hidden />{t("team.numbers")}</div>
             <div className="flex items-center gap-2 text-sm text-muted"><Wrench className="size-4" aria-hidden />{t("team.kept")}</div>

@@ -20,3 +20,8 @@ test("a Help link to a section opens at that section", async ({ page }) => {
   await page.goto("/help#verdict");
   await expect(page.getByRole("heading", { name: "Reading the verdict" })).toBeInViewport();
 });
+
+test("the AI team page names the sandbox and its limits", async ({ page }) => {
+  await page.goto("/team");
+  await expect(page.getByTestId("team-isolation")).toContainText(/one container per run, no network/i);
+});

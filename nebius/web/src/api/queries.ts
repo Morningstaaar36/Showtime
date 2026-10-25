@@ -4,6 +4,7 @@ import { api } from "./client";
 import type { PlanSnapshot } from "@/types/generated";
 import type { OpenCaseOut, RealCase } from "@/journey/realCases";
 import type {
+  SandboxIsolation,
   AskOut,
   Attack,
   CountdownOut,
@@ -698,7 +699,7 @@ export interface AgentsOut {
   provider: string;
   agents: AgentInfo[];
   tools: Record<string, string>;
-  sandbox: { provider: string; ok: boolean; detail: string; isolation: string };
+  sandbox: { provider: string; ok: boolean; detail: string; isolation: SandboxIsolation; time_limit_s?: number };
 }
 
 /** The AI team (GET /agents): every Nemotron agent, its model, job and tools. */
