@@ -105,7 +105,7 @@ def create_app(state: AppState | None = None, settings: Settings | None = None) 
     app.add_middleware(GZipMiddleware, minimum_size=2048, compresslevel=5)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.web_origin, "http://127.0.0.1:5173", "http://localhost:4173"],
+        allow_origins=settings.allowed_origins,
         allow_methods=["*"],
         allow_headers=["*"],
         allow_credentials=False,

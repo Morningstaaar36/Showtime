@@ -161,6 +161,9 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     web_origin: str = "http://localhost:5173"
+    # more web origins allowed to call the API (comma-separated), besides WEB_ORIGIN: the app on
+    # 127.0.0.1 and the Vite preview server by default
+    cors_origins: str = "http://127.0.0.1:5173,http://localhost:4173"
     upload_max_bytes: int = 5_000_000
     log_level: str = "INFO"
 
@@ -183,6 +186,12 @@ class Settings(BaseSettings):
         if self.llm_provider == "local" and not self.local_llm_model.strip():
             raise ValueError("LOCAL_LLM_MODEL is empty: set it in .env (LLM_PROVIDER=local).")
         return self
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """WEB_ORIGIN plus CORS_ORIGINS, without blanks or repeats."""
+        extra = [o.strip() for o in self.cors_origins.split(",")]
+        return list(dict.fromkeys(o for o in [self.web_origin, *extra] if o))
 
     @property
     def database_url(self) -> str:
