@@ -49,6 +49,8 @@ class FelicianiIncidents:
 
     id = "incidents_feliciani"
     label = "Crowd accidents 1900–2024"
+    citation = "Feliciani et al., crowd accidents 1900–2024 dataset"
+    citation_url = "https://doi.org/10.5281/zenodo.19483010"
 
     def __init__(self, config: Config) -> None:
         self.config = config

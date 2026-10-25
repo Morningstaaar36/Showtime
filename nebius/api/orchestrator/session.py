@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlmodel import col, select
 
 from api.adapters.llm import Budget, BudgetExceeded, LLMError
+from api.adapters.search import SearchBudget
 from api.agents.base import AgentEnv, AgentUnavailable, audit_decision
 from api.agents.blue_team import blue_team
 from api.agents.context import readable
@@ -31,6 +32,8 @@ from api.agents.red_team import (
     red_team,
     signature,
     venue_features,
+    web_queries,
+    web_records,
 )
 from api.core.annotations import carry_annotations
 from api.core.countdown import choose_hazard, compute_countdown
@@ -294,6 +297,7 @@ class LiveSession:
     started: float = field(default_factory=time.monotonic)
     runs: int = 0
     budget: Budget | None = None
+    search_budget: SearchBudget | None = None  # live web searches this session may make
     final_venue: Venue | None = None
     measures: list[ScenarioEventIn] = field(default_factory=list)
     tested: list[str] = field(default_factory=list)
@@ -469,6 +473,7 @@ class SessionManager:
             venue_version=p.current_version,
             config=cfg,
             budget=Budget(max_tokens=int(cfg["max_tokens"])),
+            search_budget=SearchBudget(max_calls=int(self.st.settings.tavily_max_calls)),
         )
         self.live[sid] = live
         live.task = asyncio.create_task(self._run(live))
@@ -732,16 +737,18 @@ class SessionManager:
             baseline = await self._sim(live, venue, 3, "Baseline", "baseline", None, "baseline")
             results[baseline.run_id] = baseline
             self._node_done(live, "baseline", baseline, None)
-            incidents = self._incidents(working, baseline)
+            dataset = self._incidents(working, baseline)
             self.emit(
                 live,
                 "tool_call",
                 {
                     "tool": "incidents",
-                    "args": {"n": len(incidents)},
-                    "summary": f"{len(incidents)} similar real incidents found",
+                    "args": {"n": len(dataset)},
+                    "summary": f"{len(dataset)} similar real incidents found",
                 },
             )
+            # web hits first: the red team sees what the web says about venues like this one
+            incidents = [*(await self._web_evidence(live, working, baseline)), *dataset]
             seen: set[str] = set()
             archive = Archive(venue)
             rule = BreakRule(
@@ -1270,6 +1277,49 @@ class SessionManager:
                     "budget_tokens": b.max_tokens,
                 },
             )
+
+    async def _web_evidence(
+        self, live: LiveSession, venue: Venue, baseline: RunResult | None
+    ) -> list[IncidentRecord]:
+        """The red team's web search for real incidents and near-misses at venues like this one,
+        as rows it may cite (origin "tavily"). Off without a key: it says so and the incident
+        dataset is used; never an error."""
+        st, s = self.st, self.st.settings
+        if not getattr(st.search, "live", False):
+            self.emit(
+                live,
+                "tool_call",
+                {
+                    "tool": "search",
+                    "args": {"live": False},
+                    "summary": "Web search is off (add a Tavily key to switch on): the red team "
+                    "uses the incident dataset.",
+                },
+            )
+            return []
+        queries = web_queries(venue, venue_features(venue, baseline), s.search_queries_per_session)
+        hits: list[Any] = []
+        for q in queries:
+            for h in await st.search.search(
+                q, max_results=s.search_results_per_query, budget=live.search_budget
+            ):
+                if h.url not in {x.url for x in hits}:
+                    hits.append(h)
+        hits = hits[: s.search_max_sources]
+        n = len(hits)
+        self.emit(
+            live,
+            "tool_call",
+            {
+                "tool": "search",
+                "args": {"queries": queries, "live": True},
+                "summary": f"Red team searched the web: {n} source{'' if n == 1 else 's'}",
+                "sources": [
+                    {"title": h.title, "url": h.url, "published": h.published} for h in hits
+                ],
+            },
+        )
+        return web_records(hits)
 
     def _incidents(self, venue: Venue, baseline: RunResult | None) -> list[IncidentRecord]:
         srcs = self.st.registry.all("IncidentSource")

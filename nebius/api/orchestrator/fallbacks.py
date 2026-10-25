@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from api.agents.red_team import _evidence, _source_url, script_attack, signature
+from api.agents.red_team import inspired_by, script_attack, signature
 from api.core.extensions import IncidentRecord, Registry
 from api.core.extensions import geometry as geo
 from api.core.scripts import EXAMPLE_SCRIPT
@@ -116,20 +116,13 @@ def rule_attacks(
             continue
         used.add(r.row_id)
         seen.add(sig)
-        name = getattr(r, "name", "") or f"{r.event_type} crowd accident, {r.country}"
         out.append(
             Attack.model_validate(
                 {
                     "attack_id": f"A{id_offset + len(out) + 1}",
                     "title": title,
                     "events": events,
-                    "inspired_by": {
-                        "incident": name,
-                        "year": r.year,
-                        "source_url": _source_url(r),
-                        "evidence": _evidence(r),
-                        "dataset_row": r.row_id,
-                    },
+                    "inspired_by": inspired_by(r),
                     "rationale": why,
                     "extensions": {"generated_by": "rules"},
                 }
@@ -379,19 +372,12 @@ def rule_attacks_for_cells(
 def _rule_attack(
     attack_id: str, title: str, events: list[dict[str, Any]], why: str, r: IncidentRecord
 ) -> Attack:
-    name = getattr(r, "name", "") or f"{r.event_type} crowd accident, {r.country}"
     return Attack.model_validate(
         {
             "attack_id": attack_id,
             "title": title,
             "events": events,
-            "inspired_by": {
-                "incident": name,
-                "year": r.year,
-                "source_url": _source_url(r),
-                "evidence": _evidence(r),
-                "dataset_row": r.row_id,
-            },
+            "inspired_by": inspired_by(r),
             "rationale": why,
             "extensions": {"generated_by": "rules"},
         }

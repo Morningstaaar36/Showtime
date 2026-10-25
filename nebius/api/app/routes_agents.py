@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from api.adapters.llm import BudgetExceeded, LLMError
+from api.adapters.providers import search_provider
 from api.agents.base import AgentEnv, AgentUnavailable
 from api.agents.venue import propose_edit
 from api.app.errors import ApiException
@@ -42,11 +43,27 @@ TOOL_LABELS: dict[str, str] = {
     "instant_estimate": "Instant estimate (network flow, milliseconds)",
     "solver": "Layout solver (a design becomes exact geometry)",
     "map": "OpenStreetMap sites",
-    "incidents": "388 real crowd accidents, 1900–2024",
+    "incidents": "Real crowd accidents (incident dataset)",
+    "search": "Web search for real incidents",
     "edit_ops": "Validated venue edits",
     "scenario_events": "Scenario events (blocked exit, surge, smoke, …)",
     "number_check": "Number check (only numbers the tools produced)",
+    "code_sandbox": "Its own analysis code, run in a sealed sandbox",
 }
+
+
+def _tool_labels(st: AppState) -> dict[str, str]:
+    """Tool names in plain words, with what is true right now: how many incidents the dataset
+    holds, and whether web search is on."""
+    labels = dict(TOOL_LABELS)
+    sources = st.registry.all("IncidentSource")
+    n = sum(int(src.count()) for src in sources)
+    if n:
+        labels["incidents"] = f"{n:,} real crowd accidents (incident dataset)"
+    title = search_provider(st.settings.search_provider).title
+    on = bool(getattr(st.search, "live", False))
+    labels["search"] = f"{title}: on" if on else f"{title}: off (add a key to switch on)"
+    return labels
 
 
 @router.get("/agents")
@@ -71,7 +88,7 @@ async def list_agents(st: AppState = Depends(get_state)) -> dict[str, Any]:
             }
             for m in TEAM
         ],
-        "tools": TOOL_LABELS,
+        "tools": _tool_labels(st),
         "sandbox": {
             "provider": st.settings.sandbox_provider,
             "ok": bool(sandbox.get("ok")),
@@ -582,8 +599,13 @@ def run_sources(st: AppState, row: Any) -> list[dict[str, str]]:
         srow = st.sessions.get(row.session_id)
         for a in (srow.summary or {}).get("attacks", []) if srow else []:
             if a.get("attack_id") == row.attack_id:
+                src = a["inspired_by"]
                 sources.append(
-                    {"title": a["inspired_by"]["incident"], "url": a["inspired_by"]["source_url"]}
+                    {
+                        "title": src["incident"],
+                        "url": src["source_url"],
+                        "origin": src.get("origin", "dataset"),
+                    }
                 )
     return sources
 

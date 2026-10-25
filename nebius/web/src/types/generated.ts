@@ -133,6 +133,7 @@ export type Year = number | null;
 export type SourceUrl = string;
 export type Evidence = string;
 export type DatasetRow = number | null;
+export type Origin = "dataset" | "tavily";
 export type Rationale = string;
 export type SchemaVersion3 = number;
 export type FixId = string;
@@ -194,7 +195,7 @@ export type ReplaceActions = PlanAction[];
 export type RemoveActionIds = string[];
 export type Locked = boolean;
 export type Placement = "fixed" | "movable";
-export type Origin = "existing" | "proposed";
+export type Origin1 = "existing" | "proposed";
 export type Access = "allowed" | "restricted" | "unavailable";
 export type RequiredApprovals1 = string[];
 export type EstimatedCost1 = number | null;
@@ -351,6 +352,7 @@ export type Setting = string;
 export type Name2 = string;
 export type Date = string | null;
 export type CrowdSize = number | null;
+export type Origin2 = string;
 export type DatasetUrl = string | null;
 export type Dataset = string;
 export type ProjectName = string;
@@ -566,6 +568,12 @@ export type Detail1 = {
   [k: string]: unknown;
 } | null;
 export type Notes2 = string[];
+export type Topic = "capacity" | "attendance" | "rules";
+export type Title2 = string;
+export type Url = string;
+export type Published = string | null;
+export type Sentence = string;
+export type Evidence1 = EvidenceSuggestion[];
 export type AiOutage = boolean;
 export type PartialReason = ("budget" | "stopped" | "error" | "restart") | null;
 export type Error1 = string | null;
@@ -587,7 +595,7 @@ export type Wheres = FailureMapWhere[];
 export type Kind4 = string;
 export type Where = string;
 export type AttackId3 = string;
-export type Title2 = string;
+export type Title3 = string;
 export type RunId3 = string;
 export type Severity2 = number;
 export type IsBreak = boolean;
@@ -853,6 +861,7 @@ export interface InspiredBy {
   source_url: SourceUrl;
   evidence: Evidence;
   dataset_row: DatasetRow;
+  origin: Origin;
 }
 export interface Extensions1 {
   [k: string]: unknown;
@@ -913,7 +922,7 @@ export interface NewObjects {
 export interface ObjectConstraint {
   locked: Locked;
   placement: Placement;
-  origin: Origin;
+  origin: Origin1;
   access: Access;
   required_approvals: RequiredApprovals1;
   estimated_cost: EstimatedCost1;
@@ -1224,6 +1233,7 @@ export interface IncidentRecord {
   name: Name2;
   date: Date;
   crowd_size: CrowdSize;
+  origin: Origin2;
   dataset_url: DatasetUrl;
   dataset: Dataset;
   [k: string]: unknown;
@@ -1671,6 +1681,7 @@ export interface AutopilotRun {
   headline: Headline;
   cost: AutopilotCost | null;
   notes: Notes2;
+  evidence: Evidence1;
   ai_outage: AiOutage;
   partial_reason: PartialReason;
   error: Error1;
@@ -1710,6 +1721,20 @@ export interface AutopilotCost {
   red_team_usd: RedTeamUsd;
   red_team_tokens: RedTeamTokens;
   detail: Detail1;
+  [k: string]: unknown;
+}
+/**
+ * A web source about the briefed place or event for the organizer to check (never applied).
+ *
+ * This interface was referenced by `ShowtimeContracts`'s JSON-Schema
+ * via the `definition` "EvidenceSuggestion".
+ */
+export interface EvidenceSuggestion {
+  topic: Topic;
+  title: Title2;
+  url: Url;
+  published: Published;
+  sentence: Sentence;
   [k: string]: unknown;
 }
 /**
@@ -1790,7 +1815,7 @@ export interface FailureMapCell {
  */
 export interface FailureMapElite {
   attack_id: AttackId3;
-  title: Title2;
+  title: Title3;
   run_id: RunId3;
   severity: Severity2;
   is_break: IsBreak;

@@ -173,19 +173,29 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
         url = str(a.inspired_by.source_url)
         if url not in seen:
             seen.add(url)
+            web = a.inspired_by.origin == "tavily"
+            where = " · live web search" if web else ""
             sources.append(
-                {"label": f"{a.inspired_by.incident} ({a.inspired_by.year or 'n.d.'})", "url": url}
+                {
+                    "label": f"{a.inspired_by.incident} ({a.inspired_by.year or 'n.d.'}){where}",
+                    "url": url,
+                    "origin": a.inspired_by.origin,
+                }
             )
+    if any(x.get("origin") == "tavily" for x in sources):
+        sources.append({"label": "Web search results: Tavily", "url": "https://tavily.com"})
     for src in (venue.extensions or {}).get("sources", []):
         if src.get("url") not in seen:
             sources.append({"label": src.get("label", ""), "url": src.get("url", "")})
     sources.extend(
         [
             {"label": "JuPedSim crowd simulation", "url": "https://www.jupedsim.org"},
-            {
-                "label": "Crowd accidents 1900–2024 dataset (Feliciani et al.)",
-                "url": "https://doi.org/10.5281/zenodo.19483010",
-            },
+            # the incident datasets the red team used, as each plugin cites itself
+            *(
+                {"label": getattr(src, "citation", src.label), "url": src.citation_url}
+                for src in st.registry.all("IncidentSource")
+                if getattr(src, "citation_url", "")
+            ),
             {"label": "Weather: Open-Meteo (CC BY 4.0)", "url": "https://open-meteo.com"},
         ]
     )

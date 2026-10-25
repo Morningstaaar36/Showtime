@@ -142,7 +142,15 @@ class Settings(BaseSettings):
 
     # --- Search and weather ---
     tavily_api_key: str = ""
-    tavily_max_calls: int = 20
+    tavily_max_calls: int = 20  # live search calls per session (a cached search is free)
+    # the red team's web search for real incidents like this venue's (when search is live)
+    search_queries_per_session: int = Field(default=2, ge=0, le=3)
+    search_results_per_query: int = Field(default=3, ge=1, le=10)
+    search_max_sources: int = Field(default=5, ge=1, le=20)
+    # the evidence desk: web lookups about the briefed place and event (0 turns it off), and
+    # the sites to search for them (comma-separated; empty: the whole web)
+    evidence_desk_queries: int = Field(default=2, ge=0, le=3)
+    evidence_desk_domains: str = ""
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_archive_url: str = "https://archive-api.open-meteo.com/v1/archive"
     nominatim_url: str = "https://nominatim.openstreetmap.org"

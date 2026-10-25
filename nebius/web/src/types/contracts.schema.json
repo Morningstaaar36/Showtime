@@ -405,6 +405,13 @@
      "title": "Notes",
      "type": "array"
     },
+    "evidence": {
+     "items": {
+      "$ref": "#/definitions/EvidenceSuggestion"
+     },
+     "title": "Evidence",
+     "type": "array"
+    },
     "ai_outage": {
      "default": false,
      "title": "Ai Outage",
@@ -463,6 +470,7 @@
     "created_at",
     "depth",
     "error",
+    "evidence",
     "finished_at",
     "headline",
     "id",
@@ -914,6 +922,54 @@
     "run_status"
    ],
    "title": "EvidenceReference",
+   "type": "object"
+  },
+  "EvidenceSuggestion": {
+   "description": "A web source about the briefed place or event for the organizer to check (never applied).",
+   "properties": {
+    "topic": {
+     "enum": [
+      "capacity",
+      "attendance",
+      "rules"
+     ],
+     "title": "Topic",
+     "type": "string"
+    },
+    "title": {
+     "title": "Title",
+     "type": "string"
+    },
+    "url": {
+     "title": "Url",
+     "type": "string"
+    },
+    "published": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Published"
+    },
+    "sentence": {
+     "default": "",
+     "title": "Sentence",
+     "type": "string"
+    }
+   },
+   "required": [
+    "published",
+    "sentence",
+    "title",
+    "topic",
+    "url"
+   ],
+   "title": "EvidenceSuggestion",
    "type": "object"
   },
   "Exit": {
@@ -1821,6 +1877,11 @@
      "default": null,
      "title": "Crowd Size"
     },
+    "origin": {
+     "default": "dataset",
+     "title": "Origin",
+     "type": "string"
+    },
     "dataset_url": {
      "anyOf": [
       {
@@ -1852,6 +1913,7 @@
     "injuries",
     "keywords",
     "name",
+    "origin",
     "row_id",
     "setting",
     "source_url",
@@ -1965,12 +2027,22 @@
      ],
      "default": null,
      "title": "Dataset Row"
+    },
+    "origin": {
+     "default": "dataset",
+     "enum": [
+      "dataset",
+      "tavily"
+     ],
+     "title": "Origin",
+     "type": "string"
     }
    },
    "required": [
     "dataset_row",
     "evidence",
     "incident",
+    "origin",
     "source_url",
     "year"
    ],
