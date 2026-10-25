@@ -154,3 +154,31 @@ Wider checks:
 - web: `tsc -b`, `eslint` and vitest pass.
 
 Live calls in Step 6: 4 (verify-live twice), about 10 (smoke).
+
+## Step 4: agents and evidence (Tavily as a plug-in; the incident dataset when keyless)
+
+| Item | What changed | Tests | Commits |
+| --- | --- | --- | --- |
+| 4a | Adapter tests with a fake Tavily client: cache hit, call cap, no key, offline, errors give `[]`, extract cached; a `fake` search provider whose results say "[test data]" and point at example.org; a `SearchBudget` per session | 6 | cc7cf54 |
+| 4b | Red team gets a `search` tool. With live search the session runs `SEARCH_QUERIES_PER_SESSION` queries from the venue's features and event kind and lists hits as citable rows (origin `tavily`) next to the dataset. Streams `tool_call {tool: search}`. A `source_url` can only be a hit's or a dataset row's. `InspiredBy.origin`. Web rows never claim a death count | 6 (session with fake client, keyless, report labels, AI team, tools) | ea1fca7 |
+| 4c | Evidence desk after the brief: capacity, attendance and guidance searches give cited suggestions in the autopilot result, never applied | 3 | e23b00d |
+| 4d | Report and Ask label each source's origin; Tavily credited when used; the dataset cites itself through its plugin | (in 4b tests) | ea1fca7 |
+| 4e | Evidence panel (Live web / Incident dataset groups, sentence, what it grounds), origin badges on every source, the agents' tool calls on AI at work, sources to check on the autopilot page | vitest 4; e2e `evidence.spec.ts` in Chrome | 3af8ab6, e952d89 |
+| 4f | Keyless is the normal state: "Web search is off (add a Tavily key to switch on)" in the tool calls and the panel; the web group appears only with results | e2e | — |
+| 4g | Number check for red- and blue-team titles and rationales (they were unchecked: titles are shown everywhere). Tool lists corrected (analyst → `code_sandbox`, editor without `solver`, brief with `search`); the AI team shows live tool labels (dataset size, search on/off) | 3 + 1 | 62f0264 |
+
+**A bug found in Chrome:** the Evidence strings had never been inserted, so the badge showed
+`evidence_panel.origin_dataset`.
+- **Fixed** in commit d1-series.
+- **Guard:** `i18n/keys.test.ts` checks that every literal string key exists. It failed without the
+  fix and named every missing key.
+
+**Not done (needs a key):** recording the demo's searches into `cache/tavily/`. It must come from real
+results, so with no key nothing was recorded or faked.
+
+Wider checks:
+- `make check`: 843 passed, 1 skipped.
+- web: `tsc -b`, `eslint` and vitest 232 pass.
+- e2e `evidence.spec.ts` 1/1 and `sandbox.spec.ts` 4/4 in Chrome.
+
+Live calls in Step 4: 0.
