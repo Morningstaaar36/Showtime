@@ -1,7 +1,9 @@
 # Switching to Nebius (Token Factory + Sandboxes)
 
-Showtime runs fully locally by default (Nemotron Nano 9B v2 on your GPU, JuPedSim in Docker).
-Switching to Nebius is an `.env` change only; no code changes.
+Showtime runs on OpenRouter's free Nemotron models with local Docker sandboxes today, or fully
+locally (Nemotron Nano 9B v2 on your GPU). Switching to Nebius is an `.env` change only; no code
+changes. Each provider is one module in `api/adapters/providers/` (docs/ADDING_A_PROVIDER.md);
+`make verify-live` checks them all, and docs/WHEN_YOU_GET_THE_KEYS.md is the checklist.
 
 ## 1. Token Factory (Nemotron in the cloud)
 
@@ -11,11 +13,13 @@ Three steps:
 make use-nebius          # sets the provider, model ids, prices and the reasoning switch in .env
                          # (keeps your keys; the old file is saved as .env.bak)
 # then put your key in .env:  NEBIUS_API_KEY=...
+make verify-nebius-llm   # one authenticated request and one tiny chat (PASS / FAIL / SKIPPED)
 make smoke-nebius        # every model role: a plain and a JSON reply, with time, tokens and cost
 make up                  # restart the app (or: make dev-down && make dev)
 ```
 
-`make use-openrouter` and `make use-local` switch back the same way.
+`make use-openrouter` and `make use-local` switch back the same way (`make use-list` lists the
+presets the providers declare).
 
 What `make use-nebius` writes (ids and prices from the
 [model catalog](https://tokenfactory.nebius.com/model-catalog.md), checked 2026-10-14):
@@ -41,8 +45,8 @@ With `true` the adapter sends `response_format` JSON schemas.
 them and the model is remembered; a reply whose reasoning used up every token is retried once with
 more room. `make smoke-nebius` prints what it had to leave out.
 
-*Status: base URL verified (the endpoint answers and rejects a wrong key with 401). Live replies
-not yet tested with a key.*
+*Status: base URL verified (the endpoint answers and rejects a wrong key with 401). Live replies:
+**not run live** (no key).*
 
 ## 2. Sandboxes (simulations in Nebius)
 
@@ -90,8 +94,13 @@ transfer, failures). The live test is skipped without `NEBIUS_API_KEY`.
 ## 3. Check it
 
 ```bash
-make smoke-nebius     # health, one Tier 2 run in a sandbox, one agent call; skips without a key
+make verify-nebius-llm       # Token Factory: one authenticated request, one tiny chat
+make verify-nebius-sandbox   # Sandboxes: one tiny script, one network call that must be stopped
+make smoke-nebius            # health, one Tier 2 run in a sandbox, one agent call
 ```
+
+Without `NEBIUS_API_KEY` each prints SKIPPED and exits cleanly; with `SANDBOX_PROVIDER=nebius` and
+no key the app runs on `SANDBOX_FALLBACK` (Docker) and the sandbox badge says so.
 
 ## Status
 
