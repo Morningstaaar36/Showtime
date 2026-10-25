@@ -224,3 +224,48 @@ Wider checks:
 
 Live calls in Step 5: 10 + 8 + 2 (probes), 6 + 7 (real cases with v10), 3 (Itaewon with v11),
 14 (probe v11), 2 (Love Parade). The free daily quota ran out at the end.
+
+## Step 7: test in Chrome (in progress, saved 2026-10-25 evening)
+
+The hosted model (OpenRouter free tier) ran out of daily quota on every key; it resets at 00:00 UTC
+(06:00 GMT+6). The flows below ran on the **local Nemotron Nano 9B fallback** (`make llm-up`; the badge
+reads OPENROUTER → LOCAL), or on replies cached from the hosted model.
+
+**Full Playwright suite in system Chrome:** 20 passed and 6 failed on the first run. Each failure:
+
+| Failure | Cause | Now |
+| --- | --- | --- |
+| WCAG AA (light) on AI at work | the sandbox feed's state words used the bright safety green (3.3:1) | fixed 37d551a, passes |
+| Phone width 320 px on AI at work (419 px) | a single `auto` grid column grew to the 3D canvas | fixed 8f7c291, passes |
+| Rewind | the spec still looked for Rewind on the Scenarios tab (moved to Sandboxes in step 3) | spec updated 9c18407, passes |
+| Text edit with no model | the hosted model was paused and the local model was not running, yet health said "using the local model" and the hint said only `make llm-up` | fixed eec6e6d; passes with the local model running |
+| Toast column (test-plan-click) | the 4 s toast was gone before the check under software rendering | spec reads the toaster's column the moment the toast appears (9c18407), passes; assertions unchanged |
+| Report preview on a sample | passes alone (7 s); a load flake in the full suite | re-check in the step 9 full run |
+
+Also found in Chrome and fixed: the Rewind table's last column was cut off on the Sandboxes tab
+(202e95c; the guard failed without the fix: 897 > 792 px). `make setup` no longer downloads the
+6 GB local model when `.env` uses a hosted one (5b718c6).
+
+**Flows** (screenshots in `docs/screenshots/step7/`):
+
+| # | Flow | Result |
+| --- | --- | --- |
+| 1 | Describe a venue | metro PASS (2 levels, 3 stairs, 800), market PASS (3 exits, stalls, 1,800), both replayed from the hosted cache. **Mosque FAIL with the local 9B model:** 300 gallery people duplicated on the ground (1,800 for 1,500), one of two east doors, named "New venue". Re-test on the hosted model after the reset |
+| 2 | Guided journey | PASS: AI at work with the sandbox feed and tool calls ("Web search is off…", "8 similar real incidents found"), the plan with the Evidence panel |
+| 3 | AI-written scenario | PASS: Show the code shows the `on_step` script; the Scripts `import socket` refusal shows its reason (e2e `scripts.spec.ts`) |
+| 4 | Stress test and Rewind | PASS: rewind table; the stress test's live counter reached "Finished: 8 of 8 done" |
+| 5 | Real case | PASS: an Itaewon double click opens its project once (e2e `real-cases.spec.ts`), the case card with sources |
+| 6 | Test modes and AI team | Standard and Offline PASS (journey, `sandbox.spec.ts`); the mode switch is sent (e2e `test-mode.spec.ts`); Quick not yet run end to end; Team page PASS |
+| 7 | Export and handover | PASS: the checklist (18.5 KB) and the report (27.5 KB) both carry the disclaimer |
+| 8 | Error paths | no Tavily key PASS ("Web search is off"); no model PASS after eec6e6d; a stopped sandbox and a bad LLM key not yet run |
+
+**To resume:**
+1. Quick mode end to end; flow 8 (stop Docker mid-run; a bad key on a second API instance).
+2. After 06:00, on the hosted model: the mosque; a fresh `work-sandbox-feed.png` with the feed in
+   view for the README; preparing the demo project `Spring open day`.
+3. The full suite again.
+4. Step 8: README (root and app), PITCH, DEMO, VIDEO_SCRIPT, FEEDBACK, JUDGE_GUIDE and QA are
+   drafted and committed. Re-check every claim against the screens, then the clean-clone check
+   (step 9).
+
+Live calls in step 7 so far: 1 (the hosted call that hit the quota); the rest ran on the local model.

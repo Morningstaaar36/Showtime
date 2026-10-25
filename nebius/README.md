@@ -1,33 +1,37 @@
 # Showtime: Red Team Night
 
-**Will everyone get out safely? Test your event before the gates open.**
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
 
-Showtime is a crowd-safety planning studio for event organizers who can't afford a consultant.
-Pick your venue on a map, and AI red-team agents (NVIDIA Nemotron) write new crowd-disaster
-scenarios as code. Each runs in its own sealed sandbox against a real crowd simulator (JuPedSim).
-AI fixes are simulated again, the worst moment can be rewound to test responses from the same
-second, and you get a tested plan, a report and a handover checklist. Every number comes from the
-simulator, never from the AI. **[Read the pitch, the evidence and the limits](docs/PITCH.md)**
-· [Demo script](docs/DEMO.md) · [Simulator validation](docs/VALIDATION.md)
-· [Real cases: Love Parade, Hillsborough, Itaewon rebuilt and simulated](docs/REAL_CASES.md)
+**AI agents try to break your event plan. Every attack is code the AI wrote, and it only ever
+runs inside a sealed sandbox. A physics simulator, not the AI, decides what breaks. Then the AI
+fixes the plan and the sandbox proves the fix.**
 
-Event safety planning and crowd simulation are slow, expensive and need specialists, so most
-events never get stress-tested. Showtime lets AI do that work. NVIDIA Nemotron agents drive
-existing, proven simulation software (JuPedSim, PedPy, Pynite, Open-Meteo) and keep costs low:
-small models for everyday calls, the largest only for the final judgement, instant estimates
-before any simulation, and cached results.
+- **Agents that act:** twelve NVIDIA Nemotron agents. They build the venue from one sentence,
+  write attacks as code, look up real incidents, propose fixes and write their own analysis code.
+- **Sandboxes at the core:** every simulation and every AI-written script runs in a throwaway
+  container. It has no network, a read-only system, memory, CPU and process limits, and no keys.
+  [14 attacks on it, and what stopped each](docs/SANDBOX_PROOF.md).
+- **Evidence:** attacks cite real crowd accidents (395 in the incident dataset). Every number
+  comes from the simulator, which is within about 6 % of a real bottleneck experiment
+  ([validation](docs/VALIDATION.md)).
 
-Showtime is an affordable crowd-safety planning studio for event organizers, venue managers and
-permit offices. Type what, where, when and how many, for example *“Victory Day concert at Ramna
-Park, Dhaka on 16 December at 6 pm for 6,000 people, 5 hours, with a bar”*, and the **Event
-Copilot** (NVIDIA Nemotron) pulls the **real site from OpenStreetMap**, lays out the event
-(stage, crowd barrier, front-of-house, toilet blocks, bars, crowd zones), estimates **safe
-capacity, exits, stewards, first aid, toilets, fencing and budget** from published planning
-guides, and starts a **real crowd simulation**. Then **Red Team Night** lets AI attackers break
-the plan with scenarios grounded in real crowd incidents and AI defenders fix it, keeping only
-measured improvements, down to **the latest safe time to start evacuating**.
+![AI at work: the red team's attacks running in sandboxes, live](docs/screenshots/step7/work-sandbox-feed.png)
+
+**Run it:** [quickstart](#quickstart) · **Status:** it runs now on local Docker sandboxes and on
+NVIDIA Nemotron through OpenRouter. Nebius Token Factory, Nebius Sandboxes and Tavily web search
+are built as plug-ins, but **not run live** (no keys yet: [live status](docs/LIVE_STATUS.md)).
 
 > Planning aid, not a safety certification.
+
+## Why
+
+Crowd crushes happen about once a month worldwide (Feliciani et al., *Safety Science* 2023).
+Itaewon (2022): 159 deaths in a 3.2 m alley where two flows met. Indiana State Fair (2011): a
+stage roof collapsed in a 59 mph gust; nobody had checked its ballast against the forecast.
+Professional crowd modelling is expensive and needs specialists, so most events never get
+stress-tested. Showtime makes "what happens if…?" a two-minute question for any organizer.
+
+## What you see
 
 ![Your plan: a 4-floor hospital with its patients and staff, tested by the red team](docs/screenshots/overhaul/hospital-overview.png)
 
@@ -45,58 +49,64 @@ measured improvements, down to **the latest safe time to start evacuating**.
 | **The real site in 3D**, laid out for the event | **Event Copilot**: one sentence to a tested plan |
 | ![Site](docs/screenshots/site-3d.png) | ![Copilot](docs/screenshots/copilot.png) |
 
-## Why
-
-Crowd crushes happen about once a month worldwide (Feliciani et al., *Safety Science* 2023).
-Itaewon (2022): 159 deaths in a 3.2 m alley where two flows met. Indiana State Fair (2011): a
-stage roof collapsed in a 59 mph gust; nobody had checked its ballast against the forecast.
-Professional crowd modelling is expensive and needs specialists, so most events never get
-stress-tested. Showtime makes "what happens if…?" a two-minute question for any organizer.
-
 ## What it does
 
-- **Event Copilot (a LangGraph agent graph)**: one sentence → Brief agent → the real site
-  (OpenStreetMap) or the Designer agent → layout solver → planning ratios → project → full
-  simulation in a sandbox → **scenario sweep** (what-ifs from an 18-scenario library, each
-  branched into its own sandbox)
-  → **Safety officer** agent with prioritised, number-checked actions. The graph is drawn live
-  as nodes run.
-- **Planning score** (A–F) with an explained breakdown, and a **what-if lab** (crowd size,
-  rain or smoke walking speed, closed gates) that recomputes score, evacuation time and capacity
-  instantly.
-- **Showtime lights** (event-night scene with sweeping stage spotlights and an LED wall) and a
-  **narrated cinematic tour** of the plan.
-- **Never stuck on a quota**: if the hosted model fails (quota, outage, timeout) the same request
-  is answered by local Nemotron and the badge shows the fallback.
+The core loop, in the order you meet it:
+
+- **Failure map** (Red Team Night): the red team attacks the plan, each attack runs as a crowd
+  simulation in its own sandbox, and the map shows every way the plan broke, by hazard and by
+  floor, exit or side. Attacks cite real accidents (395 in the incident dataset, 1900–2024).
+- **Rainbow search**: how the red team fills the failure map. It is asked for the empty cells,
+  and a cell is kept only on simulated metrics, so the search cannot flatter its judge (after
+  Rainbow Teaming, NeurIPS 2024: [docs/RAINBOW.md](docs/RAINBOW.md)).
+- **AI-written scenarios**: the red team writes new failures as small Python programs ("close
+  the stairwell when its queue passes 40 people"). **Show the code** displays one. A static
+  check refuses unsafe code before it runs, and the sandbox stops what slips past.
+- **Fixes the sandbox proves**: the blue team proposes fixes, each fix is simulated again, and
+  only measured improvements are kept. The judge's every number is checked against the results.
+- **Rewind the worst moment**: the crowd is saved at its most dangerous second. "Do nothing" and
+  each response then run from that same second, side by side.
+- **Stress test at scale**: every attack against your plan, and each kept fix against several
+  random crowds, fanned out over sandboxes with live counters.
+- **Evidence panel**: what each attack is grounded in, with its origin (incident dataset or live
+  web), and the agents' tool calls in AI at work. Web search switches on with a Tavily key.
+- **Real cases**: Love Parade, Hillsborough and Itaewon, rebuilt by the same designer from their
+  sourced descriptions, then simulated ([docs/REAL_CASES.md](docs/REAL_CASES.md)).
+
+Around it:
+
 - **Three ways to start a venue**: a **real place** (search, then click a building for an indoor
   event or a park, square or campus for an open-air one, on a MapLibre 3D map), **describe it**
-  (the Designer agent writes sizes, walls and regions; a solver places every wall, exit, stair
-  and zone and the checks run), or a **template**.
+  (the Designer agent writes sizes, levels, zones and routes; a solver places every wall, exit,
+  stair and zone and the checks run), or a **template**.
+- **Event Copilot** (a LangGraph agent graph): one sentence → brief → the real site or the
+  Designer → layout solver → planning ratios → project → simulation → a **scenario sweep** (what-ifs
+  from an 18-scenario library, each in its own sandbox) → a **Safety officer** agent with
+  prioritised, number-checked actions. The graph is drawn live as nodes run.
 - **Plan for the day**: safe capacity (floor space × planning density; exits by the Green Guide
   width × flow × time method; stairs), exit width needed, stewards, first aiders, toilets (Purple
   Guide table by duration and alcohol), fencing, barrier and a budget. Every ratio is cited.
+  A **planning score** (A–F) and a **what-if lab** recompute instantly.
 - **3D venue** (React Three Fiber): section-cut walls, exits with direction arrows, stage truss
-  and roof, zones, stairs, two floors. Edit by **typing** ("add a 3 m exit on the east wall";
+  and roof, zones, stairs, several floors. Edit by **typing** ("add a 3 m exit on the east wall";
   the Venue agent turns it into a validated patch) or by **dragging**. Every save is a version
   with undo/redo.
 - **Instant estimate** (milliseconds): geodesic walking distances, min-cost-flow exit
   assignment and queues. Powers **Break it yourself**: click an exit to block it and see the
   effect immediately.
-- **Confirmed by simulation**: every person simulated with **JuPedSim** in a sandbox with no
-  network; density on a 1 m grid, hotspots, evacuation time (95%), exit flows; replayed in 3D
-  with a colour-blind-safe heatmap and an outlined danger contour (5 people per m²).
-- **Red Team Night**: red team attacks (cited from 388 real accidents, 1900–2024), branches
-  simulated, blue team fixes simulated, kept only when they remove the break or measurably
-  improve; rounds escalate on the improved plan; final before/after confirmation; a judge whose
-  every number is checked against the results. Live branch tree, scoreboard, agent activity
-  and cost meter. Time travel ("apply the fix from 1:30") and split-screen compare.
+- **Confirmed by simulation**: every person simulated with **JuPedSim**; density on a 1 m grid,
+  hotspots, evacuation time (95%), exit flows; replayed in 3D with a colour-blind-safe heatmap
+  and an outlined danger contour (5 people per m²).
 - **Wind hazard**: Open-Meteo gust forecast versus the stage's wind limit from a **Pynite**
   structural frame model (uplift, sliding, overturning) → *start evacuating by 10:56* in the
   Wellington sample.
-- **Ask the venue**: click a hotspot, ask "why is this red?"; the answer quotes only numbers
-  from the run.
-- **Report**: printable HTML/PDF with verdict, countdown, evacuation map (SVG with exit
-  arrows), attacks with sources, fixes, assumptions with sources, calibration.
+- **Ask or change anything**: "why is this red?" quotes only numbers from the run; the analyst
+  answers questions by writing code that runs in the sandbox on the simulation data.
+- **Report and handover checklist**: printable HTML/PDF with verdict, countdown, evacuation map
+  (SVG with exit arrows), attacks with sources, fixes, assumptions with sources; a checklist with
+  open conditions, staff actions and a sign-off line.
+- **Test modes**: Quick, Standard, Deep, and Offline (no model: rule-based attacks and fixes,
+  still simulated).
 
 Honest by design: **the language model never produces a number shown as a measurement.**
 Densities, times, forces and wind limits come from the simulator, formulas or cited data; the
@@ -110,8 +120,8 @@ stages: **build** (Brief, Designer, Editor, Router), **attack** (What-if planner
 **defend** (Blue team), **judge** (Judge, Safety officer) and **explain** (Explainer, Analyst).
 Tools produce every number: a layout solver turns a design into exact geometry, an instant
 estimate screens ideas in milliseconds, and the JuPedSim crowd simulator tests every scenario
-and every fix in its own sealed sandbox (Docker with no network locally, Nebius Sandboxes in
-the cloud). A number checker rejects any agent text that quotes a number the tools did not
+and every fix in its own sealed sandbox (Docker with no network today; a Nebius Sandboxes
+runner is built behind the same interface, not run live yet). A number checker rejects any agent text that quotes a number the tools did not
 produce. Nothing about a venue is hand-made: a sentence, a map or a real case's sourced
 description goes in, and the agents and tools do the rest. The live team, with the model each
 agent runs on, is at `/team` in the app and `GET /api/v1/agents`.
@@ -143,14 +153,43 @@ simulated).
 | Technology | Role in Showtime |
 | --- | --- |
 | **NVIDIA Nemotron** (Nano 9B v2 locally; Nemotron 3.5 Lightning / 3 Super / 3 Ultra hosted) | Twelve agents (see *How it works*), among them: **Brief** (one sentence → event brief for the Copilot), **Designer** (description → layout spec that a solver builds and the checks verify), **Venue** (text → validated edit ops; 12/12 on our scripted edits with the local model), **Red team** (attacks grounded in incidents), **Blue team** (fixes), **Judge** (final plan text, number-checked), **Explainer** ("Ask the venue"). Roles map to models: `fast` for drafting, `main` for edits and fixes, `judge` for the final reasoning. JSON is schema-constrained, validated with Pydantic and repaired once. |
-| **Nebius Token Factory** | OpenAI-compatible endpoint behind `LLM_PROVIDER=nebius`; per-role model ids and prices in `.env`; tokens and cost are metered per agent call and shown live. |
-| **Nebius Sandboxes** (contree-sdk) | `SANDBOX_PROVIDER=nebius`: every scenario is a child snapshot of the venue image (attack → fix branches; the Copilot's six-scenario sweep branches from the plan's run), run in parallel. Locally the same interface runs Docker containers with `--network=none`, one at a time. |
+| **Nebius Token Factory** | A provider plug-in (`api/adapters/providers/llm_nebius.py`): `make use-nebius` writes its model ids and prices, `make verify-nebius-llm` makes one real call. Built and tested with fake clients; **not run live** (no key yet). Today the same OpenAI-compatible adapter runs Nemotron on OpenRouter. |
+| **Nebius Sandboxes** (contree-sdk) | A sandbox plug-in (`SANDBOX_PROVIDER=nebius`): every scenario as a child snapshot of the venue image (attack → fix branches), run in parallel. Built against the SDK and tested with a fake client; **not run live** (no access yet; `make verify-nebius-sandbox`). Today every run is a local Docker container with `--network=none`, a read-only system, memory, CPU and process limits ([docs/SANDBOX_PROOF.md](docs/SANDBOX_PROOF.md)). |
 | **LangGraph** | The Event Copilot is a compiled `StateGraph` with conditional routes, checkpointing and custom streaming; `GET /api/v1/copilot/graph` serves its structure, which the UI draws live. |
-| **Tavily** | Search adapter built (cached, per-session cap) and shown in health. It is not yet wired into the agents; live evidence for attack cards, cited event research inputs (attendance, capacity, gates), local rules and fix guidance is planned (see `../plan.md`, N02/N03/N18/N19). Today the red team cites the incident dataset. |
+| **Tavily** | A search plug-in the agents use: the red team searches for incidents like the venue's and may cite only URLs that came back; the evidence desk looks up capacity and guidance for the brief. Cached, capped per session (`SEARCH_QUERIES_PER_SESSION`), every source labelled with its origin. Tested with a fake client; **not run live** (no key yet; `make verify-tavily`). Without a key the app says web search is off and the red team cites the incident dataset. |
 | **JuPedSim, PedPy, Pynite, Open-Meteo** | Crowd simulation, crowd metrics, stage frame model, gust forecasts. |
 | **OpenStreetMap, OpenFreeMap, MapLibre** | Real sites: place search (Nominatim), buildings, water, paths and entrances (Overpass, with OpenFreeMap vector tiles as fallback), the 3D picking map and the street-map ground in the 3D view. |
 
 See [docs/NEBIUS_SWITCH.md](docs/NEBIUS_SWITCH.md) for what was verified and how to switch.
+
+## Quickstart
+
+Linux with Docker. Hosted NVIDIA Nemotron on OpenRouter (a free key from openrouter.ai):
+
+```bash
+cp .env.example .env
+make use-openrouter   # writes the OpenRouter Nemotron model ids into .env (keeps keys, backs up .env)
+# then put your key in .env: OPENAI_COMPAT_API_KEY=...
+make setup            # uv, Python 3.12, web deps, the sandbox image, the incident dataset (all inside this folder)
+make up               # Docker Compose → http://localhost:5173
+make verify-live      # optional: one real call per service, written to docs/LIVE_STATUS.md
+```
+
+No key at all: choose **Offline** above *Test this plan*; rule-based attacks and fixes still run
+in the sandbox. The local model instead: keep `LLM_PROVIDER=local`, and `make setup` also fetches
+llama.cpp and Nemotron Nano 9B v2 (≈ 6 GB); start it with `make llm-up` (≈ 6.4 GB VRAM).
+Nebius and Tavily keys: [docs/WHEN_YOU_GET_THE_KEYS.md](docs/WHEN_YOU_GET_THE_KEYS.md).
+
+Three sample projects (Itaewon-style alley, two-floor hall, Wellington festival in a storm)
+install automatically with their finished red-team sessions, so you can explore immediately.
+A guided tour for organizers is in [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md); a short
+presenter script is in [docs/DEMO.md](docs/DEMO.md).
+
+Lighter, without Docker for the app: `make dev` (API + Vite natively). Other targets:
+`make test`, `make smoke`, `make calibrate`, `make plugins`, `make mem`, `make help`.
+
+**Switch to Nebius:** put `NEBIUS_API_KEY` in `.env`, run `make verify-nebius-llm`, then
+`make use-nebius` and `make up` ([docs/WHEN_YOU_GET_THE_KEYS.md](docs/WHEN_YOU_GET_THE_KEYS.md)).
 
 ## Local M1 test setup (OpenRouter, Docker)
 
@@ -194,26 +233,6 @@ Save organizer constraints and timed operational actions alongside the venue thr
 checks, locks, approvals, dependency checks, and staff/equipment allocation validation.
 Runs use saved actions and expose evidence applicability against the current plan.
 See [the backend contract](docs/PLAN_CONSTRAINTS.md) and [M1 tests](docs/P2_02_TESTING.md).
-
-## Quickstart (Linux, NVIDIA GPU, Docker)
-
-```bash
-cp .env.example .env
-make setup        # uv, Python 3.12, web deps, sim image, llama.cpp, Nemotron GGUF, data — all inside this folder
-make llm-up       # Nemotron Nano 9B v2 on the GPU (≈ 6.4 GB VRAM, ≈ 0.9 GB RAM)
-make up           # Docker Compose → http://localhost:5173
-```
-
-Three sample projects (Itaewon-style alley, two-floor hall, Wellington festival in a storm)
-install automatically with their finished red-team sessions, so you can explore immediately.
-A guided tour for organizers is in [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md); a short
-presenter script is in [docs/DEMO.md](docs/DEMO.md).
-
-Lighter, without Docker for the app: `make dev` (API + Vite natively). Other targets:
-`make test`, `make smoke`, `make calibrate`, `make plugins`, `make mem`, `make help`.
-
-**Switch to Nebius:** set `LLM_PROVIDER=nebius`, `SANDBOX_PROVIDER=nebius`, `NEBIUS_API_KEY`
-and the `MODEL_*` ids in `.env`, then `make smoke-nebius`.
 
 ## Architecture
 
