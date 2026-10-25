@@ -281,7 +281,8 @@ export type Type1 =
   | "log"
   | "status"
   | "marshal"
-  | "archive";
+  | "archive"
+  | "sandbox";
 export type Ts = string;
 export type Status1 = "ok" | "too_late" | "no_hazard" | "unknown";
 export type THazardS = number | null;

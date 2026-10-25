@@ -300,6 +300,7 @@ class LiveSession:
     cost: CostMeter = field(default_factory=CostMeter)
     stop_event: asyncio.Event = field(default_factory=asyncio.Event)
     branch_runs: dict[str, str] = field(default_factory=dict)  # node id -> run id
+    run_labels: dict[str, str] = field(default_factory=dict)  # run id -> label (sandbox feed)
     inflight: set[str] = field(default_factory=set)  # node ids waiting for their run
     archive: dict[str, Any] | None = None  # latest failure-map snapshot (GET .../archive)
 
@@ -430,6 +431,18 @@ class SessionManager:
     def __init__(self, state: Any) -> None:
         self.st = state
         self.live: dict[str, LiveSession] = {}
+        # the sandbox feed: lifecycle events of this session's runs, as they happen
+        runs = getattr(state, "runs", None)
+        if runs is not None:
+            runs.listeners.append(self._on_run_event)
+
+    def _on_run_event(self, run_id: str, data: dict[str, Any]) -> None:
+        sb = data.get("sandbox")
+        if not sb:
+            return
+        for live in list(self.live.values()):
+            if not live.finished and run_id in live.run_labels:
+                self.emit(live, "sandbox", {**sb, "label": live.run_labels[run_id]})
 
     # ------------------------------------------------------------------ API
     def start(self, project_id: str, config: dict[str, Any] | None = None) -> RedTeamSession:
@@ -594,6 +607,7 @@ class SessionManager:
         job.request.extensions["events"] = job.events
         rid = job.request.run_id
         live.branch_runs[node_id] = rid
+        live.run_labels[rid] = label
         node = {
             "node_id": node_id,
             "parent_id": parent,

@@ -166,6 +166,8 @@ class NebiusRunner:
         async with self.sem:
             t0 = time.monotonic()
             req = job.request
+            if on_progress is not None:
+                on_progress({"sandbox_started": True})
             try:
                 return await self._run(job)
             except Exception as exc:

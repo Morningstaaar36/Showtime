@@ -4276,7 +4276,8 @@
       "log",
       "status",
       "marshal",
-      "archive"
+      "archive",
+      "sandbox"
      ],
      "title": "Type",
      "type": "string"

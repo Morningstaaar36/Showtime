@@ -408,6 +408,8 @@ class DockerRunner:
             # one simulation at a time per machine, across processes (memory budget)
             lock = await asyncio.to_thread(_acquire_lock, self.runs_dir / ".sim.lock")
             try:
+                if on_progress is not None:
+                    on_progress({"sandbox_started": True})  # it had to wait its turn until now
                 return await self._run(job, on_progress)
             finally:
                 _release_lock(lock)
@@ -684,6 +686,8 @@ class FakeRunner:
         async with self.sem:
             self.active += 1
             self.max_active = max(self.max_active, self.active)
+            if on_progress is not None:
+                on_progress({"sandbox_started": True})
             try:
                 return await self._run(job)
             finally:
