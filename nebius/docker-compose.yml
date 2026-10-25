@@ -6,6 +6,10 @@ services:
       context: .
       dockerfile: api/Dockerfile
     image: showtime-api:latest
+    # as the host user, so what it writes to runs/, cache/ and state/ stays the user's; the socket's
+    # group lets it start sandboxes (`make up` sets these three)
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    group_add: ["${DOCKER_GID:-0}"]
     env_file:
       - path: .env
         required: false
@@ -19,6 +23,7 @@ services:
       - API_HOST=0.0.0.0
       - WEB_ORIGIN=http://localhost:5173
       - SIM_USER=${SIM_USER:-1000:1000}
+      - HOME=/tmp   # the docker CLI keeps its config under $HOME
     ports: ["127.0.0.1:8000:8000"]
     volumes:
       - ./runs:/app/runs

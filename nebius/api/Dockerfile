@@ -17,6 +17,8 @@ COPY api /app/api
 COPY plugins /app/plugins
 COPY config /app/config
 COPY sim /app/sim
+# logs/ is written by whichever user runs the container (docker-compose sets the host user)
+RUN mkdir -p /app/logs && chmod 1777 /app/logs
 ENV PATH=/opt/venv/bin:$PATH
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=12 CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/v1/templates',timeout=4)"

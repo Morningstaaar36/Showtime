@@ -5,7 +5,7 @@ SIM_PLATFORM ?= linux/amd64
 API := cd api &&
 .DEFAULT_GOAL := help
 
-.PHONY: help setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
+.PHONY: help fix-perms setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
         types check lint typecheck test test-sim test-web e2e smoke smoke-nebius use-nebius use-openrouter use-local demo-precompute \
         clean mem plugins new-plugin calibrate validate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
@@ -34,12 +34,25 @@ llm-up: ## Start the local Nemotron server on the GPU (background, logs/llm.log)
 llm-down: ## Stop the local LLM server
 	@./scripts/llm_down.sh
 
+# the API container runs as you (so runs/, cache/ and state/ stay yours) and joins the group of
+# the Docker socket so it can start sandboxes
+export HOST_UID := $(shell id -u)
+export HOST_GID := $(shell id -g)
+export DOCKER_GID := $(shell stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)
+
 up: build-sim ## Start the stack with Docker Compose (api + web) → http://localhost:5173
 	@test -f .env || cp .env.example .env
 	@mkdir -p runs cache state data
+	@if [ -n "$$(find runs cache state -maxdepth 3 ! -user $(HOST_UID) -print -quit 2>/dev/null)" ]; then $(MAKE) --no-print-directory fix-perms; fi
 	@docker compose up -d --build
 	@echo "Showtime: http://localhost:5173   (API docs: http://127.0.0.1:8000/api/docs)"
 	@echo "Start the local model if it is not running: make llm-up"
+
+fix-perms: ## Give runs/, cache/ and state/ back to you (files an older root container created)
+	@echo "Giving runs/, cache/ and state/ back to $$(id -un) (made by a container running as root)"
+	@docker run --rm --user 0 --network none --entrypoint chown \
+	  -v "$(CURDIR)/runs:/x/runs" -v "$(CURDIR)/cache:/x/cache" -v "$(CURDIR)/state:/x/state" \
+	  showtime-sim:latest -R $(HOST_UID):$(HOST_GID) /x/runs /x/cache /x/state
 
 down: ## Stop the Docker Compose stack
 	@docker compose down
