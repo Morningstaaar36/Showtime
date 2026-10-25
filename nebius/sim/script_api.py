@@ -26,6 +26,7 @@ from __future__ import annotations
 import builtins
 import json
 import math
+import os
 import random
 import statistics
 import sys
@@ -35,6 +36,7 @@ from typing import Any
 
 import numpy as np
 import shapely
+from memory_cap import cap_memory
 from script_check import ALLOWED_IMPORTS, check_script
 from shapely.geometry import Point
 
@@ -47,6 +49,9 @@ MAX_ACTS_PER_CALL = 20
 MAX_ACTS_TOTAL = 400
 MAX_NOTES = 10
 MAX_ADDED_PEOPLE = 2000
+# all of a script's slow-downs together bring people to no less than this share of their speed:
+# a scenario may slow a crowd, it may not freeze it (and make every plan look broken)
+MIN_SPEED_SHARE = 0.1
 NEAR_M = 3.0
 
 
@@ -157,6 +162,7 @@ class ScriptRunner:
         self.acts_call = 0
         self.notes = 0
         self.added = 0
+        self.speed_share = 1.0  # product of this script's slow-downs so far
         settings = ctx.settings
         self.call_budget_s = float(settings.get("script_call_s", CALL_BUDGET_S))
         self.total_budget_s = float(settings.get("script_total_s", TOTAL_BUDGET_S))
@@ -183,6 +189,10 @@ class ScriptRunner:
         builtins = dict(SAFE_BUILTINS)
         builtins["__import__"] = _make_import(modules)
         self.globals = {"__builtins__": builtins, "__name__": "scenario_script"}
+        if os.environ.get("SHOWTIME_SANDBOX") == "1":  # set by the sim image only
+            # from here on a runaway allocation is a MemoryError that stops this script, not
+            # an out-of-memory kill of the whole run
+            cap_memory()
         try:
             compiled = compile(code, FILENAME, "exec")
             self._guarded(lambda: exec(compiled, self.globals))
@@ -236,6 +246,8 @@ class ScriptRunner:
 
     @staticmethod
     def _describe(exc: BaseException) -> str:
+        if isinstance(exc, MemoryError):
+            return "it tried to use more memory than the sandbox allows (MemoryError)"
         tb = exc.__traceback__
         line = None
         while tb is not None:
@@ -425,10 +437,19 @@ class ScriptRunner:
             f = float(factor)
             if not math.isfinite(f) or not allowed("slow_down"):
                 return
-            f = min(max(f, 0.1), 1.0)
+            f = min(max(f, MIN_SPEED_SHARE), 1.0)
+            # never past MIN_SPEED_SHARE in total, however often it is called
+            share = max(self.speed_share * f, MIN_SPEED_SHARE)
+            f = share / self.speed_share
+            if f > 0.999:
+                note(f"slow_down ignored: people are already at {MIN_SPEED_SHARE:.0%} speed")
+                return
+            self.speed_share = share
             affected = slow_everyone(ctx, f)
             log("slow_down", factor=f, affected=affected)
-            ctx.note(f"Scenario script slowed everyone to {f:.0%} speed at {ctx.t:.0f} s")
+            ctx.note(
+                f"Scenario script slowed everyone to {share:.0%} of normal speed at {ctx.t:.0f} s"
+            )
 
         return types.SimpleNamespace(
             close_exit=timed(close_exit),
