@@ -8,6 +8,7 @@ normal AI-designed test; with no scripted red team here, the rules stand in).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections.abc import Callable, Iterator
@@ -285,3 +286,64 @@ def test_heading_for_a_passage_means_its_ways_out() -> None:
     ]
     assert arriving and all(z.exit_ids for z in arriving)
     assert all("Festival grounds" in {exits[i] for i in z.exit_ids} for z in arriving)
+
+
+async def test_a_double_click_builds_a_case_once(
+    case_state: Callable[..., Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from api.orchestrator import real_cases as rc
+
+    st = case_state({"designer": [_spec("love_parade_2010"), _spec("love_parade_2010")]})
+    real = rc.design_venue
+
+    async def slow(*a: Any, **kw: Any) -> Any:
+        await asyncio.sleep(0.05)  # the model takes a while: the second click lands meanwhile
+        return await real(*a, **kw)
+
+    monkeypatch.setattr(rc, "design_venue", slow)
+    first, second = await asyncio.gather(
+        open_case(st, "love_parade_2010"), open_case(st, "love_parade_2010")
+    )
+    assert first["project_id"] == second["project_id"]
+    assert second["status"] == "existing" and second["session_id"] == first["session_id"]
+    assert [a for a, _ in st.llm.calls].count("designer") == 1
+    assert len(st.projects.list_projects()) == 1
+    await st.sessions.live[first["session_id"]].task
+
+
+async def test_a_case_build_that_hangs_stops_at_its_deadline(
+    case_state: Callable[..., Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from api.orchestrator import real_cases as rc
+
+    async def hangs(*a: Any, **kw: Any) -> Any:
+        await asyncio.sleep(3600)
+
+    monkeypatch.setattr(rc, "design_venue", hangs)
+    monkeypatch.setattr(rc, "CASE_BUILD_DEADLINE_S", 0.1)
+    st = case_state({})
+    with pytest.raises(rc.CaseBuildFailed, match="took longer than"):
+        await open_case(st, "itaewon_2022")
+    assert st.projects.list_projects() == []
+
+
+def test_listing_cases_reads_each_venue_once_and_then_from_memory(
+    case_state: Callable[..., Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from api.orchestrator import real_cases as rc
+
+    st = case_state({})
+    for i in range(4):
+        st.projects.create(f"Hall {i}", template_id="school_wing")
+    loads: list[str] = []
+    real = st.projects.venue
+
+    def counted(pid: str, *a: Any, **kw: Any) -> Any:
+        loads.append(pid)
+        return real(pid, *a, **kw)
+
+    monkeypatch.setattr(st.projects, "venue", counted)
+    assert rc.case_projects(st) == {}
+    assert len(loads) == 4, "one load per project for all three cases"
+    assert all(rc.existing_project(st, c) is None for c in IDS)
+    assert len(loads) == 4, "unchanged projects are not loaded again"

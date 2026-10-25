@@ -12,7 +12,7 @@ from api.app.errors import ApiException
 from api.app.routes_core import get_state
 from api.app.state import AppState
 from api.core.real_cases import get_case, list_cases
-from api.orchestrator.real_cases import CaseBuildFailed, existing_project, open_case
+from api.orchestrator.real_cases import CaseBuildFailed, case_projects, open_case
 
 router = APIRouter(prefix="/api/v1")
 
@@ -20,10 +20,8 @@ router = APIRouter(prefix="/api/v1")
 @router.get("/real_cases")
 async def real_cases(st: AppState = Depends(get_state)) -> list[dict[str, Any]]:
     """Every case with its facts and sources, and the project built from it (if any)."""
-    return [
-        {**c.model_dump(mode="json"), "project_id": existing_project(st, c.id)}
-        for c in list_cases()
-    ]
+    built = case_projects(st)  # one pass over the projects for every case
+    return [{**c.model_dump(mode="json"), "project_id": built.get(c.id)} for c in list_cases()]
 
 
 @router.post("/real_cases/{case_id}/open")

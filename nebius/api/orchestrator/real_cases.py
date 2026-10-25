@@ -10,6 +10,8 @@ would have suggested.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Any
 
 from api.agents.base import AgentEnv
@@ -28,6 +30,16 @@ CASE_TEST: dict[str, Any] = {
 }
 
 
+log = logging.getLogger("showtime.real_cases")
+
+# one build of a case at a time (a double click must not build it twice), and a deadline for
+# the designer so a model that never answers cannot leave the tile spinning
+CASE_BUILD_DEADLINE_S = 360.0
+_building: dict[str, asyncio.Lock] = {}
+# (project id, version) -> the case it was built from, or None: venues are read once
+_case_of_version: dict[tuple[str, int], str | None] = {}
+
+
 class CaseBuildFailed(Exception):
     """The designer could not build a venue from the description."""
 
@@ -36,16 +48,27 @@ class CaseBuildFailed(Exception):
         self.problems = problems
 
 
+def case_projects(st: Any) -> dict[str, str]:
+    """Each case's project (the newest built from it), reading every venue once in one pass and
+    never again until the project gets a new version."""
+    out: dict[str, str] = {}
+    for p in st.projects.list_projects():
+        key = (str(p.id), int(p.current_version))
+        if key not in _case_of_version:
+            try:
+                _case_of_version[key] = case_of(st.projects.venue(p.id).extensions)
+            except Exception:  # a broken project must not hide the others
+                log.warning("project %s could not be read for its real case", p.id, exc_info=True)
+                continue
+        case_id = _case_of_version[key]
+        if case_id is not None:
+            out.setdefault(case_id, str(p.id))
+    return out
+
+
 def existing_project(st: Any, case_id: str) -> str | None:
     """A project already built from this case (newest first), so a case is built once."""
-    for p in st.projects.list_projects():
-        try:
-            ext = st.projects.venue(p.id).extensions
-        except Exception:  # a broken project must not hide the others
-            continue
-        if case_of(ext) == case_id:
-            return str(p.id)
-    return None
+    return case_projects(st).get(case_id)
 
 
 def _latest_session(st: Any, project_id: str) -> str | None:
@@ -57,7 +80,15 @@ async def open_case(st: Any, case_id: str) -> dict[str, Any]:
     """The case's project (built now, or the one built before) and its test session.
 
     Raises KeyError for an unknown case and CaseBuildFailed when no venue came back.
+    A second call while the case is being built waits for that build and opens its project.
     """
+    get_case(case_id)
+    lock = _building.setdefault(case_id, asyncio.Lock())
+    async with lock:
+        return await _open_case(st, case_id)
+
+
+async def _open_case(st: Any, case_id: str) -> dict[str, Any]:
     case = get_case(case_id)
     pid = existing_project(st, case_id)
     if pid is not None:
@@ -76,7 +107,12 @@ async def open_case(st: Any, case_id: str) -> dict[str, Any]:
             return {"project_id": pid, "session_id": None, "status": "needs_fixes", "problems": []}
         st.projects.delete(pid)  # untouched and still broken: design it again
     env = AgentEnv(llm=st.llm, project_id=None, on_usage=st.usage.add)
-    out = await design_venue(env, case.description)
+    try:
+        out = await asyncio.wait_for(design_venue(env, case.description), CASE_BUILD_DEADLINE_S)
+    except TimeoutError as exc:
+        raise CaseBuildFailed(
+            [f"The designer took longer than {CASE_BUILD_DEADLINE_S:g} s; try again."]
+        ) from exc
     if out.venue is None:
         raise CaseBuildFailed(out.problems)
     venue = out.venue.model_copy(
