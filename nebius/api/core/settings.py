@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     # one agent step in total (its call, the repair round, retries, escalation): a model that
     # never answers cannot hold a test up for retries x attempts x timeouts
     agent_step_timeout_s: float = Field(default=300.0, gt=0)
+    # a hosted model that keeps failing (rate limit, unreachable, this many 5xx in a row) is
+    # skipped for llm_pause_s; one timeout or one 4xx is not a reason to stop asking it
+    llm_pause_s: float = Field(default=600.0, ge=0)
+    llm_server_errors_to_pause: int = Field(default=3, ge=1)
+    # building a real case's venue from its description (the designer agent)
+    case_build_timeout_s: float = Field(default=360.0, gt=0)
     llm_reasoning: bool = False
     # a `fast`-role answer that stays invalid after its repair round is retried once on `main`
     llm_escalate: bool = True
@@ -106,6 +112,24 @@ class Settings(BaseSettings):
     sim_cpus: float = 4.0
     sim_dev_mount: bool = False  # mount local sim/ over /app during development
     sim_user: str = ""  # container "uid:gid"; defaults to this process's user, never root
+    # what the attack suite recorded against the real sandbox (make sandbox-proof)
+    sandbox_proof_file: Path = ROOT_DIR / "api" / "data" / "sandbox_proof.json"
+    sim_pids_limit: int = Field(default=256, ge=16)  # processes in a simulation container
+    code_pids_limit: int = Field(default=64, ge=8)  # processes in a code-job container
+
+    # --- Guards on AI-written scenario scripts (sent with each run that has one) ---
+    script_call_s: float = Field(default=0.05, gt=0)  # one on_step call
+    script_total_s: float = Field(default=3.0, gt=0)  # every call of one script in one run
+    script_line_budget: int = Field(default=200_000, ge=1000)  # lines run in one call
+    script_max_range: int = Field(default=1_000_000, ge=1000)  # numbers in one range()
+    script_max_acts_step: int = Field(default=20, ge=1)  # actions in one call
+    script_max_acts_total: int = Field(default=400, ge=1)  # actions in one run
+    script_max_notes: int = Field(default=10, ge=0)
+    script_max_added_people: int = Field(default=2000, ge=0)
+    # all of a script's slow-downs together stop at this share of normal walking speed
+    script_min_speed_share: float = Field(default=0.1, gt=0, le=1)
+    # heap growth allowed once untrusted code runs, as a share of the container's room left
+    sandbox_memory_share: float = Field(default=0.85, gt=0, lt=1)
 
     # --- Search and weather ---
     tavily_api_key: str = ""
@@ -161,6 +185,10 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     web_origin: str = "http://localhost:5173"
+    # how long the web app waits for a read, and for a write that may start an agent, before
+    # it says the server took too long (sent to the app in /health)
+    web_read_timeout_s: float = Field(default=60.0, gt=0)
+    web_write_timeout_s: float = Field(default=330.0, gt=0)
     # more web origins allowed to call the API (comma-separated), besides WEB_ORIGIN: the app on
     # 127.0.0.1 and the Vite preview server by default
     cors_origins: str = "http://127.0.0.1:5173,http://localhost:4173"
@@ -183,9 +211,31 @@ class Settings(BaseSettings):
                 f"(LLM_PROVIDER={self.llm_provider}). MODEL_LONG, MODEL_MAIN and MODEL_JUDGE "
                 "fall back to it when empty."
             )
+        if self.web_write_timeout_s < self.agent_step_timeout_s:
+            raise ValueError(
+                "WEB_WRITE_TIMEOUT_S must be at least AGENT_STEP_TIMEOUT_S, or the app gives up "
+                "on a request while its agent is still allowed to work."
+            )
         if self.llm_provider == "local" and not self.local_llm_model.strip():
             raise ValueError("LOCAL_LLM_MODEL is empty: set it in .env (LLM_PROVIDER=local).")
         return self
+
+    @property
+    def script_guards(self) -> dict[str, float]:
+        """The guards the sim image applies to a scenario script (keys as the image reads them)."""
+        keys = (
+            "script_call_s",
+            "script_total_s",
+            "script_line_budget",
+            "script_max_range",
+            "script_max_acts_step",
+            "script_max_acts_total",
+            "script_max_notes",
+            "script_max_added_people",
+            "script_min_speed_share",
+            "sandbox_memory_share",
+        )
+        return {k: float(getattr(self, k)) for k in keys}
 
     @property
     def allowed_origins(self) -> list[str]:

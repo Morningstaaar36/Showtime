@@ -320,8 +320,8 @@ async def test_a_case_build_that_hangs_stops_at_its_deadline(
         await asyncio.sleep(3600)
 
     monkeypatch.setattr(rc, "design_venue", hangs)
-    monkeypatch.setattr(rc, "CASE_BUILD_DEADLINE_S", 0.1)
     st = case_state({})
+    st.base_settings = st.base_settings.model_copy(update={"case_build_timeout_s": 0.1})
     with pytest.raises(rc.CaseBuildFailed, match="took longer than"):
         await open_case(st, "itaewon_2022")
     assert st.projects.list_projects() == []

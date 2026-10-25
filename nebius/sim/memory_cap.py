@@ -11,7 +11,6 @@ from __future__ import annotations
 import resource
 from pathlib import Path
 
-SHARE = 0.85  # of the container's memory; the rest is the interpreter, libraries and buffers
 CGROUP_FILES = ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes")
 
 
@@ -34,8 +33,9 @@ def _status_kb(field: str, status: str = "/proc/self/status") -> int | None:
     return None
 
 
-def cap_memory(files: tuple[str, ...] = CGROUP_FILES) -> int | None:
-    """Limit further heap growth to SHARE of what the container has left; returns the cap in
+def cap_memory(share: float, files: tuple[str, ...] = CGROUP_FILES) -> int | None:
+    """Limit further heap growth to `share` of what the container has left (the API's
+    SANDBOX_MEMORY_SHARE; the rest is for the interpreter, libraries and buffers); returns the cap in
     bytes (None: no container limit to read, left alone).
 
     RLIMIT_DATA counts virtual data, and loaded libraries (numpy, JuPedSim) reserve much more
@@ -47,7 +47,7 @@ def cap_memory(files: tuple[str, ...] = CGROUP_FILES) -> int | None:
     if limit is None or data_kb is None or rss_kb is None:
         return None
     room = max(limit - rss_kb * 1024, 0)
-    cap = data_kb * 1024 + int(room * SHARE)
+    cap = data_kb * 1024 + int(room * share)
     _soft, hard = resource.getrlimit(resource.RLIMIT_DATA)
     if hard != resource.RLIM_INFINITY:
         cap = min(cap, hard)

@@ -229,6 +229,9 @@ class RunService:
             parent_events = self._events(venue, attack, None, None, extra)
             plan = run_tier1(venue, parent_events, self.registry, st).extensions.get("plan", {})
         settings_payload = sim_settings(st, tier)
+        if any(e.type == "script" for e in events):
+            # only runs with a scenario script carry its guards (other run ids stay the same)
+            settings_payload.update(st.script_guards)
         if speed_factor is not None and abs(speed_factor - 1.0) > 1e-9:
             for k in ("walk_speed_mean", "walk_speed_sd", "stair_speed"):
                 settings_payload[k] = round(float(settings_payload[k]) * speed_factor, 4)

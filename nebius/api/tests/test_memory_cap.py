@@ -35,7 +35,7 @@ def test_reads_cgroup_v2_and_v1_limits_and_no_limit(tmp_path: Path) -> None:
 def test_without_a_container_limit_nothing_is_capped(tmp_path: Path) -> None:
     mc = _module()
     before = resource.getrlimit(resource.RLIMIT_DATA)
-    assert mc.cap_memory((str(tmp_path / "missing"),)) is None
+    assert mc.cap_memory(0.85, (str(tmp_path / "missing"),)) is None
     assert resource.getrlimit(resource.RLIMIT_DATA) == before
 
 
@@ -49,7 +49,7 @@ def test_the_cap_is_current_data_plus_most_of_the_room_left(
     monkeypatch.setattr(mc, "_status_kb", lambda field, status_file=None: status[field])
     set_to: list[tuple[int, int]] = []
     monkeypatch.setattr(mc.resource, "setrlimit", lambda kind, value: set_to.append(value))
-    cap = mc.cap_memory((str(limit),))
+    cap = mc.cap_memory(0.85, (str(limit),))
     room = 2 * 1024**3 - 100_000 * 1024
-    assert cap == 500_000 * 1024 + int(room * mc.SHARE)
+    assert cap == 500_000 * 1024 + int(room * 0.85)
     assert set_to and set_to[0][0] == cap

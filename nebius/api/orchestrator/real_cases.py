@@ -32,9 +32,8 @@ CASE_TEST: dict[str, Any] = {
 
 log = logging.getLogger("showtime.real_cases")
 
-# one build of a case at a time (a double click must not build it twice), and a deadline for
-# the designer so a model that never answers cannot leave the tile spinning
-CASE_BUILD_DEADLINE_S = 360.0
+# one build of a case at a time (a double click must not build it twice); the designer has a
+# deadline (CASE_BUILD_TIMEOUT_S) so a model that never answers cannot leave the tile spinning
 _building: dict[str, asyncio.Lock] = {}
 # (project id, version) -> the case it was built from, or None: venues are read once
 _case_of_version: dict[tuple[str, int], str | None] = {}
@@ -107,11 +106,12 @@ async def _open_case(st: Any, case_id: str) -> dict[str, Any]:
             return {"project_id": pid, "session_id": None, "status": "needs_fixes", "problems": []}
         st.projects.delete(pid)  # untouched and still broken: design it again
     env = AgentEnv(llm=st.llm, project_id=None, on_usage=st.usage.add)
+    deadline = float(st.settings.case_build_timeout_s)
     try:
-        out = await asyncio.wait_for(design_venue(env, case.description), CASE_BUILD_DEADLINE_S)
+        out = await asyncio.wait_for(design_venue(env, case.description), deadline)
     except TimeoutError as exc:
         raise CaseBuildFailed(
-            [f"The designer took longer than {CASE_BUILD_DEADLINE_S:g} s; try again."]
+            [f"The designer took longer than {deadline:g} s; try again."]
         ) from exc
     if out.venue is None:
         raise CaseBuildFailed(out.problems)

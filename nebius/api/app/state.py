@@ -136,6 +136,8 @@ def build_runner(settings: Settings) -> SandboxRunner:
         sim_code_dir=sim_code,
         sim_user=settings.sim_user,
         platform=settings.sim_platform,
+        pids_limit=settings.sim_pids_limit,
+        code_pids_limit=settings.code_pids_limit,
     )
 
 

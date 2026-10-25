@@ -136,9 +136,6 @@ def parse_code_output(
     return CodeResult("ok", output, _tail(body), _tail(stderr), runtime)
 
 
-PROCESS_LIMIT = 256  # --pids-limit for every container
-
-
 @dataclass(frozen=True)
 class Isolation:
     """What a sandbox guarantees for every run, as facts the UI can show (no provider names)."""
@@ -342,8 +339,12 @@ class DockerRunner:
         sim_code_dir: Path | None = None,
         sim_user: str = "",
         platform: str = "",
+        pids_limit: int = 256,
+        code_pids_limit: int = 64,
     ) -> None:
         self.runs_dir = runs_dir
+        self.pids_limit = pids_limit
+        self.code_pids_limit = code_pids_limit
         self.image = image
         self.platform = platform
         self.mem_limit = mem_limit
@@ -373,7 +374,7 @@ class DockerRunner:
             memory=self.mem_limit,
             cpus=self.cpus,
             read_only=True,
-            process_limit=PROCESS_LIMIT,
+            process_limit=self.pids_limit,
             non_root=True,
             per_job_limits=True,
         )
@@ -439,7 +440,7 @@ class DockerRunner:
             f"--memory={self.mem_limit}",
             f"--memory-swap={self.mem_limit}",
             f"--cpus={self.cpus}",
-            f"--pids-limit={PROCESS_LIMIT}",
+            f"--pids-limit={self.pids_limit}",
             "--security-opt=no-new-privileges",
             "--cap-drop=ALL",
             # scenario scripts run in here: only /work (this run's folder) and /tmp writable
@@ -559,7 +560,7 @@ class DockerRunner:
             f"--memory={job.mem}",
             f"--memory-swap={job.mem}",
             f"--cpus={min(self.cpus, 2.0)}",
-            "--pids-limit=64",
+            f"--pids-limit={self.code_pids_limit}",
             "--security-opt=no-new-privileges",
             "--cap-drop=ALL",
             "--read-only",

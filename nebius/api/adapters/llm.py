@@ -36,8 +36,6 @@ KEY_RE = re.compile(r"\b(sk-|Bearer\s+)[A-Za-z0-9_\-.*]{6,}")
 QUOTA_RE = re.compile(
     r"\b(401|402|429)\b|credit|quota|rate.?limit|per.?day|insufficient|unauthori[sz]ed", re.I
 )
-# consecutive 5xx answers from the hosted model before it is paused (one is a blip)
-SERVER_ERRORS_TO_PAUSE = 3
 HEALTH_TTL_OK_S = 300.0  # a working key is re-checked every 5 minutes
 HEALTH_TTL_FAIL_S = 60.0  # a failing one every minute (fixing .env needs a restart anyway)
 
@@ -566,7 +564,7 @@ class LLMClient:
             if kind == "server":
                 self._server_errors += 1
             if kind in ("rate_limit", "connection") or (
-                kind == "server" and self._server_errors >= SERVER_ERRORS_TO_PAUSE
+                kind == "server" and self._server_errors >= self.settings.llm_server_errors_to_pause
             ):
                 self._pause_primary(str(exc), kind)
             else:
@@ -664,17 +662,18 @@ class LLMClient:
         return self.settings.llm_fallback == "local" and time.time() < self._paused_until
 
     def _pause_primary(self, reason: str, kind: str = "rate_limit") -> None:
-        """Skip the hosted model for a while: until midnight UTC for a daily quota, else 10 min."""
+        """Skip the hosted model for a while: until midnight UTC for a daily quota, else for
+        LLM_PAUSE_S."""
         now = time.time()
         if "per-day" in reason or "per day" in reason:
             self._paused_until = (now // 86_400 + 1) * 86_400
             self.fallback_reason = "daily free quota used up"
         else:
-            self._paused_until = now + 600
+            self._paused_until = now + self.settings.llm_pause_s
             self.fallback_reason = {
                 "rate_limit": "rate limit",
                 "connection": "not reachable",
-                "server": f"{SERVER_ERRORS_TO_PAUSE} server errors in a row",
+                "server": f"{self.settings.llm_server_errors_to_pause} server errors in a row",
             }.get(kind, "unavailable")
         until = datetime.fromtimestamp(self._paused_until, UTC).isoformat(timespec="seconds")
         log.warning(
