@@ -201,7 +201,8 @@ async def design(state: CopilotState, config: RunnableConfig) -> CopilotState:
     )
     if b.place and b.place.lower() not in desc.lower():
         desc += f", in {b.place}"
-    draft = await venue_sources.design(_metered(config), desc)
+    # the brief's layout text may leave the headcount out: the designer is held to it
+    draft = await venue_sources.design(_metered(config), desc, people=b.attendees or None)
     if draft.get("venue") is None:
         w(
             _step(

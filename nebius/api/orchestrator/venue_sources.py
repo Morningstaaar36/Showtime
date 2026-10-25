@@ -41,10 +41,13 @@ async def _locate(st: Any, venue: Venue, place: str | None) -> tuple[Venue, list
     return venue.model_copy(update={"location": loc.model_copy(update={"timezone": tz})}), notes
 
 
-async def design(st: Any, text: str) -> dict[str, Any]:
-    """Description → venue preview (not saved; the UI creates the project)."""
+async def design(st: Any, text: str, people: int | None = None) -> dict[str, Any]:
+    """Description → venue preview (not saved; the UI creates the project).
+
+    `people`: the event's headcount when the caller knows it (the autopilot's brief).
+    """
     env = AgentEnv(llm=st.llm, project_id=None, on_usage=st.usage.add)
-    out = await design_venue(env, text)
+    out = await design_venue(env, text, people)
     if out.venue is None:
         return {"status": "failed", "problems": out.problems, "notes": [], "assumptions": []}
     venue, notes = await _locate(st, out.venue, out.spec.location if out.spec else None)

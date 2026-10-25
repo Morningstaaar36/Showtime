@@ -347,6 +347,17 @@ def test_headcount_problems_are_sent_back_with_a_fix() -> None:
     assert any("levels run from 0 to 4" in p for p in problems)
 
 
+def test_a_known_headcount_is_held_against_the_layout() -> None:
+    # the brief read 1,500 people; a layout filled to its floor area is sent back
+    spec = VenueSpec.model_validate(OFFICE)
+    built, problems = check_spec(spec)
+    total = built.venue.total_people()
+    _, problems = check_spec(spec, people=total * 2)
+    assert any(f"The event has {total * 2:,} people" in p for p in problems)
+    assert check_spec(spec, people=total)[1] == []
+    assert check_spec(spec, people=round(total * 1.04))[1] == []  # within 5 %
+
+
 def test_geometry_errors_name_the_zone_and_level_not_ids() -> None:
     crowded = dict(SCHOOL, building={**SCHOOL["building"], "people_per_floor": 3200})
     _, problems = check_spec(VenueSpec.model_validate(crowded))
