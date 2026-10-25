@@ -33,6 +33,7 @@ from api.adapters.sandbox import (
     RUN_ID_RE,
     CodeJob,
     CodeResult,
+    Isolation,
     ProgressFn,
     SimJob,
     code_files,
@@ -77,6 +78,9 @@ class NebiusRunner:
     """Sandbox provider for Nebius Sandboxes (async contree-sdk client)."""
 
     provider = "nebius"
+    # a Nebius sandbox cannot be given a per-job network or memory limit the way a local
+    # container can: the static check and the in-sandbox budgets are the protection there
+    isolation = Isolation("cloud", None, None, None, False, None, False, False)
 
     def __init__(self, settings: Settings, client: Any | None = None) -> None:
         self.settings = settings

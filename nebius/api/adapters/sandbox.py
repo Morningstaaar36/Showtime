@@ -21,7 +21,7 @@ import re
 import shutil
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
@@ -136,10 +136,59 @@ def parse_code_output(
     return CodeResult("ok", output, _tail(body), _tail(stderr), runtime)
 
 
+PROCESS_LIMIT = 256  # --pids-limit for every container
+
+
+@dataclass(frozen=True)
+class Isolation:
+    """What a sandbox guarantees for every run, as facts the UI can show (no provider names)."""
+
+    kind: Literal["container", "cloud", "none"]
+    network_off: bool | None  # None: the provider's default, not set per job
+    memory: str | None
+    cpus: float | None
+    read_only: bool
+    process_limit: int | None
+    non_root: bool
+    per_job_limits: bool  # network and memory limits set for each run
+
+    def summary(self) -> str:
+        """One plain sentence."""
+        if self.kind == "none":
+            return "No sandbox: no simulation runs (preview numbers only)."
+        if not self.per_job_limits:
+            return (
+                "Each run gets its own cloud sandbox. Per-run network and memory limits can't be "
+                "set there, so the static check and the in-sandbox budgets are the protection."
+            )
+        parts = ["one container per run"]
+        if self.network_off:
+            parts.append("no network")
+        if self.memory:
+            parts.append(f"{self.memory} memory")
+        if self.cpus:
+            parts.append(f"{self.cpus:g} CPU")
+        if self.read_only:
+            parts.append("read-only system")
+        if self.process_limit:
+            parts.append(f"at most {self.process_limit} processes")
+        if self.non_root:
+            parts.append("no admin rights")
+        text = ", ".join(parts)
+        return text[:1].upper() + text[1:] + "."
+
+    def as_dict(self) -> dict[str, Any]:
+        return {**asdict(self), "summary": self.summary()}
+
+
+NO_SANDBOX = Isolation("none", None, None, None, False, None, False, False)
+
+
 class SandboxRunner(Protocol):
     """Provider-agnostic sandbox interface."""
 
     provider: str
+    isolation: Isolation
 
     async def prepare_base(self, venue: Venue) -> str:
         """Prepare (or reuse) the base environment; returns a node id for the tree root."""
@@ -316,6 +365,19 @@ class DockerRunner:
             return str(Path(self.host_runs_dir) / work.relative_to(self.runs_dir))
         return str(work.resolve())
 
+    @property
+    def isolation(self) -> Isolation:
+        return Isolation(
+            kind="container",
+            network_off=True,
+            memory=self.mem_limit,
+            cpus=self.cpus,
+            read_only=True,
+            process_limit=PROCESS_LIMIT,
+            non_root=True,
+            per_job_limits=True,
+        )
+
     async def health(self) -> dict[str, Any]:
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -375,7 +437,7 @@ class DockerRunner:
             f"--memory={self.mem_limit}",
             f"--memory-swap={self.mem_limit}",
             f"--cpus={self.cpus}",
-            "--pids-limit=256",
+            f"--pids-limit={PROCESS_LIMIT}",
             "--security-opt=no-new-privileges",
             "--cap-drop=ALL",
             # scenario scripts run in here: only /work (this run's folder) and /tmp writable
@@ -578,6 +640,7 @@ class FakeRunner:
     """
 
     provider = "fake"
+    isolation = NO_SANDBOX
 
     def __init__(
         self,

@@ -75,7 +75,8 @@ async def list_agents(st: AppState = Depends(get_state)) -> dict[str, Any]:
             "provider": st.settings.sandbox_provider,
             "ok": bool(sandbox.get("ok")),
             "detail": str(sandbox.get("detail", "")),
-            "isolation": "no network, memory and CPU limits, one container per scenario",
+            "isolation": st.runner.isolation.as_dict(),
+            "time_limit_s": st.settings.max_wall_s,
         },
     }
 

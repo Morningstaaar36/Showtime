@@ -65,7 +65,12 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
                     for r in ("fast", "long", "main", "judge")
                 },
             },
-            "sandbox": {**sandbox, "provider": st.settings.sandbox_provider},
+            "sandbox": {
+                **sandbox,
+                "provider": st.settings.sandbox_provider,
+                "isolation": st.runner.isolation.as_dict(),
+                "time_limit_s": st.settings.max_wall_s,
+            },
             "search": search,
             "weather": weather,
         },

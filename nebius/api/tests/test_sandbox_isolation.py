@@ -1,0 +1,55 @@
+"""Each sandbox says what it guarantees per run; /health and the AI team page show those facts."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from api.adapters.llm import FakeLLM
+from api.adapters.nebius_sandbox import NebiusRunner
+from api.adapters.sandbox import DockerRunner, FakeRunner
+from api.app.main import create_app
+from api.app.state import build_state
+from api.tests.evidence_fakes import reset_engine, use_test_settings
+
+
+def test_docker_isolation_matches_the_flags_it_runs_with(tmp_path: Path) -> None:
+    iso = DockerRunner(tmp_path, "showtime-sim:latest", "2g", 2.0).isolation
+    assert (iso.kind, iso.network_off, iso.memory, iso.cpus) == ("container", True, "2g", 2.0)
+    assert iso.read_only and iso.non_root and iso.per_job_limits and iso.process_limit == 256
+    assert iso.summary() == (
+        "One container per run, no network, 2g memory, 2 CPU, read-only system, "
+        "at most 256 processes, no admin rights."
+    )
+
+
+def test_nebius_says_it_cannot_set_per_job_limits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = use_test_settings(tmp_path, monkeypatch)
+    iso = NebiusRunner(settings, client=object()).isolation
+    assert iso.kind == "cloud" and iso.per_job_limits is False and iso.network_off is None
+    assert "static check" in iso.summary()
+
+
+def test_the_fake_runner_is_no_sandbox(tmp_path: Path) -> None:
+    iso = FakeRunner(tmp_path).isolation
+    assert iso.kind == "none" and "no simulation" in iso.summary()
+
+
+def test_health_and_the_team_page_report_the_isolation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = use_test_settings(tmp_path, monkeypatch)
+    state = build_state(settings, llm=FakeLLM({}, settings), runner=FakeRunner(settings.runs_dir))
+    try:
+        with TestClient(create_app(state=state, settings=settings)) as c:
+            sb = c.get("/api/v1/health").json()["providers"]["sandbox"]
+            team = c.get("/api/v1/agents").json()["sandbox"]
+        assert sb["isolation"]["kind"] == "none" and sb["isolation"]["summary"]
+        assert sb["time_limit_s"] == settings.max_wall_s
+        assert team["isolation"] == sb["isolation"]
+    finally:
+        reset_engine()
