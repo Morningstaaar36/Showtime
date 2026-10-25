@@ -36,6 +36,11 @@ test("AI at work shows every run's sandbox live, including the scenario script",
   // Offline mode: rules stand in for the AI, so this needs no model calls; the rule red team
   // still sends one hand-written scenario script into the sandbox
   const created = await (await request.post("/api/v1/projects", { data: { name: "E2E sandbox feed", template_id: "school_wing" } })).json();
+  // a headcount of its own, so every run is new (not reused from an earlier test of the template)
+  const venue = (await (await request.get(`/api/v1/projects/${created.id}`)).json()).version.venue;
+  const zone = venue.floors[0].zones[0];
+  const people = Math.max(5, zone.people - 1 - Math.floor(Math.random() * 20));
+  expect((await request.post(`/api/v1/projects/${created.id}/patch`, { data: { patch: { ops: [{ op: "set_people", zone_id: zone.id, people }] } } })).ok()).toBeTruthy();
   try {
     await page.goto(`/p/${created.id}/describe`);
     await page.getByRole("radio", { name: /Offline/ }).click();
@@ -48,6 +53,18 @@ test("AI at work shows every run's sandbox live, including the scenario script",
     await expect(feed).toContainText(/\d+ of \d+ done/);
     // every run ends in a final state with its time; the script run says what happened to it
     await expect(feed.locator('[data-testid="sandbox-row"][data-state="finished"]').first()).toBeVisible({ timeout: 300_000 });
+    // the finished test moves on to the plan; the sandboxes are one click from the verdict
+    await expect(page).toHaveURL(/\/p\/p_[^/]+\?session=/, { timeout: 300_000 });
+    await page.getByTestId("watch-sandboxes").click();
+    await expect(page).toHaveURL(/tab=sandboxes/);
+    const tab = page.getByTestId("sandboxes-tab");
+    const script = tab.getByTestId("sbx-script").first();
+    await expect(script).toBeVisible();
+    await script.getByText("Show the code").click();
+    await expect(script.locator("pre code")).toContainText("def on_step(view, act)");
+    await expect(tab.getByRole("heading", { name: "Rewind the worst moment" })).toBeVisible();
+    await expect(tab.getByRole("heading", { name: "Stress test at scale" })).toBeVisible();
+    await expect(tab.getByTestId("sandbox-row").first()).toBeVisible();
   } finally {
     await request.delete(`/api/v1/projects/${created.id}`);
   }

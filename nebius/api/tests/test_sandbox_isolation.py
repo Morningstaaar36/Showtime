@@ -20,7 +20,7 @@ def test_docker_isolation_matches_the_flags_it_runs_with(tmp_path: Path) -> None
     assert (iso.kind, iso.network_off, iso.memory, iso.cpus) == ("container", True, "2g", 2.0)
     assert iso.read_only and iso.non_root and iso.per_job_limits and iso.process_limit == 256
     assert iso.summary() == (
-        "One container per run, no network, 2g memory, 2 CPU, read-only system, "
+        "One container per run, no network, 2 GB memory, 2 CPU, read-only system, "
         "at most 256 processes, no admin rights."
     )
 

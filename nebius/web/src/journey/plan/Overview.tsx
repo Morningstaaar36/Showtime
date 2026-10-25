@@ -1,7 +1,7 @@
 /** Your plan › Overview: the verdict as a picture (traffic-light ring and one headline), four key
  * numbers with a picture each, before vs after the fixes, the worst moment replaying in 3D, and
  * one obvious next step. The AI's prose stays one click away. */
-import { AlarmClock, CircleAlert, Clock3, Gauge, Info, Sparkles, Swords, Users, Wrench } from "lucide-react";
+import { AlarmClock, CircleAlert, Clock3, Gauge, Info, ShieldCheck, Sparkles, Swords, Users, Wrench } from "lucide-react";
 import type * as React from "react";
 import { Link } from "react-router";
 import type { Countdown, RunResult } from "@/api/types";
@@ -55,6 +55,8 @@ export interface OverviewProps {
   summary: { judge: string | null; reasons: string[]; recommendations: string[] };
   /** the real case this venue rebuilds (a compact card above the verdict), if any */
   realCase?: React.ReactNode;
+  /** how many sandbox runs and AI-written scripts the test had, and how to open them */
+  sandboxes?: { runs: number; scripts: number; onOpen: () => void };
 }
 
 function Tile({ icon, tone, label, value, unit, visual, foot, testId }: {
@@ -197,6 +199,13 @@ export function Overview(p: OverviewProps) {
               </div>
             ))}
           </dl>
+          {p.sandboxes && p.sandboxes.runs > 0 && (
+            <button type="button" onClick={p.sandboxes.onOpen} data-testid="watch-sandboxes"
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-egress/30 bg-surface/70 px-3 text-sm font-semibold text-egress-strong hover:bg-surface">
+              <ShieldCheck className="size-4" aria-hidden />
+              {t("plan.sbx_watch", { runs: p.sandboxes.runs, scripts: p.sandboxes.scripts })}
+            </button>
+          )}
         </div>
 
         <div className="min-w-0 lg:col-span-3">{p.hero}</div>

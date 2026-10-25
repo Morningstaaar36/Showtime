@@ -162,7 +162,7 @@ class Isolation:
         if self.network_off:
             parts.append("no network")
         if self.memory:
-            parts.append(f"{self.memory} memory")
+            parts.append(f"{_bytes_label(self.memory)} memory")
         if self.cpus:
             parts.append(f"{self.cpus:g} CPU")
         if self.read_only:
@@ -176,6 +176,12 @@ class Isolation:
 
     def as_dict(self) -> dict[str, Any]:
         return {**asdict(self), "summary": self.summary()}
+
+
+def _bytes_label(docker_size: str) -> str:
+    """Docker's "2g" / "512m" as "2 GB" / "512 MB" (anything else as given)."""
+    m = re.fullmatch(r"\s*([0-9.]+)\s*([kmg])b?\s*", docker_size, re.IGNORECASE)
+    return f"{m.group(1)} {m.group(2).upper()}B" if m else docker_size
 
 
 NO_SANDBOX = Isolation("none", None, None, None, False, None, False, False)

@@ -18,6 +18,7 @@ import { Spinner } from "@/components/ui/misc";
 import { t } from "@/i18n";
 import { fmtClock, fmtNum, fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ScriptCode } from "@/journey/ScriptCode";
 import { type ScenarioKind, scenarioHeadline, scenarioKind, type StressCount } from "./gallery";
 import type { Outcome, ScenarioRow } from "./scenarios";
 
@@ -80,6 +81,7 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay, danger = 5 
                 {r.children.length > 0 && <Badge tone="outline">{t("plan.sc_fixes", { k: kept, n: r.children.length })}</Badge>}
                 {st && <Badge tone={st.breaks ? "danger" : "egress"}>{t("plan.sc_stress", { k: st.breaks, n: st.runs })}</Badge>}
               </div>
+              {a && <ScriptCode attack={a} />}
               <div className="mt-auto flex items-center justify-between gap-2">
                 {a?.inspired_by?.source_url ? (
                   <a href={a.inspired_by.source_url} target="_blank" rel="noreferrer" className="flex min-h-11 min-w-0 flex-1 items-center gap-1 text-xs text-signal hover:underline">
@@ -281,9 +283,9 @@ export type CheckKey = "seeds" | "range" | "rewind" | "stress";
 
 const CHECK_ICON: Record<CheckKey, React.ReactNode> = { seeds: <Dices />, range: <Gauge />, rewind: <History />, stress: <Layers /> };
 
-export function DeeperChecks({ status, panels }: { status: Record<CheckKey, string>; panels: Record<CheckKey, React.ReactNode> }) {
+export function DeeperChecks({ status, panels }: { status: Record<CheckKey, string>; panels: Partial<Record<CheckKey, React.ReactNode>> }) {
   const [open, setOpen] = useState<CheckKey | null>(null);
-  const keys: CheckKey[] = ["rewind", "stress", "seeds", "range"];
+  const keys = (["rewind", "stress", "seeds", "range"] as const).filter((k) => panels[k] !== undefined);
   return (
     <section aria-labelledby="deeper-h" className="space-y-3">
       <h2 id="deeper-h" className="text-lg font-semibold">{t("plan.deeper")}</h2>
