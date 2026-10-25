@@ -396,3 +396,18 @@ async def test_a_pause_expires(tmp_path: Path) -> None:
     c._paused_until = 0.0  # the pause ran out
     reply = await c.chat("fast", [{"role": "user", "content": "later"}])
     assert reply.usage.provider == "openai"
+
+
+@pytest.mark.parametrize("provider", ["openai", "nebius"])
+def test_an_empty_model_id_fails_at_startup_naming_the_variable(
+    tmp_path: Path, provider: str
+) -> None:
+    with pytest.raises(ValueError, match="MODEL_FAST"):
+        _settings(tmp_path, llm_provider=provider, model_fast="  ")
+
+
+def test_an_empty_local_model_id_fails_at_startup(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="LOCAL_LLM_MODEL"):
+        _settings(tmp_path, llm_provider="local", local_llm_model="")
+    # the other roles may be empty: they fall back to MODEL_FAST
+    assert _settings(tmp_path, model_main="").model_for("main") == "big-model"

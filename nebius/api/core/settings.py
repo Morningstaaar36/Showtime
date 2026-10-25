@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -170,6 +170,19 @@ class Settings(BaseSettings):
         if v <= 0:
             raise ValueError("DENSITY_DANGER_PPM2 must be > 0")
         return v
+
+    @model_validator(mode="after")
+    def _model_ids_set(self) -> Settings:
+        """An empty model id would only show up as a provider error on the first call."""
+        if self.cloud_llm and not self.model_fast.strip():
+            raise ValueError(
+                f"MODEL_FAST is empty: set it in .env to a model id the provider serves "
+                f"(LLM_PROVIDER={self.llm_provider}). MODEL_LONG, MODEL_MAIN and MODEL_JUDGE "
+                "fall back to it when empty."
+            )
+        if self.llm_provider == "local" and not self.local_llm_model.strip():
+            raise ValueError("LOCAL_LLM_MODEL is empty: set it in .env (LLM_PROVIDER=local).")
+        return self
 
     @property
     def database_url(self) -> str:
