@@ -41,8 +41,16 @@ async function parse<T>(res: Response): Promise<T> {
 }
 
 /** How long a request may take before it fails with a clear error. Writes wait longer: some
- * start an agent (designing a venue, an edit) that may take a few minutes on a free model. */
-export const REQUEST_TIMEOUT_MS = { read: 60_000, write: 330_000 } as const;
+ * start an agent (designing a venue, an edit) that may take a few minutes on a free model.
+ * The server sets both (WEB_READ_TIMEOUT_S, WEB_WRITE_TIMEOUT_S, sent in /health); these are
+ * its defaults, used only until the first /health answer arrives. */
+export const REQUEST_TIMEOUT_MS = { read: 60_000, write: 330_000 };
+
+/** Apply the server's timeouts (from GET /health → client). */
+export function configureTimeouts(c: { read_timeout_s?: number; write_timeout_s?: number } | null | undefined): void {
+  if (c?.read_timeout_s && c.read_timeout_s > 0) REQUEST_TIMEOUT_MS.read = c.read_timeout_s * 1000;
+  if (c?.write_timeout_s && c.write_timeout_s > 0) REQUEST_TIMEOUT_MS.write = c.write_timeout_s * 1000;
+}
 
 /** A signal that aborts on the caller's own cancel or when the request runs out of time. */
 function withTimeout(ms: number, signal?: AbortSignal): { signal: AbortSignal; timedOut: () => boolean; done: () => void } {

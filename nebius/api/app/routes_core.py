@@ -84,6 +84,10 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
             }
         ),
         "plugins": plugins,
+        "client": {
+            "read_timeout_s": st.settings.web_read_timeout_s,
+            "write_timeout_s": st.settings.web_write_timeout_s,
+        },
         "version": "0.1.0",
     }
 

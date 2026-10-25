@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, api, REQUEST_TIMEOUT_MS } from "@/api/client";
+import { ApiError, api, configureTimeouts, REQUEST_TIMEOUT_MS } from "@/api/client";
 
 /** A fetch that never answers until its signal aborts it. */
 function hangingFetch() {
@@ -40,5 +40,24 @@ describe("request timeout", () => {
     ctrl.abort();
     const err = await p;
     expect((err as Error).name).toBe("AbortError");
+  });
+});
+
+describe("timeouts come from the server", () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); configureTimeouts({ read_timeout_s: 60, write_timeout_s: 330 }); });
+
+  it("uses WEB_READ_TIMEOUT_S once /health has sent it", async () => {
+    configureTimeouts({ read_timeout_s: 2, write_timeout_s: 9 });
+    expect(REQUEST_TIMEOUT_MS).toEqual({ read: 2000, write: 9000 });
+    vi.stubGlobal("fetch", hangingFetch());
+    const p = api.get("/projects").catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(2010);
+    expect(((await p) as ApiError).message).toMatch(/over 2 s/);
+  });
+  it("ignores a missing or nonsense value", () => {
+    configureTimeouts(undefined);
+    configureTimeouts({ read_timeout_s: 0 });
+    expect(REQUEST_TIMEOUT_MS.read).toBe(60_000);
   });
 });

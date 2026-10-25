@@ -207,6 +207,8 @@ export interface Health {
     weather: ProviderStatus;
   };
   plugins: PluginRow[];
+  /** how long the web app waits for a read and a write (server settings) */
+  client?: { read_timeout_s: number; write_timeout_s: number };
   version: string;
 }
 
