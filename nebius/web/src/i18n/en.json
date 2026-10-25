@@ -1,4 +1,14 @@
 {
+  "evidence_panel": {
+    "title": "Evidence",
+    "lead": "The real incidents every attack is grounded in. The AI picks a source; the link and the quoted sentence come from the source, never from the AI.",
+    "web": "Live web (Tavily)",
+    "dataset": "Incident dataset",
+    "origin_web": "Live web",
+    "origin_dataset": "Incident dataset",
+    "supports": "Grounds: {attacks}",
+    "search_off": "Web search: off (add a Tavily key to switch on). Sources come from the incident dataset."
+  },
   "app": {
     "name": "Showtime",
     "tagline": "Run the disaster before the gates open.",
