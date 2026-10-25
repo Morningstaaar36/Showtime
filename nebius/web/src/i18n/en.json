@@ -421,6 +421,18 @@
         "label": "Station",
         "description": "Passengers with luggage on platforms and concourses."
       },
+      "airport": {
+        "label": "Airport",
+        "description": "Travellers with luggage at check-in, security and gates."
+      },
+      "market": {
+        "label": "Market",
+        "description": "Shoppers moving between stalls, often in the open."
+      },
+      "campus": {
+        "label": "Campus",
+        "description": "Students and staff in lecture halls and between buildings."
+      },
       "residential": {
         "label": "Homes",
         "description": "Residents of all ages, some asleep at night."

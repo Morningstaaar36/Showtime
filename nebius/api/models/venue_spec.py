@@ -36,6 +36,12 @@ FeatureKind = Literal[
     "tent",
     "barrier",
     "escalator",
+    "ticket_gate",  # a line of fare gates or turnstiles
+    "shop",
+    "check_in",  # check-in desks
+    "security",  # security lanes or screening
+    "kiosk",
+    "stall",  # a market stall
     "other",
 ]
 BuildingUse = Literal[
@@ -49,6 +55,8 @@ BuildingUse = Literal[
     "conference",
     "concert",
     "sports",
+    "airport",
+    "campus",
     "other",
 ]
 StairPlace = Literal["north", "south", "east", "west", "centre"]

@@ -27,6 +27,9 @@ _COPY: dict[str, tuple[str, str]] = {
     "mall": ("Shopping mall", "Shoppers spread over shops and corridors."),
     "transit": ("Station", "Passengers with luggage on platforms and concourses."),
     "residential": ("Homes", "Residents of all ages, some asleep at night."),
+    "airport": ("Airport", "Travellers with luggage at check-in, security and gates."),
+    "market": ("Market", "Shoppers moving between stalls, often in the open."),
+    "campus": ("Campus", "Students and staff in lecture halls and between buildings."),
     "other": ("Other", "General adults."),
 }
 

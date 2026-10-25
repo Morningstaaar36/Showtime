@@ -32,6 +32,9 @@ EventKind = Literal[
     "mall",
     "transit",
     "residential",
+    "airport",
+    "market",
+    "campus",
     "other",
 ]
 

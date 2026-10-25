@@ -21,6 +21,9 @@ export type EventKind =
       | "mall"
       | "transit"
       | "residential"
+      | "airport"
+      | "market"
+      | "campus"
       | "other"
     )
   | null;

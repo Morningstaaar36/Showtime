@@ -94,8 +94,25 @@ def check_spec(spec: VenueSpec, people: int | None = None) -> tuple[BuildResult,
         problems.append(
             f"The event has {people:,} people but the layout holds {got:,}: "
             "set the headcounts per level or per zone so they add up to the event's total."
+            + _area_hint(spec)
         )
     return built, problems
+
+
+def _area_hint(spec: VenueSpec) -> str:
+    """Name the passages and end areas a zone can stand in, when the layout has any: a model
+    that puts every group on the main floor often drops the ones the description places there."""
+    labels = [p.label for p in spec.passages]
+    labels += [p.end_area.label for p in spec.passages if p.end_area is not None]
+    used = {z.area for z in spec.zones if z.area}
+    free = [lab for lab in labels if lab and lab not in used]
+    if not free:
+        return ""
+    names = ", ".join(f'"{lab}"' for lab in free)
+    return (
+        f" Groups the description places in {names} need their own zone there"
+        ' (its label as "area").'
+    )
 
 
 def _summary(s: VenueSpec) -> str:
