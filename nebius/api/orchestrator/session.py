@@ -1824,7 +1824,20 @@ class SessionManager:
                 continue
             try:
                 h = await src.evaluate(ctx)
-            except Exception:
+            except Exception as exc:
+                # one broken hazard (no forecast, a plugin bug) must not stop the countdown, but
+                # a countdown that silently left the wind out would look safer than it is
+                name = getattr(src, "id", None) or type(src).__name__
+                log.warning("hazard source %s failed: %s", name, exc, exc_info=True)
+                self.emit(
+                    live,
+                    "log",
+                    {
+                        "level": "warning",
+                        "message": f"The {name} hazard could not be evaluated ({exc}); the "
+                        "countdown leaves it out.",
+                    },
+                )
                 continue
             if h is not None:
                 hazards.append(h)

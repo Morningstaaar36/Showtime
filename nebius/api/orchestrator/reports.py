@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Callable
 from datetime import datetime
@@ -21,6 +22,8 @@ from api.core.validation import load_validation
 from api.db.models import Run, SessionEventRow
 from api.db.session import db_session
 from api.models import Attack, Countdown, Fix, RunResult, Venue
+
+log = logging.getLogger("showtime.reports")
 
 
 def _result(row: Run | None) -> RunResult | None:
@@ -315,7 +318,8 @@ def _handover(
     if digest != plan_hash(plan_venue):
         try:  # the exit plan of the selected venue, for its map
             plan = st.runs.estimate(selected).extensions.get("plan", {})
-        except Exception:
+        except Exception:  # the map still draws, without exit-assignment arrows
+            log.warning("no exit plan for the selected venue's map", exc_info=True)
             plan = {}
     return {
         "version": current.version,
