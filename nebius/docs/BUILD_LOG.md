@@ -113,3 +113,44 @@ Wider checks after Step 3:
 - e2e `sandbox.spec.ts`: 4/4 in Chrome.
 
 Live calls in Step 3: 0 (Offline mode and recorded sessions only).
+
+## Step 6: key-ready architecture (done before Step 4, which builds on its SearchProvider)
+
+| Item | What changed | Tests | Commits |
+| --- | --- | --- | --- |
+| 6a | Characterization tests pinned the behaviour of local, nebius, openai, fake LLMs; docker, nebius, fake sandboxes; Tavily on/off | 10 passed before the refactor | 206cb7e |
+| 6b | `api/adapters/providers/`: three registries, one module per provider; settings validate names and list the valid ones; `LLMClient`, `build_runner` and the search setup look up the provider; no empty or made-up key is ever sent | the 6a tests pass unchanged; 819 fast tests | f84a71c |
+| 6c | `/health` gives each provider's title and capabilities; badges, Settings and the Team page read them; no code compares provider names to choose behaviour (data labels such as a stored run's `provider == "fake"` remain) | provider registry 6, providerWhere 2 | af3ba94 |
+| 6d | Requirements and `not_configured` per provider; an unconfigured sandbox falls back to `SANDBOX_FALLBACK` (Docker) and says why; search without a key is ok and "not configured" | readiness 3 | bdc356d |
+| 6e | `make verify-live`, `verify-nebius-llm`, `verify-nebius-sandbox`, `verify-tavily`: smallest real call per service; SKIPPED without a key; latest result per service kept in `docs/LIVE_STATUS.md`; another provider is checked with its own preset model ids | verify-live 3 | 45f69fd, 3d7716a |
+| 6f | Presets live in the provider modules; `make use-%` is generic (`make use-list`); `.env.example` documents every setting and provider variable (`scripts/env_example.py`, a test fails on drift); unserved model ids are named at startup | env/presets 2, model check 2 | 3ff153d |
+| 6g | A test-only provider of each kind is selectable by name with no other file edited; Nebius (LLM, sandbox) and Tavily are selectable by settings alone with fake clients (**not live**) | 5 | da24327 |
+| 6h | `docs/ADDING_A_PROVIDER.md`, `docs/WHEN_YOU_GET_THE_KEYS.md`, NEBIUS_SWITCH.md | — | 48ebaad |
+
+**One deliberate behaviour change:**
+- **Before:** `SANDBOX_PROVIDER=nebius` without a key used to build a Nebius runner that failed every run.
+- **Now:** it falls back to Docker and says so (6d asks for that).
+- **The test:** the 6a test now pins selection of a *configured* provider, and the unconfigured
+  case is pinned in `test_provider_readiness.py`.
+
+**`make verify-live` (real output):**
+```
+| llm (in use now) | OpenAI-compatible API | PASS | OPENROUTER: ...ultra...; nvidia/nemotron-3.5-lightning:free answered 'ready' |
+| sandbox (in use now) | Local Docker | PASS | ran a script in 0.31 s; a network call was stopped: OSError: [Errno 101] Network is unreachable |
+| search (in use now) | Tavily web search | SKIPPED | SKIPPED: set TAVILY_API_KEY |
+| llm | Nebius Token Factory | SKIPPED | SKIPPED: set NEBIUS_API_KEY |
+| sandbox | Nebius Sandboxes | SKIPPED | SKIPPED: set NEBIUS_API_KEY |
+```
+
+**`make smoke` on Docker + OpenRouter:**
+```
+session finished · scoreboard [{'round': 1, 'breaks': 0, 'attacks': 3, ...}] · tokens 11041
+report 26 KB, map 11 KB (disclaimer present)
+SMOKE OK · lowest free RAM during test 8004 MB
+```
+
+Wider checks:
+- `make check`: 826 passed, 1 skipped.
+- web: `tsc -b`, `eslint` and vitest pass.
+
+Live calls in Step 6: 4 (verify-live twice), about 10 (smoke).
