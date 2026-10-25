@@ -169,7 +169,7 @@ Live calls in Step 6: 4 (verify-live twice), about 10 (smoke).
 
 **A bug found in Chrome:** the Evidence strings had never been inserted, so the badge showed
 `evidence_panel.origin_dataset`.
-- **Fixed** in commit d1-series.
+- **Fixed** in commit 6fed98e.
 - **Guard:** `i18n/keys.test.ts` checks that every literal string key exists. It failed without the
   fix and named every missing key.
 
