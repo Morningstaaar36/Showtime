@@ -80,3 +80,36 @@ Wider checks after Step 2:
 - web: `tsc -b`, `eslint`, vitest 214 passed, build ok.
 
 Live calls in Step 2: about 8 (guided journey alone), about 12 (journeys file), 2 (probe).
+
+## Step 3: sandboxes as the core feature
+
+| Item | What changed | Micro-tests (real output) | Commits |
+| --- | --- | --- | --- |
+| 3a proof | `test_sandbox_attacks_docker.py` sends 14 escapes through the production path (8 scenario scripts, 6 code jobs), each to the static check and the real container. It found **two real gaps**: an 8 GB allocation got the whole simulation OOM-killed (exit 137); `act.slow_down` had no floor (crowd could be frozen). Fixed: a heap cap set just before untrusted code runs, and a floor on total slow-down | 28 passed (Docker); see `docs/SANDBOX_PROOF.md`, tables generated from the recording | 8d4d9d1, 22a1303 |
+| 3b badge | Runners state `Isolation` facts; `/health` and `/agents` report them; header badge with the facts; Help › Sandbox | pytest 4; vitest 3; e2e 3 (Chrome) | 6b8cd53, 7259dd0, 71e107c |
+| 3c feed | Run service publishes `sandbox` lifecycle events (queued → running → finished / refused / killed / failed / reused, elapsed, limits, script outcome and reason; never container output); the session streams its own; AI at work shows the feed | pytest 6 (outcome rules + session stream); vitest 5; e2e: Offline test in Chrome, rows appear live | 15cb821, f11cab7 |
+| 3d reach | "Sandboxes" tab on Your plan (scripts with code and outcome, Rewind, stress test, every run); "Watch the sandboxes" on the verdict; code on scenario cards | vitest 2; e2e continues into the tab and opens the code | d64914e |
+| 3e AI script in the main path | Checked in the database: every model-mode session since 15 Oct has ≥1 AI-written script. Found and fixed: the red team copied the example title from my repair message | 20 red-team tests | c772843 |
+| 3f seams | `runner.parallel` replaces `sandbox_provider == "nebius"` in sweep and seeds; NEBIUS_SWITCH.md says plainly what protects runs on Nebius; "not run live" | 2 capacity tests | b57b463 |
+
+**"Don't hardcode" pass, after your message:**
+- These moved into settings, sent with every script run (other run ids unchanged):
+  - the guards: process limits, script time/line/action budgets, slow-down floor, memory share;
+  - the LLM pause length and error threshold;
+  - the case deadline;
+  - the web timeouts.
+- The Help attack table is rendered from `api/data/sandbox_proof.json`, written by `make sandbox-proof`.
+- Commits 5dad264, a0f8619, 168fed3.
+
+**A real bug the e2e test found** (commit 546344c):
+- What happened: after a plain `docker compose up -d web`, the API lost the Docker group I had added in Step 2h (via `DOCKER_GID`, set only by make), and every simulation failed with "permission denied".
+- Fix: the API entrypoint now reads the owner of `runs/` and the socket's group from its mounts and drops to them.
+- Checked live: the app process has `Uid 1000, Groups 973 1000, CapEff 0`; a sandbox run finished `ok`.
+- Test: `test_api_image_user.py`.
+
+Wider checks after Step 3:
+- `make check`: 800 passed, 1 skipped.
+- web: `tsc -b`, `eslint`, vitest 226, build ok.
+- e2e `sandbox.spec.ts`: 4/4 in Chrome.
+
+Live calls in Step 3: 0 (Offline mode and recorded sessions only).
