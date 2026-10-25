@@ -5,7 +5,7 @@ SIM_PLATFORM ?= linux/amd64
 API := cd api &&
 .DEFAULT_GOAL := help
 
-.PHONY: help fix-perms sandbox-proof setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
+.PHONY: help fix-perms sandbox-proof verify-live setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
         types check lint typecheck test test-sim test-web e2e smoke smoke-nebius use-nebius use-openrouter use-local demo-precompute \
         clean mem plugins new-plugin calibrate validate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
@@ -128,6 +128,12 @@ sandbox-proof: ## Attack the real sandbox and record what stopped each attack (H
 
 smoke: ## End-to-end smoke test against the running API (small crowd)
 	@$(ENV) $(API) uv run python ../scripts/smoke.py
+
+verify-live: ## Smallest real call to every external service; writes docs/LIVE_STATUS.md (SKIPPED without a key)
+	@$(ENV) $(API) uv run python ../scripts/verify_live.py
+
+verify-%: ## verify-nebius-llm, verify-nebius-sandbox, verify-tavily: one service
+	@$(ENV) $(API) uv run python ../scripts/verify_live.py $*
 
 smoke-nebius: ## Smoke test against Nebius Token Factory + Sandboxes (skips without keys)
 	@$(ENV) $(API) uv run python ../scripts/smoke_nebius.py
