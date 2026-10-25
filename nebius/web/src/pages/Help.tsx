@@ -5,11 +5,11 @@ import { ChevronDown, ClipboardCheck, Clock, Gauge, Map as MapIcon, ShieldCheck,
 import type * as React from "react";
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router";
-import { useGlossary, useValidation } from "@/api/queries";
+import { useGlossary, useSandboxProof, useValidation } from "@/api/queries";
 import type { SimulatorValidation } from "@/api/types";
 import { AppShell } from "@/app/AppHeader";
 import { Button } from "@/components/ui/button";
-import { Kbd } from "@/components/ui/misc";
+import { Kbd, Skeleton } from "@/components/ui/misc";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { ValidationChart, ValidationTable } from "@/panels/ValidationChart";
@@ -48,9 +48,6 @@ const SHORTCUTS: [string[], string][] = [
 const TECH = ["tech_instant", "tech_sim", "tech_density", "tech_evac", "tech_wind", "tech_latest"];
 
 const SECTIONS = ["how", "sandbox", "numbers", "verdict", "validation", "limits", "glossary", "shortcuts"];
-/** Attacks thrown at the sandbox in tests (docs/SANDBOX_PROOF.md) and what stopped each. */
-const SANDBOX_ATTACKS = ["socket", "files", "escape", "loop", "memory", "flood", "fork", "secrets"] as const;
-
 const sectionLabel = (s: string) => (s === "validation" ? t("validation.nav") : t(`help.${s}`));
 
 /** The verdict headline (what the numbers show) and the badge next to it (how sure they are). */
@@ -60,6 +57,41 @@ const VERDICT_TERMS = [
 ] as const;
 
 const VALIDATION_LIMITS = ["limit_forces", "limit_motivation", "limit_density", "limit_scope"];
+
+/** What the attack suite threw at the real sandbox and what stopped each attack, from the last
+ * `make sandbox-proof` (GET /sandbox/proof): the sandbox's own words, never typed in by hand. */
+function SandboxProofTable() {
+  const proof = useSandboxProof();
+  if (proof.isPending) return <Skeleton className="h-40" />;
+  if (!proof.data) return <p className="text-sm text-muted">{t("help.sb_none")}</p>;
+  const p = proof.data;
+  return (
+    <div className="space-y-2">
+      <div className="overflow-x-auto rounded-[var(--radius-panel)] border border-border bg-surface shadow-sm">
+        <table className="w-full text-left text-sm" data-testid="sandbox-proof">
+          <thead className="bg-surface-2 text-xs text-muted">
+            <tr>
+              <th className="px-4 py-2 font-medium">{t("help.sb_attack")}</th>
+              <th className="px-4 py-2 font-medium">{t("help.sb_checker")}</th>
+              <th className="px-4 py-2 font-medium">{t("help.sb_inside")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {p.rows.map((r) => (
+              <tr key={`${r.kind}:${r.name}`} className="border-t border-border align-top">
+                <td className="px-4 py-2"><span className="font-medium">{r.label}</span>
+                  <span className="block text-2xs text-muted">{t(`help.sb_kind_${r.kind}`)}</span></td>
+                <td className="px-4 py-2 text-muted">{r.static ?? t("help.sb_passes")}</td>
+                <td className="px-4 py-2">{r.inside}<span className="block text-2xs text-muted">{t("help.sb_status", { status: r.status, s: r.runtime_s })}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-muted">{t("help.sb_recorded", { when: new Date(p.recorded_at).toLocaleString(), docker: p.docker, image: p.image, command: p.command })}</p>
+    </div>
+  );
+}
 
 export function HelpPage() {
   const glossary = useGlossary();
@@ -103,20 +135,7 @@ export function HelpPage() {
         </Section>
 
         <Section id="sandbox" title={t("help.sandbox")} lead={t("help.sandbox_lead")}>
-          <table className="w-full overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface text-left text-sm shadow-sm">
-            <thead className="bg-surface-2 text-xs text-muted">
-              <tr><th className="px-4 py-2 font-medium">{t("help.sb_attack")}</th><th className="px-4 py-2 font-medium">{t("help.sb_stopped_by")}</th></tr>
-            </thead>
-            <tbody>
-              {SANDBOX_ATTACKS.map((k) => (
-                <tr key={k} className="border-t border-border align-top">
-                  <td className="px-4 py-2 font-medium">{t(`help.sb_${k}`)}</td>
-                  <td className="px-4 py-2 text-muted">{t(`help.sb_${k}_by`)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="mt-3 text-sm text-muted">{t("help.sb_note")}</p>
+          <SandboxProofTable />
         </Section>
 
         <Section id="verdict" title={t("help.verdict")} lead={t("help.verdict_lead")}>

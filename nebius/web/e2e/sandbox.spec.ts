@@ -14,6 +14,11 @@ test("the header shows the sandbox and what it guarantees", async ({ page }) => 
   await page.getByRole("link", { name: "What it stopped in tests" }).click();
   await expect(page).toHaveURL(/\/help#sandbox$/);
   await expect(page.getByRole("heading", { name: "Sandbox", exact: true })).toBeInViewport();
+  // the attack results come from the last `make sandbox-proof`, in the sandbox's own words
+  const proof = page.getByTestId("sandbox-proof");
+  await expect(proof).toContainText("Network is unreachable");
+  await expect(proof).toContainText("more memory than the sandbox allows");
+  await expect(page.getByText(/Recorded .* on Docker/)).toBeVisible();
 });
 
 test("a Help link to a section opens at that section", async ({ page }) => {

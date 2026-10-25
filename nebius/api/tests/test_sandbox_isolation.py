@@ -53,3 +53,25 @@ def test_health_and_the_team_page_report_the_isolation(
         assert team["isolation"] == sb["isolation"]
     finally:
         reset_engine()
+
+
+def test_the_sandbox_proof_is_served_from_the_recorded_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    settings = use_test_settings(tmp_path, monkeypatch)
+    proof = tmp_path / "proof.json"
+    settings = settings.model_copy(update={"sandbox_proof_file": proof})
+    state = build_state(settings, llm=FakeLLM({}, settings), runner=FakeRunner(settings.runs_dir))
+    try:
+        with TestClient(create_app(state=state, settings=settings)) as c:
+            missing = c.get("/api/v1/sandbox/proof")
+            assert missing.status_code == 404 and "make sandbox-proof" in missing.json()["hint"]
+            rows = [
+                {"kind": "code", "name": "network", "label": "Connect", "inside": "unreachable"}
+            ]
+            proof.write_text(json.dumps({"recorded_at": "2026-10-25T10:00:00+00:00", "rows": rows}))
+            assert c.get("/api/v1/sandbox/proof").json()["rows"][0]["inside"] == "unreachable"
+    finally:
+        reset_engine()

@@ -3,12 +3,19 @@ production path (RunService.build_job -> DockerRunner, the flags the app uses).
 
 Each attack must be refused by the static check, or stopped inside the container with a clear
 reason, and the simulation must still finish. Slow: needs Docker and the sim image; without them
-the container half skips (the static half always runs). docs/SANDBOX_PROOF.md has the results.
+the container half skips (the static half always runs).
+
+With SANDBOX_PROOF_OUT=<file> (make sandbox-proof) the suite also writes what happened, row by
+row, as the sandbox reported it: the app's Help page and docs/SANDBOX_PROOF.md show that file.
 """
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +33,53 @@ from api.tests.evidence_fakes import reset_engine, use_test_settings
 from api.tests.test_redteam import _incidents
 
 IMAGE = os.environ.get("SIM_IMAGE", "showtime-sim:latest")
+PROOF_OUT = os.environ.get("SANDBOX_PROOF_OUT", "")
+# what each attack tries, in plain words (shown with the results)
+LABELS = {
+    "import socket": "Connect to the internet",
+    "import os": "Run shell commands",
+    "open a file": "Open a file",
+    "dunder escape": "Reach Python's internals (__class__)",
+    "frame walk": "Walk interpreter frames",
+    "endless loop": "Run forever",
+    "huge memory": "Grab 8 GB of memory",
+    "action flood": "Flood the crowd with actions",
+    "network": "Connect to the internet",
+    "write a file": "Write a file",
+    "read secrets": "Read the environment for API keys",
+    "fork bomb": "Start thousands of processes",
+}
+_rows: dict[tuple[str, str], dict[str, Any]] = {}
+
+
+def _record(kind: str, name: str, **fields: Any) -> None:
+    row = _rows.setdefault((kind, name), {"kind": kind, "name": name, "label": LABELS[name]})
+    row.update(fields)
+
+
+def _docker_version() -> str:
+    out = subprocess.run(
+        ["docker", "version", "--format", "{{.Server.Version}}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return out.stdout.strip()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def proof_file() -> Iterator[None]:
+    yield
+    if not PROOF_OUT or not any("inside" in r for r in _rows.values()):
+        return  # nothing ran in a container: no proof to record
+    proof = {
+        "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "docker": _docker_version(),
+        "image": IMAGE,
+        "command": "make sandbox-proof",
+        "rows": list(_rows.values()),
+    }
+    Path(PROOF_OUT).write_text(json.dumps(proof, indent=1) + "\n")
 
 
 def body(lines: str) -> str:
@@ -65,6 +119,7 @@ def test_the_static_check_refuses_exactly_the_escapes(
     name: str, code: str, static: bool, reason: str
 ) -> None:
     problems = check_script(code)
+    _record("scenario", name, static=problems[0] if problems else None)
     if static:
         assert problems and any(reason in p for p in problems), problems
     else:
@@ -112,6 +167,14 @@ async def test_inside_the_container_the_attack_is_stopped_and_the_run_finishes(
 ) -> None:
     res = await _run(docker_state, code, static)
     stopped = [n for n in res.notes if n.startswith("scenario script stopped:")]
+    _record(
+        "scenario",
+        name,
+        inside=stopped[0].removeprefix("scenario script stopped: ") if stopped else None,
+        status=res.status,
+        runtime_s=round(res.runtime_s, 1),
+        injected=static,  # refused by the API, so written into the job to test the container
+    )
     print(f"\n{name}: status={res.status} runtime={res.runtime_s:.1f}s note={stopped[:1]}")
     assert res.status in ("ok", "partial"), (res.status, res.error)
     assert stopped, res.notes
@@ -159,6 +222,7 @@ def test_the_code_pre_check_refuses_the_escapes(name: str, code: str, pre: str, 
     from api.core.analysis_check import check_analysis
 
     problems = check_analysis(code)
+    _record("code", name, static=problems[0] if problems else None)
     if pre:
         assert any(pre in p for p in problems), problems
     else:
@@ -185,6 +249,11 @@ async def test_inside_the_container_a_code_job_attack_fails_safely(
     status, words = box.split(":", 1)
     job_id = "atk_" + name.replace(" ", "_")
     res = await code_runner.run_code(CodeJob(job_id, "user_script", code, timeout_s=5))
+    last = (res.stderr_tail.strip().splitlines() or [""])[-1]
+    if name == "read secrets":
+        no_keys = "API_KEY" not in res.stdout_tail and "sk-" not in res.stdout_tail
+        last = "ran; no API keys in its environment" if no_keys else "KEYS VISIBLE"
+    _record("code", name, inside=last, status=res.status, runtime_s=res.runtime_s, injected=True)
     print(f"\n{name}: status={res.status} runtime={res.runtime_s}s err={res.stderr_tail[-160:]!r}")
     assert res.status == status, (res.status, res.stderr_tail)
     if name == "read secrets":

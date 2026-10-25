@@ -5,7 +5,7 @@ SIM_PLATFORM ?= linux/amd64
 API := cd api &&
 .DEFAULT_GOAL := help
 
-.PHONY: help fix-perms setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
+.PHONY: help fix-perms sandbox-proof setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
         types check lint typecheck test test-sim test-web e2e smoke smoke-nebius use-nebius use-openrouter use-local demo-precompute \
         clean mem plugins new-plugin calibrate validate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
@@ -122,6 +122,11 @@ test-web: ## Frontend unit tests
 
 e2e: ## Playwright journeys (needs the app running)
 	@$(ENV) cd web && npx playwright test
+
+sandbox-proof: ## Attack the real sandbox and record what stopped each attack (Help > Sandbox shows it)
+	@$(ENV) $(API) SANDBOX_PROOF_OUT=$(CURDIR)/api/data/sandbox_proof.json uv run pytest -q tests/test_sandbox_attacks_docker.py
+	@$(ENV) $(API) uv run python ../scripts/sandbox_proof_md.py
+	@echo "Recorded api/data/sandbox_proof.json (shown in Help > Sandbox and GET /api/v1/sandbox/proof)"
 
 smoke: ## End-to-end smoke test against the running API (small crowd)
 	@$(ENV) $(API) uv run python ../scripts/smoke.py

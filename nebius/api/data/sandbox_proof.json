@@ -1,0 +1,148 @@
+{
+ "recorded_at": "2026-10-25T10:06:15+00:00",
+ "docker": "29.9.2",
+ "image": "showtime-sim:latest",
+ "command": "make sandbox-proof",
+ "rows": [
+  {
+   "kind": "scenario",
+   "name": "import socket",
+   "label": "Connect to the internet",
+   "static": "Line 1: import of 'socket' is not allowed (only math, statistics, random).",
+   "inside": "it failed the safety check (Line 1: import of 'socket' is not allowed (only math, statistics, random).)",
+   "status": "ok",
+   "runtime_s": 0.8,
+   "injected": true
+  },
+  {
+   "kind": "scenario",
+   "name": "import os",
+   "label": "Run shell commands",
+   "static": "Line 1: import of 'os' is not allowed (only math, statistics, random).",
+   "inside": "it failed the safety check (Line 1: import of 'os' is not allowed (only math, statistics, random).)",
+   "status": "ok",
+   "runtime_s": 0.8,
+   "injected": true
+  },
+  {
+   "kind": "scenario",
+   "name": "open a file",
+   "label": "Open a file",
+   "static": "Line 2: 'open' is not allowed in scenario scripts.",
+   "inside": "it failed the safety check (Line 2: 'open' is not allowed in scenario scripts.)",
+   "status": "ok",
+   "runtime_s": 0.8,
+   "injected": true
+  },
+  {
+   "kind": "scenario",
+   "name": "dunder escape",
+   "label": "Reach Python's internals (__class__)",
+   "static": "Line 2: attribute '__subclasses__' is not allowed (no dunder attributes).",
+   "inside": "it failed the safety check (Line 2: attribute '__subclasses__' is not allowed (no dunder attributes).)",
+   "status": "ok",
+   "runtime_s": 0.8,
+   "injected": true
+  },
+  {
+   "kind": "scenario",
+   "name": "frame walk",
+   "label": "Walk interpreter frames",
+   "static": "Line 3: attribute 'f_back' is not allowed in scenario scripts.",
+   "inside": "it failed the safety check (Line 3: attribute 'f_back' is not allowed in scenario scripts.)",
+   "status": "ok",
+   "runtime_s": 0.8,
+   "injected": true
+  },
+  {
+   "kind": "scenario",
+   "name": "endless loop",
+   "label": "Run forever",
+   "static": null,
+   "inside": "one step ran more than 200,000 lines",
+   "status": "ok",
+   "runtime_s": 0.9,
+   "injected": false
+  },
+  {
+   "kind": "scenario",
+   "name": "huge memory",
+   "label": "Grab 8 GB of memory",
+   "static": null,
+   "inside": "it tried to use more memory than the sandbox allows (MemoryError)",
+   "status": "ok",
+   "runtime_s": 0.8,
+   "injected": false
+  },
+  {
+   "kind": "scenario",
+   "name": "action flood",
+   "label": "Flood the crowd with actions",
+   "static": null,
+   "inside": "one step took longer than 50 ms",
+   "status": "partial",
+   "runtime_s": 1.8,
+   "injected": false
+  },
+  {
+   "kind": "code",
+   "name": "network",
+   "label": "Connect to the internet",
+   "static": "Line 1: importing 'socket' is not allowed (only json, math, numpy, pandas, showtime_data, statistics).",
+   "inside": "OSError: [Errno 101] Network is unreachable",
+   "status": "error",
+   "runtime_s": 0.28,
+   "injected": true
+  },
+  {
+   "kind": "code",
+   "name": "write a file",
+   "label": "Write a file",
+   "static": "Line 1: open() is not allowed in an analysis script.",
+   "inside": "OSError: [Errno 30] Read-only file system: '/work/x.txt'",
+   "status": "error",
+   "runtime_s": 0.27,
+   "injected": true
+  },
+  {
+   "kind": "code",
+   "name": "read secrets",
+   "label": "Read the environment for API keys",
+   "static": "Line 1: open() is not allowed in an analysis script.",
+   "inside": "ran; no API keys in its environment",
+   "status": "ok",
+   "runtime_s": 0.27,
+   "injected": true
+  },
+  {
+   "kind": "code",
+   "name": "endless loop",
+   "label": "Run forever",
+   "static": null,
+   "inside": "The script ran longer than 5 s and was stopped.",
+   "status": "timeout",
+   "runtime_s": 5.27,
+   "injected": true
+  },
+  {
+   "kind": "code",
+   "name": "huge memory",
+   "label": "Grab 8 GB of memory",
+   "static": null,
+   "inside": "The script stopped with an error (out of memory).",
+   "status": "error",
+   "runtime_s": 0.65,
+   "injected": true
+  },
+  {
+   "kind": "code",
+   "name": "fork bomb",
+   "label": "Start thousands of processes",
+   "static": "Line 1: importing 'os' is not allowed (only json, math, numpy, pandas, showtime_data, statistics).",
+   "inside": "BlockingIOError: [Errno 11] Resource temporarily unavailable",
+   "status": "error",
+   "runtime_s": 0.76,
+   "injected": true
+  }
+ ]
+}

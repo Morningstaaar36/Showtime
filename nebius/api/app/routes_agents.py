@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -79,6 +80,23 @@ async def list_agents(st: AppState = Depends(get_state)) -> dict[str, Any]:
             "time_limit_s": st.settings.max_wall_s,
         },
     }
+
+
+@router.get("/sandbox/proof")
+def sandbox_proof(st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """What the attack suite threw at the real sandbox and what stopped each attack, as the
+    sandbox reported it when `make sandbox-proof` last ran (never written by hand)."""
+    path = st.settings.sandbox_proof_file
+    try:
+        data: dict[str, Any] = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        raise ApiException(
+            404,
+            "no_proof",
+            "No sandbox attack results are recorded yet.",
+            "Run: make sandbox-proof",
+        ) from exc
+    return data
 
 
 @router.post("/projects/{project_id}/edit")
