@@ -70,7 +70,16 @@ simulation), every analysis script the AI or a user writes (`run_code` jobs), an
 branches. Each run works in its own folder `/work/<run_id>/`, so a branch never sees its parent's
 results; a rewind branch is a snapshot child of the checkpoint run and starts from its
 `checkpoint.json`. Attacks and fixes of a round run in parallel up to `SANDBOX_MAX_PARALLEL`.
-Not possible through the SDK: per-job network and memory limits (local Docker sets both).
+**Protection on Nebius is different.** The SDK cannot set a per-job network or memory limit (local
+Docker sets both for every container), so on Nebius the protection is:
+- the static check before a script runs;
+- the same check run again inside the sandbox;
+- the in-sandbox budgets (`SCRIPT_*`, `SANDBOX_MEMORY_SHARE`; see `docs/SANDBOX_PROOF.md`).
+
+The runner reports this itself: `GET /api/v1/health` → `providers.sandbox.isolation` says
+`per_job_limits: false` and `network_off: null`, and the sandbox badge says so on screen. How many
+runs it takes at once (`SANDBOX_MAX_PARALLEL`) is the runner's `parallel` capacity, which decides
+the sweep tier and the default seed count; no code checks the provider's name.
 
 The base image id is cached in `cache/nebius/base_image.json` (keyed by a hash of `sim/`).
 Each run is a child snapshot of the venue node, so branches are real sandbox snapshots.
@@ -88,7 +97,7 @@ make smoke-nebius     # health, one Tier 2 run in a sandbox, one agent call; ski
 
 | Item | Status |
 | --- | --- |
-| LLM adapter (OpenAI-compatible) | Live on OpenRouter (Nemotron 3 Super); Token Factory endpoint and auth verified, replies untested (no key) |
+| LLM adapter (OpenAI-compatible) | Live on OpenRouter (Nemotron 3 Ultra and 3.5 Lightning); Token Factory: **not run live** (no key) |
 | Model ids and prices | From the public model catalog (2026-10-14); `make use-nebius` |
-| Sandboxes runner | Built against SDK source + fake-client tests; live: untested (no access) |
+| Sandboxes runner | Built against SDK source + fake-client tests; **not run live** (no access) |
 | Parallel branches | `SANDBOX_MAX_PARALLEL` semaphore; local default 1 |

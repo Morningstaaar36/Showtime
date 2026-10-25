@@ -85,7 +85,8 @@ class NebiusRunner:
     def __init__(self, settings: Settings, client: Any | None = None) -> None:
         self.settings = settings
         self.runs_dir = settings.runs_dir
-        self.sem = asyncio.Semaphore(settings.sandbox_max_parallel)
+        self.parallel = max(1, settings.sandbox_max_parallel)
+        self.sem = asyncio.Semaphore(self.parallel)
         self._client = client
         self._base: Any | None = None
         self._venue_nodes: dict[str, Any] = {}

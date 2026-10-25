@@ -106,6 +106,11 @@ class Settings(BaseSettings):
     # --- Nebius Sandboxes ---
     nebius_sandbox_base_url: str = "https://api.tokenfactory.nebius.com/sandboxes"
     sandbox_max_parallel: int = Field(default=1, ge=1, le=16)
+    # extra random crowds the seed check runs when the organizer doesn't choose: fewer when the
+    # sandbox runs one at a time, more when it runs several at once (at most seeds_extra_max)
+    seeds_extra_serial: int = Field(default=3, ge=1)
+    seeds_extra_parallel: int = Field(default=5, ge=1)
+    seeds_extra_max: int = Field(default=5, ge=1)
     sim_image: str = "showtime-sim:latest"
     sim_platform: str = ""  # e.g. linux/amd64 for JuPedSim under Apple Silicon emulation
     sim_mem_limit: str = "2g"

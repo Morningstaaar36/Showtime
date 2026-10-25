@@ -89,9 +89,9 @@ def _key(project_id: str) -> str:
     return f"_sweep:{project_id}"
 
 
-def sweep_tier(settings: Any) -> int:
-    """Full runs when sandboxes run in parallel (Nebius); 3-minute runs on one local Docker."""
-    return 3 if settings.sandbox_provider == "nebius" else 2
+def sweep_tier(st: Any) -> int:
+    """Full runs when the sandbox runs several at once; quick (3-minute) runs one at a time."""
+    return 3 if int(getattr(st.runner, "parallel", 1)) > 1 else 2
 
 
 def start_sweep(
@@ -108,7 +108,7 @@ def start_sweep(
     p = st.projects.get(project_id)
     version = p.current_version
     venue: Venue = st.projects.venue(project_id, version)
-    tier = sweep_tier(st.settings)
+    tier = sweep_tier(st)
     items: list[dict[str, Any]] = []
     for r in resolved if resolved is not None else _resolve(st, venue, scenario_ids):
         if r.built is None:

@@ -124,7 +124,7 @@ def build_runner(settings: Settings) -> SandboxRunner:
 
         return NebiusRunner(settings)
     if settings.sandbox_provider == "fake":
-        return FakeRunner(settings.runs_dir)
+        return FakeRunner(settings.runs_dir, max_parallel=settings.sandbox_max_parallel)
     sim_code = settings.root_dir / "sim" if settings.sim_dev_mount else None
     return DockerRunner(
         settings.runs_dir,

@@ -192,6 +192,7 @@ class SandboxRunner(Protocol):
 
     provider: str
     isolation: Isolation
+    parallel: int  # how many runs it takes at once (SANDBOX_MAX_PARALLEL; one for local Docker)
 
     async def prepare_base(self, venue: Venue) -> str:
         """Prepare (or reuse) the base environment; returns a node id for the tree root."""
@@ -356,7 +357,8 @@ class DockerRunner:
         self.mem_limit = mem_limit
         self.cpus = cpus
         self.host_runs_dir = host_runs_dir
-        self.sem = asyncio.Semaphore(max_parallel)
+        self.parallel = max(1, max_parallel)
+        self.sem = asyncio.Semaphore(self.parallel)
         self.code_sem = asyncio.Semaphore(1)
         self.sim_code_dir = sim_code_dir  # dev: mount local sim/ over /app
         uid, gid = os.getuid(), os.getgid()
@@ -666,7 +668,8 @@ class FakeRunner:
         self.code_jobs: list[CodeJob] = []
         # scripted code results, used in order; when empty, run_code returns an empty "ok"
         self.code_results = list(code_results or [])
-        self.sem = asyncio.Semaphore(max(1, max_parallel))
+        self.parallel = max(1, max_parallel)
+        self.sem = asyncio.Semaphore(self.parallel)
         self.active = 0
         self.max_active = 0
         self.resumed: dict[str, str] = {}
