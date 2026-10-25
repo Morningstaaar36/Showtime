@@ -69,6 +69,15 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
             "search": search,
             "weather": weather,
         },
+        "samples": (
+            {"ok": True, "detail": "Sample projects installed"}
+            if st.samples_error is None
+            else {
+                "ok": False,
+                "detail": f"Sample projects could not be installed ({st.samples_error[:160]}); "
+                "see logs/api.log",
+            }
+        ),
         "plugins": plugins,
         "version": "0.1.0",
     }

@@ -80,6 +80,8 @@ class AppState:
     runs: RunService
     usage: UsageMeter
     sessions: Any = None  # SessionManager (set after construction)
+    # why the sample projects could not be installed at startup (shown in /health), or None
+    samples_error: str | None = None
     ui: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -187,6 +189,7 @@ def build_state(
         from api.orchestrator.demos import install_demos
 
         install_demos(state)
-    except Exception:  # samples are optional; never block startup
+    except Exception as exc:  # samples are optional; never block startup, but say so
         log.exception("sample projects not installed")
+        state.samples_error = f"{type(exc).__name__}: {exc}"
     return state
