@@ -46,7 +46,8 @@ export function SandboxesTab({ view, attacks, sessionId, projectId, worstTitle, 
       </section>
 
       {sessionId && (
-        <div className="grid gap-4 xl:grid-cols-2">
+        // one above the other: both end in a table of several columns that needs the full width
+        <div className="grid gap-4">
           <RewindPanel sessionId={sessionId} worstTitle={worstTitle} canRewind={attacks.length > 0} />
           <StressPanel projectId={projectId} hasTest />
         </div>

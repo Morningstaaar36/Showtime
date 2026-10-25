@@ -35,6 +35,10 @@ test("rewind the worst moment and stress test at scale on Your plan", async ({ p
   // every branch says what its numbers are based on
   await expect(table.getByText(/Preview \(no simulator\)|simulation|Instant estimate/).first()).toBeVisible();
   expect(await table.getByRole("row").count()).toBeGreaterThanOrEqual(3);
+  // every column fits in the panel: none is cut off at its edge
+  const panel = (await rewind.boundingBox())!;
+  const last = (await table.getByRole("columnheader").last().boundingBox())!;
+  expect(last.x + last.width).toBeLessThanOrEqual(panel.x + panel.width);
   await expect(rewind.getByText(/started from checkpoint run r_/)).toBeVisible();
 
   const stress = page.getByRole("region", { name: "Stress test at scale" });
