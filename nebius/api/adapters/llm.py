@@ -323,15 +323,48 @@ class LLMClient:
             self._health_cache = (now + ttl, out)
             out = dict(out)
         if out["ok"] and self._primary_paused():
-            return {
-                "ok": True,
+            pause = {
                 "fallback": True,
-                "detail": f"{self.settings.llm_label} paused ({self.fallback_reason}); "
-                "using the local model",
                 "pause_reason": self.fallback_reason,
                 "paused_until": datetime.fromtimestamp(self._paused_until, UTC).isoformat(),
             }
+            if await self._local_up():
+                label, why = self.settings.llm_label, self.fallback_reason
+                detail = f"{label} paused ({why}); using the local model"
+                return {"ok": True, "detail": detail, **pause}
+            detail = (
+                f"{self.settings.llm_label} paused ({self.fallback_reason}) until "
+                f"{self._pause_end()} UTC, and the local model is not running"
+            )
+            return {"ok": False, "detail": detail, **pause}
         return out
+
+    def _pause_end(self) -> str:
+        return datetime.fromtimestamp(self._paused_until, UTC).strftime("%H:%M")
+
+    async def _local_up(self) -> bool:
+        """Does the local model answer (the fallback while the hosted one is paused)?"""
+        try:
+            await asyncio.wait_for(self._local().models.list(), timeout=3)
+        except Exception:
+            return False
+        return True
+
+    def unavailable_hint(self) -> str:
+        """What to do when the model did not answer, for this provider and its state."""
+        offline = "choose Offline above Test this plan to test without a model"
+        if self._primary_paused():
+            return (
+                f"{self.settings.llm_label} is paused ({self.fallback_reason}) until "
+                f"{self._pause_end()} UTC and no local model is running: {offline}, start one "
+                "with make llm-up, or wait."
+            )
+        missing = self.spec.not_configured(self.settings)
+        if missing:
+            return missing
+        if self.spec.health == "models":
+            return "Start the local model with: make llm-up"
+        return f"Check the AI badge (top right) for {self.settings.llm_label}, or {offline}."
 
     async def _local_health(self) -> dict[str, Any]:
         try:
@@ -722,15 +755,6 @@ class LLMClient:
         temperature: float,
         max_tokens: int,
     ) -> tuple[str, str, Usage]:
-        if self._local_client is None:
-            from openai import AsyncOpenAI
-
-            self._local_client = AsyncOpenAI(
-                base_url=self.settings.local_llm_base_url,
-                api_key="local",
-                timeout=self.settings.llm_timeout_s,
-                max_retries=1,
-            )
         local_msgs = [dict(m) for m in msgs]
         directive = "/no_think"  # Nemotron Nano v2: reasoning off for the fallback
         if local_msgs and local_msgs[0]["role"] == "system":
@@ -746,9 +770,20 @@ class LLMClient:
         }
         if schema is not None:
             kwargs["response_format"] = _response_format(schema)
-        return await self._complete(
-            self._local_client, kwargs, role, "local-fallback", self._local_lock
-        )
+        return await self._complete(self._local(), kwargs, role, "local-fallback", self._local_lock)
+
+    def _local(self) -> Any:
+        """The client for the local model (the fallback), made on first use."""
+        if self._local_client is None:
+            from openai import AsyncOpenAI
+
+            self._local_client = AsyncOpenAI(
+                base_url=self.settings.local_llm_base_url,
+                api_key="local",
+                timeout=self.settings.llm_timeout_s,
+                max_retries=1,
+            )
+        return self._local_client
 
     def _account(self, usage: Usage, budget: Budget | None) -> None:
         if budget is not None:
@@ -834,6 +869,9 @@ class FakeLLM:
 
     async def health(self) -> dict[str, Any]:
         return {"ok": True, "detail": "Fake LLM"}
+
+    def unavailable_hint(self) -> str:
+        return "The scripted test model has no answer for this agent."
 
     def model_for(self, role: LlmRole) -> str:
         return f"fake-{role}"

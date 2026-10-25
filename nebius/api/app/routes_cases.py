@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 
 from api.adapters.llm import BudgetExceeded, LLMError
 from api.agents.base import AgentUnavailable
-from api.app.errors import ApiException
+from api.app.errors import ApiException, llm_unavailable
 from api.app.routes_core import get_state
 from api.app.state import AppState
 from api.core.real_cases import get_case, list_cases
@@ -45,9 +45,6 @@ async def open_real_case(case_id: str, st: AppState = Depends(get_state)) -> dic
     except BudgetExceeded as exc:
         raise ApiException(429, "budget", str(exc), "Raise the token budget in Settings.") from exc
     except (LLMError, AgentUnavailable) as exc:
-        raise ApiException(
-            503,
-            "llm_unavailable",
-            "The language model isn't answering, so the venue can't be built.",
-            "Check the provider badge (top right) or start the local model with: make llm-up",
+        raise llm_unavailable(
+            st.llm, "The language model isn't answering, so the venue can't be built."
         ) from exc

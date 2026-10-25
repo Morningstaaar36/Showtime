@@ -13,7 +13,7 @@ from api.adapters.llm import BudgetExceeded, LLMError
 from api.adapters.providers import search_provider
 from api.agents.base import AgentEnv, AgentUnavailable
 from api.agents.venue import propose_edit
-from api.app.errors import ApiException
+from api.app.errors import ApiException, llm_unavailable
 from api.app.routes_core import get_state
 from api.app.routes_projects import _after_edit
 from api.app.state import AppState
@@ -128,12 +128,7 @@ async def edit_by_text(
     except BudgetExceeded as exc:
         raise ApiException(429, "budget", str(exc), "Raise the token budget in Settings.") from exc
     except (LLMError, AgentUnavailable) as exc:
-        raise ApiException(
-            503,
-            "llm_unavailable",
-            "The language model isn't answering.",
-            "Start the local model with: make llm-up",
-        ) from exc
+        raise llm_unavailable(st.llm, "The language model isn't answering.") from exc
     call = out.call
     agent = {
         "model": call.model if call else "",
@@ -580,16 +575,9 @@ async def explain_or_503(
             context,
         )
     except LLMError as exc:
-        raise ApiException(
-            503,
-            "llm_unavailable",
-            "The language model isn't answering.",
-            "Start the local model with: make llm-up",
-        ) from exc
+        raise llm_unavailable(st.llm, "The language model isn't answering.") from exc
     except Exception as exc:  # AgentUnavailable
-        raise ApiException(
-            503, "llm_unavailable", str(exc)[:200], "Start the local model with: make llm-up"
-        ) from exc
+        raise llm_unavailable(st.llm, str(exc)[:200]) from exc
 
 
 def run_sources(st: AppState, row: Any) -> list[dict[str, str]]:

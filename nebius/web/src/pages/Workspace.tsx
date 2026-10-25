@@ -327,7 +327,7 @@ export function WorkspacePage() {
 
   const h = health.data?.providers;
   const banners = [
-    h && !h.llm.ok && { key: "llm", tone: "caution" as const, icon: <CloudOff />, text: t("workspace.llm_down") },
+    h && !h.llm.ok && { key: "llm", tone: "caution" as const, icon: <CloudOff />, text: t("workspace.llm_down", { detail: h.llm.detail ?? "" }) },
     h && !h.sandbox.ok && { key: "sb", tone: "danger" as const, icon: <ServerCrash />, text: t("workspace.sandbox_down") },
     mode === "redteam" && features.data && !features.data.search_live && { key: "s", tone: "signal" as const, icon: <SearchX />, text: t("workspace.search_off") },
   ].filter(Boolean) as { key: string; tone: "caution" | "danger" | "signal"; icon: React.ReactNode; text: string }[];

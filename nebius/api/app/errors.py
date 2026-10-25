@@ -119,3 +119,10 @@ def install(app: FastAPI) -> None:
             ),
             422,
         )
+
+
+def llm_unavailable(llm: Any, message: str = "The language model isn't answering.") -> ApiException:
+    """503 for a model that did not answer, with what to do for this provider and its state
+    (a paused hosted model, a local model that is not running, a missing key)."""
+    hint = getattr(llm, "unavailable_hint", None)
+    return ApiException(503, "llm_unavailable", message, hint() if callable(hint) else None)
