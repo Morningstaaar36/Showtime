@@ -108,7 +108,8 @@ async def _open_case(st: Any, case_id: str) -> dict[str, Any]:
     env = AgentEnv(llm=st.llm, project_id=None, on_usage=st.usage.add)
     deadline = float(st.settings.case_build_timeout_s)
     try:
-        out = await asyncio.wait_for(design_venue(env, case.description), deadline)
+        # the case's crowd is data: a layout that holds another number goes back to the model
+        out = await asyncio.wait_for(design_venue(env, case.description, case.people), deadline)
     except TimeoutError as exc:
         raise CaseBuildFailed(
             [f"The designer took longer than {deadline:g} s; try again."]

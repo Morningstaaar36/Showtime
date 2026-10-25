@@ -347,3 +347,24 @@ def test_listing_cases_reads_each_venue_once_and_then_from_memory(
     assert len(loads) == 4, "one load per project for all three cases"
     assert all(rc.existing_project(st, c) is None for c in IDS)
     assert len(loads) == 4, "unchanged projects are not loaded again"
+
+
+def test_each_case_states_the_crowd_it_models() -> None:
+    from api.core.real_cases import list_cases
+
+    for c in list_cases():
+        assert f"{c.people:,} people" in c.description, c.id
+
+
+def test_a_plural_heading_names_the_exits_it_means() -> None:
+    from api.core.venue_parts import heading_exits
+    from api.models import Exit
+
+    sq = [[0, 0], [1, 0], [1, 1], [0, 1]]
+    exits = [
+        Exit(id="w", label="West tunnel end", polygon=sq, width_m=1),
+        Exit(id="e", label="East tunnel end", polygon=sq, width_m=1),
+        Exit(id="g", label="Festival grounds", polygon=sq, width_m=1),
+    ]
+    assert heading_exits(exits, "Tunnel ends") == ["w", "e"]
+    assert heading_exits(exits, "Festival ground") == ["g"]
