@@ -6,7 +6,7 @@ API := cd api &&
 .DEFAULT_GOAL := help
 
 .PHONY: help fix-perms sandbox-proof verify-live setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
-        types check lint typecheck test test-sim test-web e2e smoke smoke-nebius use-nebius use-openrouter use-local demo-precompute \
+        types check lint typecheck test test-sim test-web e2e smoke smoke-nebius demo-precompute \
         clean mem plugins new-plugin calibrate validate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
 help: ## Show this help
@@ -138,14 +138,8 @@ verify-%: ## verify-nebius-llm, verify-nebius-sandbox, verify-tavily: one servic
 smoke-nebius: ## Smoke test against Nebius Token Factory + Sandboxes (skips without keys)
 	@$(ENV) $(API) uv run python ../scripts/smoke_nebius.py
 
-use-nebius: ## Point .env at Nebius Token Factory (Nemotron ids, prices); keeps keys, backs up .env
-	@python3 scripts/switch_provider.py nebius
-
-use-openrouter: ## Point .env at OpenRouter (free Nemotron); keeps keys, backs up .env
-	@python3 scripts/switch_provider.py openrouter
-
-use-local: ## Point .env at the local llama-server model; keeps keys, backs up .env
-	@python3 scripts/switch_provider.py local
+use-%: ## Point .env at a provider preset (make use-list); keeps keys, backs up .env
+	@python3 scripts/switch_provider.py $*
 
 demo-precompute: ## Precompute the three demo projects (runs simulations and agents)
 	@$(ENV) $(API) uv run python ../scripts/precompute_demos.py

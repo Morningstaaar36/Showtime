@@ -193,6 +193,8 @@ export interface ProviderStatus {
   capabilities?: Record<string, boolean>;
   /** how many runs the sandbox takes at once */
   parallel?: number;
+  /** model ids the AI provider does not serve (checked at startup) */
+  model_warnings?: string[];
   /** why this sandbox stands in for the one chosen (it is not configured yet) */
   fallback?: string | null;
 }

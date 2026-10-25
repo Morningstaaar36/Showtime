@@ -411,3 +411,30 @@ def test_an_empty_local_model_id_fails_at_startup(tmp_path: Path) -> None:
         _settings(tmp_path, llm_provider="local", local_llm_model="")
     # the other roles may be empty: they fall back to MODEL_FAST
     assert _settings(tmp_path, model_main="").model_for("main") == "big-model"
+
+
+class _Models(_Transport):
+    """Serves a model list (GET /models) next to chat."""
+
+    def __init__(self, ids: list[str]) -> None:
+        super().__init__()
+        self.models = SimpleNamespace(list=self._list)
+        self._ids = ids
+
+    async def _list(self) -> Any:
+        return SimpleNamespace(data=[SimpleNamespace(id=i) for i in self._ids])
+
+
+async def test_a_model_id_the_provider_does_not_serve_is_named_at_startup(tmp_path: Path) -> None:
+    s = _settings(tmp_path, model_fast="good-model", model_main="gone-model")
+    c = LLMClient(s, transport=_Models(["good-model", "other"]))
+    warnings = await c.check_models()
+    assert warnings == [
+        "MODEL_MAIN=gone-model is not served by OPENROUTER (also used for the judge role)."
+    ]
+    assert c.model_warnings == warnings
+
+
+async def test_no_key_means_no_model_check(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path, openai_compat_api_key=""), transport=_Models([]))
+    assert await c.check_models() == []

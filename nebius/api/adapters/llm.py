@@ -183,6 +183,7 @@ class LLMClient:
         self._unsupported: set[tuple[str, str]] = set()
         self._on_spare_key = False  # switched to OPENAI_COMPAT_API_KEY_FALLBACK
         self._health_cache: tuple[float, dict[str, Any]] | None = None
+        self.model_warnings: list[str] = []  # model ids the provider does not serve (startup)
 
     @property
     def base_url(self) -> str:
@@ -243,6 +244,46 @@ class LLMClient:
     def model_for(self, role: LlmRole) -> str:
         """Model id for a role."""
         return self.settings.model_for(role)
+
+    async def check_models(self) -> list[str]:
+        """Name every configured model id the provider does not serve (its /models list), once
+        at startup, so a retired id shows up before the first agent fails on it. Hosted
+        providers with a key only; a provider that does not answer is not a warning."""
+        if not self.spec.is_cloud or self.spec.key is None or not self.api_key:
+            return []
+        try:
+            listing = await asyncio.wait_for(self._get_client().models.list(), timeout=10)
+        except Exception as exc:
+            log.info("model list unavailable (%s); model ids not checked", type(exc).__name__)
+            return []
+        served = {m.id for m in getattr(listing, "data", [])}
+        if not served:
+            return []
+        roles: list[LlmRole] = ["fast", "long", "main", "judge"]
+        by_model: dict[str, list[str]] = {}
+        for role in roles:
+            by_model.setdefault(self.model_for(role), []).append(role)
+        warnings = []
+        for model, used_by in by_model.items():
+            if model in served:
+                continue
+            # the setting that names it: the first role whose own MODEL_* holds this id
+            env = next(
+                (
+                    f"MODEL_{r.upper()}"
+                    for r in used_by
+                    if getattr(self.settings, f"model_{r}") == model
+                ),
+                f"MODEL_{used_by[0].upper()}",
+            )
+            others = [r for r in used_by if f"MODEL_{r.upper()}" != env]
+            also = f" (also used for the {', '.join(others)} role{'s' if len(others) > 1 else ''})"
+            label = self.settings.llm_label
+            warnings.append(f"{env}={model} is not served by {label}{also if others else ''}.")
+        for w in warnings:
+            log.warning("%s", w)
+        self.model_warnings = warnings
+        return warnings
 
     def _directive(self, reasoning: bool, model: str = "") -> str:
         # Nemotron Nano 9B v2: "/think" or "/no_think" in the system prompt (model card).

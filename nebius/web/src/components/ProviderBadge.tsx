@@ -49,6 +49,9 @@ export function ProviderBadge({ cost }: { cost?: { tokens: number; usd: number }
             <p className="mt-0.5 break-words text-xs text-muted">{llm?.detail ?? t("common.provider_checking")}</p>
           </div>
         </div>
+        {(llm?.model_warnings ?? []).map((w) => (
+          <p key={w} className="rounded-[var(--radius-control)] bg-caution-soft p-2 text-xs" data-testid="model-warning">{w}</p>
+        ))}
         <dl className="space-y-1.5 rounded-[var(--radius-control)] bg-surface-2 p-3">
           <StatusRow name={t("common.provider_ai")} ok={ok && !fallback}
                      value={!data ? t("common.provider_checking") : fallback ? t("common.provider_backup") : ok ? t("common.provider_ready") : t("common.provider_not_ready")} />

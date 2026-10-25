@@ -77,6 +77,7 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
                 "provider": st.settings.llm_provider,
                 "label": st.settings.llm_label,
                 **_llm_facts(st.settings),
+                "model_warnings": list(getattr(st.llm, "model_warnings", [])),
                 "models": {
                     r: st.settings.model_for(r)  # type: ignore[arg-type]
                     for r in ("fast", "long", "main", "judge")

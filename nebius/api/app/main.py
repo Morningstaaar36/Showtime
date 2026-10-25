@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -91,7 +92,13 @@ def create_app(state: AppState | None = None, settings: Settings | None = None) 
         st.runs.recover_interrupted()
         st.sessions.recover_interrupted()
         log.info("Showtime API ready", extra={"path": str(settings.root_dir)})
+        # name any model id the provider no longer serves (in the log and /health), off the
+        # startup path: a slow provider must not hold the API back
+        check = getattr(st.llm, "check_models", None)
+        models_task = asyncio.create_task(check()) if check is not None else None
         yield
+        if models_task is not None and not models_task.done():
+            models_task.cancel()
         await st.runner.close()
 
     app = FastAPI(
