@@ -44,7 +44,7 @@ up: build-sim ## Start the stack with Docker Compose (api + web) → http://loca
 	@if [ -n "$$(find runs cache state -maxdepth 3 ! -user $(HOST_UID) -print -quit 2>/dev/null)" ]; then $(MAKE) --no-print-directory fix-perms; fi
 	@docker compose up -d --build
 	@echo "Showtime: http://localhost:5173   (API docs: http://127.0.0.1:8000/api/docs)"
-	@echo "Start the local model if it is not running: make llm-up"
+	@./scripts/needs_local_model.sh .env && echo "Start the local model if it is not running: make llm-up" || true
 
 fix-perms: ## Give runs/, cache/ and state/ back to you (files an older root container created)
 	@echo "Giving runs/, cache/ and state/ back to $$(id -un) (made by a container running as root)"
