@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from types import GenericAlias
 from typing import Any, cast
 
@@ -229,6 +230,30 @@ _FEATURE_WORDS: dict[str, Any] = {
 }
 
 
+# a title that repeats the failure-map target it was aimed at ("Adaptive scenario (code) · West
+# side: exits …") says nothing about what happens; the model is asked to name the failure instead
+_AIM_COPY = re.compile(r"\(code\)|:\s*(?:exits|zones)\s", re.IGNORECASE)
+
+
+def copies_aim(title: str) -> bool:
+    """Whether a title is the target description the attack was aimed at, not a name for it."""
+    return bool(_AIM_COPY.search(title))
+
+
+def title_from_rationale(rationale: str, fallback: str) -> str:
+    """A readable title from the model's own rationale (its first clause), when the title it
+    wrote only repeats its target."""
+    first = re.split(r"(?<=[.;:!?])\s|,\s", rationale.strip(), maxsplit=1)[0].rstrip(".;:!?")
+    if len(first) < 8:
+        return fallback
+    words, out = first.split(), ""
+    for w in words:
+        if len(out) + len(w) + 1 > 60:
+            break
+        out = f"{out} {w}".strip()
+    return out[:1].upper() + out[1:]
+
+
 def grounded_title(title: str, venue: Venue, attack: Attack, registry: Registry) -> str:
     """Keep the model's title unless it names something this venue does not have."""
     low = title.lower()
@@ -330,6 +355,14 @@ async def red_team(
             probs.extend(f"attack {i + 1}: {x}" for x in problems_of(d))
         for i, d in enumerate(getattr(out, "scripts", [])):
             probs.extend(f"script {i + 1}: {x}" for x in script_problems_of(d))
+        named = [("attack", i, d) for i, d in enumerate(out.attacks)]
+        named += [("script", i, d) for i, d in enumerate(getattr(out, "scripts", []))]
+        probs.extend(
+            f"{kind} {i + 1}: the title repeats the target; name what happens to the crowd, "
+            'e.g. "Smoke spreads from the west stair"'
+            for kind, i, d in named
+            if copies_aim(d.title)
+        )
         return probs
 
     values = {
@@ -365,6 +398,8 @@ async def red_team(
             continue
         a = to_attack(d, rows, f"A{id_offset + len(attacks) + 1}")
         title = grounded_title(a.title, venue, a, registry)
+        if copies_aim(title):
+            title = title_from_rationale(a.rationale or "", title)
         if title != a.title:
             audit_decision(env, "red_team", "retitled attack", {"was": a.title, "now": title})
             a = a.model_copy(update={"title": title})
@@ -382,8 +417,12 @@ async def red_team(
                 env, "red_team", "discarded script attack", {"title": d.title, "problems": probs}
             )
             continue
+        title = d.title
+        if copies_aim(title):
+            title = title_from_rationale(d.rationale, "AI-written scenario")
+            audit_decision(env, "red_team", "retitled attack", {"was": d.title, "now": title})
         a = script_attack(
-            d.title,
+            title,
             d.code,
             rows[d.incident_row],
             f"A{id_offset + len(attacks) + 1}",
