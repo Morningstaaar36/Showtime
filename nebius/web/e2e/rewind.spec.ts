@@ -22,9 +22,8 @@ test("rewind the worst moment and stress test at scale on Your plan", async ({ p
   test.setTimeout(900_000);
   const { pid, sid } = await testedProject(request);
   await page.goto(`/p/${pid}?session=${sid}`);
-  // the deeper checks sit in the Scenarios tab as tiles that open their panel
-  await page.getByRole("tab", { name: /^Scenarios/ }).click();
-  await page.getByRole("button", { name: /^Rewind the worst moment/ }).first().click();
+  // both checks run in sandboxes, so they sit on the Sandboxes tab, open
+  await page.getByRole("tab", { name: /^Sandboxes/ }).click();
 
   const rewind = page.getByRole("region", { name: "Rewind the worst moment" });
   await expect(rewind).toBeVisible({ timeout: 30_000 });
@@ -38,7 +37,6 @@ test("rewind the worst moment and stress test at scale on Your plan", async ({ p
   expect(await table.getByRole("row").count()).toBeGreaterThanOrEqual(3);
   await expect(rewind.getByText(/started from checkpoint run r_/)).toBeVisible();
 
-  await page.getByRole("button", { name: /^Stress test at scale/ }).first().click();
   const stress = page.getByRole("region", { name: "Stress test at scale" });
   await stress.getByLabel("Random crowds per test").selectOption("1");
   await stress.getByRole("button", { name: "Run stress test at scale" }).click();

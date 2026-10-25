@@ -15,17 +15,25 @@ test("Test this plan is not covered by the toasts of the edits just saved", asyn
     await width.fill("3");
     await width.press("Enter");
     await expect(page.getByText(/saved as version 2/)).toBeVisible({ timeout: 20_000 });
+    // where toasts stack is fixed by the toaster (they slide in and out, so test its column, not
+    // one toast at one moment): it must not share the bottom of the screen with the button. A
+    // toast lives a few seconds and the toaster only while one shows, so the page records the
+    // toaster's column the moment the "saved as version 3" toast is added
+    await page.evaluate(() => {
+      const w = window as unknown as { __toastCol?: { left: number; right: number } };
+      new MutationObserver(() => {
+        const toast = [...document.querySelectorAll("[data-sonner-toast]")].find((el) => /saved as version 3/.test(el.textContent ?? ""));
+        const r = toast?.closest("[data-sonner-toaster]")?.getBoundingClientRect();
+        if (r && !w.__toastCol) w.__toastCol = { left: r.left, right: r.right };
+      }).observe(document.body, { childList: true, subtree: true, characterData: true });
+    });
     await page.getByRole("switch", { name: /Lock this item/ }).click();
-    await expect(page.getByText(/saved as version 3/)).toBeVisible({ timeout: 20_000 });
+    const col = await (await page.waitForFunction(() => (window as unknown as { __toastCol?: { left: number; right: number } }).__toastCol ?? null,
+      undefined, { timeout: 20_000, polling: 100 })).jsonValue() as { left: number; right: number };
     await page.getByRole("button", { name: "Back to the list" }).click();
 
     const button = page.getByRole("button", { name: "Test this plan" });
     const b = (await button.boundingBox())!;
-    // where toasts stack is fixed by the toaster (they slide in and out, so test its column, not
-    // one toast at one moment): it must not share the bottom of the screen with the button
-    const toaster = page.locator("[data-sonner-toaster]").first();
-    await expect(toaster).toBeAttached();
-    const col = await toaster.evaluate((el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right }; });
     const viewport = page.viewportSize()!;
     const nearBottom = b.y + b.height > viewport.height - 260;
     const sharesColumn = col.left < b.x + b.width && b.x < col.right;
