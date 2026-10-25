@@ -52,7 +52,7 @@ health ok: True | llm ok: True openai | sandbox: docker True | search live: Fals
 
 Already failing: `make probe` (Open-Meteo). Cause: the API container runs as root and writes
 root-owned folders into the bind-mounted `cache/` (344 folders) and `runs/`. A host process can't
-write there, and `DiskCache.put` raises, which fails the whole weather lookup. Fixed in Step 2 (2i).
+write there, and `DiskCache.put` raises, which fails the whole weather lookup. Fixed in Step 2 (2h).
 
 Live calls in Step 1: 2 (probe chat + JSON).
 
