@@ -26,6 +26,7 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import StreamWriter
 
+from api.adapters.search import SearchBudget
 from api.agents.base import AgentEnv, AgentUnavailable
 from api.agents.event_brief import read_brief
 from api.agents.safety_officer import keep_checked, review_plan
@@ -39,6 +40,7 @@ from api.models.autopilot import STEP_LABELS, STEP_NODES, STEP_ORDER, STEP_PHASE
 from api.models.venue_spec import EventBrief
 from api.orchestrator import sweep, venue_sources
 from api.orchestrator.copilot import _site_from_place, _step
+from api.orchestrator.evidence_desk import evidence_desk
 
 log = logging.getLogger("showtime.copilot")
 
@@ -64,6 +66,7 @@ class CopilotState(TypedDict, total=False):
     stopped: bool
     outage: bool
     result: dict[str, Any]
+    evidence: list[dict[str, Any]]  # the evidence desk's cited suggestions (never applied)
 
 
 class AutopilotHooks(Protocol):
@@ -170,7 +173,21 @@ async def understand(state: CopilotState, config: RunnableConfig) -> CopilotStat
             brief=b.model_dump(mode="json"),
         )
     )
-    return {"brief": b.model_dump(mode="json"), "notes": list(b.assumptions)}
+    st = _st(config)
+    evidence = await evidence_desk(
+        st.search, b, st.settings, SearchBudget(st.settings.tavily_max_calls)
+    )
+    if evidence:
+        w(
+            _step(
+                "evidence",
+                "done",
+                f"Found {len(evidence)} web source{'' if len(evidence) == 1 else 's'} to check",
+                "; ".join(e["title"] for e in evidence[:3]),
+                node="understand",
+            )
+        )
+    return {"brief": b.model_dump(mode="json"), "notes": list(b.assumptions), "evidence": evidence}
 
 
 async def locate(state: CopilotState, config: RunnableConfig) -> CopilotState:
@@ -662,6 +679,7 @@ async def deliver(state: CopilotState, config: RunnableConfig) -> CopilotState:
         "partial_reason": partial,
         "ai_outage": bool(state.get("outage")),
         "notes": notes,
+        "evidence": list(state.get("evidence", [])),
         "cost": cost_record(
             st,
             row,

@@ -702,6 +702,7 @@ class AutopilotManager:
                 "headline": res.get("headline"),
                 "cost": res.get("cost"),
                 "notes": res.get("notes") or [],
+                "evidence": res.get("evidence") or [],
                 "ai_outage": bool(res.get("ai_outage")),
                 "partial_reason": res.get("partial_reason"),
                 "error": row.error,
