@@ -114,7 +114,7 @@ class SessionConfigIn(BaseModel):
     max_wall_s: float | None = Field(default=None, gt=0)
     max_tokens: int | None = Field(default=None, ge=1)
     parallel_branches: bool | None = None
-    agents: str | None = None  # an unknown mode falls back to "hybrid"
+    agents: str | None = None  # one of AGENT_MODES; an unknown mode falls back to "model"
     judge: bool | None = None  # false: keep the computed summary, no model call at the end
 
 
@@ -147,8 +147,7 @@ def session_config(settings: Any, config: dict[str, Any] | None) -> dict[str, An
         **caps,
         # independent branches of a step run at once (the runner bounds how many)
         "parallel_branches": True,
-        # who proposes attacks and fixes (S-01 evaluation arms): "hybrid" = the model plus
-        # the rule-based ones (the product), "rules" = rules only, "model" = model only
+        # who proposes attacks and fixes (see AGENT_MODES): "model" is the product default
         "agents": "model",
         **given,
     }
