@@ -2,11 +2,7 @@
  * key number), click to watch it; the scenario library when the server has one; and the deeper
  * checks (more seeds, how sure, rewind, stress at scale) as tiles that open their panel. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Accessibility, Ambulance, ArrowUpDown, CircleCheck, CloudFog, CloudRainWind, DoorClosedLocked, UserPlus, Baby, Ban, Bomb, BookOpen, Boxes, Car, Check, CloudLightning, CloudRain, Code2, Dices, DoorClosed, Droplets, ExternalLink, Fence,
-  Flame, Footprints, Gauge, HeartPulse, History, Hourglass, Layers, Lock, Megaphone, Moon, Music, PartyPopper, Play, Repeat2, ShieldAlert, ShieldCheck,
-  Siren, Snail, Sun, Swords, Thermometer, TriangleAlert, UsersRound, Waves, Wind, Zap, ZapOff,
-} from "lucide-react";
+import { Accessibility, Ambulance, ArrowUpDown, CircleCheck, CloudFog, CloudRainWind, DoorClosedLocked, UserPlus, Baby, Ban, Bomb, BookOpen, Boxes, Car, Check, CloudLightning, CloudRain, Code2, Dices, DoorClosed, Droplets, Fence, Flame, Footprints, Gauge, HeartPulse, History, Hourglass, Layers, Lock, Megaphone, Moon, Music, PartyPopper, Play, Repeat2, ShieldAlert, ShieldCheck, Siren, Snail, Sun, Swords, Thermometer, TriangleAlert, UsersRound, Waves, Wind, Zap, ZapOff } from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
 import { api } from "@/api/client";
@@ -19,6 +15,7 @@ import { t } from "@/i18n";
 import { fmtClock, fmtNum, fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ScriptCode } from "@/journey/ScriptCode";
+import { SourceLink } from "@/journey/SourceLink";
 import { type ScenarioKind, scenarioHeadline, scenarioKind, type StressCount } from "./gallery";
 import type { Outcome, ScenarioRow } from "./scenarios";
 
@@ -83,11 +80,7 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay, danger = 5 
               </div>
               {a && <ScriptCode attack={a} />}
               <div className="mt-auto flex items-center justify-between gap-2">
-                {a?.inspired_by?.source_url ? (
-                  <a href={a.inspired_by.source_url} target="_blank" rel="noreferrer" className="flex min-h-11 min-w-0 flex-1 items-center gap-1 text-xs text-signal hover:underline">
-                    <ExternalLink className="size-3 shrink-0" /><span className="truncate">{a.inspired_by.incident}{a.inspired_by.year ? ` (${a.inspired_by.year})` : ""}</span>
-                  </a>
-                ) : <span />}
+                {a?.inspired_by?.source_url ? <SourceLink source={a.inspired_by} className="flex-1" /> : <span />}
                 <button type="button" disabled={!playable} onClick={() => onPlay(r)} aria-label={t("plan.sc_watch", { title: r.title })}
                         className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-plan transition hover:scale-[1.03] disabled:opacity-40">
                   <Play className="size-3.5" fill="currentColor" aria-hidden />{t("plan.sc_play")}

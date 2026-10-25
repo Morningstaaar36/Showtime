@@ -1129,6 +1129,7 @@
     "test_hint_mode": "About {m} min. {what}"
   },
   "work": {
+    "tools_title": "Agents' tools",
     "sbx_title": "Sandboxes",
     "sbx_counts": "{done} of {total} done · {running} running",
     "sbx_none": "Waiting for the first run",
@@ -1372,6 +1373,11 @@
     "stopped_untested": "Stopped before anything was tested.",
     "opening": "Opening your plan…",
     "see_plan": "See your plan",
+    "evidence": "Sources to check (live web)",
+    "evidence_lead": "What the web says about this place and this kind of event. Check them against your own numbers: nothing here was applied.",
+    "evidence_capacity": "capacity",
+    "evidence_attendance": "attendance",
+    "evidence_rules": "safety guidance",
     "open_what_we_have": "Open what we have",
     "try_again": "Try again",
     "draw_instead": "Draw your venue instead",
@@ -1818,6 +1824,8 @@
     "tool_edit_ops": "Edits",
     "tool_scenario_events": "Scenario events",
     "tool_number_check": "Number check",
+    "tool_search": "Web search",
+    "tool_code_sandbox": "Code sandbox",
     "sandbox_title": "Every simulation runs in its own sandbox",
     "sandbox_text": "Each scenario and each fix is simulated in its own sealed sandbox ({where}), branched from the plan it tests.",
     "numbers": "Numbers come from the tools, never from the AI",

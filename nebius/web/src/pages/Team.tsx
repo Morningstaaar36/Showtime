@@ -1,7 +1,7 @@
 /** The AI team (route `/team`): every NVIDIA Nemotron agent in the order it works, what it
  * decides, the model it runs on now and the tools it may use; and the sandbox every simulation
  * runs in. Agents decide; tools (solver, simulator, number check) produce every number. */
-import { Bot, Box, Building2, Calculator, CheckCheck, Gauge, Map as MapIcon, Pencil, ShieldCheck, Swords, Wrench, Zap } from "lucide-react";
+import { Bot, Box, Building2, Calculator, CheckCheck, Code2, Gauge, Globe, Map as MapIcon, Pencil, ShieldCheck, Swords, Wrench, Zap } from "lucide-react";
 import type * as React from "react";
 import { useAgents, type AgentInfo } from "@/api/queries";
 import { AppShell } from "@/app/AppHeader";
@@ -27,6 +27,8 @@ const TOOL_ICON: Record<string, React.ReactNode> = {
   edit_ops: <Pencil />,
   scenario_events: <Gauge />,
   number_check: <CheckCheck />,
+  search: <Globe />,
+  code_sandbox: <Code2 />,
 };
 
 /** "nvidia/nemotron-3.5-lightning:free" → "Nemotron 3.5 Lightning" */

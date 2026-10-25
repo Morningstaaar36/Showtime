@@ -33,6 +33,7 @@ import { FOCUS_FROM } from "@/scene/geom";
 import { usePressure } from "@/journey/plan/pressure";
 import { rangeVerdict } from "@/journey/plan/range";
 import { RangePanel } from "@/journey/plan/RangePanel";
+import { EvidencePanel } from "@/journey/plan/EvidencePanel";
 import { SandboxesTab } from "@/journey/plan/SandboxesTab";
 import { sandboxRows, scriptOutcomes } from "@/journey/plan/sandboxes";
 import { ReplayStage } from "@/journey/plan/ReplayStage";
@@ -491,6 +492,7 @@ export function YourPlanPage() {
           <TabsContent value="scenarios" className="animate-tab-in space-y-6">
             <ScenarioCards rows={rows} attacks={summary?.attacks ?? []} name={label} stress={stressByAttack(stressRec)} danger={th.danger}
                            onPlay={(row) => { pick(row); go("replay"); }} />
+            <EvidencePanel attacks={summary?.attacks ?? []} human={human} />
             <FailureMapSlot projectId={p.id} sessionId={sessionId} onSelectRun={playRun}
                             hasArchive={session.data?.status === "running" || session.data?.status === "queued" || !session.data?.summary || "archive" in session.data.summary} />
             <ScenarioCatalogue projectId={p.id} version={p.current_version} onPlay={playRun} danger={th.danger} />
