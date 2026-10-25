@@ -6,15 +6,17 @@ import { sandboxCounts } from "@/api/useSessionStream";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-const STATE: Record<SandboxRun["state"], { icon: React.ReactNode; tone: string }> = {
-  queued: { icon: <Clock3 />, tone: "text-muted" },
-  running: { icon: <Loader2 className="animate-spin motion-reduce:animate-none" />, tone: "text-signal" },
-  finished: { icon: <CircleCheck />, tone: "text-egress" },
-  reused: { icon: <Recycle />, tone: "text-muted" },
-  refused: { icon: <Ban />, tone: "text-danger" },
-  killed: { icon: <Skull />, tone: "text-danger" },
-  failed: { icon: <CircleX />, tone: "text-caution" },
-  cancelled: { icon: <CircleX />, tone: "text-muted" },
+// `tone` colours the icon; `text` the state word, in the darker shades that keep small text
+// above the WCAG AA contrast ratio
+const STATE: Record<SandboxRun["state"], { icon: React.ReactNode; tone: string; text: string }> = {
+  queued: { icon: <Clock3 />, tone: "text-muted", text: "text-muted" },
+  running: { icon: <Loader2 className="animate-spin motion-reduce:animate-none" />, tone: "text-signal", text: "text-signal" },
+  finished: { icon: <CircleCheck />, tone: "text-egress", text: "text-egress-strong" },
+  reused: { icon: <Recycle />, tone: "text-muted", text: "text-muted" },
+  refused: { icon: <Ban />, tone: "text-danger", text: "text-danger-strong" },
+  killed: { icon: <Skull />, tone: "text-danger", text: "text-danger-strong" },
+  failed: { icon: <CircleX />, tone: "text-caution", text: "text-caution-strong" },
+  cancelled: { icon: <CircleX />, tone: "text-muted", text: "text-muted" },
 };
 
 /** The line under a run: why a script was refused or stopped, or why the run was killed. */
@@ -48,10 +50,10 @@ export function SandboxFeed({ runs, className }: { runs: SandboxRun[]; className
                 <div className="flex items-center gap-2">
                   <span className={cn("shrink-0 [&_svg]:size-4", s.tone)} aria-hidden>{s.icon}</span>
                   <span className="min-w-0 flex-1 truncate" title={`${r.label} · ${r.run_id}`}>{r.label}</span>
-                  <span className={cn("shrink-0 text-2xs font-medium", s.tone)}>{t(`work.sbx_state_${r.state}`)}</span>
+                  <span className={cn("shrink-0 text-2xs font-medium", s.text)}>{t(`work.sbx_state_${r.state}`)}</span>
                   <span className="w-10 shrink-0 text-right text-2xs text-muted tabular">{r.state === "queued" || r.state === "reused" ? "" : `${Math.round(r.elapsed_s)} s`}</span>
                 </div>
-                {why && <p className={cn("ml-6 mt-0.5 text-2xs", why.tone === "danger" ? "text-danger" : "text-caution-strong")}>{why.text}</p>}
+                {why && <p className={cn("ml-6 mt-0.5 text-2xs", why.tone === "danger" ? "text-danger-strong" : "text-caution-strong")}>{why.text}</p>}
               </li>
             );
           })}
