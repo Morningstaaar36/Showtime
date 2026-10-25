@@ -31,3 +31,8 @@ export function evidenceGroups(attacks: Attack[], human: (s: string) => string =
   const all = [...byUrl.values()];
   return { tavily: all.filter((e) => e.origin === "tavily"), dataset: all.filter((e) => e.origin === "dataset") };
 }
+
+/** "Stadium crush (2023)", but "Venezuela crush 2018" as it is: the year once. */
+export function withYear(title: string, year: number | null | undefined): string {
+  return year && !title.includes(String(year)) ? `${title} (${year})` : title;
+}

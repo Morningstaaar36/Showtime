@@ -1,6 +1,7 @@
 /** A cited source with where it came from: the incident dataset or a live web search. */
 import { Database, ExternalLink, Globe } from "lucide-react";
 import { t } from "@/i18n";
+import { withYear } from "@/journey/plan/evidence";
 import { cn } from "@/lib/utils";
 
 export function OriginBadge({ origin, className }: { origin?: string | null; className?: string }) {
@@ -23,7 +24,7 @@ export function SourceLink({ source, className }: {
     <span className={cn("flex min-w-0 items-center gap-1.5", className)}>
       <a href={source.source_url} target="_blank" rel="noreferrer" className="flex min-h-11 min-w-0 items-center gap-1 text-xs text-signal hover:underline">
         <ExternalLink className="size-3 shrink-0" aria-hidden />
-        <span className="truncate">{t("work.inspired_by", { what: `${source.incident}${source.year ? ` (${source.year})` : ""}` })}</span>
+        <span className="truncate">{t("work.inspired_by", { what: withYear(source.incident, source.year) })}</span>
       </a>
       <OriginBadge origin={source.origin} />
     </span>

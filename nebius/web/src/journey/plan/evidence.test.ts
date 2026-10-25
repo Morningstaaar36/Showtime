@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Attack } from "@/api/types";
-import { evidenceGroups } from "./evidence";
+import { evidenceGroups, withYear } from "./evidence";
 
 const atk = (id: string, title: string, src: Record<string, unknown>) =>
   ({ attack_id: id, title, events: [], inspired_by: src }) as unknown as Attack;
@@ -19,5 +19,13 @@ describe("the test's evidence, by origin", () => {
     const g = evidenceGroups([atk("A1", "x", { incident: "Old", source_url: "https://e.org/o" })]);
     expect(g.dataset).toHaveLength(1);
     expect(g.tavily).toHaveLength(0);
+  });
+});
+
+describe("an incident's year, once", () => {
+  it("adds the year only when the title does not say it", () => {
+    expect(withYear("Stadium crush", 2023)).toBe("Stadium crush (2023)");
+    expect(withYear("Entertainment event crush, Venezuela 2018", 2018)).toBe("Entertainment event crush, Venezuela 2018");
+    expect(withYear("No year", null)).toBe("No year");
   });
 });

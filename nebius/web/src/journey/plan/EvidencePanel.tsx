@@ -5,7 +5,7 @@ import { Database, ExternalLink, Globe } from "lucide-react";
 import { useHealth } from "@/api/queries";
 import type { Attack } from "@/api/types";
 import { t } from "@/i18n";
-import { type EvidenceItem, evidenceGroups } from "./evidence";
+import { type EvidenceItem, evidenceGroups, withYear } from "./evidence";
 
 function Group({ id, icon, title, items }: { id: string; icon: React.ReactNode; title: string; items: EvidenceItem[] }) {
   return (
@@ -15,7 +15,7 @@ function Group({ id, icon, title, items }: { id: string; icon: React.ReactNode; 
         {items.map((e) => (
           <li key={e.url} className="rounded-[var(--radius-control)] border border-border bg-surface p-3 text-sm">
             <a href={e.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-signal hover:underline">
-              {e.title}{e.year ? ` (${e.year})` : ""}<ExternalLink className="size-3" aria-hidden />
+              {withYear(e.title, e.year)}<ExternalLink className="size-3" aria-hidden />
             </a>
             {e.sentence && <p className="mt-1 text-muted">“{e.sentence}”</p>}
             <p className="mt-1 text-xs text-muted">{t("evidence_panel.supports", { attacks: e.attacks.join("; ") })}</p>
