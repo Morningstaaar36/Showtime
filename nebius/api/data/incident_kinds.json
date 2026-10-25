@@ -1,0 +1,26 @@
+{
+  "_about": "Which incidents of the dataset the red team looks at first, by kind of event or building. 'settings' are the dataset's own setting values (outdoor, stadium, religious, indoor, transport, street), in order of preference; 'keywords' are its keywords with a weight. A kind not listed uses its mode's defaults. Edit this file, not the code.",
+  "defaults": {
+    "indoor": {"settings": ["indoor", "religious", "stadium"], "keywords": {"fire": 1.0, "locked_exit": 1.0, "false_alarm": 0.8, "door": 0.6}},
+    "outdoor": {"settings": ["outdoor", "street", "stadium", "religious"], "keywords": {"gate": 1.2, "counterflow": 1.2, "slope": 0.6, "barrier": 0.6}}
+  },
+  "kinds": {
+    "concert": {"settings": ["stadium", "outdoor", "indoor"], "keywords": {"concert": 1.4, "stage": 1.0, "barrier": 0.8, "surge": 1.0}},
+    "festival": {"settings": ["outdoor", "street", "stadium"], "keywords": {"celebration": 1.2, "concert": 0.8, "surge": 1.0, "barrier": 0.6}},
+    "conference": {"settings": ["indoor"], "keywords": {"door": 1.0, "stairs": 0.8, "false_alarm": 0.8}},
+    "wedding": {"settings": ["indoor", "outdoor"], "keywords": {"celebration": 1.2, "collapse": 0.8}},
+    "rally": {"settings": ["street", "outdoor"], "keywords": {"police": 1.2, "tear_gas": 1.0, "surge": 1.0}},
+    "march": {"settings": ["street", "outdoor"], "keywords": {"counterflow": 1.2, "police": 1.0, "narrow": 0.8}},
+    "sports": {"settings": ["stadium"], "keywords": {"stadium": 1.6, "gate": 1.2, "surge": 1.0}},
+    "religious": {"settings": ["religious"], "keywords": {"religious": 1.6, "free_distribution": 1.0, "bridge": 0.6}},
+    "hospital": {"settings": ["indoor"], "keywords": {"fire": 1.4, "stairs": 1.0}},
+    "school": {"settings": ["indoor"], "keywords": {"school": 1.6, "stairs": 1.2, "false_alarm": 0.8}},
+    "office": {"settings": ["indoor"], "keywords": {"fire": 1.2, "stairs": 1.0, "false_alarm": 0.8}},
+    "mall": {"settings": ["indoor"], "keywords": {"free_distribution": 1.2, "overcrowding": 1.0, "stairs": 0.8}},
+    "transit": {"settings": ["transport"], "keywords": {"station": 1.6, "stairs": 1.2, "overcrowding": 1.0}},
+    "residential": {"settings": ["indoor"], "keywords": {"fire": 1.4, "stairs": 1.0}},
+    "airport": {"settings": ["transport", "indoor"], "keywords": {"station": 1.2, "overcrowding": 1.0, "false_alarm": 0.8}},
+    "market": {"settings": ["street", "outdoor"], "keywords": {"free_distribution": 1.2, "narrow": 1.0, "street": 1.0}},
+    "campus": {"settings": ["indoor", "outdoor"], "keywords": {"school": 1.2, "stairs": 1.0, "celebration": 0.6}}
+  }
+}

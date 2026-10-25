@@ -19,12 +19,14 @@ from api.agents.context import event_union, events_doc, ids_line, venue_summary
 from api.agents.numbers import allowed_numbers, check_numbers
 from api.core.extensions import IncidentRecord, Registry
 from api.core.scripts import MAX_SCRIPT_CHARS, check_script
+from api.core.settings import ROOT_DIR
 from api.models import Attack, RunResult, Venue
 
 # marshal_redirect as an attack is misdirection: wrong signs or a marshal sending people the
 # wrong way (the "wrong route" row of the failure map)
 ATTACK_EVENTS = {"block_exit", "surge", "slowdown", "counterflow", "marshal_redirect"}
 DOI = "https://doi.org/10.5281/zenodo.19483010"
+DATA_DIR = ROOT_DIR / "api" / "data"
 SCRIPT_EVENT = "script"
 MAX_SCRIPT_ATTACKS = 1  # per round, on top of the menu attacks
 
@@ -146,21 +148,27 @@ def venue_features(venue: Venue, baseline: RunResult | None) -> dict[str, Any]:
     return feats
 
 
+def _incident_kinds() -> dict[str, Any]:
+    """api/data/incident_kinds.json: dataset settings and keywords by kind of event."""
+    data: dict[str, Any] = json.loads((DATA_DIR / "incident_kinds.json").read_text())
+    return data
+
+
 def incident_query(venue: Venue, feats: dict[str, Any]) -> dict[str, Any]:
-    """Keywords and settings for searching the incident dataset."""
-    kw: dict[str, float] = {"exit": 1.0, "crush": 1.0, "panic": 0.6, "density": 0.6}
+    """Keywords and settings for searching the incident dataset: what this venue has (stairs, a
+    narrow exit, a stage), and what incidents happen at this kind of event (data file)."""
+    table = _incident_kinds()
+    base = table["defaults"]["indoor" if venue.mode == "indoor" else "outdoor"]
+    kind = table["kinds"].get(venue.event_kind or "", {})
+    kw: dict[str, float] = {"exit": 1.0, "surge": 0.8, "overcrowding": 0.6, **base["keywords"]}
     if feats["stairs"]:
         kw["stairs"] = 1.6
     if feats.get("narrowest_exit_m", 9) < 3.5:
-        kw.update({"narrow": 1.4, "bottleneck": 1.2, "alley": 1.0})
+        kw.update({"narrow": 1.4, "single_exit": 1.0, "alley": 1.0})
     if feats["has_stage"]:
-        kw.update({"stage": 1.2, "wind": 1.0, "storm": 0.8, "barrier": 0.8, "surge": 1.0})
-    if venue.mode == "indoor":
-        kw.update({"fire": 1.0, "locked": 1.0, "false_alarm": 0.8, "power": 0.6})
-        settings = ["nightclub", "concert", "religious", "school", "indoor", "sports"]
-    else:
-        kw.update({"gate": 1.2, "counterflow": 1.2, "slope": 0.6, "festival": 1.0})
-        settings = ["festival", "street", "concert", "stadium", "sports", "religious"]
+        kw.update({"stage": 1.2, "wind": 1.0, "storm": 0.8, "barrier": 0.8})
+    kw.update(kind.get("keywords", {}))
+    settings = list(dict.fromkeys([*kind.get("settings", []), *base["settings"]]))
     return {"keywords": kw, "settings": settings}
 
 
@@ -309,10 +317,24 @@ def title_from_rationale(rationale: str, fallback: str) -> str:
     return out[:1].upper() + out[1:]
 
 
+def _venue_words(venue: Venue) -> str:
+    """Every name in the venue (floors, zones, exits, obstacles), lower case."""
+    parts = [venue.name or ""]
+    for f in venue.floors:
+        parts += [
+            f.name or "",
+            *(z.label or "" for z in f.zones),
+            *(e.label or "" for e in f.exits),
+        ]
+        parts += [o.label or o.kind for o in f.obstacles]
+    return " ".join(parts).lower()
+
+
 def grounded_title(title: str, venue: Venue, attack: Attack, registry: Registry) -> str:
     """Keep the model's title unless it names something this venue does not have."""
     low = title.lower()
-    if not any(w in low and not has(venue) for w, has in _FEATURE_WORDS.items()):
+    named = _venue_words(venue)  # a tunnel, bridge or stage the venue names is there
+    if not any(w in low and not has(venue) and w not in named for w, has in _FEATURE_WORDS.items()):
         return title
     labels: list[str] = []
     refs: list[str] = []
