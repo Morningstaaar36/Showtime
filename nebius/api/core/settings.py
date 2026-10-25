@@ -34,9 +34,11 @@ class Settings(BaseSettings):
     db_url: str = ""
     host_runs_dir: str = ""  # absolute host path of runs/ when the API runs in Docker
 
-    # --- Providers ---
-    llm_provider: Literal["local", "nebius", "openai", "fake"] = "local"
-    sandbox_provider: Literal["docker", "nebius", "fake"] = "docker"
+    # --- Providers (names from the registries in api/adapters/providers; a new provider is a
+    # new module there, no edit here) ---
+    llm_provider: str = "local"
+    sandbox_provider: str = "docker"
+    search_provider: str = "tavily"  # without TAVILY_API_KEY it is off: the incident dataset only
 
     # --- Local LLM ---
     local_llm_base_url: str = "http://127.0.0.1:8080/v1"
@@ -200,6 +202,19 @@ class Settings(BaseSettings):
     upload_max_bytes: int = 5_000_000
     log_level: str = "INFO"
 
+    @field_validator("llm_provider", "sandbox_provider", "search_provider")
+    @classmethod
+    def _known_provider(cls, v: str, info: Any) -> str:
+        """A registered provider name (or alias), else an error that lists the valid names."""
+        from api.adapters.providers import registry
+
+        kind = str(info.field_name).removesuffix("_provider")
+        try:
+            return registry(kind).canonical(v.strip())
+        except ValueError as exc:
+            env = str(info.field_name).upper()
+            raise ValueError(f"{env}: {exc}") from exc
+
     @field_validator("density_danger_ppm2")
     @classmethod
     def _danger_positive(cls, v: float) -> float:
@@ -263,14 +278,16 @@ class Settings(BaseSettings):
     @property
     def cloud_llm(self) -> bool:
         """True when the LLM is a hosted API (model ids and prices come from MODEL_*/PRICE_*)."""
-        return self.llm_provider in ("nebius", "openai")
+        from api.adapters.providers import llm_provider
+
+        return llm_provider(self.llm_provider).is_cloud
 
     @property
     def llm_label(self) -> str:
         """Short provider name for the UI badge and reports."""
-        return {"nebius": "NEBIUS", "openai": self.openai_compat_label.upper() or "CLOUD"}.get(
-            self.llm_provider, "LOCAL"
-        )
+        from api.adapters.providers import llm_provider
+
+        return llm_provider(self.llm_provider).label(self)
 
     def model_for(self, role: LlmRole) -> str:
         """Model id for an LLM role under the active provider."""
