@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, create_model
 
 from api.agents.base import AgentDef, AgentEnv, audit_decision, call_agent
 from api.agents.context import event_union, events_doc, ids_line, op_union, ops_doc, venue_summary
+from api.agents.red_team import prose_numbers, strip_numbers
 from api.core.extensions import Registry
 from api.core.plan import PlanError, apply_fix_bundle
 from api.core.venue_ops import PatchError
@@ -154,10 +155,24 @@ async def blue_team(
             new_objects={k: v.model_dump(mode="json") for k, v in d.new_objects.items()},
         )
 
+    def facts_of(d: Any) -> dict[str, Any]:
+        """What a fix's title may quote: the venue, the attack, and the fix's own changes."""
+        return {
+            "venue": venue.model_dump(mode="json"),
+            "attack": [e.model_dump() for e in attack.events],
+            "fix": d.model_dump(mode="json", exclude={"title", "rationale"}),
+        }
+
     def validate(out: Any) -> list[str]:
         probs: list[str] = []
         for i, d in enumerate(out.fixes):
             probs.extend(f"fix {i + 1}: {x}" for x in problems_of(d))
+            bad = prose_numbers(d.title, d.rationale, facts_of(d))
+            if bad:
+                probs.append(
+                    f"fix {i + 1}: the title or rationale quotes {', '.join(bad)}, which is not "
+                    "in the venue or the fix; the simulator measures the effect, so quote no result"
+                )
         return probs
 
     values = {
@@ -186,6 +201,13 @@ async def blue_team(
         if probs:
             audit_decision(env, "blue_team", "discarded fix", {"title": d.title, "problems": probs})
             continue
+        title, rationale = d.title.strip()[:90], d.rationale.strip()
+        bad = prose_numbers(title, rationale, facts_of(d))
+        if bad:  # still unchecked after the repair round: the numbers go, the fix stays
+            audit_decision(
+                env, "blue_team", "removed unchecked numbers", {"title": title, "numbers": bad}
+            )
+            title, rationale = strip_numbers(title, bad) or title, ""
         ops: list[dict[str, Any]] = []
         for o in d.ops:
             od = o.model_dump(exclude_none=True)
@@ -196,14 +218,14 @@ async def blue_team(
                 {
                     "fix_id": f"{id_prefix}{len(fixes) + 1}",
                     "for_attack": attack.attack_id,
-                    "title": d.title.strip()[:90],
+                    "title": title,
                     "patch": {"ops": ops},
                     "operational": [e.model_dump(exclude_none=True) for e in d.operational],
                     "actions": [a.model_dump(mode="json") for a in d.actions],
                     "replace_actions": [a.model_dump(mode="json") for a in d.replace_actions],
                     "remove_action_ids": d.remove_action_ids,
                     "new_objects": {k: v.model_dump(mode="json") for k, v in d.new_objects.items()},
-                    "rationale": d.rationale.strip(),
+                    "rationale": rationale,
                     "cost_label": d.cost_label,
                 }
             )
