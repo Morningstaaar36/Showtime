@@ -3,7 +3,8 @@
  * keyboard shortcuts; technical details stay one click away. */
 import { ChevronDown, ClipboardCheck, Clock, Gauge, Map as MapIcon, ShieldCheck, Timer, Users, Wand2 } from "lucide-react";
 import type * as React from "react";
-import { Link } from "react-router";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router";
 import { useGlossary, useValidation } from "@/api/queries";
 import type { SimulatorValidation } from "@/api/types";
 import { AppShell } from "@/app/AppHeader";
@@ -46,7 +47,10 @@ const SHORTCUTS: [string[], string][] = [
 
 const TECH = ["tech_instant", "tech_sim", "tech_density", "tech_evac", "tech_wind", "tech_latest"];
 
-const SECTIONS = ["how", "numbers", "verdict", "validation", "limits", "glossary", "shortcuts"];
+const SECTIONS = ["how", "sandbox", "numbers", "verdict", "validation", "limits", "glossary", "shortcuts"];
+/** Attacks thrown at the sandbox in tests (docs/SANDBOX_PROOF.md) and what stopped each. */
+const SANDBOX_ATTACKS = ["socket", "files", "escape", "loop", "memory", "flood", "fork", "secrets"] as const;
+
 const sectionLabel = (s: string) => (s === "validation" ? t("validation.nav") : t(`help.${s}`));
 
 /** The verdict headline (what the numbers show) and the badge next to it (how sure they are). */
@@ -60,6 +64,14 @@ const VALIDATION_LIMITS = ["limit_forces", "limit_motivation", "limit_density", 
 export function HelpPage() {
   const glossary = useGlossary();
   const validation = useValidation();
+  const { hash } = useLocation();
+  // a link such as /help#verdict opens at that section: the browser's own jump runs before the
+  // page has rendered, so scroll once it has (and again when the async parts above it load)
+  const loaded = !!glossary.data && !!validation.data;
+  useEffect(() => {
+    const el = hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
+    el?.scrollIntoView({ block: "start" });
+  }, [hash, loaded]);
   return (
     <AppShell className="bg-hero">
       <div className="mx-auto w-full max-w-5xl space-y-12 px-4 py-10">
@@ -88,6 +100,23 @@ export function HelpPage() {
             ))}
           </ol>
           <Button asChild variant="primary" size="lg" className="mt-5"><Link to="/">{t("help.start")}</Link></Button>
+        </Section>
+
+        <Section id="sandbox" title={t("help.sandbox")} lead={t("help.sandbox_lead")}>
+          <table className="w-full overflow-hidden rounded-[var(--radius-panel)] border border-border bg-surface text-left text-sm shadow-sm">
+            <thead className="bg-surface-2 text-xs text-muted">
+              <tr><th className="px-4 py-2 font-medium">{t("help.sb_attack")}</th><th className="px-4 py-2 font-medium">{t("help.sb_stopped_by")}</th></tr>
+            </thead>
+            <tbody>
+              {SANDBOX_ATTACKS.map((k) => (
+                <tr key={k} className="border-t border-border align-top">
+                  <td className="px-4 py-2 font-medium">{t(`help.sb_${k}`)}</td>
+                  <td className="px-4 py-2 text-muted">{t(`help.sb_${k}_by`)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="mt-3 text-sm text-muted">{t("help.sb_note")}</p>
         </Section>
 
         <Section id="verdict" title={t("help.verdict")} lead={t("help.verdict_lead")}>

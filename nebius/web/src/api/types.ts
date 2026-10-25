@@ -162,6 +162,19 @@ export interface Template {
   venue: Venue;
 }
 
+/** What a sandbox guarantees for every run (GET /health → providers.sandbox.isolation). */
+export interface SandboxIsolation {
+  kind: "container" | "cloud" | "none";
+  network_off: boolean | null;
+  memory: string | null;
+  cpus: number | null;
+  read_only: boolean;
+  process_limit: number | null;
+  non_root: boolean;
+  per_job_limits: boolean;
+  summary: string;
+}
+
 export interface ProviderStatus {
   ok: boolean;
   detail: string;
@@ -169,6 +182,8 @@ export interface ProviderStatus {
   label?: string;
   live?: boolean;
   models?: Record<string, string>;
+  isolation?: SandboxIsolation;
+  time_limit_s?: number;
 }
 
 export interface PluginRow {

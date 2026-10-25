@@ -5,6 +5,7 @@ import type * as React from "react";
 import { Link } from "react-router";
 import { Logo } from "@/components/Logo";
 import { ProviderBadge } from "@/components/ProviderBadge";
+import { SandboxBadge } from "@/components/SandboxBadge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -68,7 +69,7 @@ export function JourneyShell({ step, projectId, title, back, children, wide, fil
                 className="flex min-h-11 items-center gap-1.5 rounded-[var(--radius-control)] px-2 text-sm text-muted hover:bg-surface-2 hover:text-ink">
             <CircleHelp className="size-4" /><span className="hidden whitespace-nowrap xl:inline">{t("journey.help")}</span>
           </Link>
-          <span className="hidden sm:block"><ProviderBadge /></span>
+          <span className="hidden items-center gap-1.5 sm:flex"><ProviderBadge /><SandboxBadge /></span>
           <ThemeToggle />
         </div>
       </header>

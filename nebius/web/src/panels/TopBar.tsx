@@ -5,6 +5,7 @@ import { useRedo, useRestoreVersion, useUndo, useVersions } from "@/api/queries"
 import type { CountdownOut, ProjectDetail } from "@/api/types";
 import { Logo } from "@/components/Logo";
 import { ProviderBadge } from "@/components/ProviderBadge";
+import { SandboxBadge } from "@/components/SandboxBadge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -74,6 +75,7 @@ export function TopBar({ project, mode, countdown, cost }: {
       <CountdownChip data={countdown} />
       {/* the project's AI cost lives in the provider badge popover */}
       <ProviderBadge cost={cost} />
+      <SandboxBadge />
       <ThemeToggle />
     </header>
   );
