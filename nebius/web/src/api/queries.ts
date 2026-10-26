@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, configureTimeouts } from "./client";
 import { useMapConfig } from "@/state/mapConfig";
+import type { ImportKind } from "@/lib/importTypes";
 import type { PlanSnapshot } from "@/types/generated";
 import type { OpenCaseOut, RealCase } from "@/journey/realCases";
 import type {
@@ -64,6 +65,9 @@ export const useHealth = () =>
 /** One attack from `make sandbox-proof`, as the sandbox reported it. */
 export interface SandboxProofRow { kind: "scenario" | "code"; name: string; label: string; static: string | null; inside: string | null; status: string; runtime_s: number; injected?: boolean }
 export interface SandboxProof { recorded_at: string; docker: string; image: string; command: string; rows: SandboxProofRow[] }
+export const useImporters = () =>
+  useQuery({ queryKey: ["importers"], queryFn: () => api.get<{ importers: ImportKind[] }>("/importers"), staleTime: Infinity });
+
 export const useSandboxProof = () =>
   useQuery({ queryKey: ["sandbox-proof"], queryFn: () => api.get<SandboxProof>("/sandbox/proof"), staleTime: 300_000, retry: false });
 export const useFeatures = () =>

@@ -144,7 +144,7 @@
     "deleted": "Plan deleted",
     "duplicated": "Copy made",
     "imported": "Plan imported",
-    "import_hint": "Import a .showtime.zip, a venue .json or a .dxf drawing",
+    "import_hint": "Import a plan file: {types}",
     "create_title": "Start a new plan",
     "create_lead": "Where is your event? You can change everything later.",
     "ways": "Ways to start",

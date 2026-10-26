@@ -334,12 +334,30 @@ async def import_project(
                 ) from exc
             p = st.projects.create(venue.name, venue=venue)
             return project_out(st, p)
+    exts = [e for k in import_kinds(st) for e in k["extensions"]]
     raise ApiException(
         415,
         "unsupported_file",
         "This file type is not supported.",
-        "Use a .showtime.zip export, a venue .json or a .dxf drawing.",
+        f"Import one of: {', '.join(exts)}.",
     )
+
+
+def import_kinds(st: AppState) -> list[dict[str, Any]]:
+    """What can be imported: a Showtime project file, plus every registered importer plugin."""
+    return [
+        {"label": "Showtime project", "extensions": [".showtime.zip"]},
+        *(
+            {"label": imp.label, "extensions": list(imp.file_extensions)}
+            for imp in st.registry.all("VenueImporter")
+        ),
+    ]
+
+
+@router.get("/importers")
+def importers(st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The files the import accepts (the file picker and its hint are built from this)."""
+    return {"importers": import_kinds(st)}
 
 
 # --- spec aliases: /venues/{id} == current venue of project {id} -------------------------

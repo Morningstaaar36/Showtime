@@ -6,7 +6,7 @@ import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { api } from "@/api/client";
-import { useCreateProject, useDeleteProject, useDuplicateProject, useImportProject, useProjects, useTemplates } from "@/api/queries";
+import { useCreateProject, useDeleteProject, useDuplicateProject, useImporters, useImportProject, useProjects, useTemplates } from "@/api/queries";
 import type { ProjectSummary, Template, VenueDraft } from "@/api/types";
 import { AppShell } from "@/app/AppHeader";
 import { VenueThumb } from "@/components/VenueThumb";
@@ -22,6 +22,7 @@ import { fmtInt, fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { CopilotBox } from "./Copilot";
 import { DescribeTab } from "./newproject/DescribeTab";
+import { acceptFor, typesText } from "@/lib/importTypes";
 
 export function ProjectsPage() {
   const projects = useProjects();
@@ -30,6 +31,9 @@ export function ProjectsPage() {
   const [creating, setCreating] = useState<Template | null | "pick">(null);
   const importer = useImportProject();
   const fileRef = useRef<HTMLInputElement>(null);
+  const kinds = useImporters().data?.importers ?? [];
+  const importHint = t("projects.import_hint", { types: typesText(kinds) });
+  const importAccept = acceptFor(kinds);
   const navigate = useNavigate();
 
   const all = useMemo(() => projects.data ?? [], [projects.data]);
@@ -49,11 +53,11 @@ export function ProjectsPage() {
             <p className="mt-2 max-w-prose text-lg text-muted">{t("projects.lead")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button size="lg" onClick={() => fileRef.current?.click()} disabled={importer.isPending} title={t("projects.import_hint")}>
+            <Button size="lg" onClick={() => fileRef.current?.click()} disabled={importer.isPending} title={importHint}>
               <Upload />{t("projects.import")}
             </Button>
             {!empty && <Button size="lg" variant="primary" onClick={() => setCreating("pick")}><Plus />{t("projects.new")}</Button>}
-            <input ref={fileRef} type="file" className="hidden" accept=".zip,.json,.dxf" aria-label={t("projects.import_hint")}
+            <input ref={fileRef} type="file" className="hidden" accept={importAccept} aria-label={importHint}
                    onChange={(e) => {
                      const f = e.target.files?.[0];
                      if (!f) return;
