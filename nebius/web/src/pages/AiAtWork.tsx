@@ -195,7 +195,7 @@ export function AiAtWorkPage() {
         </section>
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="relative h-[45vh] min-h-72 overflow-hidden rounded-[var(--radius-panel)] border border-border lg:h-auto lg:min-h-[380px]">
+          <div className="relative isolate h-[45vh] min-h-72 overflow-hidden rounded-[var(--radius-panel)] border border-border lg:h-auto lg:min-h-[380px]">
             {venue && <FloorSwitch venue={venue} className="absolute right-3 top-3 z-50" />}
             {venue ? (
               <SceneRoot venue={runVenue.data ?? venue} replay={replay.data ?? null} hotspots={[]} marshals={[]} editable={false}

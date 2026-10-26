@@ -283,7 +283,7 @@ export function YourPlanPage() {
               <Button variant="primary" size="lg" onClick={testAgain} disabled={start.isPending}><RotateCcw />{t("yourplan.test_again")}</Button>
             </div>
           )}
-          <div className="relative h-[50vh] overflow-hidden rounded-[10px] border border-border">
+          <div className="relative isolate h-[50vh] overflow-hidden rounded-[10px] border border-border">
             <FloorSwitch venue={venue} className="absolute left-3 top-3 z-50" />
             <SceneRoot venue={venue} replay={null} hotspots={[]} marshals={[]} editable={false} resetNonce={0} quality="low"
                        onExitClick={noop} onObjectClick={noop} onFloorClick={noop} onFloorDoubleClick={noop} onMove={noop} onHotspot={noop} />
