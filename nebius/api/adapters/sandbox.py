@@ -331,6 +331,15 @@ def _release_lock(fh: Any) -> None:
         fh.close()
 
 
+def crash_hint(returncode: int | None, stderr: str) -> str:
+    """Why a container stopped without writing a result. Exit 137 is a SIGKILL: the memory limit
+    or the container being stopped from outside; containers are removed on exit, so the runner
+    can't inspect which, and says both."""
+    if returncode == 137:
+        return "killed: out of memory, or stopped from outside"
+    return stderr.strip()[-300:]
+
+
 class DockerRunner:
     """Local sandbox: one container per run via the docker CLI."""
 
@@ -522,7 +531,7 @@ class DockerRunner:
         except TimeoutError:
             stderr = ""
         if not (work / "result.json").exists():
-            hint = "out of memory" if proc.returncode == 137 else stderr.strip()[-300:]
+            hint = crash_hint(proc.returncode, stderr)
             return failed_result(
                 job,
                 self.provider,
