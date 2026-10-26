@@ -44,7 +44,6 @@ export type Zone = Floor["zones"][number];
 export type Obstacle = Floor["obstacles"][number];
 export type Stair = NonNullable<Venue["stairs"]>[number];
 export type Hotspot = NonNullable<RunResult["hotspots"]>[number];
-export type PerExit = NonNullable<NonNullable<RunResult["metrics"]>["per_exit"]>[number];
 export type Pt = [number, number];
 /** Patch as sent by the UI (server fills schema_version). */
 export interface PatchInput {
@@ -257,15 +256,6 @@ export interface CountdownOut {
   errors: string[];
   manual_input_needed: boolean;
   timezone: string;
-}
-
-export interface WeatherOut {
-  times: string[];
-  gust_ms: (number | null)[];
-  wind_ms: (number | null)[];
-  source: string;
-  source_url: string;
-  cached?: boolean;
 }
 
 export interface EditOut {
