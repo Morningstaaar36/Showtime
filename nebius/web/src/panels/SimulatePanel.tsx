@@ -1,8 +1,8 @@
-import { Ban, Flame, MessageCircleQuestion, Play, Square, X } from "lucide-react";
+import { Ban, DoorOpen, Flame, MessageCircleQuestion, Play, Square, X } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 import { useCancelRun, useStartRun } from "@/api/queries";
-import type { Hotspot, ProjectDetail, RunOut, RunResult } from "@/api/types";
+import type { Hotspot, ProjectDetail, RunOut, RunResult, Venue } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PanelTitle, Progress, Separator, Spinner } from "@/components/ui/misc";
@@ -78,7 +78,7 @@ export function SimulatePanel({ project, run, estimate, replay, th, onAsk }: {
 
   const launch = (tier: 2 | 3, withBlocked: boolean) =>
     start.mutate({ project_id: project.id, tier, blocked_exits: withBlocked ? blocked : [],
-                   label: withBlocked ? `Blocked: ${blocked.map(label).join(", ")}` : "Stress test" },
+                   label: withBlocked ? t("ui.simulatepanel.run_blocked", { exits: blocked.map(label).join(", ") }) : t("ui.simulatepanel.run_stress") },
                  { onSuccess: (r) => setActive(r.id), onError: (e) => toast.error(e.message) });
 
   const pick = (h: Hotspot) => {
@@ -168,7 +168,31 @@ export function SimulatePanel({ project, run, estimate, replay, th, onAsk }: {
           )}
         </>
       )}
-      <p className="text-xs text-muted">{t("tools.block_hint")}</p>
+      <ExitToggles venue={venue} blocked={blocked} label={label} />
     </div>
+  );
+}
+
+/** "Break it yourself" without the 3D view: every exit is a toggle (the same action as clicking it
+ * in 3D), so keyboard and screen-reader users can block and reopen exits too. */
+function ExitToggles({ venue, blocked, label }: { venue: Venue; blocked: string[]; label: (id: string) => string }) {
+  const toggle = useUi((s) => s.toggleBlocked);
+  const exits = venue.floors.flatMap((f) => f.exits);
+  return (
+    <section aria-labelledby="blk-h" className="space-y-2">
+      <p id="blk-h" className="text-xs text-muted">{t("tools.block_hint")}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {exits.map((e) => {
+          const on = blocked.includes(e.id);
+          return (
+            <button key={e.id} type="button" aria-pressed={on} onClick={() => toggle(e.id)}
+                    className={cn("inline-flex min-h-8 items-center gap-1 rounded-full border px-2.5 text-xs font-medium transition-colors [&_svg]:size-3.5",
+                                  on ? "border-danger/40 bg-danger-soft text-danger-strong" : "border-border text-muted hover:border-border-strong hover:text-ink")}>
+              {on ? <Ban aria-hidden /> : <DoorOpen aria-hidden />}{label(e.id)}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
