@@ -29,8 +29,16 @@ describe("drag and drop", () => {
     expect(r.ops[1]).toMatchObject({ op: "set_annotation", target: "exit_new", change: "existing" });
   });
 
-  it("refuses a door dropped far from any wall", () => {
-    expect(placeItem(venue, "F0", "door", 20, 10, "existing", ids)).toEqual({ error: "check.door_near_wall" });
+  it("puts a door dropped anywhere on the venue on its nearest outer wall", () => {
+    // in the middle of the floor, a little nearer the south wall: no need to aim at the wall
+    const r = placeItem(venue, "F0", "door", 20, 8, "existing", ids);
+    if ("error" in r) throw new Error(r.error);
+    expect(r.name).toBe("South door 2");
+    expect(r.ops[0]).toMatchObject({ op: "add_exit", width_m: 2 });
+  });
+
+  it("refuses a door dropped off the venue", () => {
+    expect(placeItem(venue, "F0", "door", 60, 10, "existing", ids)).toEqual({ error: "check.door_near_wall" });
   });
 
   it("makes a crowd area that fits inside the venue, shrinking near walls", () => {

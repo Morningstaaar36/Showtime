@@ -220,7 +220,7 @@
     "barrier_hint": "Click points on the floor, double-click to finish.",
     "zone_hint": "Click to place corners, double-click to close the zone.",
     "exit_hint": "Click on an outer wall to place an exit.",
-    "block_hint": "Click an exit to block or reopen it. The instant estimate updates immediately."
+    "block_hint": "Block an exit here or click it in 3D; click again to reopen it. The instant estimate updates immediately."
   },
   "editor": {
     "tools": {
@@ -1015,7 +1015,7 @@
     "door_hint": "Click next to an outer wall to place a 2 m door.",
     "barrier_hint": "Click to add points. Double-click to finish the barrier.",
     "new_is": "The new item is",
-    "door_near_wall": "Click closer to an outer wall to place a door.",
+    "door_near_wall": "Drop the door on the venue: it goes on the nearest outer wall.",
     "doors": "Doors and gates",
     "features": "Fixed features and barriers",
     "zones": "Where people start",
@@ -2237,7 +2237,9 @@
       "density_up_to": ", density up to",
       "no_way_out": "{n} people have no way out.",
       "stopped_at_the_time_limit": "Stopped at the time limit.",
-      "danger_time_help": "Total time any cell is above {danger} people per m²."
+      "danger_time_help": "Total time any cell is above {danger} people per m².",
+      "run_blocked": "Blocked: {exits}",
+      "run_stress": "Stress test"
     },
     "home": {
       "people": "{n} people",

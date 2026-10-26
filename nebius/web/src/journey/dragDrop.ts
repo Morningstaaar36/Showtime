@@ -43,11 +43,26 @@ const square = (x: number, y: number, side: number): Pt[] => {
 };
 const allInside = (poly: Pt[], pts: Pt[]) => pts.every(([px, py]) => pointInPolygon(px, py, poly));
 
-/** Where the item would go; null when it does not fit there (door too far from a wall, etc.). */
+/** A door dropped anywhere on the floor goes to the closest point of the nearest outer wall long
+ * enough for it, so it need not be aimed at a wall; null off the floor. */
+function onNearestWall(walkable: Pt[], x: number, y: number): Pt[] | null {
+  if (!pointInPolygon(x, y, walkable)) return null;
+  let best: { px: number; py: number; d: number } | null = null;
+  for (const e of edgesOf(walkable)) {
+    if (e.len < DOOR_WIDTH + 0.2) continue;
+    const t = Math.max(0, Math.min(1, ((x - e.a[0]) * e.ux + (y - e.a[1]) * e.uy) / e.len));
+    const px = e.a[0] + e.ux * e.len * t, py = e.a[1] + e.uy * e.len * t;
+    const d = Math.hypot(x - px, y - py);
+    if (!best || d < best.d) best = { px, py, d };
+  }
+  return best ? exitRectAt(walkable, best.px, best.py, DOOR_WIDTH) : null;
+}
+
+/** Where the item would go; null when it does not fit there (a door off the floor, etc.). */
 export function itemShape(floor: Floor, item: PaletteItem, x: number, y: number): ItemShape | null {
   const walkable = floor.walkable as Pt[];
   if (item === "door") {
-    const rect = exitRectAt(walkable, x, y, DOOR_WIDTH);
+    const rect = exitRectAt(walkable, x, y, DOOR_WIDTH) ?? onNearestWall(walkable, x, y);
     return rect ? { item, points: rect } : null;
   }
   if (!pointInPolygon(x, y, walkable)) return null;
