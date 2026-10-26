@@ -78,3 +78,14 @@ def test_what_can_be_imported_comes_from_the_importers(client: Any) -> None:
     assert r.status_code == 415
     for e in exts:
         assert e in r.json()["hint"]
+
+
+def test_a_file_over_the_upload_limit_is_refused_with_what_to_do(client: Any) -> None:
+    limit = client.app.state.showtime.settings.upload_max_bytes
+    r = client.post(
+        "/api/v1/projects/import",
+        files={"file": ("big.json", io.BytesIO(b" " * (limit + 1)), "application/json")},
+    )
+    assert r.status_code == 413
+    body = r.json()
+    assert body["code"] == "too_large" and "UPLOAD_MAX_BYTES" in body["hint"]

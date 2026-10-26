@@ -317,6 +317,8 @@ async def import_project(
             413,
             "too_large",
             f"The file is larger than {st.settings.upload_max_bytes // 1_000_000} MB.",
+            "Remove layers the venue does not need from the drawing, or raise "
+            "UPLOAD_MAX_BYTES in .env.",
         )
     name = (file.filename or "").lower()
     if name.endswith(".zip"):
