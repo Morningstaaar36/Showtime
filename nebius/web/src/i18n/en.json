@@ -1166,6 +1166,7 @@
     "sbx_why_refused": "AI-written script refused: {why}",
     "sbx_why_stopped": "AI-written script stopped: {why}",
     "sbx_why_error": "AI-written script failed with an error in its own code: {why}",
+    "sbx_why_retried": "The first sandbox stopped ({why}); the run started again in a new one and finished.",
     "step_of": "Step {n} of {total}",
     "all_done": "All done",
     "leave_ok": "This takes a few minutes. You can leave this page; the test keeps running.",

@@ -25,6 +25,7 @@ export function sandboxWhy(r: SandboxRun): { text: string; tone: "danger" | "cau
   if (r.script?.state === "stopped") return { text: t("work.sbx_why_stopped", { why: r.script.reason ?? "" }), tone: "caution" };
   if (r.script?.state === "error") return { text: t("work.sbx_why_error", { why: r.script.reason ?? "" }), tone: "caution" };
   if ((r.state === "killed" || r.state === "failed") && r.reason) return { text: r.reason, tone: r.state === "killed" ? "danger" : "caution" };
+  if (r.retried && r.state === "finished") return { text: t("work.sbx_why_retried", { why: r.retried }), tone: "caution" };
   return null;
 }
 

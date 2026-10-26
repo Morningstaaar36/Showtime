@@ -54,6 +54,8 @@ export interface SandboxRun {
   provider?: string;
   limits?: string;
   reason?: string | null;
+  /** why the first sandbox stopped, when the run was started again in a new one */
+  retried?: string | null;
   /** an AI-written scenario script in this run: whether it ran, was refused, crashed in its own
    * code (error) or was stopped by a sandbox limit */
   script?: { state: "ran" | "refused" | "error" | "stopped"; reason: string | null } | null;

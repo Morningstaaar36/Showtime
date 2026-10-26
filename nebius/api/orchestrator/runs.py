@@ -486,10 +486,12 @@ class RunService:
             self.progress[rid] = p
             self._notify(rid, {"status": "running", "progress": p})
 
+        retried: str | None = None  # why the first container stopped, when the run was retried
         try:
             result = await self.runner.run(job, on_progress)
             if result.status == "failed" and "crashed" in (result.error or ""):
                 log.warning("run %s crashed, retrying once", rid)
+                retried = result.error
                 result = await self.runner.run(job, on_progress)
         except asyncio.CancelledError:
             result = failed_result(
@@ -518,7 +520,8 @@ class RunService:
         self._finish(rid, result)
         self.progress.pop(rid, None)
         ran_s = time.monotonic() - (started[0] if started else t0)
-        self._sandbox(rid, elapsed_s=ran_s, tier=result.tier, **sandbox_outcome(result, job))
+        outcome = sandbox_outcome(result, job)
+        self._sandbox(rid, elapsed_s=ran_s, tier=result.tier, retried=retried, **outcome)
         self._notify(rid, {"status": result.status, "result": result.model_dump(mode="json")})
         if self.hooks is not None:
             self._hook("on_run_finished", result=result)

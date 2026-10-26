@@ -105,3 +105,26 @@ async def test_a_session_streams_each_runs_sandbox_lifecycle(state: Any) -> None
     last = events[-1].payload
     assert last["limits"] and last["provider"] == "fake" and last["elapsed_s"] >= 0
     assert "label" in last and "stdout" not in last and "stderr" not in last
+
+
+async def test_a_sandbox_that_stopped_and_was_restarted_says_so(state: Any) -> None:  # noqa: F811
+    # the first container dies (killed from outside, or crashed); the run is retried once, and
+    # the feed tells why instead of showing two "running" events and a clean finish
+    from api.adapters.sandbox import failed_result
+
+    real = state.runner.run
+    first: list[str] = []
+
+    async def flaky(job: SimJob, on_progress: Any = None) -> RunResult:
+        if not first:
+            first.append(job.request.run_id)
+            return failed_result(job, "fake", "The simulation crashed (exit 137): killed")
+        return await real(job, on_progress)
+
+    state.runner.run = flaky
+    p = state.projects.create("Retry", template_id="school_wing")
+    row = await _run_session(state, p.id, max_rounds=1, attacks_per_round=1)
+    events = [e.payload for e in state.sessions.stored_events(row.id) if e.type == "sandbox"]
+    last = [e for e in events if e["run_id"] == first[0]][-1]
+    assert last["state"] == "finished"
+    assert last["retried"] == "The simulation crashed (exit 137): killed"
