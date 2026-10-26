@@ -8,7 +8,7 @@ const [pid, sid] = process.argv.slice(2);
 const SLOW = Number(process.env.TOUR_PAUSE_MS ?? 4500);
 
 const browser = await chromium.launch({
-  headless: false,
+  headless: process.env.TOUR_HEADLESS === "1", // TOUR_HEADLESS=1 for a quick check without a window
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ?? "/usr/bin/google-chrome",
   slowMo: 120,
   args: ["--start-maximized"],
@@ -98,6 +98,7 @@ await say("Now try something unsafe: a script that imports socket to reach the n
 await page.getByRole("button", { name: "New script" }).first().click();
 const code2 = page.getByRole("textbox", { name: "Code" });
 await code2.click();
+await page.keyboard.press("Control+A"); // "New script" starts from an example: replace it
 await page.keyboard.type("import socket\nsocket.create_connection(('example.org', 80))\n", { delay: 35 });
 await page.getByRole("button", { name: "Run in sandbox" }).click();
 const why = page.getByRole("listitem").filter({ hasText: /socket.* is not allowed/ });
@@ -147,5 +148,6 @@ await say("Twelve NVIDIA Nemotron agents, the model each runs on, and the tools 
 await page.goto(`${BASE}/`);
 await say("That's the demo. Planning aid, not a safety certification. Close this window when you're done.", 4000);
 
-// keep the window open until it is closed
-await new Promise((resolve) => browser.on("disconnected", resolve));
+// keep the window open until it is closed (a headless check just ends)
+if (process.env.TOUR_HEADLESS === "1") await browser.close();
+else await new Promise((resolve) => browser.on("disconnected", resolve));
