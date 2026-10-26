@@ -11,8 +11,8 @@ Record only first names or P1–P5; no recordings without written consent.
 
 ## Setup (per session, about 45 minutes)
 
-1. Start the app with a live model and the simulator: `make use-openrouter` (or Nebius), key in
-   `.env`, `make up`. Check the header badge is green and `/welcome` shows every row ready.
+1. Start the app with a live model and the simulator: set the three OpenRouter lines in `.env`
+   (README quickstart) or the Nebius ones, then `make up`. Check the header badge is green and `/welcome` shows every row ready.
 2. Fresh browser profile, 1600 × 900 or the participant's own laptop. Close other tabs.
 3. The observer has this page and a timer; one person observes, one takes notes. Do not help
    unless the participant is stuck for 2 minutes; then give the smallest hint and note it.

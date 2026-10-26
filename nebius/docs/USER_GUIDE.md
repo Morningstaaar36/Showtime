@@ -99,7 +99,7 @@ How every number is computed, glossary, limits of the tool, keyboard shortcuts.
 
 | Message | What to do |
 | --- | --- |
-| Provider badge amber | Hover it. Usually the language model is stopped: `make llm-up`. |
+| Provider badge amber | Click it: it says why (a used-up daily quota until a stated time, a rejected key, or a stopped local model) and what to do. Tests still run in **Offline** mode. |
 | "Live search is off" | No Tavily key. Attack cards cite the incident dataset instead. |
 | "Weather unavailable" | Enter a gust value by hand in the wind panel. |
 | "Stopped at N s of simulated time" | The run hit its time cap; results cover that window. Raise `MAX_SIM_S` in Settings. |

@@ -1,13 +1,15 @@
 # Showtime — Handoff
 
 ## Start it
-1. `cp .env.example .env` (keys optional locally; the file already exists on this machine).
-2. `make setup` — first time only: Python env, web deps, sim image, llama.cpp binary, Nemotron
-   GGUF and the incident data, all inside this folder (`.tools/`, `models/`, `data/`).
-3. `make llm-up` — Nemotron Nano 9B v2 on the GPU (≈ 20 s; logs in `logs/llm.log`).
-4. `make up` → open http://localhost:5173 (Docker Compose: API + static web).
+1. `cp .env.example .env`, then set three lines: `LLM_PROVIDER=openai`,
+   `OPENAI_COMPAT_BASE_URL=https://openrouter.ai/api/v1` and `OPENAI_COMPAT_API_KEY=...`.
+   The OpenRouter Nemotron model ids fill in on their own. With no key, use **Offline** tests.
+2. `make setup`: first time only. It installs the Python env, web deps, the sim image and the
+   incident data, all inside this folder (`.tools/`, `data/`). It fetches llama.cpp and the
+   Nemotron Nano GGUF only when `LLM_PROVIDER=local`.
+3. `make up` → open http://localhost:5173 (Docker Compose: API + static web).
    Lighter alternative: `make dev` (API + Vite natively; stop with `make dev-down`).
-5. Stop: `make down`, `make llm-down`.
+4. Stop: `make down` (and `make llm-down` if you started the local model).
 
 `make probe` checks GPU, Docker, sim image, LLM chat and JSON, Tier 1, stage check,
 Open-Meteo, Tavily and the incident data in one go.
@@ -22,17 +24,20 @@ A full organizer walkthrough is in [TESTING_GUIDE.md](TESTING_GUIDE.md).
 - Simulate → `X` tool → click a door ("Break it yourself") → **Confirm with simulation**.
 - **Report** → Export PDF / Evacuation map.
 
-## Use another hosted model for testing (optional)
-`LLM_PROVIDER=openai` with `OPENAI_COMPAT_BASE_URL`, `OPENAI_COMPAT_API_KEY`, `OPENAI_COMPAT_LABEL`
-and `MODEL_*` works with any OpenAI-compatible API, e.g. OpenRouter's free Nemotron models
-(`nvidia/nemotron-3-super-120b-a12b:free`) with `LLM_EXTRA_BODY={"reasoning":{"enabled":false}}`
-and `LLM_SUPPORTS_JSON_SCHEMA=false`. Free OpenRouter keys allow about 50 requests a day.
-The hackathon submission must still run on Nebius.
+## The local model (optional)
+`LLM_PROVIDER=local` runs Nemotron Nano 9B v2 on your GPU (`make llm-up`, about 6.4 GB VRAM). It
+is also the automatic fallback when the hosted model is paused, for example by a used-up daily
+quota. The badge then shows OPENROUTER → LOCAL. Free OpenRouter keys allow about 50 requests a
+day.
 
 ## Switch to Nebius
-- In `.env`: `LLM_PROVIDER=nebius`, `SANDBOX_PROVIDER=nebius`, `NEBIUS_API_KEY=…`, and the
-  `MODEL_FAST/LONG/MAIN/JUDGE` ids from the Token Factory console (plus prices for the cost meter).
-- `make smoke-nebius` (skips cleanly without a key). Details: [NEBIUS_SWITCH.md](NEBIUS_SWITCH.md).
+Only `.env` changes:
+- **Token Factory:** `LLM_PROVIDER=nebius` and `NEBIUS_API_KEY=…`. Model ids left from another
+  provider switch to the Nebius preset on their own.
+- **Sandboxes:** `SANDBOX_PROVIDER=nebius` and `NEBIUS_PROJECT_ID=…`.
+- **Check:** `make verify-nebius-llm`, `make verify-nebius-sandbox`, then `make up`.
+
+Details: [WHEN_YOU_GET_THE_KEYS.md](WHEN_YOU_GET_THE_KEYS.md) and [NEBIUS_SWITCH.md](NEBIUS_SWITCH.md).
 
 ## Status
 | Feature | Status | Notes |
@@ -86,9 +91,11 @@ Details and the screenshot self-review: [PROGRESS.md](PROGRESS.md).
 - The API container mounts the Docker socket to launch sims (local development only; see SECURITY.md).
 
 ## Unverified items (need human check)
-- Nebius model ids and prices (copy from the console into `.env`).
-- Nebius Sandboxes calls with a real key (`make smoke-nebius`).
-- Tavily with a real key.
+- Nebius Token Factory with a real key (`make verify-nebius-llm`). The preset ids were checked
+  against Nebius's public model info on 2026-10-26.
+- Nebius Sandboxes with a real key and project ID (`make verify-nebius-sandbox`, which also proves
+  that the network is off).
+- Tavily with a real key (`make verify-tavily`).
 - Feliciani dataset licence: Zenodo record lists CC BY 4.0 — confirm before redistributing
   derived data (we download at setup, never commit it).
 - Template dimensions are illustrative (the T-alley follows published Itaewon measurements; see ASSUMPTIONS).

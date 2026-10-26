@@ -5,8 +5,8 @@ About 30 minutes. You only need a browser once the app is running.
 ## 0. Start it (once)
 
 ```bash
-cd /home/lucifer/BUET/nebius
-make llm-up        # starts the Nemotron model on your GPU (about 20 s)
+cd nebius          # in your clone of the repository
+make llm-up        # only with LLM_PROVIDER=local: starts Nemotron Nano on your GPU (about 20 s)
 make up            # starts the app (Docker); first time builds images
 ```
 
