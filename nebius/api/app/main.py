@@ -71,6 +71,16 @@ def setup_logging(settings: Settings) -> None:
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 
+# standard browser security headers on every response (OWASP secure headers): the report preview
+# is framed by the app itself, so SAMEORIGIN
+SECURITY_HEADERS = {
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "SAMEORIGIN",
+    "referrer-policy": "strict-origin-when-cross-origin",
+    "permissions-policy": "camera=(), microphone=(), geolocation=()",
+}
+
+
 def create_app(state: AppState | None = None, settings: Settings | None = None) -> FastAPI:
     """Build the app. Tests pass a prepared state."""
     settings = settings or get_settings()
@@ -127,6 +137,8 @@ def create_app(state: AppState | None = None, settings: Settings | None = None) 
         response = await call_next(request)
         ms = round((time.perf_counter() - t0) * 1000, 1)
         response.headers["x-request-id"] = rid
+        for name, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
         if request.url.path.startswith("/api/") and not request.url.path.endswith("/events"):
             log.info(
                 "%s %s",
