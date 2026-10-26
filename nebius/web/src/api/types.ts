@@ -19,6 +19,7 @@ import type {
 } from "@/types/generated";
 import type { TogetherCheck } from "@/journey/plan/range";
 import type { CostRecord, Evaluation } from "@/lib/evidence";
+import type { MapConfig } from "@/state/mapConfig";
 
 export type {
   Attack,
@@ -221,7 +222,7 @@ export interface Health {
   };
   plugins: PluginRow[];
   /** how long the web app waits for a read and a write (server settings) */
-  client?: { read_timeout_s: number; write_timeout_s: number };
+  client?: { read_timeout_s: number; write_timeout_s: number; map?: MapConfig };
   version: string;
 }
 

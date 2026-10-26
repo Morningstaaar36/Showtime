@@ -158,6 +158,36 @@ class Settings(BaseSettings):
     weather_archive_url: str = "https://archive-api.open-meteo.com/v1/archive"
     nominatim_url: str = "https://nominatim.openstreetmap.org"
     overpass_url: str = "https://overpass-api.de/api/interpreter"
+    # tried after OVERPASS_URL when it fails (comma-separated), and last the slower ones
+    overpass_fallback_urls: str = (
+        "https://lz4.overpass-api.de/api/interpreter,https://z.overpass-api.de/api/interpreter"
+    )
+    overpass_late_urls: str = "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+    map_tiles_url: str = "https://tiles.openfreemap.org/planet"  # a TileJSON document
+    osm_max_span_km: float = Field(default=1.3, gt=0)  # the largest area loaded from the map
+    # the browser's maps: the style of the place picker, and the raster tiles under the 3D view
+    map_style_url: str = "https://tiles.openfreemap.org/styles/liberty"
+    map_raster_tiles_url: str = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    # where the place picker opens: "lat,lon,zoom" (the default is the whole world)
+    map_start: str = "20,0,1.5"
+
+    @field_validator("map_start")
+    @classmethod
+    def _map_start_valid(cls, v: str) -> str:
+        parts = [p.strip() for p in v.split(",")]
+        try:
+            lat, lon, zoom = (float(p) for p in parts)
+        except ValueError:
+            raise ValueError('MAP_START must be "lat,lon,zoom", e.g. "23.73,90.39,13"') from None
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180 and 0 <= zoom <= 22):
+            raise ValueError("MAP_START is out of range (lat -90..90, lon -180..180, zoom 0..22)")
+        return v
+
+    @property
+    def map_start_point(self) -> dict[str, float]:
+        lat, lon, zoom = (float(p) for p in self.map_start.split(","))
+        return {"lat": lat, "lon": lon, "zoom": zoom}
+
     offline: bool = False
 
     # --- Caches ---

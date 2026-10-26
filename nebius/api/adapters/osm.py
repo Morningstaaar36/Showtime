@@ -16,6 +16,7 @@ import gzip
 import logging
 import math
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -28,17 +29,10 @@ from api.adapters.cache import DiskCache, cache_key
 log = logging.getLogger("showtime.osm")
 
 USER_AGENT = "Showtime/0.1 (crowd-safety planning studio; local install)"
-MAX_SPAN_DEG = 0.012  # about 1.3 km north-south: keeps answers small
+KM_PER_DEG_LAT = 111.32  # one degree of latitude, in km
 ATTRIBUTION = "© OpenStreetMap contributors (ODbL)"
 QUERY_VERSION = 4  # bump when a query changes (part of the cache key)
 # Tried together; the first good answer wins. lz4/z are the two machines behind overpass-api.de.
-OVERPASS_SERVERS = (
-    "https://lz4.overpass-api.de/api/interpreter",
-    "https://z.overpass-api.de/api/interpreter",
-    "https://overpass-api.de/api/interpreter",
-)
-OVERPASS_LATE = ("https://maps.mail.ru/osm/tools/overpass/api/interpreter",)  # slower; after 4 s
-TILEJSON_URL = "https://tiles.openfreemap.org/planet"
 TILE_Z = 14
 
 _AREA_FILTER = (
@@ -67,10 +61,18 @@ class OpenStreetMap:
         cache_dir: Path,
         offline: bool = False,
         timeout_s: float = 25.0,
+        *,
+        fallback_urls: Sequence[str] = (),
+        late_urls: Sequence[str] = (),
+        tiles_url: str,
+        max_span_km: float,
     ) -> None:
         self.nominatim_url = nominatim_url.rstrip("/")
-        servers = [overpass_url, *OVERPASS_SERVERS]
+        servers = [overpass_url, *fallback_urls]
         self.overpass_urls = list(dict.fromkeys(servers))  # configured one first, no duplicates
+        self.late_urls = list(late_urls)
+        self.tiles_url = tiles_url
+        self.max_span_km = max_span_km
         self.cache = DiskCache(cache_dir)
         self.offline = offline
         self.timeout_s = timeout_s
@@ -160,7 +162,7 @@ class OpenStreetMap:
             timeout=self.timeout_s, headers={"User-Agent": USER_AGENT}
         ) as client:
             tasks = [asyncio.create_task(one(client, u, 0.0)) for u in self.overpass_urls]
-            tasks += [asyncio.create_task(one(client, u, 4.0)) for u in OVERPASS_LATE]
+            tasks += [asyncio.create_task(one(client, u, 4.0)) for u in self.late_urls]
             try:
                 for fut in asyncio.as_completed(tasks, timeout=budget_s):
                     try:
@@ -179,8 +181,12 @@ class OpenStreetMap:
         self, south: float, west: float, north: float, east: float
     ) -> dict[str, Any]:
         """Buildings, open areas, paths, fences, water and entrances inside a box (lat/lon)."""
-        if north - south > MAX_SPAN_DEG or east - west > MAX_SPAN_DEG * 1.5:
-            raise OsmUnavailable("Zoom in further: the area is too large to load (max ~1 km).")
+        span = self.max_span_km / KM_PER_DEG_LAT
+        if north - south > span or east - west > span * 1.5:
+            raise OsmUnavailable(
+                "Zoom in further: the area is too large to load "
+                f"(at most {self.max_span_km:g} km across)."
+            )
         bbox = ",".join(f"{v:.5f}" for v in (south, west, north, east))
         areas = "".join(f"way{f}({bbox});relation{f}({bbox});" for f in _AREA_FILTER)
         query = (
@@ -266,7 +272,7 @@ class OpenStreetMap:
         try:
             async with httpx.AsyncClient(timeout=15.0, headers={"User-Agent": USER_AGENT}) as c:
                 if self._tile_url is None:
-                    self._tile_url = (await c.get(TILEJSON_URL)).json()["tiles"][0]
+                    self._tile_url = (await c.get(self.tiles_url)).json()["tiles"][0]
                 for x, y in tiles:
                     key = cache_key("ofm-tile", self._tile_url, x, y)
                     raw_hit = self.cache.get(key)

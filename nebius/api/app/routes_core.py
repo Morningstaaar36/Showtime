@@ -116,6 +116,11 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
         "client": {
             "read_timeout_s": st.settings.web_read_timeout_s,
             "write_timeout_s": st.settings.web_write_timeout_s,
+            "map": {
+                "style_url": st.settings.map_style_url,
+                "raster_tiles_url": st.settings.map_raster_tiles_url,
+                "start": st.settings.map_start_point,
+            },
         },
         "version": "0.1.0",
     }

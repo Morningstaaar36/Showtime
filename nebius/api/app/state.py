@@ -135,6 +135,21 @@ def build_runner(settings: Settings) -> SandboxRunner:
     return runner
 
 
+def build_osm(settings: Settings) -> OpenStreetMap:
+    """The map services, all from settings (servers, tiles, the largest area to load)."""
+    urls = lambda v: [u.strip() for u in v.split(",") if u.strip()]  # noqa: E731
+    return OpenStreetMap(
+        settings.nominatim_url,
+        settings.overpass_url,
+        settings.cache_dir / "osm",
+        offline=settings.offline,
+        fallback_urls=urls(settings.overpass_fallback_urls),
+        late_urls=urls(settings.overpass_late_urls),
+        tiles_url=settings.map_tiles_url,
+        max_span_km=settings.osm_max_span_km,
+    )
+
+
 def build_state(
     settings: Settings, llm: Any | None = None, runner: SandboxRunner | None = None
 ) -> AppState:
@@ -158,12 +173,7 @@ def build_state(
         settings.cache_dir / "weather",
         offline=settings.offline,
     )
-    osm = OpenStreetMap(
-        settings.nominatim_url,
-        settings.overpass_url,
-        settings.cache_dir / "osm",
-        offline=settings.offline,
-    )
+    osm = build_osm(settings)
     projects = ProjectService(host.registry)
     runs = RunService(settings, host.registry, runner, hooks=host.pm)
     state = AppState(

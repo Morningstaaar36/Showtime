@@ -2,6 +2,7 @@
  *  neighbouring buildings at their mapped heights. Drawn only; never part of the simulation. */
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
+import { tileUrl, useMapConfig } from "@/state/mapConfig";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Pt, Venue } from "@/api/types";
 import { centroid, pointInPolygon, shapeOf, venueBounds } from "./geom";
@@ -26,7 +27,7 @@ const y2lat = (y: number, z: number) => (Math.atan(Math.sinh(Math.PI * (1 - (2 *
 
 interface Tile { key: string; url: string; x0: number; x1: number; y0: number; y1: number }
 
-function tilesFor(site: OsmSite, venue: Venue): Tile[] {
+function tilesFor(site: OsmSite, venue: Venue, template: string): Tile[] {
   const [lat0, lon0] = site.origin;
   const [kx, ky] = site.scale;
   const [bx0, by0, bx1, by1] = venueBounds(venue);
@@ -42,7 +43,7 @@ function tilesFor(site: OsmSite, venue: Venue): Tile[] {
       for (let y = ty0; y <= ty1; y++) {
         out.push({
           key: `${z}/${x}/${y}`,
-          url: `https://tile.openstreetmap.org/${z}/${x}/${y}.png`, // OSM standard tiles (CC BY-SA)
+          url: tileUrl(template, z, x, y), // the configured raster tiles (MAP_RASTER_TILES_URL)
           x0: (x2lon(x, z) - lon0) * kx, x1: (x2lon(x + 1, z) - lon0) * kx,
           y0: (y2lat(y + 1, z) - lat0) * ky, y1: (y2lat(y, z) - lat0) * ky,
         });
@@ -111,7 +112,8 @@ function Neighbours({ site, venue, palette }: { site: OsmSite; venue: Venue; pal
 /** Ground map and neighbours for a map-imported venue; nothing for other venues. */
 export function SiteContext({ venue, palette, show }: { venue: Venue; palette: ScenePalette; show: { map: boolean; neighbours: boolean } }) {
   const site = osmSite(venue);
-  const tiles = useMemo(() => (site ? tilesFor(site, venue) : []), [site, venue]);
+  const template = useMapConfig((s) => s.config?.raster_tiles_url ?? null);
+  const tiles = useMemo(() => (site && template ? tilesFor(site, venue, template) : []), [site, venue, template]);
   if (!site) return null;
   return (
     <group>

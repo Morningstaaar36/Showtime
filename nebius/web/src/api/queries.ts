@@ -1,6 +1,7 @@
 /** TanStack Query hooks for every server resource. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, configureTimeouts } from "./client";
+import { useMapConfig } from "@/state/mapConfig";
 import type { PlanSnapshot } from "@/types/generated";
 import type { OpenCaseOut, RealCase } from "@/journey/realCases";
 import type {
@@ -54,6 +55,7 @@ export const useHealth = () =>
     queryFn: async () => {
       const h = await api.get<Health>("/health");
       configureTimeouts(h.client); // the server decides how long the app waits
+      useMapConfig.getState().set(h.client?.map); // and which maps it shows
       return h;
     },
     refetchInterval: 15000,

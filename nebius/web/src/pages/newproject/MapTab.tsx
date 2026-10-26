@@ -15,6 +15,7 @@ import { ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
 import { useEventKinds } from "@/lib/eventKinds";
 import { cn } from "@/lib/utils";
+import { useMapConfig } from "@/state/mapConfig";
 import { DraftPreview } from "./DraftPreview";
 
 /** "Include the surroundings": how far around the building (G2-06 accepts 0–200 m). */
@@ -38,9 +39,6 @@ interface Selection {
 const MAX_LEVELS = 40;
 const SELECT_CLS = "h-9 rounded-[var(--radius-control)] border border-border bg-surface px-2 text-sm";
 
-/** OpenFreeMap: free vector tiles with 3D buildings, no key (https://openfreemap.org). */
-const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
-const START: [number, number] = [90.3925, 23.7265]; // BUET, Dhaka (lon, lat)
 const SIGNAL = "#5B4FF5";
 
 const toGeo = (ring: LatLon[]) => ring.map(([la, lo]) => [lo, la]);
@@ -55,6 +53,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
   guided?: boolean;
 }) {
   const holder = useRef<HTMLDivElement>(null);
+  const mapConfig = useMapConfig((st) => st.config); // style and start point come from the server
   const map = useRef<maplibregl.Map | null>(null);
   const corner = useRef<maplibregl.LngLat | null>(null);
   const drawingRef = useRef(false);
@@ -102,13 +101,15 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
 
   useEffect(() => { drawingRef.current = drawing; if (map.current) map.current.getCanvas().style.cursor = drawing ? "crosshair" : ""; }, [drawing]);
 
-  // create the map once
+  // create the map once the server has said which map to show
   useEffect(() => {
-    if (!holder.current || map.current) return;
+    if (!holder.current || map.current || !mapConfig) return;
+    const { start } = mapConfig;
     let m: maplibregl.Map;
     try {
       m = new maplibregl.Map({
-        container: holder.current, style: STYLE_URL, center: START, zoom: 15.6, pitch: 50, bearing: -17,
+        container: holder.current, style: mapConfig.style_url, center: [start.lon, start.lat], zoom: start.zoom,
+        pitch: start.zoom >= 12 ? 50 : 0, bearing: start.zoom >= 12 ? -17 : 0, // tilted only at street level
         attributionControl: { compact: true },
       });
     } catch (e) {
@@ -151,7 +152,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
     const ro = new ResizeObserver(() => m.resize());
     ro.observe(holder.current);
     return () => { ro.disconnect(); m.remove(); map.current = null; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapConfig]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lookAt = async (lat: number, lon: number) => {
     const seq = ++lookSeq.current;
