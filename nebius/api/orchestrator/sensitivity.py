@@ -29,6 +29,7 @@ from api.core.venue_ops import PatchError
 from api.db.models import UserSetting
 from api.db.session import db_session
 from api.models import RunResult
+from api.orchestrator.archive import BreakRule
 from api.orchestrator.seeds import METRICS, PENDING, USABLE, KeyRun, SeedCheckError, spread
 from api.orchestrator.session import break_reasons
 from api.orchestrator.together import plan_key
@@ -190,9 +191,7 @@ def _item(st: Any, it: dict[str, Any], target_s: float) -> dict[str, Any]:
         out["included"] = row.status in USABLE and res.basis != "unknown"
         if out["included"]:
             s = st.settings
-            out["breaks"] = break_reasons(
-                res, s.density_danger_ppm2, s.danger_min_duration_s, target_s, s.safety_factor
-            )
+            out["breaks"] = break_reasons(res, BreakRule.of(s, target_s))
     return out
 
 

@@ -11,6 +11,7 @@ import pytest
 from api.adapters.llm import LLMError
 from api.core.extensions import IncidentRecord
 from api.core.scripts import check_script
+from api.core.settings import Settings
 from api.core.templates import get_template
 from api.models import Attack, RunMetrics, RunResult
 from api.models.failure_map import FailureMap
@@ -136,7 +137,7 @@ def test_cells_are_deterministic_from_events() -> None:
 
 
 def test_severity_reaches_one_exactly_when_the_run_breaks() -> None:
-    rule = BreakRule(danger_ppm2=5.0, min_s=5.0, target_s=120.0, safety_factor=1.5)
+    rule = BreakRule.of(Settings(_env_file=None), 120.0)
     grid = itertools.product(
         (2, 3),
         (None, 40.0, 79.0, 81.0, 200.0),
@@ -157,7 +158,7 @@ def test_severity_reaches_one_exactly_when_the_run_breaks() -> None:
             extra=extra,
         )
         score, parts = severity_score(r, rule)
-        broke = bool(break_reasons(r, 5.0, 5.0, 120.0, 1.5))
+        broke = bool(break_reasons(r, rule))
         assert (score >= 1.0) == broke, (tier, p95, danger_t, inside, peak, frac, parts)
     # density alone never counts as a break
     assert severity_score(_run(peak_density_ppm2=9.0), rule)[0] < 1.0

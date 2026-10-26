@@ -19,6 +19,7 @@ from api.core.extensions import IncidentRecord
 from api.core.plan import PlanError
 from api.core.venue_ops import PatchError
 from api.models import Attack, Fix, RunResult, Venue
+from api.orchestrator.archive import BreakRule
 from api.orchestrator.fallbacks import rule_attacks
 from api.orchestrator.rewind import live_or_interrupted, load_record, now_iso, numbers, save_record
 from api.orchestrator.session import break_reasons
@@ -189,13 +190,7 @@ def _fill(st: Any, row: dict[str, Any], venue: Venue, res: RunResult) -> None:
         basis=res.basis,
         metrics=numbers(res) if ok else {},
         error=None if ok else (res.error or res.status),
-        breaks=bool(
-            break_reasons(
-                res, s.density_danger_ppm2, s.danger_min_duration_s, target, s.safety_factor
-            )
-        )
-        if ok
-        else None,
+        breaks=bool(break_reasons(res, BreakRule.of(s, target))) if ok else None,
     )
 
 

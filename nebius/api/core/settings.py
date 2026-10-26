@@ -207,6 +207,13 @@ class Settings(BaseSettings):
     agent_time_gap: float = Field(default=0.25, gt=0.05, le=3.0)
     sim_dt_s: float = 0.05
     danger_min_duration_s: float = 5.0
+    # people still inside at the end that count as noise, not a failure: the larger of these
+    stuck_tolerance_people: int = Field(default=5, ge=0)
+    stuck_tolerance_fraction: float = Field(default=0.005, ge=0, le=1)
+    # a quick simulation stops early; it fails only if fewer than this share got out by then
+    quick_min_out_fraction: float = Field(default=0.5, ge=0, le=1)
+    # time above the warning density that marks a plan "at risk" (s)
+    at_risk_warning_s: float = Field(default=30.0, ge=0)
     # planning targets for 'everyone out' when no hazard time is known (labelled as targets)
     unit_costs: dict[str, Any] = Field(default_factory=dict)  # budget prices; example ones if empty
     target_evac_indoor_s: float = 300.0
@@ -409,6 +416,11 @@ class Settings(BaseSettings):
             "max_sim_s": self.max_sim_s,
             "density_warn_ppm2": self.density_warn_ppm2,
             "density_danger_ppm2": self.density_danger_ppm2,
+            "danger_min_duration_s": self.danger_min_duration_s,
+            "stuck_tolerance_people": self.stuck_tolerance_people,
+            "stuck_tolerance_fraction": self.stuck_tolerance_fraction,
+            "quick_min_out_fraction": self.quick_min_out_fraction,
+            "at_risk_warning_s": self.at_risk_warning_s,
             "safety_factor": self.safety_factor,
             "pre_movement_s": self.pre_movement_s,
             "max_rounds": self.max_rounds,

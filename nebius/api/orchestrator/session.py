@@ -196,37 +196,32 @@ def evac_estimate(r: RunResult) -> float | None:
     return float(v) if v is not None else None
 
 
-def break_reasons(
-    r: RunResult,
-    danger: float,
-    min_s: float,
-    target_s: float | None = None,
-    safety_factor: float = 1.5,
-) -> list[str]:
+def break_reasons(r: RunResult, rule: BreakRule) -> list[str]:
     """Why a run counts as a break (contract: docs/API_CONTRACT.md)."""
     m = r.metrics
     out: list[str] = []
     if r.status in ("failed", "timeout"):
         return []
     rset = evac_estimate(r)
-    if target_s and rset is not None and rset * safety_factor > target_s:
+    if rule.target_s and rset is not None and rset * rule.safety_factor > rule.target_s:
         out.append(
-            f"evacuation time {rset:.0f} s × safety factor {safety_factor:g} exceeds the "
-            f"{target_s / 60:.0f} min target"
+            f"evacuation time {rset:.0f} s × safety factor {rule.safety_factor:g} exceeds the "
+            f"{rule.target_s / 60:.0f} min target"
         )
-    if m.time_above_danger_s >= min_s:
+    if m.time_above_danger_s >= rule.min_s:
         out.append(
-            f"density at or above {danger:g} people per m² for {m.time_above_danger_s:.0f} s"
+            f"density at or above {rule.danger_ppm2:g} people per m² for "
+            f"{m.time_above_danger_s:.0f} s"
         )
     trapped = int(m.extra.get("trapped", 0))
     if trapped:
         out.append(f"{trapped} people trapped with no open exit")
-    tol = max(5, round(m.agents_total * 0.005))
+    tol = rule.stuck_tolerance(m.agents_total)
     if m.agents_not_evacuated > tol and r.tier != 2:
         out.append(f"{m.agents_not_evacuated} people still inside at the end")
     if r.tier == 2 and m.agents_not_evacuated > tol and m.evac_time_p95_s is None:
         frac = m.extra.get("evacuated_fraction")
-        if frac is not None and frac < 0.5:
+        if frac is not None and frac < rule.quick_min_out:
             out.append(f"only {frac * 100:.0f}% out after {r.sim_time_s:.0f} s")
     return out
 
@@ -751,9 +746,7 @@ class SessionManager:
             incidents = [*(await self._web_evidence(live, working, baseline)), *dataset]
             seen: set[str] = set()
             archive = Archive(venue)
-            rule = BreakRule(
-                s.density_danger_ppm2, s.danger_min_duration_s, self._target(venue), s.safety_factor
-            )
+            rule = BreakRule.of(s, self._target(venue))
             self._archive_event(live, archive, 0, None)
             n_menu = int(cfg["attacks_per_round"])
             menu_kinds = set(KIND_IDS) - {"adaptive"}
@@ -916,13 +909,7 @@ class SessionManager:
                     for i, (_, a) in enumerate(ranked):
                         r = await screened.get(i)
                         results[r.run_id] = r
-                        reasons = break_reasons(
-                            r,
-                            s.density_danger_ppm2,
-                            s.danger_min_duration_s,
-                            self._target(working),
-                            s.safety_factor,
-                        )
+                        reasons = break_reasons(r, BreakRule.of(s, self._target(working)))
                         self._node_done(live, f"atk:{a.attack_id}", r, reasons)
                         if r.status not in ("failed", "timeout", "cancelled"):
                             score, parts = severity_score(r, rule)
@@ -996,13 +983,7 @@ class SessionManager:
                             live,
                             current,
                             r,
-                            break_reasons(
-                                r,
-                                s.density_danger_ppm2,
-                                s.danger_min_duration_s,
-                                self._target(working),
-                                s.safety_factor,
-                            ),
+                            break_reasons(r, BreakRule.of(s, self._target(working))),
                         )
                         sev = severity(r)
                     self._status(live, "blue_team", rnd, f"Blue team is fixing “{a.title}”")
@@ -1078,13 +1059,7 @@ class SessionManager:
                             fr = await tried.get(k)
                             results[fr.run_id] = fr
                             gain = (sev - severity(fr)) / sev if sev > 0 else 0.0
-                            fr_reasons = break_reasons(
-                                fr,
-                                s.density_danger_ppm2,
-                                s.danger_min_duration_s,
-                                self._target(working),
-                                s.safety_factor,
-                            )
+                            fr_reasons = break_reasons(fr, BreakRule.of(s, self._target(working)))
                             # kept when it removes the break, or improves the result by
                             # FIX_MIN_GAIN, and never when it makes the plan worse without the
                             # attack. Both sides must be simulations (or both previews): an
@@ -1662,13 +1637,7 @@ class SessionManager:
                     live,
                     "final:before",
                     before,
-                    break_reasons(
-                        before,
-                        s.density_danger_ppm2,
-                        s.danger_min_duration_s,
-                        self._target(venue),
-                        s.safety_factor,
-                    ),
+                    break_reasons(before, BreakRule.of(s, self._target(venue))),
                 )
                 confirm_after = after = await self._sim(
                     live,
@@ -1689,13 +1658,7 @@ class SessionManager:
                     live,
                     "final:after",
                     after,
-                    break_reasons(
-                        after,
-                        s.density_danger_ppm2,
-                        s.danger_min_duration_s,
-                        self._target(working),
-                        s.safety_factor,
-                    ),
+                    break_reasons(after, BreakRule.of(s, self._target(working))),
                 )
         except Exception as exc:
             confirm_error = str(exc) or type(exc).__name__
@@ -1823,15 +1786,7 @@ class SessionManager:
                     "evacuation_time_95_s": round(est) if est is not None else None,
                     "peak_density_people_per_m2": r.metrics.peak_density_ppm2,
                     "seconds_above_danger_density": r.metrics.time_above_danger_s,
-                    "breaks_plan": bool(
-                        break_reasons(
-                            r,
-                            s.density_danger_ppm2,
-                            s.danger_min_duration_s,
-                            target,
-                            s.safety_factor,
-                        )
-                    ),
+                    "breaks_plan": bool(break_reasons(r, BreakRule.of(s, target))),
                 }
             )
         return fact

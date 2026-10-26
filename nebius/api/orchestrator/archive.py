@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from api.core.extensions import geometry as geo
+from api.core.settings import Settings
 from api.models import Attack, RunResult, Venue
 
 # --- descriptor axis 1: hazard kind -------------------------------------------------------
@@ -191,12 +192,32 @@ def regions(venue: Venue) -> list[Region]:
 
 @dataclass(frozen=True)
 class BreakRule:
-    """The thresholds of `break_reasons` (session.py); the score mirrors them exactly."""
+    """The thresholds of `break_reasons` (session.py); the score mirrors them exactly. Built
+    from the settings with `of`, so the server, the score and the web verdict agree."""
 
     danger_ppm2: float
     min_s: float
     target_s: float | None
-    safety_factor: float = 1.5
+    safety_factor: float
+    stuck_people: int
+    stuck_fraction: float
+    quick_min_out: float
+
+    @classmethod
+    def of(cls, s: Settings, target_s: float | None) -> BreakRule:
+        return cls(
+            s.density_danger_ppm2,
+            s.danger_min_duration_s,
+            target_s,
+            s.safety_factor,
+            s.stuck_tolerance_people,
+            s.stuck_tolerance_fraction,
+            s.quick_min_out_fraction,
+        )
+
+    def stuck_tolerance(self, total: int) -> int:
+        """People still inside at the end that are noise, not a failure."""
+        return max(self.stuck_people, round(total * self.stuck_fraction))
 
 
 SEVERITY_CAP = 3.0  # one extreme metric must not swamp the QD-score
@@ -208,8 +229,8 @@ SEVERITY_FORMULA = (
     "severity = the largest of: RSET × safety factor / target; time above danger (1 at the "
     "minimum danger time, 2 at the evacuation target); people still inside (1 just past the "
     "tolerance, 2 at 10 % of the crowd); trapped people (1 for one, 2 at 10 %); for partial "
-    "runs, share not out / 0.5; and 0.9 × peak density / danger density (at most 0.9). Each "
-    "part is capped at 3. Severity ≥ 1 means the run breaks the plan"
+    "runs, share not out / share allowed not out; and 0.9 × peak density / danger density (at "
+    "most 0.9). Each part is capped at 3. Severity ≥ 1 means the run breaks the plan"
 )
 
 
@@ -245,7 +266,7 @@ def severity_score(r: RunResult, rule: BreakRule) -> tuple[float, dict[str, floa
     trapped = int(m.extra.get("trapped", 0))
     if trapped:
         parts["trapped"] = 1.0 + (trapped - 1) / max(TRAPPED_SCALE * people - 1, 1)
-    tol = max(5, round(m.agents_total * 0.005))
+    tol = rule.stuck_tolerance(m.agents_total)
     if r.tier != 2:
         parts["people_inside"] = _graded(
             m.agents_not_evacuated, tol + 1, max(INSIDE_SCALE * people, tol + 2)
@@ -253,7 +274,7 @@ def severity_score(r: RunResult, rule: BreakRule) -> tuple[float, dict[str, floa
     elif m.agents_not_evacuated > tol and m.evac_time_p95_s is None:
         frac = m.extra.get("evacuated_fraction")
         if frac is not None:
-            parts["partial"] = (1.0 - float(frac)) / 0.5
+            parts["partial"] = (1.0 - float(frac)) / max(1.0 - rule.quick_min_out, 1e-9)
     if rule.danger_ppm2 > 0:
         parts["density"] = SOFT_DENSITY * min(1.0, m.peak_density_ppm2 / rule.danger_ppm2)
     parts = {k: round(min(SEVERITY_CAP, max(0.0, v)), 3) for k, v in parts.items()}

@@ -23,6 +23,7 @@ from api.core.extensions import IncidentRecord, Registry
 from api.core.settings import Settings
 from api.core.templates import get_template
 from api.models import Attack, Venue
+from api.orchestrator.archive import BreakRule
 from api.orchestrator.reports import build_bundle
 from api.orchestrator.session import SessionManager, break_reasons
 from api.tests.conformance.suites import check_exporter
@@ -222,6 +223,9 @@ async def test_judge_number_check_falls_back_to_template() -> None:
     assert checked and "162" in text and recs
 
 
+RULE = BreakRule.of(Settings(_env_file=None), 300)
+
+
 def test_break_reasons() -> None:
     from api.models import RunMetrics, RunResult
 
@@ -231,13 +235,42 @@ def test_break_reasons() -> None:
         status="ok",
         metrics=RunMetrics(evac_time_p95_s=100, peak_density_ppm2=4, agents_total=100),
     )
-    assert break_reasons(ok, 5, 5, 300, 1.5) == []
+    assert break_reasons(ok, RULE) == []
     slow = ok.model_copy(update={"metrics": ok.metrics.model_copy(update={"evac_time_p95_s": 250})})
-    assert any("target" in r for r in break_reasons(slow, 5, 5, 300, 1.5))
+    assert any("target" in r for r in break_reasons(slow, RULE))
     dense = ok.model_copy(
         update={"metrics": ok.metrics.model_copy(update={"time_above_danger_s": 30})}
     )
-    assert any("density" in r for r in break_reasons(dense, 5, 5, 300, 1.5))
+    assert any("density" in r for r in break_reasons(dense, RULE))
+
+
+def test_break_rules_come_from_the_settings() -> None:
+    """The tolerance for people still inside and the quick-run share are settings, not code."""
+    from api.models import RunMetrics, RunResult
+
+    left = RunResult(
+        run_id="r",
+        tier=3,
+        status="ok",
+        metrics=RunMetrics(evac_time_p95_s=100, agents_total=100, agents_not_evacuated=3),
+    )
+    assert break_reasons(left, RULE) == []  # 3 is within the default tolerance of 5
+    strict = BreakRule.of(Settings(_env_file=None, stuck_tolerance_people=0), 300)
+    assert any("still inside" in r for r in break_reasons(left, strict))
+    quick = left.model_copy(
+        update={
+            "tier": 2,
+            "metrics": RunMetrics(
+                agents_total=100, agents_not_evacuated=40, extra={"evacuated_fraction": 0.6}
+            ),
+        }
+    )
+    assert break_reasons(quick, RULE) == []  # 60% out beats the default 50%
+    demanding = BreakRule.of(Settings(_env_file=None, quick_min_out_fraction=0.8), 300)
+    assert any("out after" in r for r in break_reasons(quick, demanding))
+    public = Settings(_env_file=None).public_dict()
+    for key in ("danger_min_duration_s", "stuck_tolerance_people", "at_risk_warning_s"):
+        assert key in public  # the web verdict reads the same rules
 
 
 # --- full sessions with fakes ----------------------------------------------------------------
