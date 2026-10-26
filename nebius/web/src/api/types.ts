@@ -304,6 +304,8 @@ export interface SessionSummary {
   judge_text?: string;
   recommendations?: string[];
   numbers_checked?: boolean;
+  /** agents whose part built-in rules played because the model didn't answer: agent -> why */
+  stood_in?: Record<string, string>;
   countdown?: Countdown | null;
   stopped_reason?: string;
   /** what the results show (absent in sessions saved before evaluations existed) */

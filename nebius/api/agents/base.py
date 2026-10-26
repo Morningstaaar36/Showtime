@@ -88,6 +88,8 @@ class AgentEnv:
     on_usage: Callable[[Usage], None] | None = None
     # None: follow the LLM settings (LLM_ESCALATE, on by default)
     escalate: bool | None = None
+    # agents whose part the rules played because the model didn't answer, with why (for the plan)
+    stood_in: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

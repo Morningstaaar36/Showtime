@@ -443,7 +443,7 @@ export function YourPlanPage() {
             <Overview level={verdictRun ? verdict.level : "unknown"} headline={verdictRun ? verdict.headline : t("yourplan.no_result")}
                       evaluation={subsetRun ? subsetRecord?.together?.evaluation : summary?.evaluation}
                       worst={worst ? human(worst.title) : null} fixes={hasAfter ? (state === "accepted_subset" ? record?.fix_ids.length ?? kept.length : kept.length) : 0}
-                      reasons={verdict.reasons} run={verdictRun}
+                      reasons={verdict.reasons} run={verdictRun} stoodIn={summary?.stood_in}
                       sandboxes={{ runs: sandboxRows(view).rows.length, scripts: scriptOutcomes(view, summary?.attacks ?? []).length, onOpen: () => go("sandboxes") }}
                       score={{ attacks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.attacks, 0) || (summary?.attacks?.length ?? 0),
                                breaks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.breaks, 0), fixes: kept.length }} basis={basis} countdown={cd} countdownBasis={cdBasis} th={th}

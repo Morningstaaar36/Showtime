@@ -26,6 +26,21 @@ from api.models import Attack, Countdown, Fix, RunResult, Venue
 log = logging.getLogger("showtime.reports")
 
 
+# what the built-in rules wrote when the model didn't answer (as on the plan page)
+_STOOD_IN = {"red_team": "the attacks", "blue_team": "the fixes", "judge": "the summary"}
+
+
+def stood_in_text(stood_in: dict[str, str]) -> str:
+    """'The AI didn't answer, so built-in rules wrote ...', or '' when the AI answered."""
+    parts = [w for a, w in _STOOD_IN.items() if stood_in.get(a)]
+    if not parts:
+        return ""
+    what = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return (
+        f"The AI didn't answer, so built-in rules wrote {what}. Every scenario was still simulated."
+    )
+
+
 def _result(row: Run | None) -> RunResult | None:
     if row is None or not row.result:
         return None
@@ -200,6 +215,8 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
         ]
     )
     summary_text = human(summary.get("judge_text") or _stress_summary(baseline))
+    if stood := stood_in_text(summary.get("stood_in") or {}):
+        summary_text = f"{summary_text} {stood}"
     return ReportBundle(
         project_name=p.name,
         venue=venue,

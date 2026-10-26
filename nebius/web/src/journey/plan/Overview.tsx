@@ -12,6 +12,7 @@ import { type Evaluation, evaluationLabel, evaluationReason } from "@/lib/eviden
 import { fmtDuration, fmtHM, fmtInt, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Thresholds, VerdictLevel } from "@/panels/verdict";
+import { stoodInLine } from "./stoodIn";
 import { evacValue } from "./fixes";
 import { DeltaChip, DensityScale, LEVEL_TONE, Sparkline, TargetBar, VerdictRing } from "./visuals";
 
@@ -57,6 +58,8 @@ export interface OverviewProps {
   realCase?: React.ReactNode;
   /** how many sandbox runs and AI-written scripts the test had, and how to open them */
   sandboxes?: { runs: number; scripts: number; onOpen: () => void };
+  /** agents whose part built-in rules played because the model didn't answer (agent -> why) */
+  stoodIn?: Record<string, string>;
 }
 
 function Tile({ icon, tone, label, value, unit, visual, foot, testId }: {
@@ -153,6 +156,7 @@ export function Overview(p: OverviewProps) {
   const hasCompare = !!b && !!a && p.fixes > 0;
   const hasSummary = !!p.summary.judge || p.summary.reasons.length > 0 || p.summary.recommendations.length > 0;
 
+  const stood = stoodInLine(p.stoodIn);
   return (
     <div className="space-y-4">
       {p.realCase}
@@ -190,6 +194,11 @@ export function Overview(p: OverviewProps) {
             {p.reasons.map((r) => (
               <li key={r} className="flex items-start gap-2 font-medium text-[color-mix(in_srgb,var(--danger)_80%,black)] dark:text-danger"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{r}</li>
             ))}
+            {stood && (
+              <li className="flex items-start gap-2 text-caution-strong" data-testid="stood-in" title={stood.why}>
+                <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{stood.text}
+              </li>
+            )}
           </ul>
           <dl className="mt-auto grid grid-cols-3 gap-2 text-center">
             {([["attacks", p.score.attacks, "text-ink"], ["breaks", p.score.breaks, p.score.breaks ? "text-danger" : "text-ink"], ["fixes", p.score.fixes, "text-signal"]] as const).map(([k, v, c]) => (

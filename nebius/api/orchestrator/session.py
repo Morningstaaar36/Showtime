@@ -864,9 +864,14 @@ class SessionManager:
                             "log",
                             {
                                 "level": "info",
-                                "message": f"“{a.title}” is an AI-written scenario; the instant "
-                                "estimate cannot run its code, so it goes straight to a quick "
-                                "simulation.",
+                                "message": f"“{a.title}” is a scenario written as code ("
+                                + (
+                                    "built-in example"
+                                    if a.extensions.get("generated_by") == "rules"
+                                    else "by the AI"
+                                )
+                                + "); the instant estimate cannot run its code, so it goes "
+                                "straight to a quick simulation.",
                             },
                         )
                         continue
@@ -1373,6 +1378,7 @@ class SessionManager:
                     },
                 )
             if mode == "model":  # the AI designs the attacks; the rules stand in only now
+                env.stood_in.setdefault("red_team", str(exc))
                 return self._rule_fill(venue, baseline, incidents, n, seen, offset, archive, aim)
             out = []
         if mode == "model":
@@ -1494,6 +1500,7 @@ class SessionManager:
                             "message": f"Blue team model unavailable ({exc}); using standard fixes",
                         },
                     )
+                env.stood_in.setdefault("blue_team", str(exc))
                 return rule_fixes(self.st.registry, venue, attack, result, n, prefix + "R")
             out = []
         if mode == "model":
@@ -1746,7 +1753,8 @@ class SessionManager:
                 text, recs, checked = await judge(
                     env, facts_for_judge, template, computed_summary=True
                 )
-            except (AgentUnavailable, BudgetExceeded, LLMError):
+            except (AgentUnavailable, BudgetExceeded, LLMError) as exc:
+                env.stood_in.setdefault("judge", str(exc))
                 text, recs, checked = template, [], False
         summary = {
             "baseline_run_id": baseline.run_id if baseline else None,
@@ -1761,6 +1769,7 @@ class SessionManager:
             "judge_text": text,
             "recommendations": recs,
             "numbers_checked": checked,
+            "stood_in": dict(env.stood_in),
             "countdown": countdown.model_dump() if countdown else None,
             "stopped_reason": reason,
             "final_venue": working.model_dump(mode="json"),
