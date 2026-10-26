@@ -108,6 +108,7 @@ def test_sandbox_selection(tmp_path: Path, name: str, kind: type) -> None:
         _env_file=None,
         sandbox_provider=name,
         nebius_api_key="nb-key",
+        nebius_project_id="project-e00x",  # Nebius Sandboxes need it too (docs: Set up access)
         runs_dir=tmp_path,
         cache_dir=tmp_path,
     )

@@ -1,7 +1,11 @@
 """Nebius Sandboxes runner (SANDBOX_PROVIDER=nebius), built on contree-sdk 0.3.6.
 
-Verified against the installed SDK (docs/NEBIUS_SWITCH.md):
-- `Contree(base_url=..., token=...)`; `await client.images.oci("python:3.12-slim")`
+Verified against the installed SDK and the Sandboxes docs (docs/NEBIUS_SWITCH.md):
+- `Contree(ContreeConfig(auth=IAMAuth(token, project_id, base_url)))`: the key and the project
+  ID (`Project` header) from settings, never read from the process environment by the SDK
+- outbound network is on by default; every run is started with `networking.enabled = false`
+  (the REST spawn field; SDK 0.3.6 has no argument for it, see `network_off`)
+- `await client.images.oci("python:3.12-slim")`
 - `image.run(shell=..., files={dest: bytes}, disposable=False, timeout=...)` returns a new
   child image (a snapshot we can branch from); awaiting it executes the command
 - `await image.read(path)` reads a file from an image; `image.stdout`, `image.exit_code`
@@ -20,11 +24,13 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import json
 import logging
 import shlex
 import shutil
 import time
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -74,12 +80,38 @@ def _sim_files(sim_dir: Path) -> dict[str, bytes]:
     return out
 
 
+SPAWN_PATH = "/v1/instances"
+
+
+def network_off(api: Any) -> bool:
+    """Start every sandbox without a network: add the documented `{"networking": {"enabled":
+    false}}` to each spawn request (POST /v1/instances). contree-sdk 0.3.6 builds requests in
+    `_build_request` and has no argument for it. Returns False when that seam is missing (a
+    changed SDK), so the runner never claims a network-off sandbox it can't guarantee."""
+    build = getattr(api, "_build_request", None)
+    # `_client` is a per-event-loop property in the SDK: look it up without calling it here
+    if build is None or inspect.getattr_static(api, "_client", None) is None:
+        return False
+
+    def with_network_off(endpoint_info: Any, data: dict[str, Any]) -> Any:
+        req = build(endpoint_info, data)
+        if req.method == "POST" and req.url.path.rstrip("/").endswith(SPAWN_PATH):
+            body = json.loads(req.content or b"{}")
+            body["networking"] = {"enabled": False}
+            req = api._client.build_request("POST", req.url, json=body)
+        return req
+
+    api._build_request = with_network_off
+    return True
+
+
 class NebiusRunner:
     """Sandbox provider for Nebius Sandboxes (async contree-sdk client)."""
 
     provider = "nebius"
-    # a Nebius sandbox cannot be given a per-job network or memory limit the way a local
-    # container can: the static check and the in-sandbox budgets are the protection there
+    # memory, CPU and process limits can't be set per run on Nebius (the static check and the
+    # in-sandbox budgets protect there); the network is switched off per run once the client
+    # is built (see `network_off`), and until then this claims nothing about it
     isolation = Isolation("cloud", None, None, None, False, None, False, False)
 
     def __init__(self, settings: Settings, client: Any | None = None) -> None:
@@ -94,14 +126,26 @@ class NebiusRunner:
         self._nodes: dict[str, Any] = {}  # run_id -> image snapshot (for children)
         self.sim_dir = settings.root_dir / "sim"
         self.cache_file = settings.cache_dir / "nebius" / "base_image.json"
+        if client is None and settings.nebius_api_key and settings.nebius_project_id:
+            self._get_client()  # offline; switches the network off so the badge can say so
 
     def _get_client(self) -> Any:
         if self._client is None:
             from contree_sdk import Contree
+            from contree_sdk.auth import IAMAuth
+            from contree_sdk.config import ContreeConfig
 
-            self._client = Contree(
-                base_url=self.settings.nebius_sandbox_base_url, token=self.settings.nebius_api_key
+            s = self.settings
+            auth = IAMAuth(
+                token=s.nebius_api_key,
+                project_id=s.nebius_project_id,
+                base_url=s.nebius_sandbox_base_url,
             )
+            self._client = Contree(ContreeConfig(auth=auth))
+            if network_off(getattr(self._client, "_api", None)):
+                self.isolation = replace(self.isolation, network_off=True)
+            else:
+                log.warning("contree-sdk changed: sandboxes may start with a network")
         return self._client
 
     async def health(self) -> dict[str, Any]:

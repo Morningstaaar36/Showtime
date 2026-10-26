@@ -7,12 +7,20 @@ changes. Each provider is one module in `api/adapters/providers/` (docs/ADDING_A
 
 ## 1. Token Factory (Nemotron in the cloud)
 
-Three steps:
+Only `.env` changes:
+
+```dotenv
+LLM_PROVIDER=nebius
+NEBIUS_API_KEY=...
+```
+
+Leftover values are replaced automatically. Model ids, prices and request extras that are empty
+(no `MODEL_FAST`), or that still hold another provider's preset values (for example OpenRouter's
+`:free` ids from `make use-openrouter`), take the Nebius preset below. Ids you chose yourself are
+kept (`api/core/settings.py`, `_take_provider_preset`; tests in `api/tests/test_env_only_switch.py`).
+`make use-nebius` writes the same values into `.env`, if you want to see them there.
 
 ```bash
-make use-nebius          # sets the provider, model ids, prices and the reasoning switch in .env
-                         # (keeps your keys; the old file is saved as .env.bak)
-# then put your key in .env:  NEBIUS_API_KEY=...
 make verify-nebius-llm   # one authenticated request and one tiny chat (PASS / FAIL / SKIPPED)
 make smoke-nebius        # every model role: a plain and a JSON reply, with time, tokens and cost
 make up                  # restart the app (or: make dev-down && make dev)
@@ -21,8 +29,10 @@ make up                  # restart the app (or: make dev-down && make dev)
 `make use-openrouter` and `make use-local` switch back the same way (`make use-list` lists the
 presets the providers declare).
 
-What `make use-nebius` writes (ids and prices from the
-[model catalog](https://tokenfactory.nebius.com/model-catalog.md), checked 2026-10-14):
+The Nebius preset. The ids and prices are from the
+[model catalog](https://tokenfactory.nebius.com/model-catalog.md), and the ids were checked
+against the public model info (`https://tokenfactory.nebius.com/api/public/models_info`) on
+2026-10-26:
 
 | Role | Used for | Model id | USD per 1M in / out |
 | --- | --- | --- | --- |
@@ -52,16 +62,22 @@ more room. `make smoke-nebius` prints what it had to leave out.
 
 ```dotenv
 SANDBOX_PROVIDER=nebius
+NEBIUS_API_KEY=...                     # the same Token Factory key
+NEBIUS_PROJECT_ID=...                  # Token Factory › Project settings (sent as the Project header)
 NEBIUS_SANDBOX_BASE_URL=https://api.tokenfactory.nebius.com/sandboxes
-SANDBOX_MAX_PARALLEL=4                 # branches simulated in parallel
+SANDBOX_MAX_PARALLEL=4                 # branches simulated in parallel (Beta limit: 50 at once)
 ```
+
+The Sandboxes docs ("Set up access") require the project ID alongside the key. Without it, the
+app says what to set and runs on Docker.
 
 `api/adapters/nebius_sandbox.py` (`NebiusRunner`) uses **contree-sdk 0.3.6**. Verified against
 the installed SDK source (not against the live service):
 
 | Step | SDK call (verified in source) |
 | --- | --- |
-| Client | `Contree(base_url=..., token=NEBIUS_API_KEY)` |
+| Client | `Contree(ContreeConfig(auth=IAMAuth(token=NEBIUS_API_KEY, project_id=NEBIUS_PROJECT_ID, base_url=...)))`, with values from settings, so no exported environment is needed |
+| No network | every spawn (`POST /v1/instances`) carries `{"networking": {"enabled": false}}` (`network_off`) |
 | Base image | `await client.images.oci("python:3.12-slim")` |
 | Install deps | `await image.run(shell="pip install ...", files={...}, disposable=False)` → child image |
 | Add sim code | `await image.apply_files(files={"/app/...": bytes})` |
@@ -74,14 +90,21 @@ simulation), every analysis script the AI or a user writes (`run_code` jobs), an
 branches. Each run works in its own folder `/work/<run_id>/`, so a branch never sees its parent's
 results; a rewind branch is a snapshot child of the checkpoint run and starts from its
 `checkpoint.json`. Attacks and fixes of a round run in parallel up to `SANDBOX_MAX_PARALLEL`.
-**Protection on Nebius is different.** The SDK cannot set a per-job network or memory limit (local
-Docker sets both for every container), so on Nebius the protection is:
+**Protection on Nebius is different.**
+- **Network:** outbound network is on by default in Nebius Sandboxes (Sandboxes docs: "Configure
+  networking and secrets"). The REST spawn request turns it off with `networking.enabled`.
+  contree-sdk 0.3.6 has no argument for it, so the runner adds the field to every spawn request
+  (`network_off` in `api/adapters/nebius_sandbox.py`). If a future SDK removes that seam, the
+  runner logs a warning and reports the network as not guaranteed. `make verify-nebius-sandbox`
+  proves it live with a network call that must fail.
+- **Memory and CPU:** these can't be set per run there. The protection instead is:
 - the static check before a script runs;
 - the same check run again inside the sandbox;
 - the in-sandbox budgets (`SCRIPT_*`, `SANDBOX_MEMORY_SHARE`; see `docs/SANDBOX_PROOF.md`).
 
 The runner reports this itself: `GET /api/v1/health` → `providers.sandbox.isolation` says
-`per_job_limits: false` and `network_off: null`, and the sandbox badge says so on screen. How many
+`per_job_limits: false`, and `network_off: true` once the client is built with the network
+switch. The sandbox badge says so on screen. How many
 runs it takes at once (`SANDBOX_MAX_PARALLEL`) is the runner's `parallel` capacity, which decides
 the sweep tier and the default seed count; no code checks the provider's name.
 

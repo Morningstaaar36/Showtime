@@ -31,8 +31,15 @@ Cloud (requirement R1).
        `api/adapters/providers/llm_nebius.py`.
      - A warning in `/api/v1/health` (`model_warnings`) also names any id the provider does not
        serve.
-4. Run `make use-nebius`. It writes the provider, model ids, prices and request extras, keeps your
-   keys, and backs up `.env` to `.env.bak`.
+4. In `.env`, set `LLM_PROVIDER=nebius`. That is the whole switch:
+   - Model ids, prices and request extras that are empty, or still hold another provider's
+     preset values (for example OpenRouter's `:free` ids), take the Nebius preset on their own.
+   - Ids you chose yourself are kept.
+   - The preset ids are the ones in Nebius's public model info:
+     `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`, `nvidia/Nemotron-3_5-Lightning`,
+     `nvidia/nemotron-3-super-120b-a12b` and `nvidia/Nemotron-3-Ultra-550b-a55b`.
+   - If you'd rather see the values in `.env`, `make use-nebius` writes them (it keeps your keys
+     and backs up `.env` to `.env.bak`).
 5. Run `make up` (restart), then `make smoke-nebius` (every model role, plain and JSON, with time,
    tokens and cost).
 6. Run one real test in the app: open "Sandbox demo: school wing", then "Test this plan" (Standard).
@@ -47,7 +54,10 @@ Cloud (requirement R1).
 
 ## 2. Nebius Sandboxes
 
-1. Request Sandboxes access, and use the same `NEBIUS_API_KEY`.
+1. Request Sandboxes access (the Sandboxes page on tokenfactory.nebius.com). It uses the same
+   `NEBIUS_API_KEY`, plus the project that has the access: in `.env`, set `NEBIUS_PROJECT_ID`
+   (Token Factory › Project settings, under the project name). The SDK sends it as the
+   `Project` header.
 2. Run `make verify-nebius-sandbox`. It checks the token, runs one tiny code job (it must answer
    `{"sum": 2}`), and runs one network call that must be stopped.
    - **A pass looks like:** `| sandbox | Nebius Sandboxes | PASS | ran a script in ... s; a network call was stopped: ... |`.
@@ -57,9 +67,12 @@ Cloud (requirement R1).
        `SANDBOX_PROVIDER=docker` and report it in FEEDBACK.md.
 3. In `.env`, set `SANDBOX_PROVIDER=nebius` and `SANDBOX_MAX_PARALLEL=4`, then `make up`. The
    sandbox badge should read NEBIUS, with no fallback note.
-4. Remember that per-job network and memory limits can't be set on Nebius (docs/SANDBOX_PROOF.md):
-   there the static check and the in-sandbox budgets protect. `make sandbox-proof` attacks the
-   local Docker runner only.
+4. Nebius sandboxes have outbound network **on** by default. Showtime starts every run with it
+   off (`networking.enabled = false` in the spawn request), and step 2's network call proves
+   it.
+   - Memory and CPU can't be set per run there; the static check and the in-sandbox budgets
+     protect instead.
+   - `make sandbox-proof` attacks the local Docker runner only.
 
 **Then update:**
 - FEEDBACK.md, Sandboxes section.

@@ -1,4 +1,6 @@
-"""Sandbox: Nebius Sandboxes (contree-sdk), snapshot branches. Not run live yet (no access)."""
+"""Sandbox: Nebius Sandboxes (contree-sdk), snapshot branches. Not run live yet (no access).
+
+Needs the Token Factory key and the project ID (docs: Sandboxes › Set up access)."""
 
 from __future__ import annotations
 
@@ -22,6 +24,11 @@ SANDBOX.register(
         title="Nebius Sandboxes",
         requirements=(
             Requirement("NEBIUS_API_KEY", "nebius_api_key", "your Nebius API key", True),
+            Requirement(
+                "NEBIUS_PROJECT_ID",
+                "nebius_project_id",
+                "the Token Factory project ID (Project settings, under the project name)",
+            ),
             Requirement("NEBIUS_SANDBOX_BASE_URL", "nebius_sandbox_base_url", "the Sandboxes URL"),
         ),
         check_live=sandbox_check,

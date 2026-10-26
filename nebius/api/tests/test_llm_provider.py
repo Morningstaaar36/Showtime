@@ -398,12 +398,11 @@ async def test_a_pause_expires(tmp_path: Path) -> None:
     assert reply.usage.provider == "openai"
 
 
-@pytest.mark.parametrize("provider", ["openai", "nebius"])
-def test_an_empty_model_id_fails_at_startup_naming_the_variable(
-    tmp_path: Path, provider: str
-) -> None:
+def test_an_empty_model_id_fails_at_startup_naming_the_variable(tmp_path: Path) -> None:
+    # an OpenAI-compatible API other than the preset's (OpenRouter) has no model ids to offer;
+    # Nebius does, so an empty MODEL_FAST there takes its preset (test_env_only_switch.py)
     with pytest.raises(ValueError, match="MODEL_FAST"):
-        _settings(tmp_path, llm_provider=provider, model_fast="  ")
+        _settings(tmp_path, llm_provider="openai", model_fast="  ")
 
 
 def test_an_empty_local_model_id_fails_at_startup(tmp_path: Path) -> None:

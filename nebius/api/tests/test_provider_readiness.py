@@ -26,7 +26,8 @@ def test_an_unconfigured_sandbox_falls_back_and_says_why(tmp_path: Path) -> None
     runner = build_runner(s)
     assert runner.provider == "docker"
     assert runner.fallback_reason == (
-        "Nebius Sandboxes is not configured: set NEBIUS_API_KEY in .env. Using Local Docker."
+        "Nebius Sandboxes is not configured: set NEBIUS_API_KEY and NEBIUS_PROJECT_ID in .env. "
+        "Using Local Docker."
     )
 
 

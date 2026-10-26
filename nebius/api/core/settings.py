@@ -109,6 +109,9 @@ class Settings(BaseSettings):
 
     # --- Nebius Sandboxes ---
     nebius_sandbox_base_url: str = "https://api.tokenfactory.nebius.com/sandboxes"
+    # the Token Factory project that runs the sandboxes (Project settings, under the project
+    # name); sent with every request alongside NEBIUS_API_KEY
+    nebius_project_id: str = ""
     sandbox_max_parallel: int = Field(default=1, ge=1, le=16)
     # extra random crowds the seed check runs when the organizer doesn't choose: fewer when the
     # sandbox runs one at a time, more when it runs several at once (at most seeds_extra_max)
@@ -237,6 +240,7 @@ class Settings(BaseSettings):
         """An empty model id would only show up as a provider error on the first call."""
         from api.adapters.providers import llm_provider
 
+        self._take_provider_preset()
         if self.cloud_llm and not self.model_fast.strip():
             raise ValueError(
                 f"MODEL_FAST is empty: set it in .env to a model id the provider serves "
@@ -308,6 +312,39 @@ class Settings(BaseSettings):
         from api.adapters.providers import llm_provider
 
         return llm_provider(self.llm_provider).label(self)
+
+    def _take_provider_preset(self) -> None:
+        """Switching LLM_PROVIDER needs no other edit: a model id, price or request extra that
+        still holds another provider's preset value (a leftover from `make use-*`) takes the
+        active provider's preset value, and with no MODEL_FAST at all every empty one does. A
+        value of your own is kept, and with MODEL_FAST set an empty role still falls back to it."""
+        from pydantic import TypeAdapter
+
+        from api.adapters.providers import LLM, llm_provider
+
+        spec = llm_provider(self.llm_provider)
+        if not spec.is_cloud or not spec.presets:
+            return
+        own = next(iter(spec.presets.values()))
+        # a preset for one service on a generic API (OpenRouter on "openai") applies only there
+        if any(
+            k.endswith("BASE_URL") and str(getattr(self, k.lower(), v)) != v for k, v in own.items()
+        ):
+            return
+        others = [p for o in LLM.all() if o.name != spec.name for p in o.presets.values()]
+        fields = type(self).model_fields
+        unset = not self.model_fast.strip() or any(
+            p.get("MODEL_FAST") == self.model_fast for p in others if p.get("MODEL_FAST")
+        )
+        for key in {k for p in [own, *others] for k in p} - {"LLM_PROVIDER"}:
+            name = key.lower()
+            if name not in fields or (key not in own and not name.startswith("model_")):
+                continue  # another provider's own settings (its base URL, label) stay as they are
+            now = str(getattr(self, name))
+            leftover = bool(now.strip()) and any(key in p and str(p[key]) == now for p in others)
+            if leftover or (unset and not now.strip()):
+                value = own.get(key, fields[name].default)
+                setattr(self, name, TypeAdapter(fields[name].annotation).validate_python(value))
 
     def model_for(self, role: LlmRole) -> str:
         """Model id for an LLM role under the active provider."""

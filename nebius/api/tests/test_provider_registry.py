@@ -120,6 +120,7 @@ def test_nebius_and_tavily_are_selected_by_env_alone(
             "sandbox_provider": "nebius",
             "search_provider": "tavily",
             "nebius_api_key": "nb",
+            "nebius_project_id": "project-e00x",
             "tavily_api_key": "tv",
             "model_fast": "nvidia/x",
             "offline": False,  # the test settings are offline; nothing here calls out
