@@ -267,6 +267,8 @@ export function YourPlanPage() {
       <JourneyShell step="plan" projectId={p.id} title={p.name} back={{ to: "/", label: t("journey.home") }}>
         <main id="main" className="mx-auto w-full max-w-6xl space-y-4 p-4">
           <h1 className="text-2xl font-semibold tracking-tight">{p.name}</h1>
+          {/* a real case shows what happened and its sources while its first test still runs */}
+          {caseCard && <RealCaseCard card={caseCard} peak={null} />}
           {!sessionId && (
             <EmptyState icon={<ShieldQuestion />} title={t("yourplan.untested")} body={t("yourplan.untested_body")}>
               <Button asChild variant="primary" size="lg"><Link to={`/p/${p.id}/describe`}>{t("yourplan.check_and_test")}</Link></Button>
