@@ -142,10 +142,10 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
                        })} applying={apply.isPending} onShow={(id) => setActive(id)} />
           )}
           <Tabs.Root defaultValue="cards">
-            <Tabs.List className="flex gap-0.5 overflow-x-auto rounded-full bg-surface-2 p-1 scrollbar-thin">
+            <Tabs.List className="grid grid-cols-2 gap-0.5 rounded-[12px] bg-surface-2 p-1">
               {[["cards", <Swords key="s" />, t("redteam.tab_cards")], ["map", <LayoutGrid key="m" />, t("redteam.tab_map")], ["tree", <GitBranch key="g" />, t("redteam.branch_tree")], ["activity", <Activity key="a" />, t("redteam.activity")]].map(([v, icon, l]) => (
                 <Tabs.Trigger key={v as string} value={v as string}
-                              className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm text-muted hover:text-ink data-[state=active]:bg-surface data-[state=active]:font-medium data-[state=active]:text-ink data-[state=active]:shadow-sm [&_svg]:size-3.5">
+                              className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] px-2.5 py-1.5 text-sm text-muted hover:text-ink data-[state=active]:bg-surface data-[state=active]:font-medium data-[state=active]:text-ink data-[state=active]:shadow-sm [&_svg]:size-3.5">
                   {icon}{l}
                 </Tabs.Trigger>
               ))}
