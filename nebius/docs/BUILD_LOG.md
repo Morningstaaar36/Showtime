@@ -311,3 +311,25 @@ Two old tests changed on purpose:
 **Full Playwright suite in system Chrome on OpenRouter + Docker: 28 passed, 0 failed (23.5 min)**,
 including the sample report preview that had flaked under load. `make check`: 875 passed,
 1 skipped. vitest: 241 passed.
+
+## Step 9: final check (2026-10-26)
+
+| Check | Result |
+| --- | --- |
+| `make test` (all Python tests, including the 19 slow simulator tests) | 917 passed, 1 skipped |
+| `make check` | 875 passed, 1 skipped; ruff, mypy and import contracts clean |
+| `make smoke` (live: OpenRouter Nemotron + Docker) | SMOKE OK: a red-team session in 62 s, 21,341 tokens, report and map with the disclaimer |
+| `make verify-live` | OpenRouter PASS, Docker PASS (network call stopped); Nebius Token Factory, Nebius Sandboxes and Tavily SKIPPED (no keys) |
+| CI workflow, its exact commands, in a clean clone with no `data/` or `cache/` | api job: lint, import contracts, mypy, 875 tests pass; web job: eslint, `tsc -b`, 241 vitest, `npm run build` pass; sim tests pass in `make test` |
+| Clean clone, following the README (three `.env` lines) | `make setup` 92 s (Docker build cache warm; a first build takes longer); `make up` 21 s; health green; badge OPENROUTER with the preset ids |
+| Fresh install, real cases | Itaewon built in 22 s and Love Parade in 12 s, each opened once on a double click; the case card shows while the first test runs (fixed 3bbf8ca) |
+| Hillsborough with the current designer | built: 3,000 people, pens 3 and 4 behind 0.8 m gates, the radial fence, the tunnel to the concourse (3 live calls) |
+| The 3-minute demo as one take (`web/e2e/explore-demo.mjs`) | all six beats pass in order; the screenshots are `docs/screenshots/step7/demo-*.png` |
+| Older docs (handoff, user, testing, contributing, exercises) | updated to the hosted-model setup and the `.env`-only Nebius switch (a50348f) |
+
+**Left, and needing a person or a key:**
+- the live Nebius Token Factory and Sandboxes runs, and Tavily (`docs/WHEN_YOU_GET_THE_KEYS.md`);
+- recording the video;
+- a public demo URL;
+- the feedback form;
+- pushing and merging.
