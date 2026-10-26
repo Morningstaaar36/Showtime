@@ -54,8 +54,9 @@ export interface SandboxRun {
   provider?: string;
   limits?: string;
   reason?: string | null;
-  /** an AI-written scenario script in this run: whether it ran, was refused or was stopped */
-  script?: { state: "ran" | "refused" | "stopped"; reason: string | null } | null;
+  /** an AI-written scenario script in this run: whether it ran, was refused, crashed in its own
+   * code (error) or was stopped by a sandbox limit */
+  script?: { state: "ran" | "refused" | "error" | "stopped"; reason: string | null } | null;
 }
 
 export interface SessionView {

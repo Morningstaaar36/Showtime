@@ -12,6 +12,10 @@ describe("why a sandbox run stopped", () => {
     expect(sandboxWhy({ ...run, state: "finished", script: { state: "stopped", reason: "one step ran more than 200,000 lines" } })?.text)
       .toBe("AI-written script stopped: one step ran more than 200,000 lines");
   });
+  it("calls a crash in the AI's own code an error, not a limit", () => {
+    expect(sandboxWhy({ ...run, state: "finished", script: { state: "error", reason: "ValueError on line 5: max() iterable argument is empty" } }))
+      .toEqual({ text: "AI-written script failed with an error in its own code: ValueError on line 5: max() iterable argument is empty", tone: "caution" });
+  });
   it("says why a run was killed, and nothing for a clean run", () => {
     expect(sandboxWhy({ ...run, state: "killed", reason: "Stopped after 240 s of wall-clock time." })).toEqual({ text: "Stopped after 240 s of wall-clock time.", tone: "danger" });
     expect(sandboxWhy({ ...run, state: "finished", script: { state: "ran", reason: null } })).toBeNull();

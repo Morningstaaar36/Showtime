@@ -1,7 +1,7 @@
 /** Your plan › Sandboxes: where the AI's code ran and what the sealed sandboxes proved, in one
  * place: the AI-written scenarios with their code and outcome, Rewind (the same second, several
  * sandboxes), the stress test at scale, and every run of the test with its sandbox state. */
-import { Ban, CircleCheck, OctagonX } from "lucide-react";
+import { Ban, CircleCheck, OctagonX, Bug } from "lucide-react";
 import type { Attack } from "@/api/types";
 import type { SessionView } from "@/api/useSessionStream";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,7 @@ export function SandboxesTab({ view, attacks, sessionId, projectId, worstTitle, 
                     {state === "ran" && <Badge tone="egress"><CircleCheck />{t("plan.sbx_ran")}</Badge>}
                     {state === "refused" && <Badge tone="danger"><Ban />{t("plan.sbx_refused")}</Badge>}
                     {state === "stopped" && <Badge tone="caution"><OctagonX />{t("plan.sbx_stopped")}</Badge>}
+                    {state === "error" && <Badge tone="caution"><Bug />{t("plan.sbx_error")}</Badge>}
                   </div>
                   {why && <p className="mt-1 text-sm">{why.text}</p>}
                   <ScriptCode attack={attack} />

@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -694,13 +695,16 @@ class RunService:
 
 SCRIPT_STOPPED = "scenario script stopped: "
 REFUSED = "it failed the safety check"
+# how the sandbox describes a crash in the script's own code ("ValueError on line 5: ..."), as
+# opposed to one of its limits ("one step ran more than ...", "... more memory ...")
+SCRIPT_ERROR = re.compile(r"^[A-Z]\w*(Error|Exception)( on line \d+)?: ")
 
 
 def sandbox_outcome(result: RunResult, job: SimJob) -> dict[str, Any]:
     """What happened in the sandbox, for the live feed: the run's state and, for an AI-written
-    scenario script, whether it ran, was refused by the in-sandbox check, or was stopped by a
-    budget, with the reason exactly as the sandbox wrote it. Built from the result only; no
-    container output is ever passed on."""
+    scenario script, whether it ran, was refused by the in-sandbox check, crashed in its own code
+    (error), or was stopped by a budget, with the reason exactly as the sandbox wrote it. Built
+    from the result only; no container output is ever passed on."""
     has_script = any(e.get("type") == "script" for e in job.events)
     stopped = next((n for n in result.notes if n.startswith(SCRIPT_STOPPED)), None)
     script: dict[str, Any] | None = None
@@ -709,7 +713,14 @@ def sandbox_outcome(result: RunResult, job: SimJob) -> dict[str, Any]:
             script = {"state": "ran", "reason": None}
         else:
             why = stopped[len(SCRIPT_STOPPED) :]
-            script = {"state": "refused" if why.startswith(REFUSED) else "stopped", "reason": why}
+            kind = (
+                "refused"
+                if why.startswith(REFUSED)
+                else "error"
+                if SCRIPT_ERROR.match(why)
+                else "stopped"
+            )
+            script = {"state": kind, "reason": why}
     error = result.error or ""
     if result.status == "timeout" or "out of memory" in error:
         return {"state": "killed", "reason": error or None, "script": script}

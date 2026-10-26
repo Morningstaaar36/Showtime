@@ -1,5 +1,5 @@
 /** The live sandbox feed on "AI at work": every run's sealed container, its state and time, and
- * for an AI-written scenario script, whether it ran, was refused or was stopped, and why. */
+ * for an AI-written scenario script, whether it ran, was refused, crashed or was stopped, and why. */
 import { Ban, CircleCheck, CircleX, Clock3, Loader2, Recycle, ShieldCheck, Skull } from "lucide-react";
 import type { SandboxRun } from "@/api/useSessionStream";
 import { sandboxCounts } from "@/api/useSessionStream";
@@ -23,6 +23,7 @@ const STATE: Record<SandboxRun["state"], { icon: React.ReactNode; tone: string; 
 export function sandboxWhy(r: SandboxRun): { text: string; tone: "danger" | "caution" } | null {
   if (r.script?.state === "refused") return { text: t("work.sbx_why_refused", { why: r.script.reason ?? "" }), tone: "danger" };
   if (r.script?.state === "stopped") return { text: t("work.sbx_why_stopped", { why: r.script.reason ?? "" }), tone: "caution" };
+  if (r.script?.state === "error") return { text: t("work.sbx_why_error", { why: r.script.reason ?? "" }), tone: "caution" };
   if ((r.state === "killed" || r.state === "failed") && r.reason) return { text: r.reason, tone: r.state === "killed" ? "danger" : "caution" };
   return null;
 }

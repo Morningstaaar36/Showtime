@@ -64,6 +64,20 @@ def test_a_script_stopped_by_a_budget() -> None:
     }
 
 
+def test_a_script_that_crashed_is_an_error_not_a_limit() -> None:
+    # the AI's own bug (a crash), as the sandbox describes it: not one of the sandbox's limits
+    for why in (
+        "ValueError on line 5: max() iterable argument is empty",
+        "ZeroDivisionError: division by zero",
+    ):
+        out = sandbox_outcome(_res(notes=[f"scenario script stopped: {why}"]), _job(SCRIPT))
+        assert out["state"] == "finished"  # the crowd simulation itself still finished
+        assert out["script"] == {"state": "error", "reason": why}
+    for limit in ("one step ran more than 200,000 lines", "one step took longer than 50 ms"):
+        out = sandbox_outcome(_res(notes=[f"scenario script stopped: {limit}"]), _job(SCRIPT))
+        assert out["script"]["state"] == "stopped"
+
+
 def test_a_run_past_its_time_or_memory_is_killed() -> None:
     late = sandbox_outcome(_res("timeout", error="Stopped after 240 s of wall-clock time."), _job())
     assert late == {
