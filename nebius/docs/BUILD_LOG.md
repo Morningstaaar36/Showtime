@@ -269,3 +269,45 @@ Also found in Chrome and fixed: the Rewind table's last column was cut off on th
    (step 9).
 
 Live calls in step 7 so far: 1 (the hosted call that hit the quota); the rest ran on the local model.
+
+## Step 7, resumed 2026-10-26 (OpenRouter quota reset; Chrome; Docker)
+
+Every flow below ran on the hosted model (OpenRouter Nemotron 3 Ultra and 3.5 Lightning) unless
+it says otherwise.
+
+| # | Flow | Result |
+| --- | --- | --- |
+| 1 | Describe a venue | **Mosque PASS on the hosted model**: 1,500 people (1,200 on the ground, 300 in the gallery), two east main doors and a north side door (`describe-mosque-hosted.png`). The earlier failure was the local 9B fallback |
+| 6 | Quick mode end to end | PASS: 3 attacks, 2 broke the plan, 124 s (`work-sandbox-feed-quick.png`) |
+| 8a | A sandbox stopped mid-run (`docker kill`) | The run restarted once and the test finished, but the feed showed nothing of it → fixed |
+| 8b | A bad model key (a second API on :8001 with an invalid key) | The badge and the Expert banner named the 401; the plan hid that rules stood in → fixed |
+
+**Bugs found in these flows and fixed** (each with a test that failed first):
+
+| Commit | What was wrong |
+| --- | --- |
+| 42ecfa9 | An AI script that crashed (`ValueError … max() iterable argument is empty`) was labelled "Stopped by a limit"; it is now "Failed: error in its code" |
+| 785e5ad | Red-team prompt v6: a filtered list can be empty (the cause of that crash) |
+| 85d1543 | The 3D view's floor switch drew over the sticky header when scrolled (new spec `header-on-top.spec.ts`; it failed without the fix) |
+| b8632e6 | A run restarted after its container stopped now says so in the feed |
+| c50b3a8 | Exit 137 was always "out of memory"; it now says "out of memory, or stopped from outside" |
+| cf4cc4d | With the model down, rules wrote the attacks and the summary while the plan looked like an AI test, and the rules' script was logged as "AI-written". The summary now records `stood_in`; the plan and the report say "The AI didn't answer, so built-in rules wrote …" |
+| 7fddbc7 | The "model isn't answering" hint names a rejected key; Home's error toasts include the hint and stay up 12 s; the banner's doubled full stop is gone |
+
+**Checked against the Nebius and Tavily docs** (user request: switching must be `.env` only):
+
+| Commit | Finding | Fix |
+| --- | --- | --- |
+| ae14871 | Sandboxes need `NEBIUS_PROJECT_ID` (the SDK's `Project` header), and we never passed it | A setting, a requirement and an explicit `ContreeConfig(auth=IAMAuth(...))` |
+| ae14871 | Outbound network is **on** by default in Nebius Sandboxes, and contree-sdk 0.3.6 (the latest) has no argument for it | Every spawn request carries `{"networking": {"enabled": false}}`; the runner claims a network-off sandbox only when that seam exists; `make verify-nebius-sandbox` proves it live |
+| ae14871 | Switching LLM_PROVIDER left OpenRouter's `:free` ids in place | Leftover preset values, or an empty MODEL_FAST, take the active provider's preset; your own ids are kept. The Nebius preset ids match the public model info |
+| 2be6b75 | Tavily returns `published_date` only with `include_published_date` | Requested on every search |
+| eab5c51 | The quickstart needed `make use-openrouter` | Three `.env` lines; a test builds settings from `.env.example` plus those lines |
+
+Two old tests changed on purpose:
+- an empty MODEL_FAST on Nebius takes the preset instead of failing at startup;
+- selecting Nebius Sandboxes needs the project ID.
+
+**Full Playwright suite in system Chrome on OpenRouter + Docker: 28 passed, 0 failed (23.5 min)**,
+including the sample report preview that had flaked under load. `make check`: 875 passed,
+1 skipped. vitest: 241 passed.
