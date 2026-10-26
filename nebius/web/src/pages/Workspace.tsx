@@ -189,7 +189,7 @@ export function WorkspacePage() {
         if (mode === "plan") navigate(`/p/${p.id}/expert/simulate`);
         if (r.status === "ok" || r.status === "partial") {
           // same plan and seed as an earlier run: runs are content-addressed, so the result is reused
-          toast.success(t("workspace.stress_test_finished"), { description: "This exact plan was simulated before; showing that result." });
+          toast.success(t("workspace.stress_test_finished"), { description: t("workspace.cached_result") });
         }
       },
       onError: (e) => toast.error(e.message, { description: (e as { hint?: string }).hint }),

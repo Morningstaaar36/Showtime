@@ -169,7 +169,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
       select({ id: f.id, name: f.name || fallback.charAt(0).toUpperCase() + fallback.slice(1), kind: f.kind as "building" | "area",
                outline: f.coords, levels: f.levels ?? null, use: f.use ?? null });
     } catch (e) {
-      if (seq === lookSeq.current) toast.error((e as Error).message, { description: "You can always use “Draw an area”." });
+      if (seq === lookSeq.current) toast.error((e as Error).message, { description: t("ui.maptab.draw_instead") });
     } finally {
       if (seq === lookSeq.current) setLooking(false);
     }

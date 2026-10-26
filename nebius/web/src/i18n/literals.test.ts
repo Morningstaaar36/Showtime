@@ -54,7 +54,14 @@ function shown(node: ts.Node): boolean {
     const attr = p.parent && ts.isJsxAttribute(p.parent) ? p.parent.name.getText() : null;
     return attr === null || READ_ATTRS.has(attr) || !NOT_TEXT_ATTRS.test(attr);
   }
-  return !!p && ts.isCallExpression(p) && /^toast(\.\w+)?$/.test(p.expression.getText()) && p.arguments[0] === child;
+  const isToast = (n: ts.Node | undefined): n is ts.CallExpression => !!n && ts.isCallExpression(n) && /^toast(\.\w+)?$/.test(n.expression.getText());
+  // toast("…", { description: "…", action: { label: "…" } })
+  if (p && ts.isPropertyAssignment(p) && /^(description|title|label)$/.test(p.name.getText())) {
+    let o: ts.Node | undefined = p.parent;
+    while (o && (ts.isObjectLiteralExpression(o) || ts.isPropertyAssignment(o))) o = o.parent;
+    if (isToast(o)) return true;
+  }
+  return isToast(p) && p.arguments[0] === child;
 }
 
 /** A sentence: a capitalised word followed by more words ("Find your place"). */
@@ -103,10 +110,11 @@ describe("strings", () => {
     const probe = join(__dirname, "__probe_literals.tsx");
     const sample = 'export const A = () => <button aria-label="Close it" title={ok ? "Saved" : "Not saved"}>Delete the plan</button>;\n'
       + 'export const B = () => <Card body="Runs in the sandbox" onClick={() => toast(name + " started")} />;\n'
-      + 'const TIPS = ["Why is this red?", "exit_1"];\n';
+      + 'const TIPS = ["Why is this red?", "exit_1"];\n'
+      + 'export const C = () => toast.success(done, { description: "Shown from the last run." });\n';
     writeFileSync(probe, sample);
     try {
-      expect(literals(probe).length).toBe(7);
+      expect(literals(probe).length).toBe(8);
     } finally {
       rmSync(probe);
     }

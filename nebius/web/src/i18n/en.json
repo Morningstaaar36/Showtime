@@ -204,7 +204,8 @@
     "small_back": "Back to your plan",
     "run_label": "Simulation",
     "run_finished": "{label} finished",
-    "run_failed": "{label} didn't finish"
+    "run_failed": "{label} didn't finish",
+    "cached_result": "This exact plan was simulated before; showing that result."
   },
   "tools": {
     "select": "Select and move",
@@ -2071,7 +2072,8 @@
       "step_find": "Find your place",
       "step_click": "Click the building or park",
       "step_build": "Build your venue",
-      "search_ph": "Search a place: a venue name, a landmark or an address…"
+      "search_ph": "Search a place: a venue name, a landmark or an address…",
+      "draw_instead": "You can always use “Draw an area”."
     },
     "agentgraph": {
       "agent_graph": "Agent graph"
