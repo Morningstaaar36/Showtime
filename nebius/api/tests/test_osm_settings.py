@@ -45,7 +45,9 @@ def test_the_app_gets_its_map_config_from_the_server(tmp_path: Path, monkeypatch
     from api.tests.evidence_fakes import reset_engine, use_test_settings
 
     s = use_test_settings(tmp_path, monkeypatch)  # type: ignore[arg-type]
-    s = s.model_copy(update={"map_start": "23.73,90.39,13", "map_style_url": "https://style.example/s.json"})
+    s = s.model_copy(
+        update={"map_start": "23.73,90.39,13", "map_style_url": "https://style.example/s.json"}
+    )
     st = build_state(s, llm=FakeLLM({}, s), runner=FakeRunner(s.runs_dir))
     try:
         with TestClient(create_app(state=st, settings=s)) as c:
