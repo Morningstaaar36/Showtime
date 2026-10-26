@@ -159,8 +159,22 @@ await check("Projects: import a venue JSON and a DXF drawing", async () => {
   return got.join("; ");
 });
 
+await check("Projects: an empty list shows its empty state", async () => {
+  // the list call answers with no plans, so nothing real is deleted
+  const list = /\/api\/v1\/projects(\?.*)?$/;
+  await page.route(list, (r) => r.request().method() === "GET" ? r.fulfill({ json: [] }) : r.continue());
+  try {
+    await go("/projects");
+    await page.getByText(T("projects.empty_title")).waitFor({ timeout: 10_000 });
+    await page.getByText(T("projects.empty_body")).waitFor();
+  } finally {
+    await page.unroute(list);
+  }
+  return "the empty state and its ways to start are shown";
+});
+
 // --- check your venue -------------------------------------------------------------------------
-await check("Check venue: an exit's width, lock, headcount, kind of event", async () => {
+await check("Check venue: an exit's width, lock, headcount, kind of event, people mix", async () => {
   const p = await newProject("QA check venue", (t) => t.floors >= 2);
   const exit = (await venueOf(p.id)).floors.flatMap((f) => f.exits)[0];
   const label = exit.label ?? exit.id;
@@ -179,14 +193,32 @@ await check("Check venue: an exit's width, lock, headcount, kind of event", asyn
   const plus = page.getByRole("button", { name: /more people in/i }).first();
   await plus.click();
   await expect.poll(async () => total(await venueOf(p.id)), { timeout: 15_000 }).toBeGreaterThan(before);
+  const stepped = total(await venueOf(p.id));
+  const input = page.getByLabel(starts(T("check.people_of", { name: "" }).trim())).first();
+  const typed = Number(await input.inputValue()) + 7; // a value no stepper reaches, so it was typed
+  await input.fill(String(typed));
+  await input.press("Enter");
+  await expect.poll(async () => total(await venueOf(p.id)), { timeout: 15_000 }).toBe(stepped + 7);
   const after = total(await venueOf(p.id));
   const kind = page.getByRole("combobox").last();
   const options = await kind.locator("option").evaluateAll((os) => os.map((o) => o.value));
   const current = (await venueOf(p.id)).event_kind;
-  const next = options.find((o) => o && o !== current);
+  const raw = await api("/event-kinds");
+  const mixes = new Set((raw.kinds ?? raw).filter((k) => k.default_groups?.length).map((k) => k.id));
+  const next = options.find((o) => o && o !== current && mixes.has(o)) ?? options.find((o) => o && o !== current);
   await kind.selectOption(next);
   await expect.poll(async () => (await venueOf(p.id)).event_kind, { timeout: 15_000 }).toBe(next);
-  return `${label} ${exit.width_m} → ${width} m and locked; people ${before} → ${after}; event kind ${current ?? "not set"} → ${next}`;
+  const mix = page.getByRole("button", { name: T("editor.kinds.apply_mix") });
+  let mixed = "no usual mix for this kind";
+  const hasMix = mixes.has(next);
+  if (hasMix) {
+    await expect(mix).toBeEnabled({ timeout: 15_000 }); // shown once the saved kind comes back
+    await mix.click();
+    const withMix = async () => (await venueOf(p.id)).floors.flatMap((f) => f.zones).filter((z) => z.groups.length || z.pre_movement_s != null).length;
+    await expect.poll(withMix, { timeout: 15_000 }).toBeGreaterThan(0);
+    mixed = `the usual people mix set in ${await withMix()} areas`;
+  }
+  return `${label} ${exit.width_m} → ${width} m and locked; people ${before} → ${after} (typed ${typed}); event kind ${current ?? "not set"} → ${next}; ${mixed}`;
 });
 
 await check("Check venue: floors (one floor, all floors, spread apart)", async () => {
@@ -275,16 +307,29 @@ await check("Expert: report preview and every export", async () => {
   return got.join("; ");
 });
 
-await check("Expert: Red Team tab (cards, branch tree)", async () => {
+await check("Expert: Red Team tab (cards, failure map, branch tree, compare)", async () => {
   const plan = await testedPlan();
   await go(`/p/${plan.pid}/expert/redteam`);
-  await page.waitForTimeout(2000);
-  const cards = await page.getByText(T("redteam.break")).count() + await page.getByText(/round \d/).count();
-  const tree = page.getByRole("button", { name: /branch tree/i }).or(page.getByRole("tab", { name: /branch tree/i })).first();
-  if (await tree.count()) await tree.click();
-  await page.waitForTimeout(1500);
-  if (!cards) throw new Error("no attack cards on the Red Team tab");
-  return `${cards} attack markers; branch tree opened`;
+  const tabs = ["redteam.tab_cards", "redteam.tab_map", "redteam.branch_tree", "redteam.activity"];
+  for (const key of tabs) {
+    await page.getByRole("tab", { name: T(key) }).click();
+    await expect(page.getByRole("tab", { name: T(key) })).toHaveAttribute("aria-selected", "true");
+    await page.waitForTimeout(PAUSE);
+  }
+  await page.getByRole("tab", { name: T("redteam.tab_cards") }).click();
+  const breaks = await page.getByText(T("redteam.break"), { exact: true }).count();
+  const holds = await page.getByText(T("redteam.holds"), { exact: true }).count();
+  if (!breaks && !holds) throw new Error("no attack cards on the Red Team tab");
+  const compare = page.getByRole("button", { name: T("ui.redteampanel.compare_before_and_after") });
+  let compared = "no fixes kept, so nothing to compare";
+  if (await compare.count()) {
+    await compare.click();
+    await page.getByText(T("ui.workspace.before_fixes")).first().waitFor({ timeout: 20_000 });
+    await page.getByText(T("ui.workspace.after_fixes")).first().waitFor();
+    await expect.poll(() => page.locator("main canvas").count()).toBeGreaterThanOrEqual(2);
+    compared = "before and after shown side by side";
+  }
+  return `${breaks} breaks, ${holds} holds; ${tabs.length} tabs opened; ${compared}`;
 });
 
 // --- scripts ----------------------------------------------------------------------------------
