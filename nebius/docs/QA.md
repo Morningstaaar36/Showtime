@@ -63,8 +63,8 @@ Nothing live yet: we had no key, so Tavily has not been run live. The plug-in is
 - every source carries an origin badge.
 
 Tests with a fake client prove that plumbing. Without a key the app says "Web search is off (add
-a Tavily key to switch on)", and attacks cite the incident dataset (395 real crowd accidents,
-1900–2024, Feliciani et al.).
+a Tavily key to switch on)", and attacks cite real crowd accidents instead: 388 from the
+Feliciani dataset (1900–2024) and 7 well-known ones with Wikipedia sources.
 
 **Where do the numbers come from?**
 From the simulator (JuPedSim), formulas and cited data, never from the language model. A number

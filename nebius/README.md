@@ -11,7 +11,7 @@ fixes the plan and the sandbox proves the fix.**
 - **Sandboxes at the core:** every simulation and every AI-written script runs in a throwaway
   container. It has no network, a read-only system, memory, CPU and process limits, and no keys.
   [14 attacks on it, and what stopped each](docs/SANDBOX_PROOF.md).
-- **Evidence:** attacks cite real crowd accidents (395 in the incident dataset). Every number
+- **Evidence:** attacks cite real crowd accidents (395: the Feliciani dataset's 388 plus 7 well-known ones). Every number
   comes from the simulator, which is within about 6 % of a real bottleneck experiment
   ([validation](docs/VALIDATION.md)).
 
@@ -55,7 +55,8 @@ The core loop, in the order you meet it:
 
 - **Failure map** (Red Team Night): the red team attacks the plan, each attack runs as a crowd
   simulation in its own sandbox, and the map shows every way the plan broke, by hazard and by
-  floor, exit or side. Attacks cite real accidents (395 in the incident dataset, 1900–2024).
+  floor, exit or side. Attacks cite real accidents (the Feliciani dataset's 388, 1900–2024, plus 7 well-known ones with
+  Wikipedia sources).
 - **Rainbow search**: how the red team fills the failure map. It is asked for the empty cells,
   and a cell is kept only on simulated metrics, so the search cannot flatter its judge (after
   Rainbow Teaming, NeurIPS 2024: [docs/RAINBOW.md](docs/RAINBOW.md)).

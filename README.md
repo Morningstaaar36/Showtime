@@ -11,7 +11,7 @@ fixes the plan and the sandbox proves the fix.**
 - **Sandboxes at the core:** every simulation and every AI-written script runs in a throwaway
   container. It has no network, a read-only system, memory, CPU and process limits, and no keys.
   [14 attacks on it, and what stopped each](nebius/docs/SANDBOX_PROOF.md).
-- **Evidence:** attacks cite real crowd accidents (395 in the incident dataset). Every number
+- **Evidence:** attacks cite real crowd accidents (395: the Feliciani dataset's 388 plus 7 well-known ones). Every number
   comes from the simulator, which is within about 6 % of a real bottleneck experiment
   ([validation](nebius/docs/VALIDATION.md)).
 

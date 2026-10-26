@@ -27,7 +27,8 @@ open.
    and no keys. The header badge, the live sandbox feed on AI at work and the Sandboxes tab on
    the plan show it.
 3. **Evidence.**
-   - Attacks cite real crowd accidents from the incident dataset (395 records, 1900–2024), with
+   - Attacks cite real crowd accidents: 388 from the Feliciani dataset (1900–2024) and 7
+     well-known ones with Wikipedia sources, 395 in all, with
      an origin badge on each source.
    - Numbers come only from the simulator, and a number check rejects any AI text that quotes
      another.
@@ -68,7 +69,7 @@ project ID. Model ids left from another provider switch to the Nebius preset on 
 | The designer built 8 of 8 different venues cleanly, with 32 of 32 requested features | [BUILD_LOG.md](BUILD_LOG.md), Step 5 | **single live run per description** |
 | The simulator's bottleneck flow is within about 6 % of the real crowd's at every width (median 4.0 %; held-out 4.4 %) | [VALIDATION.md](VALIDATION.md) | deterministic, 3 seeds per width |
 | 14 attacks on the sandbox; each was stopped or contained | [SANDBOX_PROOF.md](SANDBOX_PROOF.md) | recorded by `make sandbox-proof` |
-| 395 real crowd accidents ground the attacks | the incident dataset (Feliciani et al., Zenodo 19483010), counted live at `/api/v1/agents` | dataset |
+| 395 real crowd accidents ground the attacks | 388 from the Feliciani dataset (Zenodo 19483010; `make setup` writes 388) plus a curated list of 7 with Wikipedia links (`plugins/incidents_feliciani/seed.json`), counted live at `/api/v1/agents` | dataset |
 | Nebius Token Factory, Nebius Sandboxes and Tavily: built, not run live | [LIVE_STATUS.md](LIVE_STATUS.md) | SKIPPED (no keys) |
 
 > **Honest limits**
