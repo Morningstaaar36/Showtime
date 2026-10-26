@@ -101,6 +101,8 @@ class SearchProvider(Provider):
 
     build: Callable[[Any], Any] = lambda s: None
     live: bool = False  # it searches the web (False: the incident dataset only)
+    citation: str = ""  # how a report credits its results, e.g. "Web search results: Tavily"
+    citation_url: str = ""
 
 
 P = TypeVar("P", bound=Provider)

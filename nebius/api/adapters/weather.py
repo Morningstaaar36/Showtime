@@ -41,6 +41,8 @@ class OpenMeteoWeather:
     kind = "weather"
     id = "open_meteo"
     label = "Open-Meteo"
+    citation = "Weather: Open-Meteo (CC BY 4.0)"
+    citation_url = "https://open-meteo.com"
 
     def __init__(
         self,

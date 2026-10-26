@@ -27,5 +27,7 @@ SEARCH.register(
         check_live=search_check,
         build=_build,
         live=True,
+        citation="Web search results: Tavily",
+        citation_url="https://tavily.com",
     )
 )

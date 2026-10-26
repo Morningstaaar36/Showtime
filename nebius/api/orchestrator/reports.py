@@ -11,13 +11,14 @@ from typing import Any
 
 from sqlmodel import col, select
 
+from api.adapters.providers import search_provider
 from api.core.assumptions import assumptions
 from api.core.estimates import compute_estimates
 from api.core.evidence import describe_run
 from api.core.extensions import ReportBundle
 from api.core.extensions.geometry import display_names
 from api.core.plan import plan_hash
-from api.core.settings import ROOT_DIR
+from api.core.settings import ROOT_DIR, Settings
 from api.core.validation import load_validation
 from api.db.models import Run, SessionEventRow
 from api.db.session import db_session
@@ -28,6 +29,25 @@ log = logging.getLogger("showtime.reports")
 
 # what the built-in rules wrote when the model didn't answer (as on the plan page)
 _STOOD_IN = {"red_team": "the attacks", "blue_team": "the fixes", "judge": "the summary"}
+
+
+def credits(
+    settings: Settings, *, weather: Any, search: Any, web_used: bool
+) -> list[dict[str, str]]:
+    """What the report credits, as each part cites itself: the simulation engines in the sim
+    image's registry, the weather source, and web search when its results were used."""
+    out: list[dict[str, str]] = []
+    try:
+        registry = json.loads((settings.root_dir / "sim" / "plugins" / "registry.json").read_text())
+    except (OSError, ValueError):
+        registry = {}
+    for engine in (registry.get("engines") or {}).values():
+        if engine.get("citation_url"):
+            out.append({"label": engine.get("citation", ""), "url": engine["citation_url"]})
+    for part in ((search,) if web_used else ()) + (weather,):
+        if getattr(part, "citation_url", ""):
+            out.append({"label": part.citation, "url": part.citation_url})
+    return out
 
 
 def stood_in_text(stood_in: dict[str, str]) -> str:
@@ -197,23 +217,17 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
                     "origin": a.inspired_by.origin,
                 }
             )
-    if any(x.get("origin") == "tavily" for x in sources):
-        sources.append({"label": "Web search results: Tavily", "url": "https://tavily.com"})
     for src in (venue.extensions or {}).get("sources", []):
         if src.get("url") not in seen:
             sources.append({"label": src.get("label", ""), "url": src.get("url", "")})
     sources.extend(
-        [
-            {"label": "JuPedSim crowd simulation", "url": "https://www.jupedsim.org"},
-            # the incident datasets the red team used, as each plugin cites itself
-            *(
-                {"label": getattr(src, "citation", src.label), "url": src.citation_url}
-                for src in st.registry.all("IncidentSource")
-                if getattr(src, "citation_url", "")
-            ),
-            {"label": "Weather: Open-Meteo (CC BY 4.0)", "url": "https://open-meteo.com"},
-        ]
+        {"label": getattr(src, "citation", src.label), "url": src.citation_url}
+        for src in st.registry.all("IncidentSource")
+        if getattr(src, "citation_url", "")
     )
+    web_used = any(x.get("origin") == "tavily" for x in sources)
+    search = search_provider(st.settings.search_provider)
+    sources.extend(credits(st.settings, weather=st.weather, search=search, web_used=web_used))
     summary_text = human(summary.get("judge_text") or _stress_summary(baseline))
     if stood := stood_in_text(summary.get("stood_in") or {}):
         summary_text = f"{summary_text} {stood}"

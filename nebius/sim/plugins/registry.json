@@ -4,18 +4,58 @@
     "jupedsim": {
       "module": "plugins.engine_jupedsim",
       "label": "JuPedSim collision-free speed model",
-      "tiers": [2, 3],
-      "metrics": ["rset", "peak_density", "per_exit_flow", "hotspots", "exit_area_density", "crowd_pressure", "level_of_service"],
-      "citation": "JuPedSim 1.4 (LGPL-3.0-or-later), https://www.jupedsim.org"
+      "tiers": [
+        2,
+        3
+      ],
+      "metrics": [
+        "rset",
+        "peak_density",
+        "per_exit_flow",
+        "hotspots",
+        "exit_area_density",
+        "crowd_pressure",
+        "level_of_service"
+      ],
+      "citation": "JuPedSim crowd simulation 1.4 (LGPL-3.0-or-later)",
+      "citation_url": "https://www.jupedsim.org"
     }
   },
   "metrics": {
-    "rset": {"label": "Evacuation time (95%)", "unit": "s", "formula": "95th percentile of exit times"},
-    "peak_density": {"label": "Peak density", "unit": "people per m²", "formula": "max over time of Gaussian-smoothed 1 m grid counts / walkable area"},
-    "per_exit_flow": {"label": "Exit flow", "unit": "people/s", "formula": "(n-1)/(t_last - t_first) per exit"},
-    "hotspots": {"label": "Hotspots", "unit": "", "formula": "connected cells above the warning threshold"},
-    "exit_area_density": {"label": "Density in front of exits", "unit": "people per m²", "formula": "PedPy classic density in a 2 m band"},
-    "crowd_pressure": {"label": "Crowd pressure", "unit": "1/s²", "formula": "local density × local velocity variance (Gaussian R = 1 m, 1 s windows); turbulent above 0.02/s² at ≥ warning density (Helbing et al. 2007)"},
-    "level_of_service": {"label": "Level of service", "unit": "share of person-seconds", "formula": "Fruin (1971) walkway bands A–F by area per person"}
+    "rset": {
+      "label": "Evacuation time (95%)",
+      "unit": "s",
+      "formula": "95th percentile of exit times"
+    },
+    "peak_density": {
+      "label": "Peak density",
+      "unit": "people per m²",
+      "formula": "max over time of Gaussian-smoothed 1 m grid counts / walkable area"
+    },
+    "per_exit_flow": {
+      "label": "Exit flow",
+      "unit": "people/s",
+      "formula": "(n-1)/(t_last - t_first) per exit"
+    },
+    "hotspots": {
+      "label": "Hotspots",
+      "unit": "",
+      "formula": "connected cells above the warning threshold"
+    },
+    "exit_area_density": {
+      "label": "Density in front of exits",
+      "unit": "people per m²",
+      "formula": "PedPy classic density in a 2 m band"
+    },
+    "crowd_pressure": {
+      "label": "Crowd pressure",
+      "unit": "1/s²",
+      "formula": "local density × local velocity variance (Gaussian R = 1 m, 1 s windows); turbulent above 0.02/s² at ≥ warning density (Helbing et al. 2007)"
+    },
+    "level_of_service": {
+      "label": "Level of service",
+      "unit": "share of person-seconds",
+      "formula": "Fruin (1971) walkway bands A–F by area per person"
+    }
   }
 }

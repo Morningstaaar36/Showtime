@@ -47,3 +47,25 @@ async def test_the_report_says_when_rules_stood_in(state: Any) -> None:  # noqa:
     assert "The AI didn&#x27;t answer, so built-in rules wrote the attacks" in html or (
         "The AI didn't answer, so built-in rules wrote the attacks" in html
     )
+
+
+def test_the_report_credits_what_was_used_as_each_part_cites_itself() -> None:
+    # the simulator from the sim image's registry, the weather source from its adapter, web
+    # search from its provider: swapping one swaps its credit; nothing is named in the report code
+    from api.core.settings import Settings
+    from api.orchestrator.reports import credits
+
+    class Weather:
+        citation = "Weather: Example (CC BY 4.0)"
+        citation_url = "https://weather.example"
+
+    class Search:
+        citation = "Web search: Example"
+        citation_url = "https://search.example"
+
+    out = credits(Settings(_env_file=None), weather=Weather(), search=Search(), web_used=True)
+    urls = [c["url"] for c in out]
+    assert "https://www.jupedsim.org" in urls  # from sim/plugins/registry.json
+    assert "https://weather.example" in urls and "https://search.example" in urls
+    no_web = credits(Settings(_env_file=None), weather=Weather(), search=Search(), web_used=False)
+    assert "https://search.example" not in [c["url"] for c in no_web]
