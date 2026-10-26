@@ -92,3 +92,11 @@ async def test_the_fake_search_provider_is_marked_as_test_data(tmp_path: Path) -
     hits = await client.search("anything")
     assert client.live and hits[0].title.startswith("[test data]")
     assert hits[0].url.startswith("https://example.org/")
+
+
+async def test_a_search_asks_for_publication_dates(tmp_path: Path) -> None:
+    # Tavily returns published_date only when asked (include_published_date, default false);
+    # the evidence panel shows each source's year from it
+    s, fake = _search(tmp_path)
+    await s.search("stadium crush")
+    assert fake.calls[0][1]["include_published_date"] is True
