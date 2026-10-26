@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlmodel import col, select
 
 from api.adapters.llm import Budget, BudgetExceeded, LLMError
+from api.adapters.search import SearchBudget
 from api.agents.base import AgentEnv, AgentUnavailable, audit_decision
 from api.agents.blue_team import blue_team
 from api.agents.context import readable
@@ -31,6 +32,8 @@ from api.agents.red_team import (
     red_team,
     signature,
     venue_features,
+    web_queries,
+    web_records,
 )
 from api.core.annotations import carry_annotations
 from api.core.countdown import choose_hazard, compute_countdown
@@ -114,7 +117,7 @@ class SessionConfigIn(BaseModel):
     max_wall_s: float | None = Field(default=None, gt=0)
     max_tokens: int | None = Field(default=None, ge=1)
     parallel_branches: bool | None = None
-    agents: str | None = None  # an unknown mode falls back to "hybrid"
+    agents: str | None = None  # one of AGENT_MODES; an unknown mode falls back to "model"
     judge: bool | None = None  # false: keep the computed summary, no model call at the end
 
 
@@ -147,8 +150,7 @@ def session_config(settings: Any, config: dict[str, Any] | None) -> dict[str, An
         **caps,
         # independent branches of a step run at once (the runner bounds how many)
         "parallel_branches": True,
-        # who proposes attacks and fixes (S-01 evaluation arms): "hybrid" = the model plus
-        # the rule-based ones (the product), "rules" = rules only, "model" = model only
+        # who proposes attacks and fixes (see AGENT_MODES): "model" is the product default
         "agents": "model",
         **given,
     }
@@ -295,12 +297,14 @@ class LiveSession:
     started: float = field(default_factory=time.monotonic)
     runs: int = 0
     budget: Budget | None = None
+    search_budget: SearchBudget | None = None  # live web searches this session may make
     final_venue: Venue | None = None
     measures: list[ScenarioEventIn] = field(default_factory=list)
     tested: list[str] = field(default_factory=list)
     cost: CostMeter = field(default_factory=CostMeter)
     stop_event: asyncio.Event = field(default_factory=asyncio.Event)
     branch_runs: dict[str, str] = field(default_factory=dict)  # node id -> run id
+    run_labels: dict[str, str] = field(default_factory=dict)  # run id -> label (sandbox feed)
     inflight: set[str] = field(default_factory=set)  # node ids waiting for their run
     archive: dict[str, Any] | None = None  # latest failure-map snapshot (GET .../archive)
 
@@ -431,6 +435,18 @@ class SessionManager:
     def __init__(self, state: Any) -> None:
         self.st = state
         self.live: dict[str, LiveSession] = {}
+        # the sandbox feed: lifecycle events of this session's runs, as they happen
+        runs = getattr(state, "runs", None)
+        if runs is not None:
+            runs.listeners.append(self._on_run_event)
+
+    def _on_run_event(self, run_id: str, data: dict[str, Any]) -> None:
+        sb = data.get("sandbox")
+        if not sb:
+            return
+        for live in list(self.live.values()):
+            if not live.finished and run_id in live.run_labels:
+                self.emit(live, "sandbox", {**sb, "label": live.run_labels[run_id]})
 
     # ------------------------------------------------------------------ API
     def start(self, project_id: str, config: dict[str, Any] | None = None) -> RedTeamSession:
@@ -457,6 +473,7 @@ class SessionManager:
             venue_version=p.current_version,
             config=cfg,
             budget=Budget(max_tokens=int(cfg["max_tokens"])),
+            search_budget=SearchBudget(max_calls=int(self.st.settings.tavily_max_calls)),
         )
         self.live[sid] = live
         live.task = asyncio.create_task(self._run(live))
@@ -595,6 +612,7 @@ class SessionManager:
         job.request.extensions["events"] = job.events
         rid = job.request.run_id
         live.branch_runs[node_id] = rid
+        live.run_labels[rid] = label
         node = {
             "node_id": node_id,
             "parent_id": parent,
@@ -719,16 +737,18 @@ class SessionManager:
             baseline = await self._sim(live, venue, 3, "Baseline", "baseline", None, "baseline")
             results[baseline.run_id] = baseline
             self._node_done(live, "baseline", baseline, None)
-            incidents = self._incidents(working, baseline)
+            dataset = self._incidents(working, baseline)
             self.emit(
                 live,
                 "tool_call",
                 {
                     "tool": "incidents",
-                    "args": {"n": len(incidents)},
-                    "summary": f"{len(incidents)} similar real incidents found",
+                    "args": {"n": len(dataset)},
+                    "summary": f"{len(dataset)} similar real incidents found",
                 },
             )
+            # web hits first: the red team sees what the web says about venues like this one
+            incidents = [*(await self._web_evidence(live, working, baseline)), *dataset]
             seen: set[str] = set()
             archive = Archive(venue)
             rule = BreakRule(
@@ -844,9 +864,14 @@ class SessionManager:
                             "log",
                             {
                                 "level": "info",
-                                "message": f"“{a.title}” is an AI-written scenario; the instant "
-                                "estimate cannot run its code, so it goes straight to a quick "
-                                "simulation.",
+                                "message": f"“{a.title}” is a scenario written as code ("
+                                + (
+                                    "built-in example"
+                                    if a.extensions.get("generated_by") == "rules"
+                                    else "by the AI"
+                                )
+                                + "); the instant estimate cannot run its code, so it goes "
+                                "straight to a quick simulation.",
                             },
                         )
                         continue
@@ -1258,6 +1283,49 @@ class SessionManager:
                 },
             )
 
+    async def _web_evidence(
+        self, live: LiveSession, venue: Venue, baseline: RunResult | None
+    ) -> list[IncidentRecord]:
+        """The red team's web search for real incidents and near-misses at venues like this one,
+        as rows it may cite (origin "tavily"). Off without a key: it says so and the incident
+        dataset is used; never an error."""
+        st, s = self.st, self.st.settings
+        if not getattr(st.search, "live", False):
+            self.emit(
+                live,
+                "tool_call",
+                {
+                    "tool": "search",
+                    "args": {"live": False},
+                    "summary": "Web search is off (add a Tavily key to switch on): the red team "
+                    "uses the incident dataset.",
+                },
+            )
+            return []
+        queries = web_queries(venue, venue_features(venue, baseline), s.search_queries_per_session)
+        hits: list[Any] = []
+        for q in queries:
+            for h in await st.search.search(
+                q, max_results=s.search_results_per_query, budget=live.search_budget
+            ):
+                if h.url not in {x.url for x in hits}:
+                    hits.append(h)
+        hits = hits[: s.search_max_sources]
+        n = len(hits)
+        self.emit(
+            live,
+            "tool_call",
+            {
+                "tool": "search",
+                "args": {"queries": queries, "live": True},
+                "summary": f"Red team searched the web: {n} source{'' if n == 1 else 's'}",
+                "sources": [
+                    {"title": h.title, "url": h.url, "published": h.published} for h in hits
+                ],
+            },
+        )
+        return web_records(hits)
+
     def _incidents(self, venue: Venue, baseline: RunResult | None) -> list[IncidentRecord]:
         srcs = self.st.registry.all("IncidentSource")
         if not srcs:
@@ -1310,6 +1378,7 @@ class SessionManager:
                     },
                 )
             if mode == "model":  # the AI designs the attacks; the rules stand in only now
+                env.stood_in.setdefault("red_team", str(exc))
                 return self._rule_fill(venue, baseline, incidents, n, seen, offset, archive, aim)
             out = []
         if mode == "model":
@@ -1431,6 +1500,7 @@ class SessionManager:
                             "message": f"Blue team model unavailable ({exc}); using standard fixes",
                         },
                     )
+                env.stood_in.setdefault("blue_team", str(exc))
                 return rule_fixes(self.st.registry, venue, attack, result, n, prefix + "R")
             out = []
         if mode == "model":
@@ -1683,7 +1753,8 @@ class SessionManager:
                 text, recs, checked = await judge(
                     env, facts_for_judge, template, computed_summary=True
                 )
-            except (AgentUnavailable, BudgetExceeded, LLMError):
+            except (AgentUnavailable, BudgetExceeded, LLMError) as exc:
+                env.stood_in.setdefault("judge", str(exc))
                 text, recs, checked = template, [], False
         summary = {
             "baseline_run_id": baseline.run_id if baseline else None,
@@ -1698,6 +1769,7 @@ class SessionManager:
             "judge_text": text,
             "recommendations": recs,
             "numbers_checked": checked,
+            "stood_in": dict(env.stood_in),
             "countdown": countdown.model_dump() if countdown else None,
             "stopped_reason": reason,
             "final_venue": working.model_dump(mode="json"),
@@ -1825,7 +1897,20 @@ class SessionManager:
                 continue
             try:
                 h = await src.evaluate(ctx)
-            except Exception:
+            except Exception as exc:
+                # one broken hazard (no forecast, a plugin bug) must not stop the countdown, but
+                # a countdown that silently left the wind out would look safer than it is
+                name = getattr(src, "id", None) or type(src).__name__
+                log.warning("hazard source %s failed: %s", name, exc, exc_info=True)
+                self.emit(
+                    live,
+                    "log",
+                    {
+                        "level": "warning",
+                        "message": f"The {name} hazard could not be evaluated ({exc}); the "
+                        "countdown leaves it out.",
+                    },
+                )
                 continue
             if h is not None:
                 hazards.append(h)

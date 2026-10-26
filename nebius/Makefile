@@ -5,8 +5,8 @@ SIM_PLATFORM ?= linux/amd64
 API := cd api &&
 .DEFAULT_GOAL := help
 
-.PHONY: help setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
-        types check lint typecheck test test-sim test-web e2e smoke smoke-nebius use-nebius use-openrouter use-local demo-precompute \
+.PHONY: help fix-perms sandbox-proof verify-live setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
+        types check lint typecheck test test-sim test-web e2e smoke smoke-nebius demo-precompute \
         clean mem plugins new-plugin calibrate validate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
 help: ## Show this help
@@ -34,12 +34,23 @@ llm-up: ## Start the local Nemotron server on the GPU (background, logs/llm.log)
 llm-down: ## Stop the local LLM server
 	@./scripts/llm_down.sh
 
+# the API container runs as the owner of runs/ (its entrypoint reads it from the mount)
+HOST_UID := $(shell id -u)
+HOST_GID := $(shell id -g)
+
 up: build-sim ## Start the stack with Docker Compose (api + web) → http://localhost:5173
 	@test -f .env || cp .env.example .env
 	@mkdir -p runs cache state data
+	@if [ -n "$$(find runs cache state -maxdepth 3 ! -user $(HOST_UID) -print -quit 2>/dev/null)" ]; then $(MAKE) --no-print-directory fix-perms; fi
 	@docker compose up -d --build
 	@echo "Showtime: http://localhost:5173   (API docs: http://127.0.0.1:8000/api/docs)"
-	@echo "Start the local model if it is not running: make llm-up"
+	@./scripts/needs_local_model.sh .env && echo "Start the local model if it is not running: make llm-up" || true
+
+fix-perms: ## Give runs/, cache/ and state/ back to you (files an older root container created)
+	@echo "Giving runs/, cache/ and state/ back to $$(id -un) (made by a container running as root)"
+	@docker run --rm --user 0 --network none --entrypoint chown \
+	  -v "$(CURDIR)/runs:/x/runs" -v "$(CURDIR)/cache:/x/cache" -v "$(CURDIR)/state:/x/state" \
+	  showtime-sim:latest -R $(HOST_UID):$(HOST_GID) /x/runs /x/cache /x/state
 
 down: ## Stop the Docker Compose stack
 	@docker compose down
@@ -110,20 +121,25 @@ test-web: ## Frontend unit tests
 e2e: ## Playwright journeys (needs the app running)
 	@$(ENV) cd web && npx playwright test
 
+sandbox-proof: ## Attack the real sandbox and record what stopped each attack (Help > Sandbox shows it)
+	@$(ENV) $(API) SANDBOX_PROOF_OUT=$(CURDIR)/api/data/sandbox_proof.json uv run pytest -q tests/test_sandbox_attacks_docker.py
+	@$(ENV) $(API) uv run python ../scripts/sandbox_proof_md.py
+	@echo "Recorded api/data/sandbox_proof.json (shown in Help > Sandbox and GET /api/v1/sandbox/proof)"
+
 smoke: ## End-to-end smoke test against the running API (small crowd)
 	@$(ENV) $(API) uv run python ../scripts/smoke.py
+
+verify-live: ## Smallest real call to every external service; writes docs/LIVE_STATUS.md (SKIPPED without a key)
+	@$(ENV) $(API) uv run python ../scripts/verify_live.py
+
+verify-%: ## verify-nebius-llm, verify-nebius-sandbox, verify-tavily: one service
+	@$(ENV) $(API) uv run python ../scripts/verify_live.py $*
 
 smoke-nebius: ## Smoke test against Nebius Token Factory + Sandboxes (skips without keys)
 	@$(ENV) $(API) uv run python ../scripts/smoke_nebius.py
 
-use-nebius: ## Point .env at Nebius Token Factory (Nemotron ids, prices); keeps keys, backs up .env
-	@python3 scripts/switch_provider.py nebius
-
-use-openrouter: ## Point .env at OpenRouter (free Nemotron); keeps keys, backs up .env
-	@python3 scripts/switch_provider.py openrouter
-
-use-local: ## Point .env at the local llama-server model; keeps keys, backs up .env
-	@python3 scripts/switch_provider.py local
+use-%: ## Point .env at a provider preset (make use-list); keeps keys, backs up .env
+	@python3 scripts/switch_provider.py $*
 
 demo-precompute: ## Precompute the three demo projects (runs simulations and agents)
 	@$(ENV) $(API) uv run python ../scripts/precompute_demos.py

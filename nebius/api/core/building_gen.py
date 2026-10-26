@@ -82,7 +82,9 @@ DEFAULT_GROUPS: dict[str, list[tuple[str, float]]] = {
 
 _USE_TAGS: dict[str, tuple[str, ...]] = {
     "hospital": ("hospital", "clinic", "doctors", "nursing_home"),
-    "school": ("school", "university", "college", "kindergarten"),
+    "school": ("school", "kindergarten"),
+    "campus": ("university", "college"),
+    "airport": ("aerodrome", "terminal", "airport"),
     "office": ("office", "commercial", "government", "civic"),
     "mall": ("retail", "mall", "supermarket", "marketplace", "shop"),
     "residential": ("apartments", "residential", "house", "hotel", "dormitory", "terrace"),

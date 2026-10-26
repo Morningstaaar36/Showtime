@@ -30,10 +30,12 @@ Tool = Literal[
     "instant_estimate",  # network-flow estimate in milliseconds
     "solver",  # layout solver: a design becomes exact geometry
     "map",  # OpenStreetMap sites
-    "incidents",  # 388 real crowd accidents (Feliciani et al.)
+    "incidents",  # the real crowd-accident dataset (IncidentSource plugin)
+    "search",  # web search for real incidents (a SearchProvider; off without a key)
     "edit_ops",  # validated venue edit operations
     "scenario_events",  # scenario events (blocked exit, surge, smoke, ...)
     "number_check",  # every number in a text must come from the tools
+    "code_sandbox",  # the agent's own analysis code, run in a sealed sandbox
 ]
 
 
@@ -54,7 +56,7 @@ TEAM: tuple[Member, ...] = (
         "Brief",
         "build",
         "Reads one sentence about the event: what, where, when, how many.",
-        ("map",),
+        ("map", "search"),
     ),
     Member(
         DESIGNER_AGENT,
@@ -68,7 +70,7 @@ TEAM: tuple[Member, ...] = (
         "Editor",
         "build",
         "Turns a typed change into validated edits.",
-        ("edit_ops", "solver"),
+        ("edit_ops",),
     ),
     Member(ROUTER_AGENT, "Router", "build", "Sends a question or a change to the right agent.", ()),
     Member(
@@ -83,7 +85,7 @@ TEAM: tuple[Member, ...] = (
         "Red team",
         "attack",
         "Writes attacks grounded in real disasters, aimed at gaps in the failure map.",
-        ("incidents", "scenario_events", "instant_estimate", "simulator"),
+        ("incidents", "search", "scenario_events", "instant_estimate", "simulator"),
     ),
     Member(
         BLUE_TEAM_AGENT,
@@ -118,7 +120,7 @@ TEAM: tuple[Member, ...] = (
         "Analyst",
         "explain",
         "Plans how to answer a question from the run data.",
-        ("simulator",),
+        ("code_sandbox",),
     ),
     Member(
         ANALYST_ANSWER_AGENT,

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from types import GenericAlias
 from typing import Any, cast
 
@@ -15,14 +16,17 @@ from pydantic import BaseModel, Field, create_model
 
 from api.agents.base import AgentDef, AgentEnv, audit_decision, call_agent
 from api.agents.context import event_union, events_doc, ids_line, venue_summary
+from api.agents.numbers import allowed_numbers, check_numbers
 from api.core.extensions import IncidentRecord, Registry
 from api.core.scripts import MAX_SCRIPT_CHARS, check_script
+from api.core.settings import ROOT_DIR
 from api.models import Attack, RunResult, Venue
 
 # marshal_redirect as an attack is misdirection: wrong signs or a marshal sending people the
 # wrong way (the "wrong route" row of the failure map)
 ATTACK_EVENTS = {"block_exit", "surge", "slowdown", "counterflow", "marshal_redirect"}
 DOI = "https://doi.org/10.5281/zenodo.19483010"
+DATA_DIR = ROOT_DIR / "api" / "data"
 SCRIPT_EVENT = "script"
 MAX_SCRIPT_ATTACKS = 1  # per round, on top of the menu attacks
 
@@ -97,7 +101,6 @@ def script_attack(
     generated_by: str = "ai",
 ) -> Attack:
     """An attack made of one scenario script; provenance comes from the incident record."""
-    name = getattr(record, "name", "") or f"{record.event_type} crowd accident, {record.country}"
     return Attack.model_validate(
         {
             "attack_id": attack_id,
@@ -111,13 +114,7 @@ def script_attack(
                     "at_s": 0.0,
                 }
             ],
-            "inspired_by": {
-                "incident": name,
-                "year": record.year,
-                "source_url": _source_url(record),
-                "evidence": _evidence(record),
-                "dataset_row": record.row_id,
-            },
+            "inspired_by": inspired_by(record),
             "rationale": rationale.strip(),
             "extensions": {"kind": "script", "generated_by": generated_by},
         }
@@ -151,21 +148,27 @@ def venue_features(venue: Venue, baseline: RunResult | None) -> dict[str, Any]:
     return feats
 
 
+def _incident_kinds() -> dict[str, Any]:
+    """api/data/incident_kinds.json: dataset settings and keywords by kind of event."""
+    data: dict[str, Any] = json.loads((DATA_DIR / "incident_kinds.json").read_text())
+    return data
+
+
 def incident_query(venue: Venue, feats: dict[str, Any]) -> dict[str, Any]:
-    """Keywords and settings for searching the incident dataset."""
-    kw: dict[str, float] = {"exit": 1.0, "crush": 1.0, "panic": 0.6, "density": 0.6}
+    """Keywords and settings for searching the incident dataset: what this venue has (stairs, a
+    narrow exit, a stage), and what incidents happen at this kind of event (data file)."""
+    table = _incident_kinds()
+    base = table["defaults"]["indoor" if venue.mode == "indoor" else "outdoor"]
+    kind = table["kinds"].get(venue.event_kind or "", {})
+    kw: dict[str, float] = {"exit": 1.0, "surge": 0.8, "overcrowding": 0.6, **base["keywords"]}
     if feats["stairs"]:
         kw["stairs"] = 1.6
     if feats.get("narrowest_exit_m", 9) < 3.5:
-        kw.update({"narrow": 1.4, "bottleneck": 1.2, "alley": 1.0})
+        kw.update({"narrow": 1.4, "single_exit": 1.0, "alley": 1.0})
     if feats["has_stage"]:
-        kw.update({"stage": 1.2, "wind": 1.0, "storm": 0.8, "barrier": 0.8, "surge": 1.0})
-    if venue.mode == "indoor":
-        kw.update({"fire": 1.0, "locked": 1.0, "false_alarm": 0.8, "power": 0.6})
-        settings = ["nightclub", "concert", "religious", "school", "indoor", "sports"]
-    else:
-        kw.update({"gate": 1.2, "counterflow": 1.2, "slope": 0.6, "festival": 1.0})
-        settings = ["festival", "street", "concert", "stadium", "sports", "religious"]
+        kw.update({"stage": 1.2, "wind": 1.0, "storm": 0.8, "barrier": 0.8})
+    kw.update(kind.get("keywords", {}))
+    settings = list(dict.fromkeys([*kind.get("settings", []), *base["settings"]]))
     return {"keywords": kw, "settings": settings}
 
 
@@ -174,9 +177,11 @@ def _incident_lines(rows: list[IncidentRecord]) -> str:
     for r in rows:
         name = getattr(r, "name", "") or f"{r.event_type} crowd accident, {r.country}"
         desc = (r.description or "").replace("\n", " ")[:260]
-        out.append(
-            f"row {r.row_id}: {name} ({r.year}, {r.country}; {r.deaths or 0} deaths). {desc}"
-        )
+        facts = [str(x) for x in (r.year, r.country) if x]
+        if r.deaths is not None:  # a web page that gives no count is not "0 deaths"
+            facts.append(f"{r.deaths} deaths")
+        where = "[web search result] " if r.origin == "tavily" else ""
+        out.append(f"row {r.row_id}: {where}{name} ({'; '.join(facts) or 'no details'}). {desc}")
     return "\n".join(out)
 
 
@@ -193,22 +198,67 @@ def _evidence(r: IncidentRecord) -> str:
     return (first if len(first) > 30 else text)[:220]
 
 
+def inspired_by(r: IncidentRecord) -> dict[str, Any]:
+    """The evidence on an attack, from the record it is grounded in: its name, year, source URL
+    (the dataset row or the web hit, never one the model wrote) and where it came from."""
+    name = getattr(r, "name", "") or f"{r.event_type} crowd accident, {r.country}"
+    web = r.origin == "tavily"
+    return {
+        "incident": name,
+        "year": r.year,
+        "source_url": _source_url(r),
+        "evidence": _evidence(r),
+        "dataset_row": None if web else r.row_id,
+        "origin": "tavily" if web else "dataset",
+    }
+
+
+# web hits are listed for the red team after the dataset rows, from this row number on
+WEB_ROW_BASE = 100_000
+
+
+def web_records(hits: list[Any]) -> list[IncidentRecord]:
+    """Web search hits as incident rows the red team may cite (origin "tavily")."""
+    out = []
+    for i, h in enumerate(hits):
+        year = int(h.published[:4]) if h.published and h.published[:4].isdigit() else None
+        out.append(
+            IncidentRecord(
+                row_id=WEB_ROW_BASE + i,
+                year=year,
+                name=h.title[:120],
+                description=h.snippet,
+                source_url=h.url,
+                date=h.published,
+                origin="tavily",
+            )
+        )
+    return out
+
+
+def web_queries(venue: Venue, feats: dict[str, Any], n: int) -> list[str]:
+    """Up to n web searches for real incidents and near-misses like this venue's, from the same
+    weighted keywords the dataset search uses and the kind of event."""
+    q = incident_query(venue, feats)
+    words = [w for w, _ in sorted(q["keywords"].items(), key=lambda kv: -kv[1])]
+    event = (venue.event_kind or "").replace("_", " ") or q["settings"][0]
+    picks = [
+        f"crowd crush {event} {words[0]} {words[1]}",
+        f"crowd near-miss {event} evacuation {' '.join(words[2:4])}",
+        f"{event} crowd disaster inquiry report {words[0]}",
+    ]
+    return [p.strip() for p in picks[: max(0, n)]]
+
+
 def to_attack(draft: Any, rows: dict[int, IncidentRecord], attack_id: str) -> Attack:
     """Build the Attack contract; provenance comes from the incident record."""
     r = rows[draft.incident_row]
-    name = getattr(r, "name", "") or f"{r.event_type} crowd accident, {r.country}"
     return Attack.model_validate(
         {
             "attack_id": attack_id,
             "title": draft.title.strip()[:90],
             "events": [e.model_dump(exclude_none=True) for e in draft.events],
-            "inspired_by": {
-                "incident": name,
-                "year": r.year,
-                "source_url": _source_url(r),
-                "evidence": _evidence(r),
-                "dataset_row": r.row_id,
-            },
+            "inspired_by": inspired_by(r),
             "rationale": draft.rationale.strip(),
         }
     )
@@ -229,10 +279,62 @@ _FEATURE_WORDS: dict[str, Any] = {
 }
 
 
+# a title that repeats the failure-map target it was aimed at ("Adaptive scenario (code) · West
+# side: exits …") says nothing about what happens; the model is asked to name the failure instead
+_AIM_COPY = re.compile(r"\(code\)|:\s*(?:exits|zones)\s", re.IGNORECASE)
+
+
+def prose_numbers(title: str, rationale: str, facts: Any) -> list[str]:
+    """Numbers an attack's title or rationale quotes that are not in `facts` (the venue, its
+    features, the attack's own events or code, the incident it cites): hard rule 3, no number
+    from the model shown as a fact."""
+    return check_numbers(f"{title}. {rationale}", allowed_numbers(facts))
+
+
+def strip_numbers(text: str, bad: list[str]) -> str:
+    """The text without the numbers that failed the check."""
+    for tok in bad:
+        text = re.sub(rf"(?<![\w.]){re.escape(tok)}(?![\w])\s*", "", text)
+    return re.sub(r"\s{2,}", " ", text).strip(" ,;")
+
+
+def copies_aim(title: str) -> bool:
+    """Whether a title is the target description the attack was aimed at, not a name for it."""
+    return bool(_AIM_COPY.search(title))
+
+
+def title_from_rationale(rationale: str, fallback: str) -> str:
+    """A readable title from the model's own rationale (its first clause), when the title it
+    wrote only repeats its target."""
+    first = re.split(r"(?<=[.;:!?])\s|,\s", rationale.strip(), maxsplit=1)[0].rstrip(".;:!?")
+    if len(first) < 8:
+        return fallback
+    words, out = first.split(), ""
+    for w in words:
+        if len(out) + len(w) + 1 > 60:
+            break
+        out = f"{out} {w}".strip()
+    return out[:1].upper() + out[1:]
+
+
+def _venue_words(venue: Venue) -> str:
+    """Every name in the venue (floors, zones, exits, obstacles), lower case."""
+    parts = [venue.name or ""]
+    for f in venue.floors:
+        parts += [
+            f.name or "",
+            *(z.label or "" for z in f.zones),
+            *(e.label or "" for e in f.exits),
+        ]
+        parts += [o.label or o.kind for o in f.obstacles]
+    return " ".join(parts).lower()
+
+
 def grounded_title(title: str, venue: Venue, attack: Attack, registry: Registry) -> str:
     """Keep the model's title unless it names something this venue does not have."""
     low = title.lower()
-    if not any(w in low and not has(venue) for w, has in _FEATURE_WORDS.items()):
+    named = _venue_words(venue)  # a tunnel, bridge or stage the venue names is there
+    if not any(w in low and not has(venue) and w not in named for w, has in _FEATURE_WORDS.items()):
         return title
     labels: list[str] = []
     refs: list[str] = []
@@ -274,6 +376,17 @@ def signature(events: list[dict[str, Any]]) -> str:
             ref = hashlib.sha256(str(e.get("code", "")).encode()).hexdigest()[:12]
         keys.append(f"{e.get('type')}:{ref}")
     return "|".join(sorted(keys))
+
+
+def _checked_prose(env: AgentEnv, a: Attack, facts: Any) -> Attack:
+    """An attack whose title and rationale quote only checked numbers: what still fails after the
+    repair round is removed (the rationale, or the number in the title), and the audit says so."""
+    bad = prose_numbers(a.title, a.rationale or "", facts)
+    if not bad:
+        return a
+    title = strip_numbers(a.title, bad) or a.title
+    audit_decision(env, "red_team", "removed unchecked numbers", {"title": a.title, "numbers": bad})
+    return a.model_copy(update={"title": title, "rationale": ""})
 
 
 async def red_team(
@@ -324,12 +437,38 @@ async def red_team(
         p.extend(script_problems(d.code))
         return p
 
+    def facts_of(d: Any) -> dict[str, Any]:
+        rec = rows.get(d.incident_row)
+        return {
+            "venue": venue.model_dump(mode="json"),
+            "features": feats,
+            "events": [e.model_dump() for e in getattr(d, "events", [])],
+            "code": getattr(d, "code", ""),
+            "every_s": getattr(d, "every_s", None),
+            "incident": rec.model_dump(mode="json") if rec is not None else {},
+        }
+
     def validate(out: Any) -> list[str]:
         probs: list[str] = []
         for i, d in enumerate(out.attacks):
             probs.extend(f"attack {i + 1}: {x}" for x in problems_of(d))
         for i, d in enumerate(getattr(out, "scripts", [])):
             probs.extend(f"script {i + 1}: {x}" for x in script_problems_of(d))
+        named = [("attack", i, d) for i, d in enumerate(out.attacks)]
+        named += [("script", i, d) for i, d in enumerate(getattr(out, "scripts", []))]
+        for kind, i, d in named:
+            bad = prose_numbers(d.title, d.rationale, facts_of(d))
+            if bad:
+                probs.append(
+                    f"{kind} {i + 1}: the title or rationale quotes {', '.join(bad)}, which is not "
+                    "in the venue, its events or the incident; quote only those numbers, or none"
+                )
+        probs.extend(
+            f"{kind} {i + 1}: the title repeats the target; name what happens to the crowd "
+            "there in a few words, using the exit, zone or floor names of this venue"
+            for kind, i, d in named
+            if copies_aim(d.title)
+        )
         return probs
 
     values = {
@@ -364,7 +503,10 @@ async def red_team(
             )
             continue
         a = to_attack(d, rows, f"A{id_offset + len(attacks) + 1}")
+        a = _checked_prose(env, a, facts_of(d))
         title = grounded_title(a.title, venue, a, registry)
+        if copies_aim(title):
+            title = title_from_rationale(a.rationale or "", title)
         if title != a.title:
             audit_decision(env, "red_team", "retitled attack", {"was": a.title, "now": title})
             a = a.model_copy(update={"title": title})
@@ -382,14 +524,19 @@ async def red_team(
                 env, "red_team", "discarded script attack", {"title": d.title, "problems": probs}
             )
             continue
+        title = d.title
+        if copies_aim(title):
+            title = title_from_rationale(d.rationale, "AI-written scenario")
+            audit_decision(env, "red_team", "retitled attack", {"was": d.title, "now": title})
         a = script_attack(
-            d.title,
+            title,
             d.code,
             rows[d.incident_row],
             f"A{id_offset + len(attacks) + 1}",
             d.rationale,
             d.every_s,
         )
+        a = _checked_prose(env, a, facts_of(d))
         sig = signature([e.model_dump() for e in a.events])
         if sig in seen:
             audit_decision(env, "red_team", "discarded duplicate", {"title": a.title})

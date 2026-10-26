@@ -1,9 +1,10 @@
 /** TanStack Query hooks for every server resource. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "./client";
+import { api, configureTimeouts } from "./client";
 import type { PlanSnapshot } from "@/types/generated";
 import type { OpenCaseOut, RealCase } from "@/journey/realCases";
 import type {
+  SandboxIsolation,
   AskOut,
   Attack,
   CountdownOut,
@@ -49,8 +50,21 @@ export const qk = {
 };
 
 export const useHealth = () =>
-  useQuery({ queryKey: qk.health, queryFn: () => api.get<Health>("/health"), refetchInterval: 15000,
-             retry: 1 });
+  useQuery({
+    queryKey: qk.health,
+    queryFn: async () => {
+      const h = await api.get<Health>("/health");
+      configureTimeouts(h.client); // the server decides how long the app waits
+      return h;
+    },
+    refetchInterval: 15000,
+    retry: 1,
+  });
+/** One attack from `make sandbox-proof`, as the sandbox reported it. */
+export interface SandboxProofRow { kind: "scenario" | "code"; name: string; label: string; static: string | null; inside: string | null; status: string; runtime_s: number; injected?: boolean }
+export interface SandboxProof { recorded_at: string; docker: string; image: string; command: string; rows: SandboxProofRow[] }
+export const useSandboxProof = () =>
+  useQuery({ queryKey: ["sandbox-proof"], queryFn: () => api.get<SandboxProof>("/sandbox/proof"), staleTime: 300_000, retry: false });
 export const useFeatures = () =>
   useQuery({ queryKey: qk.features, queryFn: () => api.get<Features>("/features"), staleTime: 60000 });
 export const useSettings = () =>
@@ -698,7 +712,7 @@ export interface AgentsOut {
   provider: string;
   agents: AgentInfo[];
   tools: Record<string, string>;
-  sandbox: { provider: string; ok: boolean; detail: string; isolation: string };
+  sandbox: { provider: string; title?: string; ok: boolean; detail: string; isolation: SandboxIsolation; time_limit_s?: number };
 }
 
 /** The AI team (GET /agents): every Nemotron agent, its model, job and tools. */

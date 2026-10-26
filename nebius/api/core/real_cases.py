@@ -36,6 +36,7 @@ class RealCase(BaseModel):
     date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     place: str
     deaths: int = Field(gt=0)
+    people: int = Field(gt=0)  # the crowd the description models (it states the number)
     toll: str
     event_kind: EventKind
     location: Location

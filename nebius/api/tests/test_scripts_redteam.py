@@ -119,3 +119,19 @@ async def test_session_sends_script_attacks_straight_to_simulation(state: Any) -
     atk_id = scripted[0]["attack"]["attack_id"]
     nodes = [e.payload for e in events if e.type == "branch_node"]
     assert any(n.get("node_id") == f"atk:{atk_id}" for n in nodes)
+
+
+async def test_a_title_that_repeats_its_target_is_renamed(registry: Registry, hall: Venue) -> None:
+    def copied(messages: list[dict[str, str]]) -> dict[str, Any]:
+        out = _reply(CROWD_SCRIPT)(messages)
+        out["scripts"][0]["title"] = "Adaptive scenario (code) · West side: exits door_s1"
+        return out
+
+    llm = FakeLLM({"red_team": copied})
+    attacks = await red_team(
+        AgentEnv(llm=llm, audit=False), registry, hall, None, _incidents(), 3, set()
+    )
+    script = next(a for a in attacks if is_script_attack(a))
+    # the model was asked once to rename it; the rationale names it when it does not
+    assert script.title == "Density above 2 people per m² turns into panic"
+    assert len(llm.calls) > 1 and "the title repeats the target" in str(llm.calls[1])

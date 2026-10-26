@@ -19,6 +19,8 @@ export interface ScenarioRow {
   outcome: Outcome;
   evacS: number | null;
   peak: number | null;
+  /** people still inside when the simulation stopped (then there is no 95% time) */
+  inside: number | null;
   /** fix rows under an attack: kept or not */
   accepted?: boolean | null;
   attackId?: string | null;
@@ -43,7 +45,7 @@ export function scenarioRows(nodes: Record<string, TreeNode>, runs: Record<strin
     const m = r?.metrics ?? n.metrics ?? {};
     return {
       key: n.node_id, kind: n.kind, title, runId: n.run_id, outcome: outcomeOf(n, r),
-      evacS: num(m.evac_time_p95_s), peak: num(m.peak_density_ppm2), accepted: n.accepted ?? r?.accepted ?? null,
+      evacS: num(m.evac_time_p95_s), peak: num(m.peak_density_ppm2), inside: num(m.agents_not_evacuated), accepted: n.accepted ?? r?.accepted ?? null,
       attackId: n.attack_id ?? null, fixId: n.fix_id ?? null, children: [],
     };
   };

@@ -106,6 +106,9 @@ class TavilySearch:
                 max_results=max_results,
                 search_depth=search_depth,
                 include_domains=include_domains or None,
+                # published_date comes back only when asked (Tavily Search API, default false);
+                # tavily-python 0.8.5 has no argument for it and passes extra fields through
+                include_published_date=True,
             )
         except Exception as exc:
             log.warning("tavily search failed: %s", exc)

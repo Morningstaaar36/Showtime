@@ -308,3 +308,132 @@ async def test_a_model_that_fails_at_the_provider_hands_over_to_the_fallback_mod
     )
     with pytest.raises(LLMError):
         await q.chat("fast", [{"role": "user", "content": "hi"}])
+
+
+class _Failing(_Transport):
+    """Fails with `exc` for the first `times` calls, then answers."""
+
+    def __init__(self, exc: BaseException, times: int = 1) -> None:
+        super().__init__()
+        self.exc, self.left, self.tries = exc, times, 0
+
+    async def _create(self, **kwargs: Any) -> Any:
+        self.tries += 1
+        if self.left > 0:
+            self.left -= 1
+            raise self.exc
+        return await super()._create(**kwargs)
+
+
+class _Status(Exception):
+    def __init__(self, status: int) -> None:
+        super().__init__(f"Error code: {status}")
+        self.status_code = status
+
+
+def _with_local(c: LLMClient) -> _Transport:
+    local = _Transport()
+    c._local_client = local
+    return local
+
+
+@pytest.mark.asyncio
+async def test_a_single_timeout_falls_back_once_without_pausing(tmp_path: Path) -> None:
+    hosted = _Failing(TimeoutError("read timed out"), times=1)
+    c = LLMClient(_settings(tmp_path), transport=hosted)
+    _with_local(c)
+    first = await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert first.usage.provider == "local-fallback"
+    assert not c._primary_paused()
+    second = await c.chat("fast", [{"role": "user", "content": "again"}])
+    assert second.usage.provider == "openai"  # the hosted model is asked again
+
+
+@pytest.mark.asyncio
+async def test_a_client_error_does_not_pause(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path), transport=_Failing(_Status(400)))
+    _with_local(c)
+    await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert not c._primary_paused()
+
+
+@pytest.mark.asyncio
+async def test_a_rate_limit_pauses_and_the_pause_shows_in_health(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path), transport=_Failing(_Status(429), times=5))
+    _with_local(c)
+    await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert c._primary_paused()
+    c._health_cache = (float("inf"), {"ok": True, "detail": "OPENROUTER: big-model"})
+    h = await c.health()
+    assert h["fallback"] is True and h["paused_until"] and "rate limit" in h["pause_reason"]
+
+
+@pytest.mark.asyncio
+async def test_repeated_server_errors_pause_but_one_does_not(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path), transport=_Failing(_Status(503), times=10))
+    _with_local(c)
+    for i in range(3):
+        assert not c._primary_paused(), f"paused after {i} server errors"
+        await c.chat("fast", [{"role": "user", "content": f"hi {i}"}])
+    assert c._primary_paused()
+
+
+@pytest.mark.asyncio
+async def test_a_connection_failure_pauses(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path), transport=_Failing(ConnectionRefusedError("refused")))
+    _with_local(c)
+    await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert c._primary_paused()
+
+
+@pytest.mark.asyncio
+async def test_a_pause_expires(tmp_path: Path) -> None:
+    hosted = _Failing(_Status(429), times=1)
+    c = LLMClient(_settings(tmp_path), transport=hosted)
+    _with_local(c)
+    await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert c._primary_paused()
+    c._paused_until = 0.0  # the pause ran out
+    reply = await c.chat("fast", [{"role": "user", "content": "later"}])
+    assert reply.usage.provider == "openai"
+
+
+def test_an_empty_model_id_fails_at_startup_naming_the_variable(tmp_path: Path) -> None:
+    # an OpenAI-compatible API other than the preset's (OpenRouter) has no model ids to offer;
+    # Nebius does, so an empty MODEL_FAST there takes its preset (test_env_only_switch.py)
+    with pytest.raises(ValueError, match="MODEL_FAST"):
+        _settings(tmp_path, llm_provider="openai", model_fast="  ")
+
+
+def test_an_empty_local_model_id_fails_at_startup(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="LOCAL_LLM_MODEL"):
+        _settings(tmp_path, llm_provider="local", local_llm_model="")
+    # the other roles may be empty: they fall back to MODEL_FAST
+    assert _settings(tmp_path, model_main="").model_for("main") == "big-model"
+
+
+class _Models(_Transport):
+    """Serves a model list (GET /models) next to chat."""
+
+    def __init__(self, ids: list[str]) -> None:
+        super().__init__()
+        self.models = SimpleNamespace(list=self._list)
+        self._ids = ids
+
+    async def _list(self) -> Any:
+        return SimpleNamespace(data=[SimpleNamespace(id=i) for i in self._ids])
+
+
+async def test_a_model_id_the_provider_does_not_serve_is_named_at_startup(tmp_path: Path) -> None:
+    s = _settings(tmp_path, model_fast="good-model", model_main="gone-model")
+    c = LLMClient(s, transport=_Models(["good-model", "other"]))
+    warnings = await c.check_models()
+    assert warnings == [
+        "MODEL_MAIN=gone-model is not served by OPENROUTER (also used for the judge role)."
+    ]
+    assert c.model_warnings == warnings
+
+
+async def test_no_key_means_no_model_check(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path, openai_compat_api_key=""), transport=_Models([]))
+    assert await c.check_models() == []

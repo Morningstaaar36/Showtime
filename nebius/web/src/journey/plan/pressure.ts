@@ -45,6 +45,9 @@ export function usePressure(runId: string | null | undefined, enabled: boolean) 
     gcTime: 90_000,
     queryFn: async ({ signal }): Promise<PressureLayer | null> => {
       try {
+        // runs simulated before the pressure grid existed have none: ask the run first
+        const run = await api.get<{ result?: { artifacts?: Record<string, string | null> } | null }>(`/runs/${runId}`, signal);
+        if (!run.result?.artifacts?.pressure_grid) return null;
         const idx = await api.get<DensityIndex & { unit?: string; max?: number }>(`/runs/${runId}/pressure/index`, signal);
         const buf = await api.binary(`/runs/${runId}/pressure`, signal);
         const range = pressureRange(idx);

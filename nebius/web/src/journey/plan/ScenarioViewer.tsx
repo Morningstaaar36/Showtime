@@ -1,6 +1,6 @@
 /** Your plan's scenario viewer: every tested scenario with its verdict (click to replay it), the
  * caption of what is happening in the replay, and people per floor over time. */
-import { ExternalLink, Play } from "lucide-react";
+import { Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Attack } from "@/api/types";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import type { TimelineMarker } from "@/panels/Timeline";
 import type { Trajectory } from "@/replay/trajectory";
 import { usePlayback } from "@/state/playback";
+import { SourceLink } from "@/journey/SourceLink";
 import { captionAt, type Outcome, peoplePerFloor, type ScenarioRow } from "./scenarios";
 
 function OutcomeBadge({ outcome }: { outcome: Outcome }) {
@@ -62,11 +63,7 @@ export function ScenarioList({ rows, pickedRun, onPick, attacks }: {
             return (
               <li key={r.key}>
                 <RowButton row={r} picked={pickedRun === r.runId} onPick={onPick} />
-                {a?.inspired_by?.source_url && (
-                  <a href={a.inspired_by.source_url} target="_blank" rel="noreferrer" className="ml-8 flex min-h-11 items-center gap-1 text-xs text-signal hover:underline">
-                    <ExternalLink className="size-3" />{t("work.inspired_by", { what: `${a.inspired_by.incident}${a.inspired_by.year ? ` (${a.inspired_by.year})` : ""}` })}
-                  </a>
-                )}
+                <SourceLink source={a?.inspired_by} className="ml-8" />
                 {a && <ScriptCode attack={a} className="ml-8" />}
                 {r.children.length > 0 && (
                   <ul className="space-y-0.5">{r.children.map((c) => <li key={c.key}><RowButton row={c} nested picked={pickedRun === c.runId} onPick={onPick} /></li>)}</ul>
@@ -102,9 +99,16 @@ export function ReplayCaption({ markers, className }: { markers: TimelineMarker[
 
 const FLOOR_COLORS = ["#1F5FBF", "#CC79A7", "#56B4E9", "#7E57C2", "#0072B2", "#8E9BA5", "#E8D44D", "#1C2329"];
 
-/** People still on each floor over time (multi-storey replays), with a text summary. */
-export function FloorChart({ traj, floorName }: { traj: Trajectory; floorName: (id: string) => string }) {
-  const series = useMemo(() => peoplePerFloor(traj), [traj]);
+/** People still on each floor over time (multi-storey replays), with a text summary.
+ * `allOutS`: the run reports everyone out at that time; the last frame can still hold someone
+ * stepping through an exit, so the curves end at zero then. */
+export function FloorChart({ traj, floorName, allOutS = null }: { traj: Trajectory; floorName: (id: string) => string; allOutS?: number | null }) {
+  const series = useMemo(() => {
+    const s = peoplePerFloor(traj);
+    const lastT = s.times[s.times.length - 1];
+    if (allOutS == null || lastT == null || s.counts.every((c) => !c[c.length - 1])) return s;
+    return { ...s, times: [...s.times, Math.max(allOutS, lastT)], counts: s.counts.map((c) => [...c, 0]) };
+  }, [traj, allOutS]);
   const data = useMemo(() => series.times.map((tm, i) => ({
     t: tm, ...Object.fromEntries(series.floors.map((f, j) => [f, series.counts[j][i]])),
   })), [series]);

@@ -14,7 +14,8 @@ from sqlmodel import select
 
 from api.adapters.llm import FakeLLM, LLMClient
 from api.adapters.osm import OpenStreetMap
-from api.adapters.sandbox import DockerRunner, FakeRunner, SandboxRunner
+from api.adapters.providers import llm_provider, sandbox_provider, search_provider
+from api.adapters.sandbox import SandboxRunner
 from api.adapters.search import TavilySearch
 from api.adapters.weather import OpenMeteoWeather
 from api.core.plugins import PluginHost, load_plugins
@@ -80,6 +81,8 @@ class AppState:
     runs: RunService
     usage: UsageMeter
     sessions: Any = None  # SessionManager (set after construction)
+    # why the sample projects could not be installed at startup (shown in /health), or None
+    samples_error: str | None = None
     ui: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -116,25 +119,20 @@ class AppState:
 
 
 def build_runner(settings: Settings) -> SandboxRunner:
-    """Sandbox provider from SANDBOX_PROVIDER."""
-    if settings.sandbox_provider == "nebius":
-        from api.adapters.nebius_sandbox import NebiusRunner
-
-        return NebiusRunner(settings)
-    if settings.sandbox_provider == "fake":
-        return FakeRunner(settings.runs_dir)
-    sim_code = settings.root_dir / "sim" if settings.sim_dev_mount else None
-    return DockerRunner(
-        settings.runs_dir,
-        settings.sim_image,
-        settings.sim_mem_limit,
-        settings.sim_cpus,
-        host_runs_dir=settings.host_runs_dir,
-        max_parallel=settings.sandbox_max_parallel,
-        sim_code_dir=sim_code,
-        sim_user=settings.sim_user,
-        platform=settings.sim_platform,
-    )
+    """The sandbox of SANDBOX_PROVIDER, from its registry entry (api/adapters/providers). One
+    that is not configured yet (no key) is replaced by SANDBOX_FALLBACK, and the runner says why
+    (`fallback_reason`, shown in /health and the sandbox badge)."""
+    spec = sandbox_provider(settings.sandbox_provider)
+    missing = spec.not_configured(settings)
+    if missing is None:
+        runner: SandboxRunner = spec.build(settings)
+        return runner
+    backup = sandbox_provider(settings.sandbox_fallback)
+    reason = f"{missing} Using {backup.title}."
+    log.warning("sandbox: %s", reason)
+    runner = backup.build(settings)
+    runner.fallback_reason = reason
+    return runner
 
 
 def build_state(
@@ -149,13 +147,11 @@ def build_state(
     if llm is None:
         llm = (
             FakeLLM({}, settings)
-            if settings.llm_provider == "fake"
+            if llm_provider(settings.llm_provider).is_fake
             else LLMClient(settings, on_usage=usage.add)
         )
     runner = runner or build_runner(settings)
-    search = TavilySearch(
-        settings.tavily_api_key, settings.cache_dir / "tavily", offline=settings.offline
-    )
+    search = search_provider(settings.search_provider).build(settings)
     weather = OpenMeteoWeather(
         settings.weather_base_url,
         settings.weather_archive_url,
@@ -187,6 +183,7 @@ def build_state(
         from api.orchestrator.demos import install_demos
 
         install_demos(state)
-    except Exception:  # samples are optional; never block startup
+    except Exception as exc:  # samples are optional; never block startup, but say so
         log.exception("sample projects not installed")
+        state.samples_error = f"{type(exc).__name__}: {exc}"
     return state

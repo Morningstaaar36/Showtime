@@ -162,6 +162,19 @@ export interface Template {
   venue: Venue;
 }
 
+/** What a sandbox guarantees for every run (GET /health → providers.sandbox.isolation). */
+export interface SandboxIsolation {
+  kind: "container" | "cloud" | "none";
+  network_off: boolean | null;
+  memory: string | null;
+  cpus: number | null;
+  read_only: boolean;
+  process_limit: number | null;
+  non_root: boolean;
+  per_job_limits: boolean;
+  summary: string;
+}
+
 export interface ProviderStatus {
   ok: boolean;
   detail: string;
@@ -169,6 +182,21 @@ export interface ProviderStatus {
   label?: string;
   live?: boolean;
   models?: Record<string, string>;
+  isolation?: SandboxIsolation;
+  time_limit_s?: number;
+  /** what the provider is, in plain words ("Nebius Token Factory", "Local Docker") */
+  title?: string;
+  /** the AI runs on a hosted service (model ids and prices apply) */
+  is_cloud?: boolean;
+  /** "<title> is not configured: set X in .env." when a requirement is missing */
+  not_configured?: string | null;
+  capabilities?: Record<string, boolean>;
+  /** how many runs the sandbox takes at once */
+  parallel?: number;
+  /** model ids the AI provider does not serve (checked at startup) */
+  model_warnings?: string[];
+  /** why this sandbox stands in for the one chosen (it is not configured yet) */
+  fallback?: string | null;
 }
 
 export interface PluginRow {
@@ -192,6 +220,8 @@ export interface Health {
     weather: ProviderStatus;
   };
   plugins: PluginRow[];
+  /** how long the web app waits for a read and a write (server settings) */
+  client?: { read_timeout_s: number; write_timeout_s: number };
   version: string;
 }
 
@@ -274,6 +304,8 @@ export interface SessionSummary {
   judge_text?: string;
   recommendations?: string[];
   numbers_checked?: boolean;
+  /** agents whose part built-in rules played because the model didn't answer: agent -> why */
+  stood_in?: Record<string, string>;
   countdown?: Countdown | null;
   stopped_reason?: string;
   /** what the results show (absent in sessions saved before evaluations existed) */

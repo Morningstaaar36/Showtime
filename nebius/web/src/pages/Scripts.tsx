@@ -69,7 +69,13 @@ export function ScriptsPage() {
 
   const onUpload = async (file: File | undefined) => {
     if (!file) return;
-    const code = await readScriptFile(file);
+    let code: string | null;
+    try {
+      code = await readScriptFile(file);
+    } catch (e) {
+      toast.error((e as Error).message); // an unreadable file: say so instead of nothing
+      return;
+    }
     if (code === null) { toast.error(t("userscripts.upload_too_big")); return; }
     startNew(guessKind(code), code, file.name.replace(/\.py$/i, "").slice(0, 80));
   };

@@ -50,6 +50,12 @@ function useWide(): boolean {
   );
 }
 
+/** A provider detail as one sentence ending in exactly one full stop. */
+function sentence(text: string): string {
+  const s = text.trim().replace(/\.+$/, "");
+  return s ? `${s}.` : "";
+}
+
 export function WorkspacePage() {
   const { projectId = "", mode: rawMode } = useParams();
   const [searchParams] = useSearchParams();
@@ -109,7 +115,8 @@ export function WorkspacePage() {
   const runId = ui.activeRunId ?? autoRun;
   const run = useRun(runId);
   const finished = run.data && (run.data.status === "ok" || run.data.status === "partial");
-  const replay = useReplay(finished ? runId : null, mode !== "plan" && mode !== "report");
+  // an instant estimate (tier 1, e.g. standing in for a simulation that failed) has no replay
+  const replay = useReplay(finished && run.data?.tier !== 1 ? runId : null, mode !== "plan" && mode !== "report");
   // "Stress test finished" when a run the user is watching completes (not for runs opened later)
   const watched = useRef<{ id: string | null; status: string | undefined }>({ id: null, status: undefined });
   useEffect(() => {
@@ -326,7 +333,7 @@ export function WorkspacePage() {
 
   const h = health.data?.providers;
   const banners = [
-    h && !h.llm.ok && { key: "llm", tone: "caution" as const, icon: <CloudOff />, text: t("workspace.llm_down") },
+    h && !h.llm.ok && { key: "llm", tone: "caution" as const, icon: <CloudOff />, text: t("workspace.llm_down", { detail: sentence(h.llm.detail ?? "") }) },
     h && !h.sandbox.ok && { key: "sb", tone: "danger" as const, icon: <ServerCrash />, text: t("workspace.sandbox_down") },
     mode === "redteam" && features.data && !features.data.search_live && { key: "s", tone: "signal" as const, icon: <SearchX />, text: t("workspace.search_off") },
   ].filter(Boolean) as { key: string; tone: "caution" | "danger" | "signal"; icon: React.ReactNode; text: string }[];

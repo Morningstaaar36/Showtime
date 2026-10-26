@@ -48,6 +48,8 @@ class InspiredBy(BaseModel):
     source_url: HttpUrl
     evidence: str = ""
     dataset_row: int | None = None
+    # where the source came from: the incident dataset, or a live web search hit (Tavily)
+    origin: Literal["dataset", "tavily"] = "dataset"
 
 
 class Attack(BaseModel):

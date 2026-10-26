@@ -2,7 +2,7 @@
  * project) to a tested plan, the venue as soon as it exists, and the attacks and fixes as they
  * arrive. Moves on to Your plan when the plan is ready; nothing is applied without the organizer. */
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, CircleAlert, CircleDashed, CircleMinus, ExternalLink, Info, Loader2, Map as MapIcon, RotateCcw, Square, WifiOff, X } from "lucide-react";
+import { Check, CircleAlert, CircleDashed, CircleMinus, Info, Loader2, Map as MapIcon, RotateCcw, Square, WifiOff, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import type { AutopilotStep } from "@/types/generated";
 import { FloorSwitch } from "@/panels/FloorSwitch";
+import { SourceLink } from "@/journey/SourceLink";
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
@@ -226,6 +227,21 @@ function AutopilotRunView({ runId }: { runId: string }) {
                     <ul className="mt-1 list-disc space-y-1 pl-5 text-muted">{final.notes.map((n) => <li key={n}>{human(n)}</li>)}</ul>
                   </div>
                 )}
+                {ended && final && (final.evidence ?? []).length > 0 && (
+                  <div className="rounded-[10px] border border-border p-3 text-sm" data-testid="evidence-desk">
+                    <p className="font-medium">{t("autopilot.evidence")}</p>
+                    <p className="text-xs text-muted">{t("autopilot.evidence_lead")}</p>
+                    <ul className="mt-2 space-y-2">
+                      {(final.evidence ?? []).map((e) => (
+                        <li key={e.url}>
+                          <a href={e.url} target="_blank" rel="noreferrer" className="font-medium text-signal hover:underline">{e.title}</a>
+                          <span className="ml-1 text-2xs text-muted">{t(`autopilot.evidence_${e.topic}`)}{e.published ? ` · ${e.published.slice(0, 10)}` : ""}</span>
+                          {e.sentence && <p className="text-muted">“{e.sentence}”</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {!stream.connected && !ended && stream.lastSeq > 0 && (
                   <p className="flex items-center gap-2 text-sm text-muted"><WifiOff className="size-4" />{t("autopilot.reconnecting")}</p>
                 )}
@@ -286,11 +302,7 @@ function AutopilotRunView({ runId }: { runId: string }) {
                       {(c.status === "running" || c.status === "testing") && <Badge tone="signal"><Loader2 className="animate-spin motion-reduce:animate-none" />{t("work.testing")}</Badge>}
                     </div>
                     <p className="mt-1 text-xs text-muted">{c.kind === "attack" ? t("work.risk") : t("work.fix")}</p>
-                    {c.source?.source_url && (
-                      <a href={c.source.source_url} target="_blank" rel="noreferrer" className="mt-1 flex min-h-11 items-center gap-1 text-xs text-signal hover:underline">
-                        <ExternalLink className="size-3" />{t("work.inspired_by", { what: `${c.source.incident}${c.source.year ? ` (${c.source.year})` : ""}` })}
-                      </a>
-                    )}
+                    <SourceLink source={c.source} className="mt-1" />
                     <ScriptCode attack={c.attack} />
                   </li>
                 ))}

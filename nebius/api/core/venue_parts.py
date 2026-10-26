@@ -291,14 +291,18 @@ def heading_exits(exits: list[Exit], heading: str) -> list[str]:
     exact = [e.id for e in exits if (e.label or "").strip().lower() == key]
     if exact:
         return exact
-    words = re.findall(r"[a-z0-9]+", key)
+    words = _stems(key)
     if not words:
         return []
-    return [
-        e.id
-        for e in exits
-        if all(w in re.findall(r"[a-z0-9]+", (e.label or e.id).lower()) for w in words)
-    ]
+    return [e.id for e in exits if words <= _stems(e.label or e.id)]
+
+
+def _stems(text: str) -> set[str]:
+    """Words without a plural "s", so "Tunnel ends" names "West tunnel end"."""
+    out = set()
+    for w in re.findall(r"[a-z0-9]+", text.lower()):
+        out.add(w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w)
+    return out
 
 
 def clear_of(shape: Polygon, blockers: object) -> Polygon | None:

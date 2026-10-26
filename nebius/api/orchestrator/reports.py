@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Callable
 from datetime import datetime
@@ -21,6 +22,23 @@ from api.core.validation import load_validation
 from api.db.models import Run, SessionEventRow
 from api.db.session import db_session
 from api.models import Attack, Countdown, Fix, RunResult, Venue
+
+log = logging.getLogger("showtime.reports")
+
+
+# what the built-in rules wrote when the model didn't answer (as on the plan page)
+_STOOD_IN = {"red_team": "the attacks", "blue_team": "the fixes", "judge": "the summary"}
+
+
+def stood_in_text(stood_in: dict[str, str]) -> str:
+    """'The AI didn't answer, so built-in rules wrote ...', or '' when the AI answered."""
+    parts = [w for a, w in _STOOD_IN.items() if stood_in.get(a)]
+    if not parts:
+        return ""
+    what = parts[0] if len(parts) == 1 else ", ".join(parts[:-1]) + " and " + parts[-1]
+    return (
+        f"The AI didn't answer, so built-in rules wrote {what}. Every scenario was still simulated."
+    )
 
 
 def _result(row: Run | None) -> RunResult | None:
@@ -170,23 +188,35 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
         url = str(a.inspired_by.source_url)
         if url not in seen:
             seen.add(url)
+            web = a.inspired_by.origin == "tavily"
+            where = " · live web search" if web else ""
             sources.append(
-                {"label": f"{a.inspired_by.incident} ({a.inspired_by.year or 'n.d.'})", "url": url}
+                {
+                    "label": f"{a.inspired_by.incident} ({a.inspired_by.year or 'n.d.'}){where}",
+                    "url": url,
+                    "origin": a.inspired_by.origin,
+                }
             )
+    if any(x.get("origin") == "tavily" for x in sources):
+        sources.append({"label": "Web search results: Tavily", "url": "https://tavily.com"})
     for src in (venue.extensions or {}).get("sources", []):
         if src.get("url") not in seen:
             sources.append({"label": src.get("label", ""), "url": src.get("url", "")})
     sources.extend(
         [
             {"label": "JuPedSim crowd simulation", "url": "https://www.jupedsim.org"},
-            {
-                "label": "Crowd accidents 1900–2024 dataset (Feliciani et al.)",
-                "url": "https://doi.org/10.5281/zenodo.19483010",
-            },
+            # the incident datasets the red team used, as each plugin cites itself
+            *(
+                {"label": getattr(src, "citation", src.label), "url": src.citation_url}
+                for src in st.registry.all("IncidentSource")
+                if getattr(src, "citation_url", "")
+            ),
             {"label": "Weather: Open-Meteo (CC BY 4.0)", "url": "https://open-meteo.com"},
         ]
     )
     summary_text = human(summary.get("judge_text") or _stress_summary(baseline))
+    if stood := stood_in_text(summary.get("stood_in") or {}):
+        summary_text = f"{summary_text} {stood}"
     return ReportBundle(
         project_name=p.name,
         venue=venue,
@@ -315,7 +345,8 @@ def _handover(
     if digest != plan_hash(plan_venue):
         try:  # the exit plan of the selected venue, for its map
             plan = st.runs.estimate(selected).extensions.get("plan", {})
-        except Exception:
+        except Exception:  # the map still draws, without exit-assignment arrows
+            log.warning("no exit plan for the selected venue's map", exc_info=True)
             plan = {}
     return {
         "version": current.version,

@@ -11,7 +11,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -34,15 +34,28 @@ class Settings(BaseSettings):
     db_url: str = ""
     host_runs_dir: str = ""  # absolute host path of runs/ when the API runs in Docker
 
-    # --- Providers ---
-    llm_provider: Literal["local", "nebius", "openai", "fake"] = "local"
-    sandbox_provider: Literal["docker", "nebius", "fake"] = "docker"
+    # --- Providers (names from the registries in api/adapters/providers; a new provider is a
+    # new module there, no edit here) ---
+    llm_provider: str = "local"
+    sandbox_provider: str = "docker"
+    # used while the chosen sandbox is not configured (e.g. Nebius before you have a key)
+    sandbox_fallback: str = "docker"
+    search_provider: str = "tavily"  # without TAVILY_API_KEY it is off: the incident dataset only
 
     # --- Local LLM ---
     local_llm_base_url: str = "http://127.0.0.1:8080/v1"
     local_llm_model: str = "nemotron-nano-9b-v2-q4_k_m"
     llm_supports_json_schema: bool = True
     llm_timeout_s: float = 120.0
+    # one agent step in total (its call, the repair round, retries, escalation): a model that
+    # never answers cannot hold a test up for retries x attempts x timeouts
+    agent_step_timeout_s: float = Field(default=300.0, gt=0)
+    # a hosted model that keeps failing (rate limit, unreachable, this many 5xx in a row) is
+    # skipped for llm_pause_s; one timeout or one 4xx is not a reason to stop asking it
+    llm_pause_s: float = Field(default=600.0, ge=0)
+    llm_server_errors_to_pause: int = Field(default=3, ge=1)
+    # building a real case's venue from its description (the designer agent)
+    case_build_timeout_s: float = Field(default=360.0, gt=0)
     llm_reasoning: bool = False
     # a `fast`-role answer that stays invalid after its repair round is retried once on `main`
     llm_escalate: bool = True
@@ -96,17 +109,51 @@ class Settings(BaseSettings):
 
     # --- Nebius Sandboxes ---
     nebius_sandbox_base_url: str = "https://api.tokenfactory.nebius.com/sandboxes"
+    # the Token Factory project that runs the sandboxes (Project settings, under the project
+    # name); sent with every request alongside NEBIUS_API_KEY
+    nebius_project_id: str = ""
     sandbox_max_parallel: int = Field(default=1, ge=1, le=16)
+    # extra random crowds the seed check runs when the organizer doesn't choose: fewer when the
+    # sandbox runs one at a time, more when it runs several at once (at most seeds_extra_max)
+    seeds_extra_serial: int = Field(default=3, ge=1)
+    seeds_extra_parallel: int = Field(default=5, ge=1)
+    seeds_extra_max: int = Field(default=5, ge=1)
     sim_image: str = "showtime-sim:latest"
     sim_platform: str = ""  # e.g. linux/amd64 for JuPedSim under Apple Silicon emulation
     sim_mem_limit: str = "2g"
     sim_cpus: float = 4.0
     sim_dev_mount: bool = False  # mount local sim/ over /app during development
     sim_user: str = ""  # container "uid:gid"; defaults to this process's user, never root
+    # what the attack suite recorded against the real sandbox (make sandbox-proof)
+    sandbox_proof_file: Path = ROOT_DIR / "api" / "data" / "sandbox_proof.json"
+    sim_pids_limit: int = Field(default=256, ge=16)  # processes in a simulation container
+    code_pids_limit: int = Field(default=64, ge=8)  # processes in a code-job container
+
+    # --- Guards on AI-written scenario scripts (sent with each run that has one) ---
+    script_call_s: float = Field(default=0.05, gt=0)  # one on_step call
+    script_total_s: float = Field(default=3.0, gt=0)  # every call of one script in one run
+    script_line_budget: int = Field(default=200_000, ge=1000)  # lines run in one call
+    script_max_range: int = Field(default=1_000_000, ge=1000)  # numbers in one range()
+    script_max_acts_step: int = Field(default=20, ge=1)  # actions in one call
+    script_max_acts_total: int = Field(default=400, ge=1)  # actions in one run
+    script_max_notes: int = Field(default=10, ge=0)
+    script_max_added_people: int = Field(default=2000, ge=0)
+    # all of a script's slow-downs together stop at this share of normal walking speed
+    script_min_speed_share: float = Field(default=0.1, gt=0, le=1)
+    # heap growth allowed once untrusted code runs, as a share of the container's room left
+    sandbox_memory_share: float = Field(default=0.85, gt=0, lt=1)
 
     # --- Search and weather ---
     tavily_api_key: str = ""
-    tavily_max_calls: int = 20
+    tavily_max_calls: int = 20  # live search calls per session (a cached search is free)
+    # the red team's web search for real incidents like this venue's (when search is live)
+    search_queries_per_session: int = Field(default=2, ge=0, le=3)
+    search_results_per_query: int = Field(default=3, ge=1, le=10)
+    search_max_sources: int = Field(default=5, ge=1, le=20)
+    # the evidence desk: web lookups about the briefed place and event (0 turns it off), and
+    # the sites to search for them (comma-separated; empty: the whole web)
+    evidence_desk_queries: int = Field(default=2, ge=0, le=3)
+    evidence_desk_domains: str = ""
     weather_base_url: str = "https://api.open-meteo.com/v1/forecast"
     weather_archive_url: str = "https://archive-api.open-meteo.com/v1/archive"
     nominatim_url: str = "https://nominatim.openstreetmap.org"
@@ -158,8 +205,28 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8000
     web_origin: str = "http://localhost:5173"
+    # how long the web app waits for a read, and for a write that may start an agent, before
+    # it says the server took too long (sent to the app in /health)
+    web_read_timeout_s: float = Field(default=60.0, gt=0)
+    web_write_timeout_s: float = Field(default=330.0, gt=0)
+    # more web origins allowed to call the API (comma-separated), besides WEB_ORIGIN: the app on
+    # 127.0.0.1 and the Vite preview server by default
+    cors_origins: str = "http://127.0.0.1:5173,http://localhost:4173"
     upload_max_bytes: int = 5_000_000
     log_level: str = "INFO"
+
+    @field_validator("llm_provider", "sandbox_provider", "search_provider", "sandbox_fallback")
+    @classmethod
+    def _known_provider(cls, v: str, info: Any) -> str:
+        """A registered provider name (or alias), else an error that lists the valid names."""
+        from api.adapters.providers import registry
+
+        kind = str(info.field_name).removesuffix("_provider").removesuffix("_fallback")
+        try:
+            return registry(kind).canonical(v.strip())
+        except ValueError as exc:
+            env = str(info.field_name).upper()
+            raise ValueError(f"{env}: {exc}") from exc
 
     @field_validator("density_danger_ppm2")
     @classmethod
@@ -167,6 +234,58 @@ class Settings(BaseSettings):
         if v <= 0:
             raise ValueError("DENSITY_DANGER_PPM2 must be > 0")
         return v
+
+    @model_validator(mode="after")
+    def _model_ids_set(self) -> Settings:
+        """An empty model id would only show up as a provider error on the first call."""
+        from api.adapters.providers import llm_provider
+
+        self._take_provider_preset()
+        if self.cloud_llm and not self.model_fast.strip():
+            raise ValueError(
+                f"MODEL_FAST is empty: set it in .env to a model id the provider serves "
+                f"(LLM_PROVIDER={self.llm_provider}). MODEL_LONG, MODEL_MAIN and MODEL_JUDGE "
+                "fall back to it when empty."
+            )
+        if self.web_write_timeout_s < self.agent_step_timeout_s:
+            raise ValueError(
+                "WEB_WRITE_TIMEOUT_S must be at least AGENT_STEP_TIMEOUT_S, or the app gives up "
+                "on a request while its agent is still allowed to work."
+            )
+        from api.adapters.providers import sandbox_provider
+
+        if sandbox_provider(self.sandbox_fallback).not_configured(self):
+            raise ValueError(
+                f"SANDBOX_FALLBACK={self.sandbox_fallback} must work without setup: "
+                f"{sandbox_provider(self.sandbox_fallback).not_configured(self)}"
+            )
+        spec = llm_provider(self.llm_provider)
+        if not spec.is_cloud and not spec.is_fake and not self.local_llm_model.strip():
+            raise ValueError("LOCAL_LLM_MODEL is empty: set it in .env (LLM_PROVIDER=local).")
+        return self
+
+    @property
+    def script_guards(self) -> dict[str, float]:
+        """The guards the sim image applies to a scenario script (keys as the image reads them)."""
+        keys = (
+            "script_call_s",
+            "script_total_s",
+            "script_line_budget",
+            "script_max_range",
+            "script_max_acts_step",
+            "script_max_acts_total",
+            "script_max_notes",
+            "script_max_added_people",
+            "script_min_speed_share",
+            "sandbox_memory_share",
+        )
+        return {k: float(getattr(self, k)) for k in keys}
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """WEB_ORIGIN plus CORS_ORIGINS, without blanks or repeats."""
+        extra = [o.strip() for o in self.cors_origins.split(",")]
+        return list(dict.fromkeys(o for o in [self.web_origin, *extra] if o))
 
     @property
     def database_url(self) -> str:
@@ -183,14 +302,51 @@ class Settings(BaseSettings):
     @property
     def cloud_llm(self) -> bool:
         """True when the LLM is a hosted API (model ids and prices come from MODEL_*/PRICE_*)."""
-        return self.llm_provider in ("nebius", "openai")
+        from api.adapters.providers import llm_provider
+
+        return llm_provider(self.llm_provider).is_cloud
 
     @property
     def llm_label(self) -> str:
         """Short provider name for the UI badge and reports."""
-        return {"nebius": "NEBIUS", "openai": self.openai_compat_label.upper() or "CLOUD"}.get(
-            self.llm_provider, "LOCAL"
+        from api.adapters.providers import llm_provider
+
+        return llm_provider(self.llm_provider).label(self)
+
+    def _take_provider_preset(self) -> None:
+        """Switching LLM_PROVIDER needs no other edit: a model id, price or request extra that
+        still holds another provider's preset value (a leftover from `make use-*`) takes the
+        active provider's preset value, and with no MODEL_FAST at all every empty one does. A
+        value of your own is kept, and with MODEL_FAST set an empty role still falls back to it."""
+        from pydantic import TypeAdapter
+
+        from api.adapters.providers import LLM, llm_provider
+
+        spec = llm_provider(self.llm_provider)
+        if not spec.is_cloud or not spec.presets:
+            return
+        own = next(iter(spec.presets.values()))
+        # a preset for one service on a generic API (OpenRouter on "openai") applies only there
+        if any(
+            k.endswith("BASE_URL") and str(getattr(self, k.lower(), v)) != v for k, v in own.items()
+        ):
+            return
+        others = [p for o in LLM.all() if o.name != spec.name for p in o.presets.values()]
+        fields = type(self).model_fields
+        unset = not self.model_fast.strip() or any(
+            p.get("MODEL_FAST") == self.model_fast for p in others if p.get("MODEL_FAST")
         )
+        for key in {k for p in [own, *others] for k in p} - {"LLM_PROVIDER"}:
+            name = key.lower()
+            if name not in fields or (key not in own and not name.startswith("model_")):
+                continue  # another provider's own settings (its base URL, label) stay as they are
+            now = str(getattr(self, name))
+            leftover = bool(now.strip()) and any(key in p and str(p[key]) == now for p in others)
+            # with no model chosen, a value still at its setting's default was not chosen either
+            untouched = not now.strip() or now == str(fields[name].default)
+            if leftover or (unset and untouched):
+                value = own.get(key, fields[name].default)
+                setattr(self, name, TypeAdapter(fields[name].annotation).validate_python(value))
 
     def model_for(self, role: LlmRole) -> str:
         """Model id for an LLM role under the active provider."""

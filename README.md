@@ -1,65 +1,39 @@
 # Showtime: Red Team Night
 
-**Will everyone get out safely? Test your event before the gates open.**
+[![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
 
-Showtime is a crowd-safety planning studio for event organizers who can't afford a consultant.
-Pick your venue on a map, and AI red-team agents (NVIDIA Nemotron) write new crowd-disaster
-scenarios as code. Each runs in its own sealed sandbox against a real crowd simulator (JuPedSim).
-AI fixes are simulated again, the worst moment can be rewound to test responses from the same
-second, and you get a tested plan, a report and a handover checklist. Every number comes from the
-simulator, never from the AI. **[Read the pitch, the evidence and the limits](nebius/docs/PITCH.md)**
-· [Demo script](nebius/docs/DEMO.md) · [Simulator validation](nebius/docs/VALIDATION.md)
+**AI agents try to break your event plan. Every attack is code the AI wrote, and it only ever
+runs inside a sealed sandbox. A physics simulator, not the AI, decides what breaks. Then the AI
+fixes the plan and the sandbox proves the fix.**
 
-**Engineering novelty, with the papers behind it and numbers measured here:** a red team that
-fills a *failure map* by quality-diversity search, judged by physics, not by a language model
-(after Rainbow Teaming, NeurIPS 2024); crowd-pressure turbulence warnings (Helbing et al. 2007);
-whole multi-storey buildings from one sentence; and a simulated people mix (older people,
-children, wheelchair users, patients in beds). See
-[Engineering novelty](nebius/README.md#engineering-novelty-and-the-papers-behind-it).
+- **Agents that act:** twelve NVIDIA Nemotron agents. They build the venue from one sentence,
+  write attacks as code, look up real incidents, propose fixes and write their own analysis code.
+- **Sandboxes at the core:** every simulation and every AI-written script runs in a throwaway
+  container. It has no network, a read-only system, memory, CPU and process limits, and no keys.
+  [14 attacks on it, and what stopped each](nebius/docs/SANDBOX_PROOF.md).
+- **Evidence:** attacks cite real crowd accidents (395: the Feliciani dataset's 388 plus 7 well-known ones). Every number
+  comes from the simulator, which is within about 6 % of a real bottleneck experiment
+  ([validation](nebius/docs/VALIDATION.md)).
 
-## The problem
+![AI at work: the red team's attacks running in sandboxes, live](nebius/docs/screenshots/step7/work-sandbox-feed.png)
 
-Planning a safe event is slow, expensive and specialist work. Someone draws the site and works
-out capacity, exits, stewards and toilets from planning guides. For the few events that can
-afford it, a consultant builds a crowd model in simulation software and runs a handful of
-scenarios. Most organizers skip the simulation, and on the night they manage the crowd by instinct.
-Itaewon (2022): 159 deaths in a 3.2 m alley. Indiana State Fair (2011): a stage roof fell in a
-59 mph gust.
-
-## Our answer: let AI do the work, with simulators that already exist
-
-Showtime automates event safety planning. AI agents running on **NVIDIA Nemotron** take one sentence and do the
-following. Today they run on your GPU. The **Nebius Token Factory** adapter is built, and the
-live test is pending.
-
-1. **Build the venue**: the real site from OpenStreetMap, or a layout designed from a description.
-2. **Plan for the day**: safe capacity, exits, stewards, first aid, toilets, fencing and budget
-   from published planning guides, every ratio cited.
-3. **Simulate**: the agents drive existing, proven simulation software instead of guessing.
-   [JuPedSim](https://www.jupedsim.org) (Forschungszentrum Jülich) simulates the crowd,
-   [PedPy](https://pedpy.readthedocs.io) measures it, [Pynite](https://github.com/JWock82/Pynite)
-   checks the stage frame and [Open-Meteo](https://open-meteo.com) supplies the wind forecast.
-4. **Break it and fix it (Red Team Night)**: AI attackers try scenarios grounded in 388 real
-   crowd incidents, and AI defenders propose fixes. Each fix is re-simulated, and only measured
-   improvements are kept.
-5. **Hand over**: a report with **the latest safe time to start evacuating**, an evacuation map
-   and a data bundle.
-
-**Cost efficient by design.** A small model handles drafting and a larger one handles edits and
-fixes. The largest model is used only for the final judgement. Millisecond instant estimates
-screen scenarios before any simulation runs. Results are cached by content, and every session
-has token, run and time budgets. A live cost meter shows what each step costs.
+**Run it:** [quickstart](#quickstart) · **Status:** it runs now on local Docker sandboxes and on
+NVIDIA Nemotron through OpenRouter. Nebius Token Factory, Nebius Sandboxes and Tavily web search
+are built as plug-ins, but **not run live** (no keys yet: [live status](nebius/docs/LIVE_STATUS.md)).
 
 > Planning aid, not a safety certification.
 
-**Status and roadmap.** Everything above works locally today (see [HANDOFF](nebius/docs/HANDOFF.md)).
-The plan to the hackathon deadline is in [plan.md](plan.md). It covers running live on Nebius,
-a one-click Autopilot, a simpler three-screen UI, measured cost per plan and a public demo.
+[Pitch, evidence and limits](nebius/docs/PITCH.md) · [3-minute demo](nebius/docs/DEMO.md) ·
+[Judge's walkthrough](nebius/docs/JUDGE_GUIDE.md) · [Hard questions](nebius/docs/QA.md) ·
+[Real cases](nebius/docs/REAL_CASES.md) · the full product description is in
+[nebius/README.md](nebius/README.md).
 
-![Event Copilot planning a concert at Ramna Park](nebius/docs/screenshots/copilot.png)
+## Why
 
-The full product description, screenshots and how NVIDIA Nemotron, Nebius Token Factory and
-Nebius Sandboxes are used are in [nebius/README.md](nebius/README.md).
+Crowd crushes happen at bottlenecks nobody tested. Itaewon (2022): 159 deaths in a 3.2 m alley.
+Indiana State Fair (2011): a stage roof fell in a 59 mph gust. Professional crowd modelling takes
+specialists and money, so most events are never stress-tested. Showtime makes "what breaks this
+plan?" a few-minute question, answered by a simulator.
 
 ## Repository layout
 
@@ -88,9 +62,9 @@ Nebius Sandboxes are used are in [nebius/README.md](nebius/README.md).
 | Python | 3.12 (installed for you by `make setup` via uv) |
 | Node.js | 20 or 22 LTS (frontend) |
 | Docker | with Docker Compose v2; runs the app stack and the simulation sandbox |
-| NVIDIA GPU | ~7 GB free VRAM for the local Nemotron Nano 9B v2 model (not needed with `LLM_PROVIDER=nebius`) |
+| NVIDIA GPU | only for the local model (~7 GB VRAM); not needed with a hosted model (OpenRouter or Nebius) |
 | RAM | 16 GB recommended |
-| Optional keys | `NEBIUS_API_KEY` (Token Factory / Sandboxes), `TAVILY_API_KEY` (live web evidence) |
+| Keys | `OPENAI_COMPAT_API_KEY` (OpenRouter, free tier); optional `NEBIUS_API_KEY` (Token Factory / Sandboxes), `TAVILY_API_KEY` (web evidence) |
 
 Python packages are listed in [requirements.txt](requirements.txt) (mirrors
 [nebius/api/pyproject.toml](nebius/api/pyproject.toml)); simulator packages are pinned in
@@ -99,16 +73,23 @@ Frontend packages are in [nebius/web/package.json](nebius/web/package.json).
 
 ## Quickstart
 
+Linux with Docker. Hosted NVIDIA Nemotron on OpenRouter (a free key from openrouter.ai):
+
 ```bash
 cd nebius
 cp .env.example .env
-make setup        # uv, Python 3.12, API + web deps, sim image, llama.cpp, Nemotron GGUF, data
-make llm-up       # local Nemotron Nano 9B v2 on the GPU
-make up           # Docker Compose → http://localhost:5173  (API docs: http://127.0.0.1:8000/api/docs)
+# in .env, set these three lines (the OpenRouter Nemotron model ids fill in on their own):
+#   LLM_PROVIDER=openai
+#   OPENAI_COMPAT_BASE_URL=https://openrouter.ai/api/v1
+#   OPENAI_COMPAT_API_KEY=<your key>
+make setup            # uv, Python 3.12, web deps, the sandbox image, the incident dataset
+make up               # Docker Compose → http://localhost:5173  (API docs: http://127.0.0.1:8000/api/docs)
 ```
 
-Three sample projects (an Itaewon-style alley, a two-floor hall and a festival field in a storm)
-install automatically with finished red-team sessions, so you can explore right away.
+No key at all: choose **Offline** above *Test this plan*; rule-based attacks and fixes still run
+in the sandbox. Sample projects install automatically with finished red-team sessions. The local
+model instead: keep `LLM_PROVIDER=local`; `make setup` then also fetches llama.cpp and Nemotron
+Nano 9B v2 (≈ 6 GB), started with `make llm-up`.
 
 Without Docker for the app: `make dev` runs the API and the Vite dev server natively.
 
@@ -125,10 +106,17 @@ export PYTHONPATH="$PWD"
 
 Simulations still need the sandbox image: `make build-sim` (from `nebius/`).
 
-### Switch to Nebius
+### Switch to Nebius or add Tavily
 
-Set `LLM_PROVIDER=nebius`, `SANDBOX_PROVIDER=nebius`, `NEBIUS_API_KEY` and the `MODEL_*` ids in
-`nebius/.env`, then run `make smoke-nebius`. Details: [nebius/docs/NEBIUS_SWITCH.md](nebius/docs/NEBIUS_SWITCH.md).
+Only `nebius/.env` changes:
+- **Nebius Token Factory:** `LLM_PROVIDER=nebius` and `NEBIUS_API_KEY`. Leftover model ids from
+  another provider switch to the Nebius preset on their own.
+- **Nebius Sandboxes:** also `SANDBOX_PROVIDER=nebius` and `NEBIUS_PROJECT_ID`.
+- **Tavily:** `TAVILY_API_KEY`.
+
+Then `make verify-nebius-llm`, `make verify-nebius-sandbox` or `make verify-tavily` gives a pass
+or the exact reason, and `make up` restarts the app.
+Details: [nebius/docs/WHEN_YOU_GET_THE_KEYS.md](nebius/docs/WHEN_YOU_GET_THE_KEYS.md).
 
 ## Common tasks
 
@@ -152,4 +140,4 @@ Run from `nebius/`:
 
 ## License
 
-Apache-2.0, see [nebius/LICENSE](nebius/LICENSE).
+Apache-2.0, see [LICENSE](LICENSE).

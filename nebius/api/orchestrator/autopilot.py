@@ -138,6 +138,7 @@ class LiveAutopilot:
     breaks: int = 0
     kept: int = 0
     before_s: float | None = None
+    before_danger_s: float | None = None
 
     def step(self, key: str) -> AutopilotStep:
         return next(s for s in self.steps if s.key == key)
@@ -510,11 +511,16 @@ class AutopilotManager:
             live.results["simulate"] = f"95% {who}got out in {fmt_duration(t)}{preview}"
         elif node == "final:before":
             live.before_s = t
+            live.before_danger_s = metrics.get("time_above_danger_s")
         elif node == "final:after" and t is not None:
             was = f" (was {fmt_duration(live.before_s)})" if live.before_s is not None else ""
-            live.results["confirm"] = (
-                f"Worst case with the fixes: 95% out in {fmt_duration(t)}{was}{preview}"
-            )
+            parts = [f"95% out in {fmt_duration(t)}{was}"]
+            # a fix may trade a few seconds of evacuation for a crowd that never reaches danger:
+            # say both, not only the number that moved the wrong way
+            danger, before = metrics.get("time_above_danger_s"), live.before_danger_s
+            if danger is not None and before is not None and (danger or before):
+                parts.append(f"above danger density for {danger:.0f} s (was {before:.0f} s)")
+            live.results["confirm"] = f"Worst case with the fixes: {'; '.join(parts)}{preview}"
 
     @staticmethod
     def _phase_detail(p: dict[str, Any]) -> str | None:
@@ -696,6 +702,7 @@ class AutopilotManager:
                 "headline": res.get("headline"),
                 "cost": res.get("cost"),
                 "notes": res.get("notes") or [],
+                "evidence": res.get("evidence") or [],
                 "ai_outage": bool(res.get("ai_outage")),
                 "partial_reason": res.get("partial_reason"),
                 "error": row.error,

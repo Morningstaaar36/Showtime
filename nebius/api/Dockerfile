@@ -17,7 +17,12 @@ COPY api /app/api
 COPY plugins /app/plugins
 COPY config /app/config
 COPY sim /app/sim
+# the entrypoint drops to the owner of the mounted runs/ folder (the host user) with the Docker
+# socket's group; logs/ is written by that user
+COPY api/entrypoint.sh /usr/local/bin/showtime-entrypoint
+RUN mkdir -p /app/logs && chmod 1777 /app/logs && chmod 755 /usr/local/bin/showtime-entrypoint
 ENV PATH=/opt/venv/bin:$PATH
 EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=5s --start-period=60s --retries=12 CMD python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/api/v1/templates',timeout=4)"
+ENTRYPOINT ["/usr/local/bin/showtime-entrypoint"]
 CMD ["uvicorn", "api.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

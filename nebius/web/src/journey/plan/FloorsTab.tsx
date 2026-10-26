@@ -98,7 +98,7 @@ export function FloorsTab({ venue, traj, allOutS = null, onWatch }: {
           );
         })}
       </ul>
-      {traj && <FloorChart traj={traj} floorName={name} />}
+      {traj && <FloorChart traj={traj} floorName={name} allOutS={allOutS} />}
     </div>
   );
 }

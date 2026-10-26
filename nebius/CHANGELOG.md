@@ -6,6 +6,73 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added (sandboxes, evidence, providers, any venue; Oct 25–26)
+- **Sandboxes you can see:**
+  - a header badge with what each sandbox guarantees;
+  - a live sandbox feed on AI at work (queued, running, finished, refused, killed, restarted);
+  - a Sandboxes tab on the plan, with the AI-written scenarios, their code and outcome, Rewind
+    and Stress test at scale;
+  - Help › Sandbox shows `make sandbox-proof`'s recording: 14 attacks on the real container
+    and what stopped each.
+- **Evidence:** the red team can search the web (Tavily) and may cite only URLs that came back;
+  every source carries an origin badge (incident dataset or live web); an Evidence panel on
+  the plan; an evidence desk for the brief; the agents' tool calls on AI at work.
+- **Key-ready providers:** LLM, sandbox and search providers are plug-ins in registries, one
+  file each (`api/adapters/providers/`).
+  - `make verify-live` (and `make verify-<service>`) makes one real call per service and writes
+    `docs/LIVE_STATUS.md`.
+  - A missing key gives a clear "not configured" state; an unconfigured sandbox falls back to
+    Docker and says so.
+- **A designer for any venue** (prompt v11, a neutral site model): metro stations, mosques,
+  malls, airports, markets; new feature kinds and event kinds; the brief's headcount is held;
+  real cases pass their documented crowd.
+- **Rules standing in are recorded:** when the model doesn't answer, the plan and the report say
+  which parts built-in rules wrote (`stood_in`).
+
+### Changed
+- **Switching to Nebius is `.env` only:**
+  - `LLM_PROVIDER=nebius` plus the key; model ids left from another provider take the Nebius
+    preset on their own.
+  - Nebius Sandboxes need `NEBIUS_PROJECT_ID`, and start every run with the network off.
+- **The quickstart needs three `.env` lines**, and `make setup` skips the 6 GB local model when a
+  hosted one is configured.
+- The number check covers red- and blue-team titles and rationales.
+- Incident search terms and the template order come from data files.
+
+### Fixed (Chrome, Oct 26)
+- **Script outcomes:**
+  - a script crash reads "Failed: error in its code", not "Stopped by a limit";
+  - exit 137 reads "out of memory, or stopped from outside";
+  - a run restarted after its container stopped says so.
+- **Error messages:**
+  - a paused hosted model with no local model is reported as unavailable, with when it ends;
+  - a rejected key is named in errors and toasts.
+- **Layout and accessibility:**
+  - the floor switch no longer covers the sticky header;
+  - the Rewind table fits its panel;
+  - AI at work no longer scrolls sideways on phones;
+  - the feed's state words meet WCAG AA contrast.
+- **Content:**
+  - a real case shows its sources while the first test runs;
+  - Tavily is asked for publication dates.
+
+### Fixed (live browser check, Oct 25)
+- Autopilot: the venue now holds the event's headcount. The Brief agent's layout text can leave
+  the number out, and the designer then filled the floor to capacity (1,500 asked, 2,800 built).
+  The brief's headcount now goes to the designer, and a layout more than 5 % off is sent back for
+  repair (designer prompt v8, which also keeps a walkable ramp as a way out).
+- Red team: a title that only repeats the failure-map target ("Adaptive scenario (code) · West
+  side: exits …") is sent back for a real name; if the model keeps it, the rationale names it.
+- Autopilot's "Confirming the fixes" step reports time above danger density next to the
+  evacuation time, so a fix that trades a few seconds for no danger doesn't read as worse.
+- Verdict badge says which worst case stopped early ("without the fixes" / "with the fixes").
+- Scenario cards show "N still inside" instead of a blank when a run stopped with people inside.
+- Per-floor chart ends at zero when the run reports everyone out.
+- No 404 requests for an estimate's replay, for the pressure grid of runs simulated before it
+  existed, or for the failure map of sessions saved before it existed.
+- Check page: floor chips wrap instead of hiding upper floors in a side scroll; estimated sides
+  of the before/after rows read "~4:44" next to their "Estimate" badge instead of wrapping.
+
 ### Added
 - **Crowd pressure and turbulence** (Helbing, Johansson & Al-Abideen 2007): every simulation writes
   `pressure.bin` / `pressure_index.json` (same layout as the density grid, GET

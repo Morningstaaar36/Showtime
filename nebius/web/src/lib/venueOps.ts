@@ -12,7 +12,7 @@ type Floor = Venue["floors"][number];
 
 export const EVENT_KINDS: EventKindId[] = [
   "concert", "festival", "conference", "wedding", "rally", "march", "sports", "religious",
-  "hospital", "school", "office", "mall", "transit", "residential", "other",
+  "hospital", "school", "office", "mall", "transit", "residential", "airport", "market", "campus", "other",
 ];
 /** Groups the organizer can add to a zone; the rest of the headcount is general adults. */
 export const GROUP_KINDS: Exclude<PeopleKind, "general">[] = ["elderly", "child", "wheelchair", "bed", "staff"];

@@ -5,6 +5,7 @@ import type * as React from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
+import { errorText } from "@/api/client";
 import { useCreateProject, useDesignVenue, useProjects, useStartAutopilot, useTemplates } from "@/api/queries";
 import type { Template } from "@/api/types";
 import { VenueThumb } from "@/components/VenueThumb";
@@ -30,6 +31,8 @@ const HOW = [
 type Way = "describe" | "sample" | null;
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+const ERROR_TOAST_MS = 12_000;
 
 export function HomePage() {
   const templates = useTemplates();
@@ -65,7 +68,8 @@ export function HomePage() {
           onError: (e) => toast.error(e.message),
         });
       },
-      onError: (e) => toast.error(t("home.design_failed"), { description: `${e.message} ${t("home.try_template")}` }),
+      // an error stays up long enough to read what to do (the API's hint)
+      onError: (e) => toast.error(t("home.design_failed"), { description: `${errorText(e)} ${t("home.try_template")}`, duration: ERROR_TOAST_MS }),
     });
   };
   const busy = design.isPending || (create.isPending && !creating);
@@ -75,7 +79,7 @@ export function HomePage() {
     if (value.length < 10 || busy || autopilot.isPending) return;
     autopilot.mutate({ text: value, depth: "quick" }, {
       onSuccess: (run) => navigate(`/autopilot/${run.id}`),
-      onError: (e) => toast.error(t("autopilot.start_failed"), { description: e.message }),
+      onError: (e) => toast.error(t("autopilot.start_failed"), { description: errorText(e), duration: ERROR_TOAST_MS }),
     });
   };
   const working = busy || autopilot.isPending;

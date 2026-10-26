@@ -8,9 +8,14 @@
       "date": "2010-07-24",
       "place": "Duisburg, Germany",
       "deaths": 21,
+      "people": 3000,
       "toll": "21 people died and more than 500 were injured.",
       "event_kind": "festival",
-      "location": { "lat": 51.4253, "lon": 6.7766, "timezone": "Europe/Berlin" },
+      "location": {
+        "lat": 51.4253,
+        "lon": 6.7766,
+        "timezone": "Europe/Berlin"
+      },
       "description": "Open-air access route to the Love Parade festival grounds in Duisburg, Germany, on 24 July 2010 around 16:30. A road tunnel 20 m wide runs west to east under a railway embankment; draw 126 m of it with the ramp in the middle. Its west and east ends are open, 18 m wide: that is where visitors came in and where leaving visitors went out. Halfway along the north wall of the tunnel a single ramp 26 m wide and 130 m long climbs north to the festival grounds; it was the only way in and out. Fences narrowed the middle of the ramp to 10.6 m for about 10 m. A narrow staircase about 1.5 m wide on the west side of the ramp, near its bottom, led up the embankment. The top of the ramp opens onto the festival grounds. 3,000 people: 1,150 arriving in the west half of the tunnel and 1,150 in the east half, all heading up the ramp to the festival grounds, and 700 on the ramp leaving the festival, heading down to the tunnel ends.",
       "what_happened": "Arriving and leaving visitors met where the only ramp joined the tunnels; the crowd at the foot of the ramp, near a narrow staircase, became so dense that 21 people were crushed to death.",
       "lesson": "One route for both arrivals and departures, with no way to hold the inflow, turns a junction into a crush.",
@@ -46,9 +51,14 @@
       "date": "1989-04-15",
       "place": "Sheffield, United Kingdom",
       "deaths": 97,
+      "people": 3000,
       "toll": "97 people died (95 at the time of the Taylor inquiry; the 97th death was ruled unlawful killing in 2021).",
       "event_kind": "sports",
-      "location": { "lat": 53.4113, "lon": -1.5022, "timezone": "Europe/London" },
+      "location": {
+        "lat": 53.4113,
+        "lon": -1.5022,
+        "timezone": "Europe/London"
+      },
       "description": "Standing terrace behind the goal at the Leppings Lane end of Hillsborough stadium, Sheffield, 15 April 1989, just before 3 pm. Two neighbouring pens, pen 4 on the left and pen 3 on the right as seen facing the pitch, together 25 m wide along the pitch and 15 m deep, split by a radial fence running from the back to the front (about 190 m² each). The pitch is on the north side, behind a perimeter fence with one gate per pen: 0.79 m wide for pen 4 and 0.82 m for pen 3; these gates were the only way out of the pens. In the middle of the back (south) side, where the radial fence starts, a tunnel 23 m long and about 4.3 m wide runs south under the west stand to the concourse behind the turnstiles, about 40 by 20 m. 3,000 people: 600 in pen 4 and 600 in pen 3, already packed, and 1,800 fans in the concourse who came in through an exit gate opened to relieve the crush outside and head down the tunnel into the pens.",
       "what_happened": "After an exit gate was opened to relieve the crush at the turnstiles, about 2,000 fans came through it and many walked down the tunnel into two pens that were already full; people at the front were crushed against the perimeter fence.",
       "lesson": "A full area needs its entrance closed: count people into each pen and close the route in before it is full.",
@@ -88,9 +98,14 @@
       "date": "2022-10-29",
       "place": "Itaewon, Seoul, South Korea",
       "deaths": 159,
+      "people": 2400,
       "toll": "159 people died and 196 were injured.",
       "event_kind": "festival",
-      "location": { "lat": 37.5347, "lon": 126.9947, "timezone": "Asia/Seoul" },
+      "location": {
+        "lat": 37.5347,
+        "lon": 126.9947,
+        "timezone": "Asia/Seoul"
+      },
       "description": "Open-air streets in Itaewon, Seoul, on Halloween night, 29 October 2022, about 22:15. A sloping alley about 45 m long and 3.2 m wide at its narrowest runs north to south. Its north end meets a narrow street lined with bars at a T; draw 80 m of that street, about 6 m wide, open at its west and east ends. Its south end opens onto the main road, Itaewon-ro; draw 80 m of it, about 12 m wide, open at its west and east ends. 2,400 people: 1,200 on the upper street heading down the alley to Itaewon-ro, 400 in the alley also heading down to Itaewon-ro, and 800 on Itaewon-ro heading up the alley to the upper street.",
       "what_happened": "On a Halloween night with about 100,000 people in the district, a 3.2 m alley between two packed streets filled until people fell; police estimate 8 to 11 people per m² there between 22:15 and 22:25.",
       "lesson": "Narrow links between crowded streets need one-way flow and a limit on how many enter.",

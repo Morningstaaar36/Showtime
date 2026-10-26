@@ -44,6 +44,23 @@ export interface AgentLine {
   level?: string;
 }
 
+/** One run in its sandbox, as the live feed shows it (the API's `sandbox` events). */
+export interface SandboxRun {
+  run_id: string;
+  label: string;
+  state: "queued" | "running" | "finished" | "refused" | "killed" | "failed" | "cancelled" | "reused";
+  elapsed_s: number;
+  tier?: number;
+  provider?: string;
+  limits?: string;
+  reason?: string | null;
+  /** why the first sandbox stopped, when the run was started again in a new one */
+  retried?: string | null;
+  /** an AI-written scenario script in this run: whether it ran, was refused, crashed in its own
+   * code (error) or was stopped by a sandbox limit */
+  script?: { state: "ran" | "refused" | "error" | "stopped"; reason: string | null } | null;
+}
+
 export interface SessionView {
   lastSeq: number;
   status: string;
@@ -64,15 +81,25 @@ export interface SessionView {
   countdown: Countdown | null;
   /** the red team's failure map (latest `archive` event; docs/RAINBOW.md) */
   archive: FailureMap | null;
+  /** every run's sandbox, in the order they were started (latest state of each) */
+  sandboxes: SandboxRun[];
   connected: boolean;
   ended: boolean;
 }
 
 export const EMPTY: SessionView = {
   lastSeq: 0, status: "queued", phase: "", phases: [], round: 0, message: "", attacks: [], fixes: [], nodes: {},
-  runs: {}, scoreboard: [], fixesAccepted: 0, cost: null, feed: [], countdown: null, archive: null, connected: false,
-  ended: false,
+  runs: {}, scoreboard: [], fixesAccepted: 0, cost: null, feed: [], countdown: null, archive: null, sandboxes: [],
+  connected: false, ended: false,
 };
+
+/** How many sandboxes are waiting, running and done (for "N of M sandboxes done"). */
+export function sandboxCounts(list: SandboxRun[]): { queued: number; running: number; done: number; stopped: number; total: number } {
+  const queued = list.filter((r) => r.state === "queued").length;
+  const running = list.filter((r) => r.state === "running").length;
+  const stopped = list.filter((r) => r.state === "refused" || r.state === "killed" || r.script?.state === "stopped" || r.script?.state === "refused").length;
+  return { queued, running, done: list.length - queued - running, stopped, total: list.length };
+}
 
 export type Action = { kind: "event"; ev: SessionEvent } | { kind: "reset" } | { kind: "conn"; v: boolean } | { kind: "end" };
 
@@ -121,6 +148,12 @@ export function reduce(s: SessionView, a: Action): SessionView {
     case "countdown":
       next.countdown = p.countdown as Countdown;
       break;
+    case "sandbox": {
+      const run = p as unknown as SandboxRun;
+      const i = s.sandboxes.findIndex((r) => r.run_id === run.run_id);
+      next.sandboxes = i < 0 ? [...s.sandboxes, run] : s.sandboxes.map((r, j) => (j === i ? { ...r, ...run } : r));
+      break;
+    }
     case "agent_call":
       next.feed = [...s.feed, { seq: ev.seq, ts: ev.ts, type: "agent_call" as const, agent: String(p.agent), model: String(p.model ?? ""),
         summary: String(p.summary ?? ""), tokens: Number(p.tokens_in ?? 0) + Number(p.tokens_out ?? 0), ms: Number(p.ms ?? 0), ok: Boolean(p.ok) }].slice(-200);

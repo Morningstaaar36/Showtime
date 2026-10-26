@@ -101,6 +101,16 @@ class AutopilotCost(BaseModel):
     detail: dict[str, Any] | None = None  # the session's own cost record, when it has one
 
 
+class EvidenceSuggestion(BaseModel):
+    """A web source about the briefed place or event for the organizer to check (never applied)."""
+
+    topic: Literal["capacity", "attendance", "rules"]
+    title: str
+    url: str
+    published: str | None = None
+    sentence: str = ""
+
+
 class AutopilotRun(BaseModel):
     """An Autopilot run as the API returns it."""
 
@@ -116,6 +126,8 @@ class AutopilotRun(BaseModel):
     headline: str | None = None
     cost: AutopilotCost | None = None
     notes: list[str] = Field(default_factory=list)
+    # what the web says about the place and event, to check (empty without live web search)
+    evidence: list[EvidenceSuggestion] = Field(default_factory=list)
     ai_outage: bool = False  # the AI model was unreachable; standard methods were used
     partial_reason: AutopilotPartialReason | None = None
     error: str | None = None

@@ -1,7 +1,7 @@
 /** The AI team (route `/team`): every NVIDIA Nemotron agent in the order it works, what it
  * decides, the model it runs on now and the tools it may use; and the sandbox every simulation
  * runs in. Agents decide; tools (solver, simulator, number check) produce every number. */
-import { Bot, Box, Building2, Calculator, CheckCheck, Gauge, Map as MapIcon, Pencil, ShieldCheck, Swords, Wrench, Zap } from "lucide-react";
+import { Bot, Box, Building2, Calculator, CheckCheck, Code2, Gauge, Globe, Map as MapIcon, Pencil, ShieldCheck, Swords, Wrench, Zap } from "lucide-react";
 import type * as React from "react";
 import { useAgents, type AgentInfo } from "@/api/queries";
 import { AppShell } from "@/app/AppHeader";
@@ -27,6 +27,8 @@ const TOOL_ICON: Record<string, React.ReactNode> = {
   edit_ops: <Pencil />,
   scenario_events: <Gauge />,
   number_check: <CheckCheck />,
+  search: <Globe />,
+  code_sandbox: <Code2 />,
 };
 
 /** "nvidia/nemotron-3.5-lightning:free" → "Nemotron 3.5 Lightning" */
@@ -89,8 +91,8 @@ export function TeamPage() {
             <span className={cn("grid size-10 place-items-center rounded-[10px] [&_svg]:size-5", q.data.sandbox.ok ? "bg-egress-soft text-egress-strong" : "bg-caution-soft text-caution-strong")} aria-hidden><ShieldCheck /></span>
             <div className="min-w-0 flex-1 space-y-1">
               <h2 id="sandbox-h" className="font-semibold">{t("team.sandbox_title")}</h2>
-              <p className="text-sm text-muted">{t("team.sandbox_text", { where: q.data.sandbox.provider === "nebius" ? t("team.sandbox_nebius") : t("team.sandbox_docker") })}</p>
-              <p className="text-xs text-muted">{q.data.sandbox.isolation} · {q.data.sandbox.detail}</p>
+              <p className="text-sm text-muted">{t("team.sandbox_text", { where: q.data.sandbox.title ?? q.data.sandbox.provider })}</p>
+              <p className="text-xs text-muted" data-testid="team-isolation">{q.data.sandbox.isolation.summary} · {q.data.sandbox.detail}</p>
             </div>
             <div className="flex items-center gap-2 text-sm text-muted"><Calculator className="size-4" aria-hidden />{t("team.numbers")}</div>
             <div className="flex items-center gap-2 text-sm text-muted"><Wrench className="size-4" aria-hidden />{t("team.kept")}</div>

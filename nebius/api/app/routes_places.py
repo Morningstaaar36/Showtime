@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from api.adapters.llm import BudgetExceeded, LLMError
 from api.adapters.osm import OsmUnavailable
 from api.agents.base import AgentUnavailable
-from api.app.errors import ApiException
+from api.app.errors import ApiException, llm_unavailable
 from api.app.routes_core import get_state
 from api.app.state import AppState
 from api.core.building_gen import infer_use, map_levels
@@ -61,12 +61,7 @@ async def design_venue(body: DesignIn, st: AppState = Depends(get_state)) -> dic
     except BudgetExceeded as exc:
         raise ApiException(429, "budget", str(exc), "Raise the token budget in Settings.") from exc
     except (LLMError, AgentUnavailable) as exc:
-        raise ApiException(
-            503,
-            "llm_unavailable",
-            "The language model isn't answering.",
-            "Check the provider badge (top right) or start the local model with: make llm-up",
-        ) from exc
+        raise llm_unavailable(st.llm, "The language model isn't answering.") from exc
 
 
 @router.get("/places/search")

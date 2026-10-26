@@ -428,3 +428,32 @@ def test_sample_packs_install_once_update_and_respect_deletes(
     state.projects.delete(samples()[0].id)
     assert demos.install_demos(state) == 0 and not samples()
     assert (pack_dir / "a.showtime.zip").read_bytes() == data
+
+
+async def test_numbers_in_an_attack_must_come_from_the_venue_events_or_incident(
+    registry: Registry, hall: Venue
+) -> None:
+    def invents(messages: list[dict[str, str]]) -> dict[str, Any]:
+        out = red_reply(messages)
+        out["attacks"] = [
+            {
+                **out["attacks"][0],
+                "title": "South door lost at 30 s",  # 30 is the event's own at_s: allowed
+                "rationale": "door_s1 carries 612 people out of the hall.",  # 612 is invented
+            }
+        ]
+        return out
+
+    llm = FakeLLM({"red_team": invents})
+    attacks = await red_team(
+        AgentEnv(llm=llm, audit=False), registry, hall, None, _incidents(), 3, set()
+    )
+    assert len(llm.calls) > 1 and "quotes 612" in str(llm.calls[1])  # sent back once
+    assert attacks[0].title == "South door lost at 30 s"
+    assert attacks[0].rationale == ""  # still unchecked after the repair: removed
+
+
+def test_strip_numbers_removes_only_the_failed_ones() -> None:
+    from api.agents.red_team import strip_numbers
+
+    assert strip_numbers("Surge of 640 people at 30 s", ["640"]) == "Surge of people at 30 s"

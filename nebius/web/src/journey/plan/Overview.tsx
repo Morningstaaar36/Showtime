@@ -1,7 +1,7 @@
 /** Your plan › Overview: the verdict as a picture (traffic-light ring and one headline), four key
  * numbers with a picture each, before vs after the fixes, the worst moment replaying in 3D, and
  * one obvious next step. The AI's prose stays one click away. */
-import { AlarmClock, CircleAlert, Clock3, Gauge, Info, Sparkles, Swords, Users, Wrench } from "lucide-react";
+import { AlarmClock, CircleAlert, Clock3, Gauge, Info, ShieldCheck, Sparkles, Swords, Users, Wrench } from "lucide-react";
 import type * as React from "react";
 import { Link } from "react-router";
 import type { Countdown, RunResult } from "@/api/types";
@@ -12,6 +12,7 @@ import { type Evaluation, evaluationLabel, evaluationReason } from "@/lib/eviden
 import { fmtDuration, fmtHM, fmtInt, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Thresholds, VerdictLevel } from "@/panels/verdict";
+import { stoodInLine } from "./stoodIn";
 import { evacValue } from "./fixes";
 import { DeltaChip, DensityScale, LEVEL_TONE, Sparkline, TargetBar, VerdictRing } from "./visuals";
 
@@ -55,6 +56,10 @@ export interface OverviewProps {
   summary: { judge: string | null; reasons: string[]; recommendations: string[] };
   /** the real case this venue rebuilds (a compact card above the verdict), if any */
   realCase?: React.ReactNode;
+  /** how many sandbox runs and AI-written scripts the test had, and how to open them */
+  sandboxes?: { runs: number; scripts: number; onOpen: () => void };
+  /** agents whose part built-in rules played because the model didn't answer (agent -> why) */
+  stoodIn?: Record<string, string>;
 }
 
 function Tile({ icon, tone, label, value, unit, visual, foot, testId }: {
@@ -108,7 +113,8 @@ function CompareRow({ label, icon, before, after, fmt, lowerBetter = true, estim
   estimate?: { before: boolean; after: boolean };
 }) {
   const est = estimate?.before || estimate?.after;
-  const side = (v: number | null, approx?: boolean) => (approx && v != null ? t("yourplan.about", { d: fmt(v) }) : fmt(v));
+  // the row's "Estimate" badge says why; "~" marks the estimated side, as on the fix cards
+  const side = (v: number | null, approx?: boolean) => (approx && v != null ? `~${fmt(v)}` : fmt(v));
   const top = Math.max(before ?? 0, after ?? 0, 1e-6);
   const bar = (v: number | null, cls: string) => (
     <div className="h-2.5 flex-1 rounded-full bg-surface-3">
@@ -120,8 +126,8 @@ function CompareRow({ label, icon, before, after, fmt, lowerBetter = true, estim
     <li className="grid grid-cols-[minmax(0,10.5rem)_1fr_auto] items-center gap-x-3 gap-y-1 py-2 max-sm:grid-cols-[1fr_auto]">
       <span className="flex min-w-0 items-center gap-2 text-sm font-medium max-sm:col-span-1"><span className="text-muted [&_svg]:size-4" aria-hidden>{icon}</span><span className="truncate">{label}</span></span>
       <span className="space-y-1 max-sm:col-span-2 max-sm:row-start-2">
-        <span className="flex items-center gap-2"><span className="w-10 text-2xs text-muted">{t("yourplan.before")}</span>{bar(before, "bg-line")}<span className="w-20 text-right text-xs tabular">{side(before, estimate?.before)}</span></span>
-        <span className="flex items-center gap-2"><span className="w-10 text-2xs font-semibold text-signal">{t("yourplan.after")}</span>{bar(after, "bg-signal")}<span className="w-20 text-right text-xs font-semibold tabular">{side(after, estimate?.after)}</span></span>
+        <span className="flex items-center gap-2"><span className="w-10 text-2xs text-muted">{t("yourplan.before")}</span>{bar(before, "bg-line")}<span className="w-24 whitespace-nowrap text-right text-xs tabular">{side(before, estimate?.before)}</span></span>
+        <span className="flex items-center gap-2"><span className="w-10 text-2xs font-semibold text-signal">{t("yourplan.after")}</span>{bar(after, "bg-signal")}<span className="w-24 whitespace-nowrap text-right text-xs font-semibold tabular">{side(after, estimate?.after)}</span></span>
       </span>
       <span className="justify-self-end max-sm:row-start-1 max-sm:col-start-2">
         {est ? <span className="rounded-full bg-surface-2 px-2 py-0.5 text-2xs text-muted" title={t("plan.estimate_hint")}>{t("plan.estimate")}</span>
@@ -150,6 +156,7 @@ export function Overview(p: OverviewProps) {
   const hasCompare = !!b && !!a && p.fixes > 0;
   const hasSummary = !!p.summary.judge || p.summary.reasons.length > 0 || p.summary.recommendations.length > 0;
 
+  const stood = stoodInLine(p.stoodIn);
   return (
     <div className="space-y-4">
       {p.realCase}
@@ -187,6 +194,11 @@ export function Overview(p: OverviewProps) {
             {p.reasons.map((r) => (
               <li key={r} className="flex items-start gap-2 font-medium text-[color-mix(in_srgb,var(--danger)_80%,black)] dark:text-danger"><CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{r}</li>
             ))}
+            {stood && (
+              <li className="flex items-start gap-2 text-caution-strong" data-testid="stood-in" title={stood.why}>
+                <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />{stood.text}
+              </li>
+            )}
           </ul>
           <dl className="mt-auto grid grid-cols-3 gap-2 text-center">
             {([["attacks", p.score.attacks, "text-ink"], ["breaks", p.score.breaks, p.score.breaks ? "text-danger" : "text-ink"], ["fixes", p.score.fixes, "text-signal"]] as const).map(([k, v, c]) => (
@@ -196,6 +208,13 @@ export function Overview(p: OverviewProps) {
               </div>
             ))}
           </dl>
+          {p.sandboxes && p.sandboxes.runs > 0 && (
+            <button type="button" onClick={p.sandboxes.onOpen} data-testid="watch-sandboxes"
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-[10px] border border-egress/30 bg-surface/70 px-3 text-sm font-semibold text-egress-strong hover:bg-surface">
+              <ShieldCheck className="size-4" aria-hidden />
+              {t("plan.sbx_watch", { runs: p.sandboxes.runs, scripts: p.sandboxes.scripts })}
+            </button>
+          )}
         </div>
 
         <div className="min-w-0 lg:col-span-3">{p.hero}</div>

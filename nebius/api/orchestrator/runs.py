@@ -10,6 +10,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import re
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -229,6 +230,9 @@ class RunService:
             parent_events = self._events(venue, attack, None, None, extra)
             plan = run_tier1(venue, parent_events, self.registry, st).extensions.get("plan", {})
         settings_payload = sim_settings(st, tier)
+        if any(e.type == "script" for e in events):
+            # only runs with a scenario script carry its guards (other run ids stay the same)
+            settings_payload.update(st.script_guards)
         if speed_factor is not None and abs(speed_factor - 1.0) > 1e-9:
             for k in ("walk_speed_mean", "walk_speed_sd", "stair_speed"):
                 settings_payload[k] = round(float(settings_payload[k]) * speed_factor, 4)
@@ -336,6 +340,7 @@ class RunService:
             return task
         if self.cached(rid) is not None:
             self._touch(rid, project_id, session_id, label)
+            self._sandbox(rid, "reused", 0.0, label=label)
             return None
         self._upsert(job, project_id, venue_version, session_id, label)
         task = self.tasks[rid] = asyncio.create_task(self._execute(job))
@@ -470,15 +475,23 @@ class RunService:
         if self.hooks is not None:
             self._hook("on_run_started", request=job.request)
         t0 = time.monotonic()
+        started: list[float] = []  # when the runner's container started (after any queue)
+        self._sandbox(rid, "queued", 0.0, tier=job.request.tier)
 
         def on_progress(p: dict[str, Any]) -> None:
+            if p.get("sandbox_started"):
+                started.append(time.monotonic())
+                self._sandbox(rid, "running", time.monotonic() - t0, tier=job.request.tier)
+                return
             self.progress[rid] = p
             self._notify(rid, {"status": "running", "progress": p})
 
+        retried: str | None = None  # why the first container stopped, when the run was retried
         try:
             result = await self.runner.run(job, on_progress)
             if result.status == "failed" and "crashed" in (result.error or ""):
                 log.warning("run %s crashed, retrying once", rid)
+                retried = result.error
                 result = await self.runner.run(job, on_progress)
         except asyncio.CancelledError:
             result = failed_result(
@@ -506,6 +519,9 @@ class RunService:
         )
         self._finish(rid, result)
         self.progress.pop(rid, None)
+        ran_s = time.monotonic() - (started[0] if started else t0)
+        outcome = sandbox_outcome(result, job)
+        self._sandbox(rid, elapsed_s=ran_s, tier=result.tier, retried=retried, **outcome)
         self._notify(rid, {"status": result.status, "result": result.model_dump(mode="json")})
         if self.hooks is not None:
             self._hook("on_run_finished", result=result)
@@ -648,6 +664,22 @@ class RunService:
             return None
         return p
 
+    def _sandbox(self, rid: str, state: str, elapsed_s: float, **extra: Any) -> None:
+        """A structured sandbox lifecycle event for listeners (the session's live feed)."""
+        self._notify(
+            rid,
+            {
+                "sandbox": {
+                    "run_id": rid,
+                    "state": state,
+                    "elapsed_s": round(elapsed_s, 1),
+                    "provider": getattr(self.runner, "provider", "?"),
+                    "limits": _limits(self.runner),
+                    **extra,
+                }
+            },
+        )
+
     def _notify(self, rid: str, data: dict[str, Any]) -> None:
         for fn in list(self.listeners):
             try:
@@ -662,6 +694,49 @@ class RunService:
             getattr(self.hooks.hook, name)(**kw)
         except Exception:
             log.exception("plugin hook %s failed", name)
+
+
+SCRIPT_STOPPED = "scenario script stopped: "
+REFUSED = "it failed the safety check"
+# how the sandbox describes a crash in the script's own code ("ValueError on line 5: ..."), as
+# opposed to one of its limits ("one step ran more than ...", "... more memory ...")
+SCRIPT_ERROR = re.compile(r"^[A-Z]\w*(Error|Exception)( on line \d+)?: ")
+
+
+def sandbox_outcome(result: RunResult, job: SimJob) -> dict[str, Any]:
+    """What happened in the sandbox, for the live feed: the run's state and, for an AI-written
+    scenario script, whether it ran, was refused by the in-sandbox check, crashed in its own code
+    (error), or was stopped by a budget, with the reason exactly as the sandbox wrote it. Built
+    from the result only; no container output is ever passed on."""
+    has_script = any(e.get("type") == "script" for e in job.events)
+    stopped = next((n for n in result.notes if n.startswith(SCRIPT_STOPPED)), None)
+    script: dict[str, Any] | None = None
+    if has_script:
+        if stopped is None:
+            script = {"state": "ran", "reason": None}
+        else:
+            why = stopped[len(SCRIPT_STOPPED) :]
+            kind = (
+                "refused"
+                if why.startswith(REFUSED)
+                else "error"
+                if SCRIPT_ERROR.match(why)
+                else "stopped"
+            )
+            script = {"state": kind, "reason": why}
+    error = result.error or ""
+    if result.status == "timeout" or "out of memory" in error:
+        return {"state": "killed", "reason": error or None, "script": script}
+    if result.status in ("failed", "cancelled"):
+        return {"state": result.status, "reason": error or None, "script": script}
+    if script is not None and script["state"] == "refused":
+        return {"state": "refused", "reason": script["reason"], "script": script}
+    return {"state": "finished", "reason": None, "script": script}
+
+
+def _limits(runner: Any) -> str:
+    iso = getattr(runner, "isolation", None)
+    return str(iso.summary()) if iso is not None else ""
 
 
 def _reused(result: RunResult) -> RunResult:

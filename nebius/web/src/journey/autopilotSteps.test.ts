@@ -18,7 +18,7 @@ const fold = (events: AutopilotEvent[], from: AutopilotStream = EMPTY_STREAM) =>
 function run(over: Partial<AutopilotRun> = {}): AutopilotRun {
   return {
     id: "ap_1", status: "running", depth: "quick", text: "A concert for 400 people", project_id: null, project_name: null, session_id: null,
-    steps: pending(), report_url: null, headline: null, cost: null, notes: [], ai_outage: false, partial_reason: null, error: null,
+    steps: pending(), report_url: null, headline: null, cost: null, notes: [], evidence: [], ai_outage: false, partial_reason: null, error: null,
     created_at: at(0), finished_at: null, ...over,
   };
 }

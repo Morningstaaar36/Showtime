@@ -19,6 +19,7 @@ services:
       - API_HOST=0.0.0.0
       - WEB_ORIGIN=http://localhost:5173
       - SIM_USER=${SIM_USER:-1000:1000}
+      - HOME=/tmp   # the docker CLI keeps its config under $HOME
     ports: ["127.0.0.1:8000:8000"]
     volumes:
       - ./runs:/app/runs

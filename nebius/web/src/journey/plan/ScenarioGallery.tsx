@@ -2,11 +2,7 @@
  * key number), click to watch it; the scenario library when the server has one; and the deeper
  * checks (more seeds, how sure, rewind, stress at scale) as tiles that open their panel. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Accessibility, Ambulance, ArrowUpDown, CircleCheck, CloudFog, CloudRainWind, DoorClosedLocked, UserPlus, Baby, Ban, Bomb, BookOpen, Boxes, Car, Check, CloudLightning, CloudRain, Code2, Dices, DoorClosed, Droplets, ExternalLink, Fence,
-  Flame, Footprints, Gauge, HeartPulse, History, Hourglass, Layers, Lock, Megaphone, Moon, Music, PartyPopper, Play, Repeat2, ShieldAlert, ShieldCheck,
-  Siren, Snail, Sun, Swords, Thermometer, TriangleAlert, UsersRound, Waves, Wind, Zap, ZapOff,
-} from "lucide-react";
+import { Accessibility, Ambulance, ArrowUpDown, CircleCheck, CloudFog, CloudRainWind, DoorClosedLocked, UserPlus, Baby, Ban, Bomb, BookOpen, Boxes, Car, Check, CloudLightning, CloudRain, Code2, Dices, DoorClosed, Droplets, Fence, Flame, Footprints, Gauge, HeartPulse, History, Hourglass, Layers, Lock, Megaphone, Moon, Music, PartyPopper, Play, Repeat2, ShieldAlert, ShieldCheck, Siren, Snail, Sun, Swords, Thermometer, TriangleAlert, UsersRound, Waves, Wind, Zap, ZapOff } from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
 import { api } from "@/api/client";
@@ -16,8 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/misc";
 import { t } from "@/i18n";
-import { fmtClock, fmtNum } from "@/lib/format";
+import { fmtClock, fmtNum, fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { ScriptCode } from "@/journey/ScriptCode";
+import { SourceLink } from "@/journey/SourceLink";
 import { type ScenarioKind, scenarioHeadline, scenarioKind, type StressCount } from "./gallery";
 import type { Outcome, ScenarioRow } from "./scenarios";
 
@@ -66,7 +64,10 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay, danger = 5 
               <dl className="grid grid-cols-2 gap-2 text-center">
                 <div className="rounded-[8px] bg-surface-2 px-2 py-1.5">
                   <dt className="text-2xs text-muted">{t("plan.sc_out")}</dt>
-                  <dd className="text-lg font-bold tabular">{r.evacS != null ? fmtClock(r.evacS) : "–"}</dd>
+                  {r.evacS == null && r.inside ? (
+                    // the simulation stopped with people inside: say so instead of a blank
+                    <dd className="text-sm font-bold leading-7 text-danger tabular">{t("plan.sc_left", { n: fmtInt(r.inside) })}</dd>
+                  ) : <dd className="text-lg font-bold tabular">{r.evacS != null ? fmtClock(r.evacS) : "–"}</dd>}
                 </div>
                 <div className="rounded-[8px] bg-surface-2 px-2 py-1.5">
                   <dt className="text-2xs text-muted">{t("plan.sc_peak")}</dt>
@@ -77,12 +78,9 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay, danger = 5 
                 {r.children.length > 0 && <Badge tone="outline">{t("plan.sc_fixes", { k: kept, n: r.children.length })}</Badge>}
                 {st && <Badge tone={st.breaks ? "danger" : "egress"}>{t("plan.sc_stress", { k: st.breaks, n: st.runs })}</Badge>}
               </div>
+              {a && <ScriptCode attack={a} />}
               <div className="mt-auto flex items-center justify-between gap-2">
-                {a?.inspired_by?.source_url ? (
-                  <a href={a.inspired_by.source_url} target="_blank" rel="noreferrer" className="flex min-h-11 min-w-0 flex-1 items-center gap-1 text-xs text-signal hover:underline">
-                    <ExternalLink className="size-3 shrink-0" /><span className="truncate">{a.inspired_by.incident}{a.inspired_by.year ? ` (${a.inspired_by.year})` : ""}</span>
-                  </a>
-                ) : <span />}
+                {a?.inspired_by?.source_url ? <SourceLink source={a.inspired_by} className="flex-1" /> : <span />}
                 <button type="button" disabled={!playable} onClick={() => onPlay(r)} aria-label={t("plan.sc_watch", { title: r.title })}
                         className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-ink px-4 text-sm font-semibold text-plan transition hover:scale-[1.03] disabled:opacity-40">
                   <Play className="size-3.5" fill="currentColor" aria-hidden />{t("plan.sc_play")}
@@ -278,9 +276,9 @@ export type CheckKey = "seeds" | "range" | "rewind" | "stress";
 
 const CHECK_ICON: Record<CheckKey, React.ReactNode> = { seeds: <Dices />, range: <Gauge />, rewind: <History />, stress: <Layers /> };
 
-export function DeeperChecks({ status, panels }: { status: Record<CheckKey, string>; panels: Record<CheckKey, React.ReactNode> }) {
+export function DeeperChecks({ status, panels }: { status: Record<CheckKey, string>; panels: Partial<Record<CheckKey, React.ReactNode>> }) {
   const [open, setOpen] = useState<CheckKey | null>(null);
-  const keys: CheckKey[] = ["rewind", "stress", "seeds", "range"];
+  const keys = (["rewind", "stress", "seeds", "range"] as const).filter((k) => panels[k] !== undefined);
   return (
     <section aria-labelledby="deeper-h" className="space-y-3">
       <h2 id="deeper-h" className="text-lg font-semibold">{t("plan.deeper")}</h2>

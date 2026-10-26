@@ -17,12 +17,14 @@ import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, TypeVar
+from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
 from api.adapters.cache import DiskCache, cache_key
+from api.adapters.providers import llm_provider
 from api.core.settings import LlmRole, Settings
 from api.models import Usage
 
@@ -37,6 +39,24 @@ QUOTA_RE = re.compile(
 )
 HEALTH_TTL_OK_S = 300.0  # a working key is re-checked every 5 minutes
 HEALTH_TTL_FAIL_S = 60.0  # a failing one every minute (fixing .env needs a restart anyway)
+
+
+def _failure_kind(exc: BaseException) -> str | None:
+    """Why a hosted call failed, when that is a reason to stop asking for a while:
+    "rate_limit" (429, quota), "connection" (refused, unreachable) or "server" (5xx).
+    None for a timeout or a client error (4xx): the next call may well work."""
+    cause = exc.__cause__ or exc
+    status = getattr(cause, "status_code", None)
+    name = type(cause).__name__
+    if status == 429 or (status is None and QUOTA_RE.search(str(exc))):
+        return "rate_limit"
+    if isinstance(cause, TimeoutError) or "Timeout" in name:
+        return None  # openai's APITimeoutError is also an APIConnectionError: check it first
+    if isinstance(cause, ConnectionError) or "Connection" in name or "Connect" in name:
+        return "connection"
+    if isinstance(status, int) and 500 <= status < 600:
+        return "server"
+    return None
 
 
 class LLMError(Exception):
@@ -146,50 +166,48 @@ class LLMClient:
         transport: Any | None = None,
     ) -> None:
         self.settings = settings
-        self.provider: Literal["local", "nebius", "openai", "fake"] = settings.llm_provider
+        self.spec = llm_provider(settings.llm_provider)  # what the provider is and can do
+        self.provider: str = self.spec.name
         self.cache = DiskCache(settings.cache_dir / "llm")
         self.on_usage = on_usage
         self._client = transport
         self.calls = 0
-        self.lock = asyncio.Lock() if settings.llm_provider == "local" else None
+        self.lock = asyncio.Lock() if self.spec.one_request_at_a_time else None
         self._local_client: Any = None
         self._local_lock = asyncio.Lock()
         self._paused_until = 0.0
+        self._server_errors = 0  # consecutive 5xx answers from the hosted model
         self.fallback_reason: str | None = None
         # request features a hosted model rejected once ("schema", "extra"), per model:
         # later calls leave them out instead of failing again
         self._unsupported: set[tuple[str, str]] = set()
         self._on_spare_key = False  # switched to OPENAI_COMPAT_API_KEY_FALLBACK
         self._health_cache: tuple[float, dict[str, Any]] | None = None
+        self.model_warnings: list[str] = []  # model ids the provider does not serve (startup)
 
     @property
     def base_url(self) -> str:
         """Endpoint for the active provider."""
-        if self.provider == "nebius":
-            return self.settings.nebius_base_url
-        if self.provider == "openai":
-            return self.settings.openai_compat_base_url
-        return self.settings.local_llm_base_url
+        return self.spec.base_url(self.settings)
 
     @property
     def extra_body(self) -> dict[str, Any]:
-        """Provider-specific request fields (LLM_EXTRA_BODY); never sent to llama-server."""
-        return self.settings.llm_extra_body_dict if self.provider != "local" else {}
+        """Provider-specific request fields (LLM_EXTRA_BODY), for providers that accept them."""
+        return self.settings.llm_extra_body_dict if self.spec.sends_extra_body else {}
 
     @property
     def api_key(self) -> str:
-        """Key for the active provider (llama-server needs none)."""
-        if self.provider == "openai" and self._on_spare_key:
-            return self.settings.openai_compat_api_key_fallback
-        return {
-            "nebius": self.settings.nebius_api_key,
-            "openai": self.settings.openai_compat_api_key,
-        }.get(self.provider, "local")
+        """Key for the active provider; a server that needs none gets a placeholder."""
+        if self.spec.key is None:
+            return "local"
+        if self._on_spare_key and self.spec.spare_key is not None:
+            return self.spec.spare_key(self.settings)
+        return self.spec.key(self.settings)
 
     def _switch_to_spare_key(self, reason: str) -> bool:
         """Move to the spare key when the first one ran out of credit or hit a quota."""
-        spare = self.settings.openai_compat_api_key_fallback
-        if self.provider != "openai" or self._on_spare_key or not spare:
+        spare = self.spec.spare_key(self.settings) if self.spec.spare_key else ""
+        if self._on_spare_key or not spare:
             return False
         if not QUOTA_RE.search(reason):
             return False
@@ -204,19 +222,20 @@ class LLMClient:
     @property
     def where(self) -> str:
         """Human name of the active endpoint, for errors."""
-        return {
-            "local": "local llama-server",
-            "nebius": "Nebius Token Factory",
-            "openai": f"{self.settings.llm_label} API ({self.settings.openai_compat_base_url})",
-        }.get(self.provider, self.provider)
+        return self.spec.where(self.settings) or self.provider
 
     def _get_client(self) -> Any:
         if self._client is None:
             from openai import AsyncOpenAI
 
+            if not self.api_key:  # never call out with an empty or made-up key
+                raise LLMError(
+                    self.spec.not_configured(self.settings)
+                    or f"{self.spec.title} is not configured."
+                )
             self._client = AsyncOpenAI(
                 base_url=self.base_url,
-                api_key=self.api_key or "missing",
+                api_key=self.api_key,
                 timeout=self.settings.llm_timeout_s,
                 max_retries=2,
             )
@@ -226,10 +245,50 @@ class LLMClient:
         """Model id for a role."""
         return self.settings.model_for(role)
 
+    async def check_models(self) -> list[str]:
+        """Name every configured model id the provider does not serve (its /models list), once
+        at startup, so a retired id shows up before the first agent fails on it. Hosted
+        providers with a key only; a provider that does not answer is not a warning."""
+        if not self.spec.is_cloud or self.spec.key is None or not self.api_key:
+            return []
+        try:
+            listing = await asyncio.wait_for(self._get_client().models.list(), timeout=10)
+        except Exception as exc:
+            log.info("model list unavailable (%s); model ids not checked", type(exc).__name__)
+            return []
+        served = {m.id for m in getattr(listing, "data", [])}
+        if not served:
+            return []
+        roles: list[LlmRole] = ["fast", "long", "main", "judge"]
+        by_model: dict[str, list[str]] = {}
+        for role in roles:
+            by_model.setdefault(self.model_for(role), []).append(role)
+        warnings = []
+        for model, used_by in by_model.items():
+            if model in served:
+                continue
+            # the setting that names it: the first role whose own MODEL_* holds this id
+            env = next(
+                (
+                    f"MODEL_{r.upper()}"
+                    for r in used_by
+                    if getattr(self.settings, f"model_{r}") == model
+                ),
+                f"MODEL_{used_by[0].upper()}",
+            )
+            others = [r for r in used_by if f"MODEL_{r.upper()}" != env]
+            also = f" (also used for the {', '.join(others)} role{'s' if len(others) > 1 else ''})"
+            label = self.settings.llm_label
+            warnings.append(f"{env}={model} is not served by {label}{also if others else ''}.")
+        for w in warnings:
+            log.warning("%s", w)
+        self.model_warnings = warnings
+        return warnings
+
     def _directive(self, reasoning: bool, model: str = "") -> str:
         # Nemotron Nano 9B v2: "/think" or "/no_think" in the system prompt (model card).
         # Other model families would read it as noise, so it is sent to Nemotron only.
-        if self.provider == "local" or "nemotron" in model.lower():
+        if self.spec.directive_on_every_model or "nemotron" in model.lower():
             return "/think" if reasoning else "/no_think"
         return ""
 
@@ -242,18 +301,12 @@ class LLMClient:
         the answer is cached for a few minutes so the badge does not hit the API on every poll.
         The detail never contains key material.
         """
-        if self.provider == "fake":
-            return {"ok": True, "detail": "Fake LLM (tests)"}
-        if self.provider == "nebius" and not self.settings.nebius_api_key:
-            return {"ok": False, "detail": "NEBIUS_API_KEY is not set."}
-        if self.provider == "openai" and not (
-            self.settings.openai_compat_base_url and self.settings.openai_compat_api_key
-        ):
-            return {
-                "ok": False,
-                "detail": "OPENAI_COMPAT_BASE_URL and OPENAI_COMPAT_API_KEY must be set.",
-            }
-        if self.provider == "local":
+        if self.spec.health == "fake":
+            return {"ok": True, "detail": self.spec.title}
+        missing = self.spec.not_configured(self.settings)
+        if missing and self.spec.health == "hosted":
+            return {"ok": False, "detail": missing}
+        if self.spec.health == "models":
             return await self._local_health()
         now = time.monotonic()
         if self._health_cache is not None and now < self._health_cache[0]:
@@ -270,13 +323,51 @@ class LLMClient:
             self._health_cache = (now + ttl, out)
             out = dict(out)
         if out["ok"] and self._primary_paused():
-            return {
-                "ok": True,
+            pause = {
                 "fallback": True,
-                "detail": f"{self.settings.llm_label} paused ({self.fallback_reason}); "
-                "using the local model",
+                "pause_reason": self.fallback_reason,
+                "paused_until": datetime.fromtimestamp(self._paused_until, UTC).isoformat(),
             }
+            if await self._local_up():
+                label, why = self.settings.llm_label, self.fallback_reason
+                detail = f"{label} paused ({why}); using the local model"
+                return {"ok": True, "detail": detail, **pause}
+            detail = (
+                f"{self.settings.llm_label} paused ({self.fallback_reason}) until "
+                f"{self._pause_end()} UTC, and the local model is not running"
+            )
+            return {"ok": False, "detail": detail, **pause}
         return out
+
+    def _pause_end(self) -> str:
+        return datetime.fromtimestamp(self._paused_until, UTC).strftime("%H:%M")
+
+    async def _local_up(self) -> bool:
+        """Does the local model answer (the fallback while the hosted one is paused)?"""
+        try:
+            await asyncio.wait_for(self._local().models.list(), timeout=3)
+        except Exception:
+            return False
+        return True
+
+    def unavailable_hint(self) -> str:
+        """What to do when the model did not answer, for this provider and its state."""
+        offline = "choose Offline above Test this plan to test without a model"
+        if self._primary_paused():
+            return (
+                f"{self.settings.llm_label} is paused ({self.fallback_reason}) until "
+                f"{self._pause_end()} UTC and no local model is running: {offline}, start one "
+                "with make llm-up, or wait."
+            )
+        missing = self.spec.not_configured(self.settings)
+        if missing:
+            return missing
+        if self.spec.health == "models":
+            return "Start the local model with: make llm-up"
+        last = self._health_cache[1] if self._health_cache is not None else None
+        if last is not None and not last.get("ok"):  # what the last check found (e.g. a bad key)
+            return f"{last.get('detail', '')} Or {offline}."
+        return f"Check the AI badge (top right) for {self.settings.llm_label}, or {offline}."
 
     async def _local_health(self) -> dict[str, Any]:
         try:
@@ -312,7 +403,7 @@ class LLMClient:
         except Exception as exc:
             status = getattr(exc, "status_code", None)
             if status in (401, 403):
-                env = "NEBIUS_API_KEY" if self.provider == "nebius" else "OPENAI_COMPAT_API_KEY"
+                env = self.spec.key_env or "the API key"
                 return {
                     "ok": False,
                     "auth": False,
@@ -467,7 +558,7 @@ class LLMClient:
                 )
             if mode == "replay":
                 raise LLMReplayMiss(f"no recorded response for {agent} ({key[:12]})")
-        if self.provider == "fake":
+        if self.spec.is_fake:
             raise LLMError("Fake provider: no live calls (use FakeLLM)")
         text, reasoning, usage = await self._live(
             role, model, msgs, schema, temperature, max_tokens
@@ -497,7 +588,7 @@ class LLMClient:
         temperature: float,
         max_tokens: int,
     ) -> tuple[str, str, Usage]:
-        if self.provider != "local" and self._primary_paused():
+        if self.spec.is_cloud and self._primary_paused():
             return await self._fallback(role, msgs, schema, temperature, max_tokens)
         kwargs: dict[str, Any] = {
             "model": model,
@@ -516,7 +607,9 @@ class LLMClient:
         elif schema is not None and self.settings.llm_supports_json_schema:
             kwargs["messages"] = _with_json_instruction(msgs, schema)
         try:
-            return await self._adaptive(kwargs, role, model, schema)
+            out = await self._adaptive(kwargs, role, model, schema)
+            self._server_errors = 0
+            return out
         except LLMError as exc:
             if self._switch_to_spare_key(str(exc)):
                 return await self._live(role, model, msgs, schema, temperature, max_tokens)
@@ -524,7 +617,7 @@ class LLMClient:
             if (
                 spare_model
                 and spare_model != model
-                and self.provider != "local"
+                and self.spec.is_cloud
                 and not QUOTA_RE.search(str(exc))
             ):
                 # the role's model failed at the provider (not a quota): one try on the other model
@@ -532,9 +625,23 @@ class LLMClient:
                     "%s failed (%s); trying %s", model, self.redact(str(exc))[:100], spare_model
                 )
                 return await self._live(role, spare_model, msgs, schema, temperature, max_tokens)
-            if self.provider == "local" or self.settings.llm_fallback != "local":
+            # the local model can stand in only for a hosted one
+            if not self.spec.is_cloud or self.settings.llm_fallback != "local":
                 raise
-            self._pause_primary(str(exc))
+            # this call goes to the local model either way; the hosted one is skipped for a
+            # while only when it is likely to keep failing (rate limit, down, unreachable)
+            kind = _failure_kind(exc)
+            if kind == "server":
+                self._server_errors += 1
+            if kind in ("rate_limit", "connection") or (
+                kind == "server" and self._server_errors >= self.settings.llm_server_errors_to_pause
+            ):
+                self._pause_primary(str(exc), kind)
+            else:
+                log.warning(
+                    "hosted model failed once (%s); this call uses the local model",
+                    self.redact(str(exc))[:120],
+                )
             return await self._fallback(role, msgs, schema, temperature, max_tokens)
 
     async def _adaptive(
@@ -624,16 +731,24 @@ class LLMClient:
     def _primary_paused(self) -> bool:
         return self.settings.llm_fallback == "local" and time.time() < self._paused_until
 
-    def _pause_primary(self, reason: str) -> None:
-        """Skip the hosted model for a while: until midnight UTC for a daily quota, else 10 min."""
+    def _pause_primary(self, reason: str, kind: str = "rate_limit") -> None:
+        """Skip the hosted model for a while: until midnight UTC for a daily quota, else for
+        LLM_PAUSE_S."""
         now = time.time()
         if "per-day" in reason or "per day" in reason:
             self._paused_until = (now // 86_400 + 1) * 86_400
             self.fallback_reason = "daily free quota used up"
         else:
-            self._paused_until = now + 600
-            self.fallback_reason = reason.split(":")[1].strip() if ":" in reason else reason[:80]
-        log.warning("hosted model unavailable (%s); using the local model", self.fallback_reason)
+            self._paused_until = now + self.settings.llm_pause_s
+            self.fallback_reason = {
+                "rate_limit": "rate limit",
+                "connection": "not reachable",
+                "server": f"{self.settings.llm_server_errors_to_pause} server errors in a row",
+            }.get(kind, "unavailable")
+        until = datetime.fromtimestamp(self._paused_until, UTC).isoformat(timespec="seconds")
+        log.warning(
+            "hosted model paused until %s (%s); using the local model", until, self.fallback_reason
+        )
 
     async def _fallback(
         self,
@@ -643,15 +758,6 @@ class LLMClient:
         temperature: float,
         max_tokens: int,
     ) -> tuple[str, str, Usage]:
-        if self._local_client is None:
-            from openai import AsyncOpenAI
-
-            self._local_client = AsyncOpenAI(
-                base_url=self.settings.local_llm_base_url,
-                api_key="local",
-                timeout=self.settings.llm_timeout_s,
-                max_retries=1,
-            )
         local_msgs = [dict(m) for m in msgs]
         directive = "/no_think"  # Nemotron Nano v2: reasoning off for the fallback
         if local_msgs and local_msgs[0]["role"] == "system":
@@ -667,9 +773,20 @@ class LLMClient:
         }
         if schema is not None:
             kwargs["response_format"] = _response_format(schema)
-        return await self._complete(
-            self._local_client, kwargs, role, "local-fallback", self._local_lock
-        )
+        return await self._complete(self._local(), kwargs, role, "local-fallback", self._local_lock)
+
+    def _local(self) -> Any:
+        """The client for the local model (the fallback), made on first use."""
+        if self._local_client is None:
+            from openai import AsyncOpenAI
+
+            self._local_client = AsyncOpenAI(
+                base_url=self.settings.local_llm_base_url,
+                api_key="local",
+                timeout=self.settings.llm_timeout_s,
+                max_retries=1,
+            )
+        return self._local_client
 
     def _account(self, usage: Usage, budget: Budget | None) -> None:
         if budget is not None:
@@ -755,6 +872,9 @@ class FakeLLM:
 
     async def health(self) -> dict[str, Any]:
         return {"ok": True, "detail": "Fake LLM"}
+
+    def unavailable_hint(self) -> str:
+        return "The scripted test model has no answer for this agent."
 
     def model_for(self, role: LlmRole) -> str:
         return f"fake-{role}"

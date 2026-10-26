@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel
 
+from api.adapters.providers import llm_provider, sandbox_provider, search_provider
 from api.adapters.weather import WeatherUnavailable
 from api.app.errors import ApiException
 from api.app.state import AppState
@@ -24,6 +25,21 @@ router = APIRouter(prefix="/api/v1")
 def get_state(request: Request) -> AppState:
     """Dependency: the application container."""
     return request.app.state.showtime  # type: ignore[no-any-return]
+
+
+def _llm_facts(settings: Any) -> dict[str, Any]:
+    """What the active LLM provider is and can do, for the badge (no names to compare)."""
+    spec = llm_provider(settings.llm_provider)
+    return {
+        "title": spec.title,
+        "is_cloud": spec.is_cloud,
+        "not_configured": spec.not_configured(settings),
+        "capabilities": {
+            "json_schema": bool(settings.llm_supports_json_schema),
+            "spare_key": bool(spec.spare_key and spec.spare_key(settings)),
+            "fallback_to_local": spec.is_cloud and settings.llm_fallback == "local",
+        },
+    }
 
 
 @router.get("/health")
@@ -60,16 +76,47 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
                 **llm,
                 "provider": st.settings.llm_provider,
                 "label": st.settings.llm_label,
+                **_llm_facts(st.settings),
+                "model_warnings": list(getattr(st.llm, "model_warnings", [])),
                 "models": {
                     r: st.settings.model_for(r)  # type: ignore[arg-type]
                     for r in ("fast", "long", "main", "judge")
                 },
             },
-            "sandbox": {**sandbox, "provider": st.settings.sandbox_provider},
-            "search": search,
+            "sandbox": {
+                **sandbox,
+                # the sandbox in use (SANDBOX_FALLBACK while the chosen one is not configured)
+                "provider": st.runner.provider,
+                "title": sandbox_provider(st.runner.provider).title,
+                "parallel": int(getattr(st.runner, "parallel", 1)),
+                "fallback": getattr(st.runner, "fallback_reason", None),
+                "isolation": st.runner.isolation.as_dict(),
+                "time_limit_s": st.settings.max_wall_s,
+            },
+            "search": {
+                **search,
+                "provider": st.settings.search_provider,
+                "title": search_provider(st.settings.search_provider).title,
+                "not_configured": search_provider(st.settings.search_provider).not_configured(
+                    st.settings
+                ),
+            },
             "weather": weather,
         },
+        "samples": (
+            {"ok": True, "detail": "Sample projects installed"}
+            if st.samples_error is None
+            else {
+                "ok": False,
+                "detail": f"Sample projects could not be installed ({st.samples_error[:160]}); "
+                "see logs/api.log",
+            }
+        ),
         "plugins": plugins,
+        "client": {
+            "read_timeout_s": st.settings.web_read_timeout_s,
+            "write_timeout_s": st.settings.web_write_timeout_s,
+        },
         "version": "0.1.0",
     }
 

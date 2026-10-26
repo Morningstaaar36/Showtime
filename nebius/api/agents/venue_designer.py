@@ -68,8 +68,16 @@ def _for_designer(c: Check, venue: Venue) -> str:
     return f"{msg} {_SPEC_FIX.get(c.code, c.hint or '')}".strip()
 
 
-def check_spec(spec: VenueSpec) -> tuple[BuildResult, list[str]]:
-    """Build a spec and list what the model must fix (solver omissions and geometry errors)."""
+# how far the layout's headcount may stray from the one the event brief gives
+PEOPLE_TOLERANCE = 0.05
+
+
+def check_spec(spec: VenueSpec, people: int | None = None) -> tuple[BuildResult, list[str]]:
+    """Build a spec and list what the model must fix (solver omissions and geometry errors).
+
+    `people` is the event's headcount when the caller knows it (the Brief agent read it from
+    the request): a layout that holds a different number is sent back to the model.
+    """
     built = build_venue(spec)
     problems = list(built.problems)
     problems += [n for n in built.notes if any(b in n for b in _BLOCKING)]
@@ -82,7 +90,29 @@ def check_spec(spec: VenueSpec) -> tuple[BuildResult, list[str]]:
             f"The description gives {want:,} people but the layout holds {got:,}: "
             "check the headcounts per level and per zone."
         )
+    if people and not problems and abs(got - people) > PEOPLE_TOLERANCE * people:
+        problems.append(
+            f"The event has {people:,} people but the layout holds {got:,}: "
+            "set the headcounts per level or per zone so they add up to the event's total."
+            + _area_hint(spec)
+        )
     return built, problems
+
+
+def _area_hint(spec: VenueSpec) -> str:
+    """Name the passages and end areas a zone can stand in, when the layout has any: a model
+    that puts every group on the main floor often drops the ones the description places there."""
+    labels = [p.label for p in spec.passages]
+    labels += [p.end_area.label for p in spec.passages if p.end_area is not None]
+    used = {z.area for z in spec.zones if z.area}
+    free = [lab for lab in labels if lab and lab not in used]
+    if not free:
+        return ""
+    names = ", ".join(f'"{lab}"' for lab in free)
+    return (
+        f" Groups the description places in {names} need their own zone there"
+        ' (its label as "area").'
+    )
 
 
 def _summary(s: VenueSpec) -> str:
@@ -96,15 +126,21 @@ def _summary(s: VenueSpec) -> str:
     )
 
 
-async def design_venue(env: AgentEnv, text: str) -> DesignOutcome:
-    """Ask the designer for a spec, solve it, and repair once if the checks fail."""
+async def design_venue(env: AgentEnv, text: str, people: int | None = None) -> DesignOutcome:
+    """Ask the designer for a spec, solve it, and repair once if the checks fail.
+
+    `people`: the event's total headcount when it is known apart from the description.
+    """
+    task = f'Description: "{text.strip()}"'
+    if people:
+        task += f"\nPeople at the event: {people:,} in total."
     call = await call_agent(
         env,
         DESIGNER_AGENT,
         {},
-        f'Description: "{text.strip()}"',
+        task,
         output_model=VenueSpec,
-        validate=lambda spec: check_spec(spec)[1],
+        validate=lambda spec: check_spec(spec, people)[1],
         summarize=_summary,
     )
     spec = call.output
@@ -114,7 +150,7 @@ async def design_venue(env: AgentEnv, text: str) -> DesignOutcome:
             call=call,
             problems=[call.error or "The model did not return a layout."],
         )
-    built, problems = check_spec(spec)
+    built, problems = check_spec(spec, people)
     # anything the model still has to fix (a geometry error, a crowd heading for an exit that
     # does not exist, a headcount that does not add up) means the layout is not ready to test
     blocking = [c for c in validate_venue(built.venue).checks if c.severity == "error"]

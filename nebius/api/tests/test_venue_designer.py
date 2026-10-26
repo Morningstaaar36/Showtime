@@ -347,6 +347,17 @@ def test_headcount_problems_are_sent_back_with_a_fix() -> None:
     assert any("levels run from 0 to 4" in p for p in problems)
 
 
+def test_a_known_headcount_is_held_against_the_layout() -> None:
+    # the brief read 1,500 people; a layout filled to its floor area is sent back
+    spec = VenueSpec.model_validate(OFFICE)
+    built, problems = check_spec(spec)
+    total = built.venue.total_people()
+    _, problems = check_spec(spec, people=total * 2)
+    assert any(f"The event has {total * 2:,} people" in p for p in problems)
+    assert check_spec(spec, people=total)[1] == []
+    assert check_spec(spec, people=round(total * 1.04))[1] == []  # within 5 %
+
+
 def test_geometry_errors_name_the_zone_and_level_not_ids() -> None:
     crowded = dict(SCHOOL, building={**SCHOOL["building"], "people_per_floor": 3200})
     _, problems = check_spec(VenueSpec.model_validate(crowded))
@@ -497,3 +508,42 @@ def test_a_heading_matches_exits_by_their_words() -> None:
     assert heading_exits(exits, "Tunnel") == ["w", "e"]
     assert heading_exits(exits, "festival grounds") == ["r"]
     assert heading_exits(exits, "Main road") == []
+
+
+def test_a_short_headcount_names_the_passages_and_areas_with_no_zone() -> None:
+    # a model that puts one crowd on the main floor and drops the groups in the alley and the
+    # street at its end is told those places can hold zones (labels from its own layout)
+    spec = VenueSpec.model_validate(
+        {
+            "name": "Streets",
+            "mode": "outdoor",
+            "width_m": 80,
+            "depth_m": 12,
+            "exits": [{"wall": "west", "width_m": 10, "label": "Road west"}],
+            "passages": [
+                {
+                    "label": "Alley",
+                    "wall": "north",
+                    "width_m": 4,
+                    "length_m": 45,
+                    "end_area": {
+                        "label": "Upper street",
+                        "width_m": 80,
+                        "depth_m": 6,
+                        "exits": [{"side": "left", "width_m": 6, "label": "Upper west"}],
+                    },
+                }
+            ],
+            "zones": [{"label": "Road crowd", "people": 800, "region": "whole"}],
+        }
+    )
+    _, problems = check_spec(spec, people=2400)
+    assert any('"Alley", "Upper street" need their own zone' in p for p in problems), problems
+    alley = {"label": "Alley crowd", "people": 400, "area": "Alley"}
+    held = VenueSpec.model_validate(
+        {**spec.model_dump(), "zones": [*spec.model_dump()["zones"], alley]}
+    )
+    _, problems = check_spec(held, people=2400)
+    assert not any('"Alley"' in p for p in problems) and any(
+        '"Upper street"' in p for p in problems
+    )

@@ -7,10 +7,15 @@ import { t } from "@/i18n";
 import { fmtMoney, fmtTokens } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** Where the AI runs, in plain words ("AI runs on this computer"). */
+/** Where the AI runs, in plain words, from what the provider says it is (never its name). */
 export function providerWhere(llm: ProviderStatus | undefined): string {
-  if (llm?.provider === "nebius") return t("common.provider_nebius");
-  if (llm?.provider === "openai") return t("common.provider_cloud", { label: llm.label ?? "CLOUD" });
+  if (llm?.is_cloud) {
+    const title = llm.title ?? "";
+    const label = llm.label ?? "";
+    // "Nebius Token Factory" already names NEBIUS; "OpenAI-compatible API" says which: (OPENROUTER)
+    const name = !label || title.toLowerCase().includes(label.toLowerCase()) ? title || label : `${title} (${label})`;
+    return t("common.provider_cloud", { label: name });
+  }
   return t("common.provider_local");
 }
 
@@ -20,7 +25,7 @@ export function ProviderBadge({ cost }: { cost?: { tokens: number; usd: number }
   const { data } = useHealth();
   const llm = data?.providers.llm;
   const sandbox = data?.providers.sandbox;
-  const cloud = llm?.provider === "nebius" || llm?.provider === "openai";
+  const cloud = !!llm?.is_cloud;
   const label = llm?.label ?? (cloud ? "CLOUD" : "LOCAL");
   const ok = llm?.ok ?? false;
   const fallback = !!(llm as { fallback?: boolean } | undefined)?.fallback;
@@ -44,6 +49,9 @@ export function ProviderBadge({ cost }: { cost?: { tokens: number; usd: number }
             <p className="mt-0.5 break-words text-xs text-muted">{llm?.detail ?? t("common.provider_checking")}</p>
           </div>
         </div>
+        {(llm?.model_warnings ?? []).map((w) => (
+          <p key={w} className="rounded-[var(--radius-control)] bg-caution-soft p-2 text-xs" data-testid="model-warning">{w}</p>
+        ))}
         <dl className="space-y-1.5 rounded-[var(--radius-control)] bg-surface-2 p-3">
           <StatusRow name={t("common.provider_ai")} ok={ok && !fallback}
                      value={!data ? t("common.provider_checking") : fallback ? t("common.provider_backup") : ok ? t("common.provider_ready") : t("common.provider_not_ready")} />

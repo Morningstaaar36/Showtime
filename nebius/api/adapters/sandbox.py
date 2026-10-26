@@ -21,7 +21,7 @@ import re
 import shutil
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
@@ -136,10 +136,64 @@ def parse_code_output(
     return CodeResult("ok", output, _tail(body), _tail(stderr), runtime)
 
 
+@dataclass(frozen=True)
+class Isolation:
+    """What a sandbox guarantees for every run, as facts the UI can show (no provider names)."""
+
+    kind: Literal["container", "cloud", "none"]
+    network_off: bool | None  # None: the provider's default, not set per job
+    memory: str | None
+    cpus: float | None
+    read_only: bool
+    process_limit: int | None
+    non_root: bool
+    per_job_limits: bool  # network and memory limits set for each run
+
+    def summary(self) -> str:
+        """One plain sentence."""
+        if self.kind == "none":
+            return "No sandbox: no simulation runs (preview numbers only)."
+        if not self.per_job_limits:
+            return (
+                "Each run gets its own cloud sandbox. Per-run network and memory limits can't be "
+                "set there, so the static check and the in-sandbox budgets are the protection."
+            )
+        parts = ["one container per run"]
+        if self.network_off:
+            parts.append("no network")
+        if self.memory:
+            parts.append(f"{_bytes_label(self.memory)} memory")
+        if self.cpus:
+            parts.append(f"{self.cpus:g} CPU")
+        if self.read_only:
+            parts.append("read-only system")
+        if self.process_limit:
+            parts.append(f"at most {self.process_limit} processes")
+        if self.non_root:
+            parts.append("no admin rights")
+        text = ", ".join(parts)
+        return text[:1].upper() + text[1:] + "."
+
+    def as_dict(self) -> dict[str, Any]:
+        return {**asdict(self), "summary": self.summary()}
+
+
+def _bytes_label(docker_size: str) -> str:
+    """Docker's "2g" / "512m" as "2 GB" / "512 MB" (anything else as given)."""
+    m = re.fullmatch(r"\s*([0-9.]+)\s*([kmg])b?\s*", docker_size, re.IGNORECASE)
+    return f"{m.group(1)} {m.group(2).upper()}B" if m else docker_size
+
+
+NO_SANDBOX = Isolation("none", None, None, None, False, None, False, False)
+
+
 class SandboxRunner(Protocol):
     """Provider-agnostic sandbox interface."""
 
     provider: str
+    isolation: Isolation
+    parallel: int  # how many runs it takes at once (SANDBOX_MAX_PARALLEL; one for local Docker)
+    fallback_reason: str | None  # why this runner stands in for the chosen one (None: it is it)
 
     async def prepare_base(self, venue: Venue) -> str:
         """Prepare (or reuse) the base environment; returns a node id for the tree root."""
@@ -277,6 +331,15 @@ def _release_lock(fh: Any) -> None:
         fh.close()
 
 
+def crash_hint(returncode: int | None, stderr: str) -> str:
+    """Why a container stopped without writing a result. Exit 137 is a SIGKILL: the memory limit
+    or the container being stopped from outside; containers are removed on exit, so the runner
+    can't inspect which, and says both."""
+    if returncode == 137:
+        return "killed: out of memory, or stopped from outside"
+    return stderr.strip()[-300:]
+
+
 class DockerRunner:
     """Local sandbox: one container per run via the docker CLI."""
 
@@ -293,14 +356,20 @@ class DockerRunner:
         sim_code_dir: Path | None = None,
         sim_user: str = "",
         platform: str = "",
+        pids_limit: int = 256,
+        code_pids_limit: int = 64,
     ) -> None:
         self.runs_dir = runs_dir
+        self.pids_limit = pids_limit
+        self.code_pids_limit = code_pids_limit
         self.image = image
         self.platform = platform
         self.mem_limit = mem_limit
         self.cpus = cpus
         self.host_runs_dir = host_runs_dir
-        self.sem = asyncio.Semaphore(max_parallel)
+        self.parallel = max(1, max_parallel)
+        self.fallback_reason: str | None = None
+        self.sem = asyncio.Semaphore(self.parallel)
         self.code_sem = asyncio.Semaphore(1)
         self.sim_code_dir = sim_code_dir  # dev: mount local sim/ over /app
         uid, gid = os.getuid(), os.getgid()
@@ -315,6 +384,19 @@ class DockerRunner:
         if self.host_runs_dir:
             return str(Path(self.host_runs_dir) / work.relative_to(self.runs_dir))
         return str(work.resolve())
+
+    @property
+    def isolation(self) -> Isolation:
+        return Isolation(
+            kind="container",
+            network_off=True,
+            memory=self.mem_limit,
+            cpus=self.cpus,
+            read_only=True,
+            process_limit=self.pids_limit,
+            non_root=True,
+            per_job_limits=True,
+        )
 
     async def health(self) -> dict[str, Any]:
         try:
@@ -346,6 +428,8 @@ class DockerRunner:
             # one simulation at a time per machine, across processes (memory budget)
             lock = await asyncio.to_thread(_acquire_lock, self.runs_dir / ".sim.lock")
             try:
+                if on_progress is not None:
+                    on_progress({"sandbox_started": True})  # it had to wait its turn until now
                 return await self._run(job, on_progress)
             finally:
                 _release_lock(lock)
@@ -375,7 +459,7 @@ class DockerRunner:
             f"--memory={self.mem_limit}",
             f"--memory-swap={self.mem_limit}",
             f"--cpus={self.cpus}",
-            "--pids-limit=256",
+            f"--pids-limit={self.pids_limit}",
             "--security-opt=no-new-privileges",
             "--cap-drop=ALL",
             # scenario scripts run in here: only /work (this run's folder) and /tmp writable
@@ -447,7 +531,7 @@ class DockerRunner:
         except TimeoutError:
             stderr = ""
         if not (work / "result.json").exists():
-            hint = "out of memory" if proc.returncode == 137 else stderr.strip()[-300:]
+            hint = crash_hint(proc.returncode, stderr)
             return failed_result(
                 job,
                 self.provider,
@@ -495,7 +579,7 @@ class DockerRunner:
             f"--memory={job.mem}",
             f"--memory-swap={job.mem}",
             f"--cpus={min(self.cpus, 2.0)}",
-            "--pids-limit=64",
+            f"--pids-limit={self.code_pids_limit}",
             "--security-opt=no-new-privileges",
             "--cap-drop=ALL",
             "--read-only",
@@ -578,6 +662,7 @@ class FakeRunner:
     """
 
     provider = "fake"
+    isolation = NO_SANDBOX
 
     def __init__(
         self,
@@ -594,7 +679,9 @@ class FakeRunner:
         self.code_jobs: list[CodeJob] = []
         # scripted code results, used in order; when empty, run_code returns an empty "ok"
         self.code_results = list(code_results or [])
-        self.sem = asyncio.Semaphore(max(1, max_parallel))
+        self.parallel = max(1, max_parallel)
+        self.fallback_reason: str | None = None
+        self.sem = asyncio.Semaphore(self.parallel)
         self.active = 0
         self.max_active = 0
         self.resumed: dict[str, str] = {}
@@ -621,6 +708,8 @@ class FakeRunner:
         async with self.sem:
             self.active += 1
             self.max_active = max(self.max_active, self.active)
+            if on_progress is not None:
+                on_progress({"sandbox_started": True})
             try:
                 return await self._run(job)
             finally:

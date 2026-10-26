@@ -27,7 +27,7 @@ from api.agents.router import (
     resolve_exits,
     route_message,
 )
-from api.app.errors import ApiException
+from api.app.errors import ApiException, llm_unavailable
 from api.app.routes_agents import EditIn, ask_context, edit_by_text, explain_or_503, run_sources
 from api.app.routes_core import get_state
 from api.app.routes_projects import WhatIfIn, what_if
@@ -211,11 +211,8 @@ async def analyse_or_503(
     try:
         out = await analyse(env, st.runner, question, facts, inputs)
     except (AgentUnavailable, LLMError, LLMReplayMiss) as exc:
-        raise ApiException(
-            503,
-            "llm_unavailable",
-            "The AI isn't answering, so I can't write an analysis right now.",
-            "Start the local model with: make llm-up",
+        raise llm_unavailable(
+            st.llm, "The AI isn't answering, so I can't write an analysis right now."
         ) from exc
     return {
         **out.to_dict(),

@@ -7,6 +7,7 @@ references to ids that do not exist; the model gets one chance to fix them.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -87,6 +88,8 @@ class AgentEnv:
     on_usage: Callable[[Usage], None] | None = None
     # None: follow the LLM settings (LLM_ESCALATE, on by default)
     escalate: bool | None = None
+    # agents whose part the rules played because the model didn't answer, with why (for the plan)
+    stood_in: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -142,10 +145,23 @@ async def call_agent(
         {"role": "user", "content": user},
     ]
     t0 = time.perf_counter()
+    deadline = _step_deadline(env)
+
+    async def step() -> AgentCall[T]:
+        out = await _attempt(env, spec, messages, model_cls, validate, reasoning)
+        if not out.ok and spec.role == "fast" and _escalation_on(env):
+            out = await _escalate(env, spec, messages, model_cls, validate, reasoning, out)
+        return out
+
     try:
-        result = await _attempt(env, spec, messages, model_cls, validate, reasoning)
+        result = await asyncio.wait_for(step(), deadline)
     except (BudgetExceeded, LLMReplayMiss):
         raise
+    except TimeoutError as exc:
+        msg = f"{spec.name}: no answer within the {deadline:g} s step deadline"
+        failed: AgentCall[T] = AgentCall(output=None, ok=False, error=msg)
+        _finish(env, spec, failed, t0, "unreachable", summarize)
+        raise AgentUnavailable(msg) from exc
     except LLMError as exc:
         _finish(
             env,
@@ -156,11 +172,16 @@ async def call_agent(
             summarize,
         )
         raise AgentUnavailable(str(exc)) from exc
-    if not result.ok and spec.role == "fast" and _escalation_on(env):
-        result = await _escalate(env, spec, messages, model_cls, validate, reasoning, result)
     result.model = result.usage.model if result.usage else ""
     _finish(env, spec, result, t0, None, summarize)
     return result
+
+
+def _step_deadline(env: AgentEnv) -> float | None:
+    """AGENT_STEP_TIMEOUT_S of a real client; none for test doubles without settings."""
+    settings = getattr(env.llm, "settings", None)
+    value = getattr(settings, "agent_step_timeout_s", None)
+    return float(value) if isinstance(value, int | float) else None
 
 
 async def _attempt(

@@ -25,6 +25,19 @@ describe("evidence labels", () => {
     expect(tierLabel(run({ basis: "unknown", status: "failed" }))).not.toContain("Confirmed");
     expect(tierLabel(run())).toMatch(/^Full simulation/); // older results without a basis
   });
+  it("judges a quick simulation by how many got out before it stopped, not by who is still walking", () => {
+    const quick = (frac: number) => run({
+      tier: 2, sim_time_s: 180,
+      metrics: { agents_total: 1500, agents_not_evacuated: Math.round(1500 * (1 - frac)), peak_density_ppm2: 2, time_above_danger_s: 0, evac_time_p95_s: null, extra: { evacuated_fraction: frac } },
+    } as unknown as Partial<RunResult>);
+    const slow = verdictOf(quick(0.4), thresholds, (id) => id);
+    expect(slow.level).toBe("fails");
+    expect(slow.reasons).toEqual(["only 40% out when the quick simulation stopped at 3 min"]);
+    expect(verdictOf(quick(0.7), thresholds, (id) => id).reasons).toEqual([]);
+    // a full simulation that ends with people inside still fails on them
+    expect(verdictOf(run({ metrics: { agents_total: 100, agents_not_evacuated: 40, peak_density_ppm2: 1, time_above_danger_s: 0 } } as unknown as Partial<RunResult>), thresholds, (id) => id).reasons)
+      .toEqual(["40 people still inside at the end"]);
+  });
   it("does not pass a partial result with no recorded failure", () => {
     expect(verdictOf(run({ status: "partial" }), thresholds, (id) => id).level).toBe("unknown");
   });

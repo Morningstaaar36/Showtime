@@ -5,6 +5,7 @@ import type * as React from "react";
 import { Link, NavLink } from "react-router";
 import { Logo } from "@/components/Logo";
 import { ProviderBadge } from "@/components/ProviderBadge";
+import { SandboxBadge } from "@/components/SandboxBadge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -34,7 +35,7 @@ export function AppHeader() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
-          <span className="hidden sm:block"><ProviderBadge /></span>
+          <span className="hidden items-center gap-1.5 sm:flex"><ProviderBadge /><SandboxBadge /></span>
           <ThemeToggle />
         </div>
       </div>

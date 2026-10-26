@@ -225,6 +225,7 @@ class IncidentRecord(BaseModel):
     name: str = ""  # display name ("Seoul Halloween crowd crush"); generated when empty
     date: str | None = None
     crowd_size: int | None = None
+    origin: str = "dataset"  # dataset (the incident list) | tavily (a live web search hit)
     dataset_url: str | None = None  # DOI link to the dataset row
     dataset: str = ""  # which dataset or list the record comes from
 

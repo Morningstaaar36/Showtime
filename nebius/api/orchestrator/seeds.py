@@ -27,8 +27,6 @@ from api.models import Attack, RunResult, ScenarioEventIn, Venue
 
 log = logging.getLogger("showtime.seeds")
 
-MAX_EXTRA = 5
-DEFAULT_LOCAL = 3
 METRICS = ("evac_time_p95_s", "peak_density_ppm2", "agents_not_evacuated")
 USABLE = ("ok", "partial")
 PENDING = ("queued", "running")
@@ -66,9 +64,12 @@ class KeyRun:
         }
 
 
-def default_extra(settings: Any) -> int:
-    """Extra seeds when the organizer doesn't choose: more where sandboxes run in parallel."""
-    return MAX_EXTRA if getattr(settings, "sandbox_provider", "") == "nebius" else DEFAULT_LOCAL
+def default_extra(st: Any) -> int:
+    """Extra seeds when the organizer doesn't choose: more where the sandbox runs several at
+    once (SEEDS_EXTRA_PARALLEL), fewer one at a time (SEEDS_EXTRA_SERIAL)."""
+    s = st.settings
+    several = int(getattr(st.runner, "parallel", 1)) > 1
+    return int(min(s.seeds_extra_max, s.seeds_extra_parallel if several else s.seeds_extra_serial))
 
 
 def _key(session_id: str) -> str:
@@ -158,7 +159,7 @@ def start_seed_check(st: Any, session: Any, n: int | None = None) -> dict[str, A
     (a setting changed since the test), its seed is run again too, so all seeds share inputs.
     """
     key = key_run(st, session)
-    count = max(1, min(MAX_EXTRA, n or default_extra(st.settings)))
+    count = max(1, min(st.settings.seeds_extra_max, n or default_extra(st)))
 
     def build(seed: int) -> Any:
         try:
@@ -284,8 +285,8 @@ def seed_check_status(st: Any, session: Any) -> dict[str, Any]:
         "available": key is not None,
         "reason": reason,
         "key": key,
-        "default_extra": default_extra(st.settings),
-        "max_extra": MAX_EXTRA,
+        "default_extra": default_extra(st),
+        "max_extra": st.settings.seeds_extra_max,
     }
     record = _load(st, session.id)
     if record is None:

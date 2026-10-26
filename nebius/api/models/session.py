@@ -22,6 +22,7 @@ SessionEventType = Literal[
     "status",
     "marshal",
     "archive",
+    "sandbox",  # a run's sandbox lifecycle: queued, running, finished, refused, killed, ...
 ]
 
 

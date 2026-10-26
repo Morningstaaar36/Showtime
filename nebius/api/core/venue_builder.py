@@ -85,6 +85,12 @@ _KIND: dict[str, tuple[ObstacleKind, float]] = {  # spec kind → (obstacle kind
     "column": ("column", 4.0),
     "barrier": ("barrier", 1.1),
     "escalator": ("other", 1.2),
+    "ticket_gate": ("barrier", 1.1),
+    "shop": ("booth", 3.0),
+    "check_in": ("booth", 1.1),
+    "security": ("booth", 2.0),
+    "kiosk": ("booth", 2.5),
+    "stall": ("booth", 2.5),
     "other": ("other", 2.0),
 }
 EVERY_LEVEL = ("escalator", "column")  # features that run through a building's storeys
@@ -805,7 +811,7 @@ def _build_building(spec: VenueSpec, b: BuildingSpec, venue_id: str) -> BuildRes
     if spec.passages or spec.dividers:
         problems.append(
             "Passages and dividers are drawn on one-level sites only: set building to null, or "
-            "describe the tunnel or corridor as part of a storey."
+            "make the corridor, ramp or passage part of a storey."
         )
     W, D = spec.width_m, spec.depth_m
     per = _level_people(spec, b, problems, assumptions)

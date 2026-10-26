@@ -26,6 +26,7 @@ from __future__ import annotations
 import builtins
 import json
 import math
+import os
 import random
 import statistics
 import sys
@@ -35,18 +36,28 @@ from typing import Any
 
 import numpy as np
 import shapely
+from memory_cap import cap_memory
 from script_check import ALLOWED_IMPORTS, check_script
 from shapely.geometry import Point
 
 FILENAME = "<scenario-script>"
-CALL_BUDGET_S = 0.05  # one on_step call
-TOTAL_BUDGET_S = 3.0  # all calls of one script in one run
-LINE_BUDGET = 200_000  # executed lines per call (deterministic guard against busy loops)
-MAX_RANGE = 1_000_000
-MAX_ACTS_PER_CALL = 20
-MAX_ACTS_TOTAL = 400
-MAX_NOTES = 10
-MAX_ADDED_PEOPLE = 2000
+# Every guard on a scenario script. The API sends them with each run (Settings: SCRIPT_* and
+# SANDBOX_MEMORY_SHARE in .env); these are only the fallbacks for a request without them.
+GUARD_DEFAULTS: dict[str, float] = {
+    "script_call_s": 0.05,  # one on_step call
+    "script_total_s": 3.0,  # all calls of one script in one run
+    "script_line_budget": 200_000,  # executed lines per call (deterministic busy-loop guard)
+    "script_max_range": 1_000_000,  # numbers in one range()
+    "script_max_acts_step": 20,
+    "script_max_acts_total": 400,
+    "script_max_notes": 10,
+    "script_max_added_people": 2000,
+    # all of a script's slow-downs together bring people to no less than this share of their
+    # speed: a scenario may slow a crowd, it may not freeze it (and make every plan look broken)
+    "script_min_speed_share": 0.1,
+    # heap growth allowed once untrusted code runs, as a share of the container's room left
+    "sandbox_memory_share": 0.85,
+}
 NEAR_M = 3.0
 
 
@@ -55,11 +66,14 @@ class ScriptStopped(BaseException):
     by `except Exception`, and `try` is rejected by the pre-check anyway)."""
 
 
-def _safe_range(*args: int) -> range:
-    r = range(*args)
-    if len(r) > MAX_RANGE:
-        raise ValueError(f"range of {len(r):,} numbers is too large for a scenario script")
-    return r
+def _safe_range(limit: int) -> Any:
+    def safe_range(*args: int) -> range:
+        r = range(*args)
+        if len(r) > limit:
+            raise ValueError(f"range of {len(r):,} numbers is too large for a scenario script")
+        return r
+
+    return safe_range
 
 
 def _public_copy(mod: types.ModuleType) -> types.SimpleNamespace:
@@ -112,7 +126,6 @@ SAFE_BUILTINS: dict[str, Any] = {
         "ZeroDivisionError",
     )
 }
-SAFE_BUILTINS["range"] = _safe_range
 SAFE_BUILTINS["print"] = lambda *a, **k: None  # scripts talk through act.note
 
 
@@ -157,9 +170,18 @@ class ScriptRunner:
         self.acts_call = 0
         self.notes = 0
         self.added = 0
+        self.speed_share = 1.0  # product of this script's slow-downs so far
         settings = ctx.settings
-        self.call_budget_s = float(settings.get("script_call_s", CALL_BUDGET_S))
-        self.total_budget_s = float(settings.get("script_total_s", TOTAL_BUDGET_S))
+        g = {k: float(settings.get(k, v)) for k, v in GUARD_DEFAULTS.items()}
+        self.guards = g
+        self.call_budget_s = g["script_call_s"]
+        self.total_budget_s = g["script_total_s"]
+        self.line_budget = int(g["script_line_budget"])
+        self.max_acts_step = int(g["script_max_acts_step"])
+        self.max_acts_total = int(g["script_max_acts_total"])
+        self.max_notes = int(g["script_max_notes"])
+        self.max_added = int(g["script_max_added_people"])
+        self.min_speed_share = g["script_min_speed_share"]
         self.on_step: Any = None
         self.act_s = 0.0  # time spent inside act.* (sim work, not the script's own time)
         self.near_areas: dict[str, float] = {}
@@ -181,8 +203,13 @@ class ScriptRunner:
         modules["random"] = rmod
         assert set(modules) == set(ALLOWED_IMPORTS)
         builtins = dict(SAFE_BUILTINS)
+        builtins["range"] = _safe_range(int(g["script_max_range"]))
         builtins["__import__"] = _make_import(modules)
         self.globals = {"__builtins__": builtins, "__name__": "scenario_script"}
+        if os.environ.get("SHOWTIME_SANDBOX") == "1":  # set by the sim image only
+            # from here on a runaway allocation is a MemoryError that stops this script, not
+            # an out-of-memory kill of the whole run
+            cap_memory(g["sandbox_memory_share"])
         try:
             compiled = compile(code, FILENAME, "exec")
             self._guarded(lambda: exec(compiled, self.globals))
@@ -216,8 +243,8 @@ class ScriptRunner:
 
         def local(frame: Any, event: str, arg: Any) -> Any:
             lines[0] += 1
-            if lines[0] > LINE_BUDGET:
-                raise ScriptStopped(f"one step ran more than {LINE_BUDGET:,} lines")
+            if lines[0] > self.line_budget:
+                raise ScriptStopped(f"one step ran more than {self.line_budget:,} lines")
             if time.perf_counter() - (self.act_s - act_before) > deadline:
                 raise ScriptStopped(f"one step took longer than {self.call_budget_s * 1000:.0f} ms")
             return local
@@ -236,6 +263,8 @@ class ScriptRunner:
 
     @staticmethod
     def _describe(exc: BaseException) -> str:
+        if isinstance(exc, MemoryError):
+            return "it tried to use more memory than the sandbox allows (MemoryError)"
         tb = exc.__traceback__
         line = None
         while tb is not None:
@@ -338,7 +367,7 @@ class ScriptRunner:
             return wrapper
 
         def allowed(what: str) -> bool:
-            if self.acts_call >= MAX_ACTS_PER_CALL or self.acts_total >= MAX_ACTS_TOTAL:
+            if self.acts_call >= self.max_acts_step or self.acts_total >= self.max_acts_total:
                 note(f"too many actions; {what} ignored")
                 return False
             self.acts_call += 1
@@ -356,7 +385,7 @@ class ScriptRunner:
             return ex
 
         def note(text: Any) -> None:
-            if self.notes >= MAX_NOTES:
+            if self.notes >= self.max_notes:
                 return
             self.notes += 1
             ctx.note(f"Scenario script at {ctx.t:.0f} s: {str(text)[:140]}")
@@ -410,11 +439,11 @@ class ScriptRunner:
                 note(f"there is no zone called '{zone_id}' on this floor")
                 return
             want = max(int(n), 0)
-            room = MAX_ADDED_PEOPLE - self.added
+            room = self.max_added - self.added
             count = min(want, 500, room)
             if count <= 0 or not allowed("add_people"):
                 if want > 0:
-                    note(f"add_people ignored: at most {MAX_ADDED_PEOPLE} extra people per script")
+                    note(f"add_people ignored: at most {self.max_added} extra people per script")
                 return
             self.added += count
             ctx.steps.append(surge_step(ctx, zid, count, f"script:{zid}"))
@@ -425,10 +454,20 @@ class ScriptRunner:
             f = float(factor)
             if not math.isfinite(f) or not allowed("slow_down"):
                 return
-            f = min(max(f, 0.1), 1.0)
+            floor = self.min_speed_share
+            f = min(max(f, floor), 1.0)
+            # never past the floor in total, however often it is called
+            share = max(self.speed_share * f, floor)
+            f = share / self.speed_share
+            if f > 0.999:
+                note(f"slow_down ignored: people are already at {floor:.0%} speed")
+                return
+            self.speed_share = share
             affected = slow_everyone(ctx, f)
             log("slow_down", factor=f, affected=affected)
-            ctx.note(f"Scenario script slowed everyone to {f:.0%} speed at {ctx.t:.0f} s")
+            ctx.note(
+                f"Scenario script slowed everyone to {share:.0%} of normal speed at {ctx.t:.0f} s"
+            )
 
         return types.SimpleNamespace(
             close_exit=timed(close_exit),

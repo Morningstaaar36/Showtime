@@ -5,7 +5,7 @@
  * and Hand over (report, map, checklist, data). Every number comes from a run of a known venue
  * version and says what it is based on. */
 import * as TabsPrimitive from "@radix-ui/react-tabs";
-import { Building2, Download, Flame, LayoutDashboard, Maximize2, MessageCircleQuestion, PlayCircle, RotateCcw, Send, ShieldQuestion, Swords, Waves, Wrench } from "lucide-react";
+import { Building2, Download, Flame, LayoutDashboard, Maximize2, MessageCircleQuestion, PlayCircle, RotateCcw, Send, ShieldCheck, ShieldQuestion, Swords, Waves, Wrench } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -33,9 +33,11 @@ import { FOCUS_FROM } from "@/scene/geom";
 import { usePressure } from "@/journey/plan/pressure";
 import { rangeVerdict } from "@/journey/plan/range";
 import { RangePanel } from "@/journey/plan/RangePanel";
+import { EvidencePanel } from "@/journey/plan/EvidencePanel";
+import { SandboxesTab } from "@/journey/plan/SandboxesTab";
+import { sandboxRows, scriptOutcomes } from "@/journey/plan/sandboxes";
 import { ReplayStage } from "@/journey/plan/ReplayStage";
 import { bestLine } from "@/journey/plan/rewind";
-import { RewindPanel } from "@/journey/plan/RewindPanel";
 import { SavedActions } from "@/journey/plan/SavedActions";
 import { FailureMapSlot } from "@/journey/plan/FailureMapSlot";
 import { DeeperChecks, ScenarioCards, ScenarioCatalogue } from "@/journey/plan/ScenarioGallery";
@@ -45,7 +47,6 @@ import { SeedPanel } from "@/journey/plan/SeedPanel";
 import { seedRangeLines as seedLinesOf } from "@/journey/plan/seeds";
 import { planState } from "@/journey/plan/state";
 import { rowOutcome, stressCounter } from "@/journey/plan/stress";
-import { StressPanel } from "@/journey/plan/StressPanel";
 import { RealCaseCard } from "@/journey/RealCases";
 import { realCaseOf, simulatedPeak } from "@/journey/realCases";
 import { runBasisLabel } from "@/lib/evidence";
@@ -62,7 +63,7 @@ import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import { savedTestMode } from "@/journey/testModes";
 
-export const PLAN_TABS = ["overview", "replay", "scenarios", "fixes", "floors", "handover"] as const;
+export const PLAN_TABS = ["overview", "replay", "scenarios", "sandboxes", "fixes", "floors", "handover"] as const;
 export type PlanTab = (typeof PLAN_TABS)[number];
 
 /** Showtime's planning targets for "everyone out" when no hazard time is known (api settings
@@ -266,6 +267,8 @@ export function YourPlanPage() {
       <JourneyShell step="plan" projectId={p.id} title={p.name} back={{ to: "/", label: t("journey.home") }}>
         <main id="main" className="mx-auto w-full max-w-6xl space-y-4 p-4">
           <h1 className="text-2xl font-semibold tracking-tight">{p.name}</h1>
+          {/* a real case shows what happened and its sources while its first test still runs */}
+          {caseCard && <RealCaseCard card={caseCard} peak={null} />}
           {!sessionId && (
             <EmptyState icon={<ShieldQuestion />} title={t("yourplan.untested")} body={t("yourplan.untested_body")}>
               <Button asChild variant="primary" size="lg"><Link to={`/p/${p.id}/describe`}>{t("yourplan.check_and_test")}</Link></Button>
@@ -282,7 +285,7 @@ export function YourPlanPage() {
               <Button variant="primary" size="lg" onClick={testAgain} disabled={start.isPending}><RotateCcw />{t("yourplan.test_again")}</Button>
             </div>
           )}
-          <div className="relative h-[50vh] overflow-hidden rounded-[10px] border border-border">
+          <div className="relative isolate h-[50vh] overflow-hidden rounded-[10px] border border-border">
             <FloorSwitch venue={venue} className="absolute left-3 top-3 z-50" />
             <SceneRoot venue={venue} replay={null} hotspots={[]} marshals={[]} editable={false} resetNonce={0} quality="low"
                        onExitClick={noop} onObjectClick={noop} onFloorClick={noop} onFloorDoubleClick={noop} onMove={noop} onHotspot={noop} />
@@ -336,7 +339,7 @@ export function YourPlanPage() {
   const previewing = !!proposal;
   /** a run from outside the session (a sweep result, the failure map) plays in the replay */
   const playRun = (runId: string, title: string) => {
-    pick({ key: `run:${runId}`, kind: "attack", title, runId, outcome: "unknown", evacS: null, peak: null, children: [] });
+    pick({ key: `run:${runId}`, kind: "attack", title, runId, outcome: "unknown", evacS: null, peak: null, inside: null, children: [] });
     go("replay");
   };
   const deciding = state === "pending" && kept.length > 0;
@@ -395,6 +398,7 @@ export function YourPlanPage() {
     { id: "overview", icon: <LayoutDashboard />, label: t("plan.tab_overview") },
     { id: "replay", icon: <PlayCircle />, label: t("plan.tab_replay") },
     { id: "scenarios", icon: <Swords />, label: t("plan.tab_scenarios"), badge: rows.filter((r) => r.kind === "attack" && !r.key.includes(":current:")).length || undefined },
+    { id: "sandboxes", icon: <ShieldCheck />, label: t("plan.tab_sandboxes"), badge: sandboxRows(view).rows.length || undefined },
     { id: "fixes", icon: <Wrench />, label: t("plan.tab_fixes"), badge: pending || undefined },
     ...(multi ? [{ id: "floors" as const, icon: <Building2 />, label: t("plan.tab_floors"), badge: venue.floors.length }] : []),
     { id: "handover", icon: <Send />, label: t("plan.tab_handover") },
@@ -441,7 +445,8 @@ export function YourPlanPage() {
             <Overview level={verdictRun ? verdict.level : "unknown"} headline={verdictRun ? verdict.headline : t("yourplan.no_result")}
                       evaluation={subsetRun ? subsetRecord?.together?.evaluation : summary?.evaluation}
                       worst={worst ? human(worst.title) : null} fixes={hasAfter ? (state === "accepted_subset" ? record?.fix_ids.length ?? kept.length : kept.length) : 0}
-                      reasons={verdict.reasons} run={verdictRun}
+                      reasons={verdict.reasons} run={verdictRun} stoodIn={summary?.stood_in}
+                      sandboxes={{ runs: sandboxRows(view).rows.length, scripts: scriptOutcomes(view, summary?.attacks ?? []).length, onOpen: () => go("sandboxes") }}
                       score={{ attacks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.attacks, 0) || (summary?.attacks?.length ?? 0),
                                breaks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.breaks, 0), fixes: kept.length }} basis={basis} countdown={cd} countdownBasis={cdBasis} th={th}
                       targetS={venue.mode === "indoor" ? TARGET_INDOOR_S : TARGET_OUTDOOR_S}
@@ -489,14 +494,19 @@ export function YourPlanPage() {
           <TabsContent value="scenarios" className="animate-tab-in space-y-6">
             <ScenarioCards rows={rows} attacks={summary?.attacks ?? []} name={label} stress={stressByAttack(stressRec)} danger={th.danger}
                            onPlay={(row) => { pick(row); go("replay"); }} />
-            <FailureMapSlot projectId={p.id} sessionId={sessionId} onSelectRun={playRun} />
+            <EvidencePanel attacks={summary?.attacks ?? []} human={human} />
+            <FailureMapSlot projectId={p.id} sessionId={sessionId} onSelectRun={playRun}
+                            hasArchive={session.data?.status === "running" || session.data?.status === "queued" || !session.data?.summary || "archive" in session.data.summary} />
             <ScenarioCatalogue projectId={p.id} version={p.current_version} onPlay={playRun} danger={th.danger} />
             <DeeperChecks status={checkStatus} panels={{
               seeds: <SeedPanel sessionId={sessionId} human={human} />,
               range: <RangePanel sessionId={sessionId} />,
-              rewind: <RewindPanel sessionId={sessionId} worstTitle={worst ? human(worst.title) : null} canRewind={(summary?.attacks?.length ?? 0) > 0} />,
-              stress: <StressPanel projectId={p.id} hasTest />,
             }} />
+          </TabsContent>
+
+          <TabsContent value="sandboxes" className="animate-tab-in">
+            <SandboxesTab view={view} attacks={summary?.attacks ?? []} sessionId={sessionId} projectId={p.id}
+                          worstTitle={worst ? human(worst.title) : null} human={human} />
           </TabsContent>
 
           <TabsContent value="fixes" className="animate-tab-in">

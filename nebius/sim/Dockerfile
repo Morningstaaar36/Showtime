@@ -6,7 +6,8 @@ ENV PIP_NO_CACHE_DIR=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     MPLBACKEND=Agg \
-    MPLCONFIGDIR=/tmp
+    MPLCONFIGDIR=/tmp \
+    SHOWTIME_SANDBOX=1
 
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt \

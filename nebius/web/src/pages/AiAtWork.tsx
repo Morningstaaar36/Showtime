@@ -1,12 +1,14 @@
 /** Step 2 of the guided journey (route `/p/:projectId/work`): honest progress of the AI test,
  * the latest finished simulation in 3D, and the attacks and fixes as they arrive. */
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, CircleAlert, Code2, Coins, Cpu, DoorClosed, ExternalLink, Filter, Hourglass, Loader2, Repeat2, Scale, ShieldAlert, ShieldCheck, Snail, Sparkles, Square, Swords, TriangleAlert, UsersRound, WifiOff, Wrench, X } from "lucide-react";
+import { Check, CircleAlert, Code2, Coins, Cpu, DoorClosed, Filter, Hourglass, Loader2, Repeat2, Scale, ShieldAlert, ShieldCheck, Snail, Sparkles, Square, Swords, TriangleAlert, UsersRound, WifiOff, Wrench, X } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { qk, useProject, useRun, useRunVenue, useSession, useSessions, useStopSession } from "@/api/queries";
 import { useSessionStream } from "@/api/useSessionStream";
+import { SandboxFeed } from "@/journey/SandboxFeed";
+import { ToolCalls } from "@/journey/ToolCalls";
 import { Confirm } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import { PeopleLegend } from "@/panels/Overlays";
 import { FloorSwitch } from "@/panels/FloorSwitch";
+import { SourceLink } from "@/journey/SourceLink";
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
@@ -191,8 +194,8 @@ export function AiAtWorkPage() {
           </div>
         </section>
 
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="relative h-[45vh] min-h-72 overflow-hidden rounded-[var(--radius-panel)] border border-border lg:h-auto lg:min-h-[380px]">
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="relative isolate h-[45vh] min-h-72 overflow-hidden rounded-[var(--radius-panel)] border border-border lg:h-auto lg:min-h-[380px]">
             {venue && <FloorSwitch venue={venue} className="absolute right-3 top-3 z-50" />}
             {venue ? (
               <SceneRoot venue={runVenue.data ?? venue} replay={replay.data ?? null} hotspots={[]} marshals={[]} editable={false}
@@ -222,6 +225,8 @@ export function AiAtWorkPage() {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-3"><div className="h-full rounded-full bg-signal transition-all duration-700" style={{ width: `${budget ? Math.min(100, (used / budget) * 100) : 0}%` }} /></div>
               <p className="mt-1 text-2xs text-muted tabular">{budget ? t("work.tokens_of", { n: fmtTokens(used), max: fmtTokens(budget) }) : t("work.tokens", { n: fmtTokens(used || (session.data?.tokens ?? 0)) })}</p>
             </div>
+            <ToolCalls feed={view.feed} />
+            <SandboxFeed runs={view.sandboxes} />
           </aside>
         </div>
 
@@ -251,11 +256,7 @@ export function AiAtWorkPage() {
                       {(c.status === "running" || c.status === "testing") && <Badge tone="signal"><Loader2 className="animate-spin" />{t("work.testing")}</Badge>}
                     </div>
                     <p className="text-xs text-muted">{c.kind === "attack" ? t("work.risk") : t("work.fix")}</p>
-                    {c.source?.source_url && (
-                      <a href={c.source.source_url} target="_blank" rel="noreferrer" className="flex min-h-11 items-center gap-1 text-xs text-signal hover:underline">
-                        <ExternalLink className="size-3 shrink-0" /><span className="truncate">{t("work.inspired_by", { what: `${c.source.incident}${c.source.year ? ` (${c.source.year})` : ""}` })}</span>
-                      </a>
-                    )}
+                    <SourceLink source={c.source} />
                     <ScriptCode attack={c.attack} />
                   </div>
                 </li>

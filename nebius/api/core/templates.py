@@ -15,6 +15,8 @@ TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "data" / "templates"
 def _load_all() -> dict[str, Venue]:
     out: dict[str, Venue] = {}
     for path in sorted(TEMPLATE_DIR.glob("*.json")):
+        if path.name == "index.json":
+            continue
         v = Venue.model_validate(json.loads(path.read_text()))
         out[v.venue_id] = v
     return out
@@ -22,7 +24,8 @@ def _load_all() -> dict[str, Venue]:
 
 def list_templates() -> list[Venue]:
     """All templates, in a stable order."""
-    order = ["festival_field", "conference_hall_2f", "school_wing", "t_alley"]
+    index = TEMPLATE_DIR / "index.json"  # the order lives with the templates, not in code
+    order: list[str] = json.loads(index.read_text()).get("order", []) if index.exists() else []
     items = _load_all()
     return [items[k] for k in order if k in items] + [v for k, v in items.items() if k not in order]
 

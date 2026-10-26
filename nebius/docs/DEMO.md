@@ -1,85 +1,62 @@
-# Demo script
+# The 3-minute demo
 
-A walk through everything Showtime does, in the order an organizer meets it. Part A takes about
-5 minutes; Part B shows the deeper tools when there is time. For a full test checklist see
-[TESTING_GUIDE.md](TESTING_GUIDE.md).
+One story: **AI agents try to break your event plan. Every attack is code the AI wrote, and it
+only ever runs inside a sealed sandbox. A physics simulator, not the AI, decides what breaks.
+Then the AI fixes the plan and the sandbox proves the fix.**
+
+[VIDEO_SCRIPT.md](VIDEO_SCRIPT.md) has the same beats with the voice-over and the shot list. The
+voice-over says only what the screen shows.
 
 ## Before the demo
 
-1. Pick the AI provider: `make use-nebius` (then put `NEBIUS_API_KEY` in `.env` and run
-   `make smoke-nebius`) or `make use-openrouter` (key in `OPENAI_COMPAT_API_KEY`). Keep
-   `SANDBOX_PROVIDER=docker`. The badge in the app header names the provider with a green dot;
-   click it to see what it means.
-2. Start everything: `make up`, then open <http://localhost:5173>.
-   (`make build-sim` once if the simulator image is missing.)
-3. Free OpenRouter keys allow about 50 requests a day. One red-team test uses about 4–8 of them
-   and an Autopilot run from a sentence a few more; rehearse once, then keep the rest for the
-   live demo. Nebius bills per token (shown on Your plan under "How this plan was made").
+1. In `nebius/`, start everything with `make up` and open <http://localhost:5173>.
+   - If `showtime-sim` is missing, run `make build-sim` first.
+   - The header badges show the AI provider and the sandbox (DOCKER).
+2. Prepare the tested plan ahead of time, because a live test takes a few minutes:
+   - Projects › New project › **School wing** › name it `Spring open day` › Create project;
+   - **Standard** › **Test this plan**, and let it finish.
 
-## Part A — the organizer's journey (5 min)
+   Check that Your plan › **Sandboxes** lists an **AI-written scenario**. If the red team wrote
+   none this time, run **Test again**.
+3. The free OpenRouter tier allows about 50 requests a day, and one test uses 4–8 of them.
+   Rehearse once, and keep the rest for the take.
+4. Have a terminal open in `nebius/` for the last beat (`make verify-live`).
 
-1. **Home.** "Where is your event?" Three choices; say the three steps out loud: show us the
-   venue, the AI tests it, you get a plan.
-2. **Pick it on the map.** Search `Ramna Park Dhaka`, pick the result (it is outlined), set
-   *People* to `3000`, press **Build venue**, then **Use this venue**.
-   Other good searches: `BUET`, a stadium or a convention centre.
-3. **Check your venue.** Three questions:
-   - *Are the doors right?* Drag **Door** from the palette onto a wall; it snaps to the wall.
-   - *How many people?* Type a headcount straight into a crowd area.
-   - *Anything in the way?* Grab the stage or a stall and drag it.
-   Every change can be undone from the toast. Or type in **Ask or change anything** under the
-   3D view: "make the south doors 3 m wide" (an edit you preview, then apply), "what if it
-   rains?" (an instant estimate before and after) or "why is the south door busy?".
-4. **Test this plan.** The AI red team invents what could go wrong (citing real incidents), each
-   idea runs as a crowd simulation, the blue team proposes fixes and each fix is re-simulated.
-   The progress bar shows the step; it takes a few minutes.
-5. **Your plan.** Reads top to bottom:
-   - the verdict, with how sure it is ("Confirmed by full simulations" only when the before and
-     after full simulations ran to the end) and every number labelled with where it came from;
-   - **What the AI suggests**: each fix with its own test; untick any you don't want, then
-     **Accept these changes** (a partial choice says it was tested one by one: **Test again**);
-   - before/after replay, top risks with the real incidents they came from;
-   - **How this plan was made**: AI cost, model calls, simulations by kind, time taken;
-   - **Download report** and **Download checklist** (a printable handover list with open
-     conditions to tick off, gates, staff actions, key numbers, map and a sign-off line).
+## The beats
 
-## Part A2 — why the sandboxes matter (2 min)
+| Time | Beat | Do this | The screen shows |
+| --- | --- | --- | --- |
+| 0:00–0:20 | **The stakes** | Home › Learn from real cases › **Itaewon 2022** | The case card: "159 people died and 196 were injured", the 3.2 m alley, the sources as links, and where this rebuild's simulation put its peak density |
+| 0:20–0:50 | **Describe a venue, watch it build** | Home › Describe it › type the metro sentence below › **Just draw my venue** | Check your venue: a two-level station in 3D, three stairs, two street exits, 800 people on the platform |
+| 0:50–1:40 | **The agents attack** | Open `Spring open day` › Your plan › **Sandboxes**: the **AI-written scenario** › **Show the code**. Then the header **Sandbox** badge, and the tab's list of runs. Then Expert view › **Scripts** › New script › `import socket` › **Run in sandbox** | The Python the red team wrote and what it did. The sandbox's guarantees. Every run's container, with its state and time. The unsafe script refused with its reason |
+| 1:40–2:10 | **The evidence** | Your plan › Scenarios › **Evidence** panel | The incident-dataset group, each source with its origin badge, and "Web search: off": the slot a Tavily key switches on |
+| 2:10–2:40 | **The fix, proved in a sandbox** | Your plan › **Sandboxes** › **Rewind the worst moment** | The crowd at its worst second; "do nothing" and the fix run from that same second, side by side, and the measured difference |
+| 2:40–3:00 | **The plan, the proof, the road to Nebius** | **Download checklist**; Help › **How good is the simulator?**; the terminal: `make verify-live` | The handover checklist; the simulator's flow within a few per cent of a real bottleneck experiment; Nebius and Tavily shown as SKIPPED (no keys); "Planning aid, not a safety certification" |
 
-Open the tested plan (or "Sandbox demo: school wing") and show, top to bottom:
-
-1. **AI-written scenario** in *Top risks*: the red team wrote this failure as a small Python
-   program (e.g. "close the stairwell when its queue passes 40 people"). **Show the code**. It
-   ran only inside the sealed simulation sandbox: no network, no files, time-limited.
-2. **Ask or change anything**: "How long was the longest queue at the East stairwell, and when?"
-   The AI writes analysis code, the sandbox runs it on the simulation data, and the answer
-   quotes only numbers the code computed (**Show the code** again).
-3. **Rewind the worst moment**: the crowd is saved at the most dangerous second; "do nothing"
-   and each response then run from that same second, each in its own sandbox branch, and are
-   compared side by side.
-4. **Stress test at scale**: every attack × your plan and each kept change × several random
-   crowds, fanned out over parallel sandboxes ("8 of 8 done").
-5. **Scripts** (Expert view): bring your own scenario or analysis script; a script that tries
-   `import socket` is refused before it runs, and the sandbox has no network anyway.
-
-## Part B — deeper tools (pick any)
-
-- **Expert view** (top right): the full studio with Plan, Simulate, Red Team and Report tabs.
-  In Simulate, *Block an exit* ("break it yourself") updates the instant estimate, then confirm
-  with a simulation.
-- **Finished sample "Halloween night · T-shaped alley"**: open from *Your plans* for a complete
-  red-team result, replay with the density heatmap, and the report.
-- **Wind sample "Waterfront Spring Festival · Wellington"**: the stage wind limit and the
-  countdown to the latest safe time to start evacuating.
-- **Autopilot** (Home → **Describe it** → **Plan it for me**): one sentence such as "Victory Day
-  concert at Ramna Park, Dhaka, 16 December 6 pm, 6,000 people" becomes a venue, a red-team test
-  and a plan in one go; eight plain steps show the progress, then it opens Your plan. Nothing
-  changes until you accept. **Just draw my venue** builds the venue only, for you to check.
-- **Expert view**: the **View** menu holds the event-night lights, the tour and the layers;
-  **Plan for the day** groups the estimates and the what-if lab.
+The metro sentence: `Metro station: underground platform level 120 x 14 m with 800 waiting
+passengers, three stairs up to the street-level ticket hall, which has exits on the west and
+east.`
 
 ## If something goes wrong
 
-- Header badge not green: the model provider is down or the key expired; the app falls back
-  to rule-based attacks and fixes and says so.
-- A map build fails: draw the area with **Draw an area** instead, or pick a smaller place.
+- **The AI badge says the hosted model is paused** (for example the daily free quota is used up,
+  until a stated time). Use the prepared plan for beats 3–5. For beat 2, choose a template
+  instead.
+- **No key at all:** **Offline** above *Test this plan* runs rule-based attacks and fixes, still in
+  the sandbox. Do not call those AI-written: the scenario card only says so when the model wrote
+  it.
 - Always say: *planning aid, not a safety certification*.
+
+## After the demo: deeper tools
+
+- **Failure map** (Your plan › Scenarios): every way the plan broke, by hazard and place.
+- **Rainbow search:** how the red team fills the failure map ([RAINBOW.md](RAINBOW.md)).
+- **Stress test at scale** (Your plan › Sandboxes): every attack × your plan, and each kept fix ×
+  several random crowds, with live counters.
+- **Check with more seeds** (Your plan › Scenarios › Deeper checks): the range of each number over
+  several random crowds.
+- **Ask or change anything:** "how long was the longest queue at the East stairwell?" The
+  analyst writes code, the sandbox runs it, and **Show the code** displays it.
+- **Expert view:** Plan, Simulate (block an exit: "Break it yourself"), Red Team and Report.
+- **Event Copilot / Autopilot:** one sentence ("Victory Day concert at Ramna Park, Dhaka,
+  16 December 6 pm, 6,000 people") becomes a venue, a test and a plan.

@@ -27,8 +27,11 @@ class SimLikeRunner(FakeRunner):
 
     provider = "docker"
 
-    def __init__(self, runs_dir: Path, outcome: Outcome | None = None) -> None:
-        super().__init__(runs_dir)
+    def __init__(
+        self, runs_dir: Path, outcome: Outcome | None = None, max_parallel: int = 1
+    ) -> None:
+        # like local Docker, one run at a time unless a test asks for more
+        super().__init__(runs_dir, max_parallel=max_parallel)
         self.outcome: Outcome = outcome or (lambda job: None)
 
     async def run(self, job: SimJob, on_progress: ProgressFn | None = None) -> RunResult:
