@@ -52,8 +52,9 @@ None of it has run live yet.
   ([LIVE_STATUS.md](LIVE_STATUS.md)).
 - **What runs today:** NVIDIA Nemotron (3.5 Lightning and 3 Ultra) through OpenRouter, and local
   Docker sandboxes.
-- **Switching:** a key in `.env` and one command (`make verify-nebius-llm`, then
-  `make use-nebius`). No code changes: [WHEN_YOU_GET_THE_KEYS.md](WHEN_YOU_GET_THE_KEYS.md).
+- **Switching:** `.env` only. Set `LLM_PROVIDER=nebius` and `NEBIUS_API_KEY`; for the
+  sandboxes, also `SANDBOX_PROVIDER=nebius` and `NEBIUS_PROJECT_ID`. `make verify-live` then
+  checks each one live. No code changes: [WHEN_YOU_GET_THE_KEYS.md](WHEN_YOU_GET_THE_KEYS.md).
 
 **What did Tavily add?**
 Nothing live yet: we had no key, so Tavily has not been run live. The plug-in is wired in:

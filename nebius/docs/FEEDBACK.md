@@ -114,15 +114,20 @@ Sandboxes runner (below).
 ## Nebius Token Factory (not tried live)
 
 **1. What we used it for.** A provider plug-in (`api/adapters/providers/llm_nebius.py`) with preset
-model ids and prices. `make use-nebius` writes them, and `make verify-nebius-llm` makes one
-authenticated request and one tiny chat. It is tested with fake clients only: we had no key.
+model ids and prices. `LLM_PROVIDER=nebius` plus the key selects them, and
+`make verify-nebius-llm` makes one authenticated request and one tiny chat. It is tested with fake clients only: we had no key.
 
 **2. What worked well.** Not tried live. Because the API is OpenAI-compatible, no
 provider-specific code was needed beyond the preset.
 
-**3. What needs work** (from building against the docs). We would like a machine-readable price
-list per model (input and output per 1M tokens), so a cost meter can be set up without copying
-values from the console.
+**3. What needs work** (from building against the docs).
+- The public model info (`/api/public/models_info`) gives exact ids and tags but no prices.
+  Prices are only in the catalog page, so a cost meter has to copy them by hand. Prices in that
+  JSON would fix it.
+- The catalog shows `Nemotron-3\_5-Lightning` with an escaped underscore, so the id is easy to
+  copy wrong (it is `nvidia/Nemotron-3_5-Lightning`).
+- Which models support JSON schema output is only a "JSON mode" tag on the model card; none of
+  the Nemotron entries in the model info carries it.
 
 **4. Onboarding.** Not tried live.
 
@@ -139,12 +144,19 @@ be stopped. It is tested with a fake client only: we had no access.
 branching: our branch tree is that snapshot tree.
 
 **3. What needs work** (from building against the SDK).
-- We confirmed the calls against the SDK source: `Contree(base_url, token)`, `images.oci`,
-  `image.run(shell=..., files=..., disposable=False)` and `image.read(path)`. The branching docs
-  are thinner than the code. A full example that writes input files, runs a command and reads an
-  output file back would help.
-- Per-job network and memory limits can't be set from the SDK, so our static check and the
-  in-sandbox budgets protect there.
+- **Outbound network is on by default**, and contree-sdk 0.3.6 (the latest release) has no
+  argument to turn it off. The REST spawn request has `networking.enabled`, so our runner adds
+  `{"networking": {"enabled": false}}` to each spawn request through a private seam. For
+  AI-written code this matters most: we'd ask for `run(..., network=False)` in the SDK, and for
+  off as the default.
+- **The project ID is easy to miss.** The SDK sends a `Project` header from `NEBIUS_PROJECT_ID`.
+  `Contree(base_url=..., token=...)` accepts no project argument, and if the variable isn't
+  exported, the header holds the variable's name. We found this only by reading `auth.py`. A
+  `project_id=` argument, or a clear error, would save people a failed first run.
+- We confirmed the other calls against the SDK source: `images.oci`,
+  `image.run(shell=..., files=..., disposable=False)` and `image.read(path)`.
+- Memory and CPU can't be set per run, so our static check and the in-sandbox budgets protect
+  there.
 - Access is gated (beta).
 
 **4. Onboarding.** Not tried live: no access.

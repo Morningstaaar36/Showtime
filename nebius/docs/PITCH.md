@@ -53,9 +53,10 @@ in `api/adapters/providers/`) and tested with fake clients:
 - `api/tests/test_search_adapter.py`;
 - `api/tests/test_web_evidence.py`.
 
-To switch one on, add its key to `.env` and run `make verify-live`. Each service gets a pass or
-the exact reason, written to [LIVE_STATUS.md](LIVE_STATUS.md). Then `make use-nebius` writes the
-model ids. No code changes. **None of the three has run live yet**: we had no keys
+To switch one on, edit `.env` only: the provider name, the key, and for Nebius Sandboxes the
+project ID. Model ids left from another provider switch to the Nebius preset on their own. Then
+`make verify-live` gives each service a pass or the exact reason, written to
+[LIVE_STATUS.md](LIVE_STATUS.md). No code changes. **None of the three has run live yet**: we had no keys
 ([WHEN_YOU_GET_THE_KEYS.md](WHEN_YOU_GET_THE_KEYS.md)).
 
 ## Every claim and its source

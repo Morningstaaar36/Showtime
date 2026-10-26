@@ -106,8 +106,14 @@ Simulations still need the sandbox image: `make build-sim` (from `nebius/`).
 
 ### Switch to Nebius or add Tavily
 
-Put the key in `nebius/.env` and run one command: `make verify-nebius-llm`, `make verify-nebius-sandbox`
-or `make verify-tavily` (a pass or the exact reason), then `make use-nebius` for the model ids.
+Only `nebius/.env` changes:
+- **Nebius Token Factory:** `LLM_PROVIDER=nebius` and `NEBIUS_API_KEY`. Leftover model ids from
+  another provider switch to the Nebius preset on their own.
+- **Nebius Sandboxes:** also `SANDBOX_PROVIDER=nebius` and `NEBIUS_PROJECT_ID`.
+- **Tavily:** `TAVILY_API_KEY`.
+
+Then `make verify-nebius-llm`, `make verify-nebius-sandbox` or `make verify-tavily` gives a pass
+or the exact reason, and `make up` restarts the app.
 Details: [nebius/docs/WHEN_YOU_GET_THE_KEYS.md](nebius/docs/WHEN_YOU_GET_THE_KEYS.md).
 
 ## Common tasks

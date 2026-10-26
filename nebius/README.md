@@ -153,7 +153,7 @@ simulated).
 | Technology | Role in Showtime |
 | --- | --- |
 | **NVIDIA Nemotron** (Nano 9B v2 locally; Nemotron 3.5 Lightning / 3 Super / 3 Ultra hosted) | Twelve agents (see *How it works*), among them: **Brief** (one sentence → event brief for the Copilot), **Designer** (description → layout spec that a solver builds and the checks verify), **Venue** (text → validated edit ops; 12/12 on our scripted edits with the local model), **Red team** (attacks grounded in incidents), **Blue team** (fixes), **Judge** (final plan text, number-checked), **Explainer** ("Ask the venue"). Roles map to models: `fast` for drafting, `main` for edits and fixes, `judge` for the final reasoning. JSON is schema-constrained, validated with Pydantic and repaired once. |
-| **Nebius Token Factory** | A provider plug-in (`api/adapters/providers/llm_nebius.py`): `make use-nebius` writes its model ids and prices, `make verify-nebius-llm` makes one real call. Built and tested with fake clients; **not run live** (no key yet). Today the same OpenAI-compatible adapter runs Nemotron on OpenRouter. |
+| **Nebius Token Factory** | A provider plug-in (`api/adapters/providers/llm_nebius.py`): `LLM_PROVIDER=nebius` plus the key selects it and its Nemotron preset; `make verify-nebius-llm` makes one real call. Built and tested with fake clients; **not run live** (no key yet). Today the same OpenAI-compatible adapter runs Nemotron on OpenRouter. |
 | **Nebius Sandboxes** (contree-sdk) | A sandbox plug-in (`SANDBOX_PROVIDER=nebius`): every scenario as a child snapshot of the venue image (attack → fix branches), run in parallel. Built against the SDK and tested with a fake client; **not run live** (no access yet; `make verify-nebius-sandbox`). Today every run is a local Docker container with `--network=none`, a read-only system, memory, CPU and process limits ([docs/SANDBOX_PROOF.md](docs/SANDBOX_PROOF.md)). |
 | **LangGraph** | The Event Copilot is a compiled `StateGraph` with conditional routes, checkpointing and custom streaming; `GET /api/v1/copilot/graph` serves its structure, which the UI draws live. |
 | **Tavily** | A search plug-in the agents use: the red team searches for incidents like the venue's and may cite only URLs that came back; the evidence desk looks up capacity and guidance for the brief. Cached, capped per session (`SEARCH_QUERIES_PER_SESSION`), every source labelled with its origin. Tested with a fake client; **not run live** (no key yet; `make verify-tavily`). Without a key the app says web search is off and the red team cites the incident dataset. |
@@ -188,8 +188,10 @@ presenter script is in [docs/DEMO.md](docs/DEMO.md).
 Lighter, without Docker for the app: `make dev` (API + Vite natively). Other targets:
 `make test`, `make smoke`, `make calibrate`, `make plugins`, `make mem`, `make help`.
 
-**Switch to Nebius:** put `NEBIUS_API_KEY` in `.env`, run `make verify-nebius-llm`, then
-`make use-nebius` and `make up` ([docs/WHEN_YOU_GET_THE_KEYS.md](docs/WHEN_YOU_GET_THE_KEYS.md)).
+**Switch to Nebius:** in `.env`, set `LLM_PROVIDER=nebius` and `NEBIUS_API_KEY`; for the
+sandboxes, also set `SANDBOX_PROVIDER=nebius` and `NEBIUS_PROJECT_ID`. Then run
+`make verify-nebius-llm` and `make up` ([docs/WHEN_YOU_GET_THE_KEYS.md](docs/WHEN_YOU_GET_THE_KEYS.md)).
+Leftover model ids from another provider switch to the Nebius preset on their own.
 
 ## Local M1 test setup (OpenRouter, Docker)
 
