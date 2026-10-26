@@ -88,3 +88,11 @@ def test_the_edit_endpoint_gives_that_hint(tmp_path: Path, monkeypatch: Any) -> 
         assert "Offline" in body["hint"] and "daily free quota used up" in body["hint"]
     finally:
         reset_engine()
+
+
+def test_a_rejected_key_is_named_in_the_hint(tmp_path: Path) -> None:
+    c = LLMClient(_settings(tmp_path))
+    detail = "OPENROUTER rejected the API key (HTTP 401). Set a valid OPENAI_COMPAT_API_KEY in .env and restart."
+    c._health_cache = (float("inf"), {"ok": False, "auth": False, "detail": detail})
+    assert c.unavailable_hint().startswith(detail)
+    assert "Offline" in c.unavailable_hint()

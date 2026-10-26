@@ -16,6 +16,12 @@ export class ApiError extends Error {
   }
 }
 
+/** An error's message with the API's hint after it (what to do), for toasts and banners. */
+export function errorText(e: Error): string {
+  const hint = e instanceof ApiError ? e.hint : null;
+  return hint ? `${e.message} ${hint}` : e.message;
+}
+
 const BASE = "/api/v1";
 
 async function parse<T>(res: Response): Promise<T> {

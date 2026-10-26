@@ -364,6 +364,9 @@ class LLMClient:
             return missing
         if self.spec.health == "models":
             return "Start the local model with: make llm-up"
+        last = self._health_cache[1] if self._health_cache is not None else None
+        if last is not None and not last.get("ok"):  # what the last check found (e.g. a bad key)
+            return f"{last.get('detail', '')} Or {offline}."
         return f"Check the AI badge (top right) for {self.settings.llm_label}, or {offline}."
 
     async def _local_health(self) -> dict[str, Any]:

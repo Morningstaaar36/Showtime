@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, api, configureTimeouts, REQUEST_TIMEOUT_MS } from "@/api/client";
+import { ApiError, api, configureTimeouts, errorText, REQUEST_TIMEOUT_MS } from "@/api/client";
 
 /** A fetch that never answers until its signal aborts it. */
 function hangingFetch() {
@@ -59,5 +59,13 @@ describe("timeouts come from the server", () => {
     configureTimeouts(undefined);
     configureTimeouts({ read_timeout_s: 0 });
     expect(REQUEST_TIMEOUT_MS.read).toBe(60_000);
+  });
+});
+
+describe("errorText", () => {
+  it("adds the API's hint to its message, so a toast says what to do", () => {
+    expect(errorText(new ApiError(503, "llm_unavailable", "The language model isn't answering.", "OPENROUTER rejected the API key (HTTP 401)."))).toBe(
+      "The language model isn't answering. OPENROUTER rejected the API key (HTTP 401).");
+    expect(errorText(new Error("Network down"))).toBe("Network down");
   });
 });
