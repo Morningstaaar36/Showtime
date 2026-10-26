@@ -1,6 +1,7 @@
 /** Drag and drop on the "Check your venue" screen: what a dropped palette item becomes and how a
  * dragged object moves, as patch ops. Pure functions so they are easy to test. */
 import type { Exit, Floor, PatchOpIn, Pt, Venue } from "@/api/types";
+import { t } from "@/i18n";
 import { annotateOp, annotationOf, type ChangeStatus } from "@/lib/annotations";
 import { centroid, edgesOf, exitRectAt, pointInPolygon } from "@/scene/geom";
 
@@ -9,7 +10,7 @@ export type GrabKind = "exit" | "obstacle" | "zone" | "stage";
 
 /** A new crowd area holds this many people at about 2 people per m² (easy to change after). */
 export const CROWD_PEOPLE = 200;
-const DOOR_WIDTH = 2;
+export const DOOR_WIDTH = 2;
 const SNAP = 0.5;
 
 export interface Hit { floorId: string; x: number; y: number; inside: boolean }
@@ -87,9 +88,9 @@ export function itemShape(floor: Floor, item: PaletteItem, x: number, y: number)
 function wallName(walkable: Pt[], rect: Pt[]): string {
   const [cx, cy] = centroid(rect);
   const near = nearestEdge(walkable, cx, cy);
-  if (!near) return "New";
+  if (!near) return t("check.new_name.new");
   const { nx, ny } = near.edge;
-  return Math.abs(nx) >= Math.abs(ny) ? (nx > 0 ? "East" : "West") : (ny > 0 ? "North" : "South");
+  return t(`check.new_name.${Math.abs(nx) >= Math.abs(ny) ? (nx > 0 ? "east" : "west") : (ny > 0 ? "north" : "south")}`);
 }
 
 /** "South door 3" when "South door 1" and "South door 2" exist; the plain name when it is the first. */
@@ -117,7 +118,7 @@ export function placeItem(venue: Venue, floorId: string, item: PaletteItem, x: n
   const outdoor = venue.mode === "outdoor";
   if (item === "door") {
     const id = newId("exit");
-    const name = freeName(venue, `${wallName(floor.walkable as Pt[], shape.points)} ${outdoor ? "gate" : "door"}`);
+    const name = freeName(venue, t(`check.new_name.${outdoor ? "gate" : "door"}`, { side: wallName(floor.walkable as Pt[], shape.points) }));
     return { id, kind: "exit", name, ops: [
       { op: "add_exit", floor_id: floorId, id, width_m: DOOR_WIDTH, polygon: shape.points, label: name } as PatchOpIn,
       annotateOp(id, { change }),
@@ -125,20 +126,20 @@ export function placeItem(venue: Venue, floorId: string, item: PaletteItem, x: n
   }
   if (item === "fence") {
     const id = newId("barrier");
-    return { id, kind: "obstacle", name: outdoor ? "Fence" : "Barrier", ops: [
+    return { id, kind: "obstacle", name: t(`check.new_name.${outdoor ? "fence" : "barrier"}`), ops: [
       { op: "add_barrier_line", floor_id: floorId, id, points: shape.points, kind: outdoor ? "fence" : "barrier" } as PatchOpIn,
       annotateOp(id, { change }),
     ] };
   }
   if (item === "crowd") {
     const id = newId("zone");
-    const name = freeName(venue, "Crowd area");
+    const name = freeName(venue, t("check.new_name.crowd"));
     return { id, kind: "zone", name, ops: [
       { op: "add_zone", floor_id: floorId, id, polygon: shape.points, people: CROWD_PEOPLE, label: name } as PatchOpIn,
     ] };
   }
   const id = newId("stall");
-  const name = freeName(venue, "Stall");
+  const name = freeName(venue, t("check.new_name.stall"));
   return { id, kind: "obstacle", name, ops: [
     { op: "add_obstacle", floor_id: floorId, id, kind: "booth", polygon: shape.points, label: name } as PatchOpIn,
     annotateOp(id, { change }),

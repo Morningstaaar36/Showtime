@@ -55,7 +55,7 @@ import { cn, UNDO_TOAST_ID } from "@/lib/utils";
 import { displayNames, textHumanizer } from "@/lib/venueText";
 import { FloorSwitch } from "@/panels/FloorSwitch";
 import { Timeline } from "@/panels/Timeline";
-import { type Thresholds, verdictOf } from "@/panels/verdict";
+import { type Thresholds, thresholdsOf, verdictOf } from "@/panels/verdict";
 import type { Replay } from "@/replay/useReplay";
 import { useReplay } from "@/replay/useReplay";
 import { SceneRoot } from "@/scene/SceneRoot";
@@ -289,7 +289,7 @@ export function YourPlanPage() {
 
   // --- tested ------------------------------------------------------------------------------
   const eff = settings.data?.effective ?? {};
-  const th: Thresholds = { warn: Number(eff.density_warn_ppm2 ?? 3.5), danger: Number(eff.density_danger_ppm2 ?? 5), dangerMinS: 5 };
+  const th: Thresholds = thresholdsOf(eff);
   const testedHash = versions.data?.find((v) => v.version === session.data?.venue_version)?.plan_hash;
   const { state, record } = planState({ currentHash: p.version.plan_hash, testedHash, kept: kept.length,
     applied: summary?.applied, fixedHash: after.data?.evidence?.plan_hash });

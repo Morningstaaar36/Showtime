@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { fmtDuration, fmtInt, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { best, buildGrid, current, type FailureMap as FailureMapData, type FailureMapCell, fmtCoverage, fmtSeverity, historyLine, tone, TONE_LABEL, type Tone } from "./failureMap";
+import { best, buildGrid, current, type FailureMap as FailureMapData, type FailureMapCell, fmtCoverage, fmtSeverity, historyLine, tone, toneLabel, type Tone } from "./failureMap";
 import { t } from "@/i18n";
 
 const KIND_ICON: Record<string, LucideIcon> = {
@@ -81,7 +81,7 @@ export function FailureMap({ map, onSelectRun, activeRunId, className }: {
                     return (
                       <td key={i} className="p-0">
                         <button type="button" onClick={() => choose(c)} aria-pressed={picked === key}
-                                aria-label={`${r.label}, ${grid.cols[i].label}: ${TONE_LABEL[tn]}${sev != null ? `, severity ${fmtSeverity(sev)}` : ""}`}
+                                aria-label={`${r.label}, ${grid.cols[i].label}: ${toneLabel(tn)}${sev != null ? `, ${t("failure_map.severity", { s: fmtSeverity(sev) })}` : ""}`}
                                 className={cn("flex h-12 w-full min-w-14 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-control)] border px-1 tabular transition-colors hover:brightness-95",
                                   TONE_CLASS[tn], picked === key && "ring-2 ring-signal", b && activeRunId === b.run_id && "outline outline-2 outline-offset-1 outline-signal")}>
                           {TIcon ? <TIcon className="size-3.5" aria-hidden /> : <span aria-hidden>—</span>}

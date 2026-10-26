@@ -43,12 +43,12 @@ export function CommandBar({ projectId, onUndo }: { projectId: string; onUndo: (
         setResult(r);
         if (r.status === "applied") {
           setText("");
-          toast.success(r.explanation || "Change applied", { id: UNDO_TOAST_ID, action: { label: t("common.undo"), onClick: onUndo } });
-        } else if (r.status === "failed") toast.error(r.explanation || "The change couldn't be made.");
+          toast.success(r.explanation || t("ui.commandbar.applied"), { id: UNDO_TOAST_ID, action: { label: t("common.undo"), onClick: onUndo } });
+        } else if (r.status === "failed") toast.error(r.explanation || t("ui.commandbar.failed"));
       },
       onError: (e) => {
         const err = e as ApiError;
-        toast.error(err.status === 404 ? "Text editing isn't available yet on this server." : err.message, { description: err.hint ?? undefined });
+        toast.error(err.status === 404 ? t("ui.commandbar.unavailable") : err.message, { description: err.hint ?? undefined });
       },
     });
   };

@@ -219,7 +219,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
     <div className="space-y-3">
       {guided && (
         <ol className="grid gap-2 sm:grid-cols-3" aria-label={t("ui.maptab.steps")}>
-          {["Find your place", "Click the building or park", "Build your venue"].map((label, i) => (
+          {[t("ui.maptab.step_find"), t("ui.maptab.step_click"), t("ui.maptab.step_build")].map((label, i) => (
             <li key={label} aria-current={stage === i + 1 ? "step" : undefined}
                 className={cn("flex items-center gap-2 rounded-[var(--radius-control)] border px-3 py-2 text-sm transition",
                   stage === i + 1 ? "border-signal bg-signal-soft font-semibold text-ink" : stage > i + 1 ? "border-egress/40 bg-egress-soft text-ink" : "border-border bg-surface text-muted")}>
@@ -234,7 +234,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void search(); }}>
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-            <Input aria-label={t("ui.maptab.search_for_a_place")} placeholder={t("ui.maptab.search_a_place_ramna_park")} value={q}
+            <Input aria-label={t("ui.maptab.search_for_a_place")} placeholder={t("ui.maptab.search_ph")} value={q}
                    onChange={(e) => setQ(e.target.value)} className="h-11 pl-9 text-base" />
           </div>
           <Button type="submit" variant="primary" disabled={searching || q.trim().length < 2}>{searching ? <Loader2 className="animate-spin" /> : <MapPin />}{t("ui.maptab.find")}</Button>

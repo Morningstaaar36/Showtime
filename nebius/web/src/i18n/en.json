@@ -201,7 +201,10 @@
     "missing_back": "Open your projects",
     "small_title": "Expert view needs a bigger screen",
     "small_body": "Open this plan on a computer to use the expert tools. Your plan and its report work on this screen.",
-    "small_back": "Back to your plan"
+    "small_back": "Back to your plan",
+    "run_label": "Simulation",
+    "run_finished": "{label} finished",
+    "run_failed": "{label} didn't finish"
   },
   "tools": {
     "select": "Select and move",
@@ -493,7 +496,11 @@
     "checks": "Checks",
     "checks_ok": "No problems found.",
     "rules": "Rules (example values)",
-    "rule_unconfirmed": "Unconfirmed: tick after checking the source"
+    "rule_unconfirmed": "Unconfirmed: tick after checking the source",
+    "exits_open": "Exits open",
+    "people_per_m_exit": "People per metre of exit",
+    "floor_area": "Floor area",
+    "floors": "Floors"
   },
   "metrics": {
     "evac_p95": "Evacuation time (95%)",
@@ -511,7 +518,11 @@
     "hotspots": "Hotspots",
     "no_hotspots": "No area went above the warning level.",
     "source_tier": "Source",
-    "formula": "Formula"
+    "formula": "Formula",
+    "per_m2_unit": "per m²",
+    "p95_out": "95% out",
+    "near": "Near {name}",
+    "at_xy": "At {x}, {y} m"
   },
   "timeline": {
     "play": "Play",
@@ -544,7 +555,8 @@
     "sf": "Safety factor",
     "manual_gust": "Expected gust (m/s)",
     "manual_title": "Live weather is unavailable",
-    "manual_body": "Enter the expected gust speed to compute the countdown."
+    "manual_body": "Enter the expected gust speed to compute the countdown.",
+    "latest_start": "Latest start"
   },
   "redteam": {
     "title": "Red Team Night",
@@ -583,7 +595,12 @@
     "ask": "Ask the venue",
     "ask_ph": "Why is this red?",
     "ask_title": "Ask the venue",
-    "budget": "Budget"
+    "budget": "Budget",
+    "started": "Red team started",
+    "empty_body": "Attack cards cite the real incident that inspired them. Fixes are kept only when the simulation shows they help.",
+    "tab_cards": "Attacks and fixes",
+    "tab_map": "Failure map",
+    "still_inside": "{n} still inside"
   },
   "report": {
     "title": "Report",
@@ -595,7 +612,8 @@
     "print_hint": "PDF uses your browser's print dialog: choose “Save as PDF”.",
     "empty": "No report yet. Run a stress test or a red-team session first.",
     "assumptions": "Assumptions",
-    "sources": "Sources"
+    "sources": "Sources",
+    "empty_body": "The report uses confirmed simulation results only."
   },
   "settings": {
     "title": "Settings",
@@ -848,7 +866,14 @@
     "generic": "Something went wrong.",
     "network": "The Showtime server isn't reachable. Start it with: make up",
     "not_found": "This page doesn't exist.",
-    "back": "Back to projects"
+    "back": "Back to projects",
+    "unreachable": "The Showtime server isn't reachable.",
+    "unreachable_starting": "It may still be starting; this retries automatically. Otherwise start it with: make up",
+    "unreachable_hint": "Start it with: make up",
+    "bad_response": "Unexpected response from the server ({status}).",
+    "request_failed": "Request failed ({status})",
+    "timeout": "The server took too long to answer (over {s} s).",
+    "timeout_hint": "Try again. If it keeps happening, check the provider badges at the top right."
   },
   "journey": {
     "steps": "Planning steps",
@@ -1096,9 +1121,9 @@
     "palette_fence": "Fence",
     "palette_crowd": "Crowd",
     "palette_stall": "Stall",
-    "palette_door_hint": "Drag onto a wall to add a 2 m door",
+    "palette_door_hint": "Drag onto a wall to add a {w} m door",
     "palette_fence_hint": "Drag onto the venue to add a fence or barrier",
-    "palette_crowd_hint": "Drag onto the venue to add a crowd area of 200 people",
+    "palette_crowd_hint": "Drag onto the venue to add a crowd area of {n} people",
     "palette_stall_hint": "Drag onto the venue to add a stall or booth",
     "drop_on_venue": "Drop it onto the venue",
     "drop_no_room": "There isn't room for it there. Try a more open spot.",
@@ -1148,7 +1173,20 @@
     "mode_standard_hint": "The AI attacks the plan and fixes what breaks; every idea is simulated.",
     "mode_deep_hint": "Three rounds on the improved plan: the failure map fills in and findings are confirmed in full.",
     "mode_offline_hint": "No AI: standard attacks and fixes from rules, still simulated. For use without a model or a key.",
-    "test_hint_mode": "About {m} min. {what}"
+    "test_hint_mode": "About {m} min. {what}",
+    "new_name": {
+      "door": "{side} door",
+      "gate": "{side} gate",
+      "fence": "Fence",
+      "barrier": "Barrier",
+      "crowd": "Crowd area",
+      "stall": "Stall",
+      "north": "North",
+      "south": "South",
+      "east": "East",
+      "west": "West",
+      "new": "New"
+    }
   },
   "work": {
     "tools_title": "Agents' tools",
@@ -1944,7 +1982,24 @@
       "recorded_by": "{id} recorded by",
       "obj_cost": "{id} declared cost",
       "obj_permissions": "{id} permission IDs",
-      "action_cost": "Action declared cost ({currency})"
+      "action_cost": "Action declared cost ({currency})",
+      "permitted_ops": "Permitted edit operations (comma separated; blank allows registered edits)",
+      "budget": "Declared cost budget",
+      "currency": "Currency",
+      "action_id": "Action ID",
+      "action_description": "Action description",
+      "measure": "Measure",
+      "action_target": "Action target",
+      "destination_exit": "Destination exit",
+      "redirect_fraction": "Redirect fraction",
+      "action_start": "Action start (s)",
+      "action_end": "Action end (s)",
+      "release_delay": "Release delay (s)",
+      "depends_on": "Depends on action IDs",
+      "permission_ids": "Action permission IDs",
+      "replace": "Replace {id}",
+      "allocation": "{id} allocation",
+      "lock_obj": "Lock {id}"
     },
     "workspace": {
       "before_fixes": "Before fixes",
@@ -1991,7 +2046,6 @@
     "maptab": {
       "steps": "Steps",
       "search_for_a_place": "Search for a place",
-      "search_a_place_ramna_park": "Search a place: “Ramna Park Dhaka”, “BUET”, an address…",
       "search_still_works_and_you": "Search still works, and you can describe the venue in words instead.",
       "selected": "Selected",
       "treat_as": "Treat as",
@@ -2013,7 +2067,11 @@
       "building_indoor": "Building (indoor)",
       "open_air_area": "Open-air area",
       "building": "Building…",
-      "build_venue": "Build venue"
+      "build_venue": "Build venue",
+      "step_find": "Find your place",
+      "step_click": "Click the building or park",
+      "step_build": "Build your venue",
+      "search_ph": "Search a place: a venue name, a landmark or an address…"
     },
     "agentgraph": {
       "agent_graph": "Agent graph"
@@ -2027,7 +2085,10 @@
       "ask_busiest": "Ask about the busiest spot in this run.",
       "only_numbers": "Answers use only this simulation's numbers.",
       "every_number_was_checked_against": "Every number was checked against the simulation.",
-      "answer_withheld_numbers_it_could": "Answer withheld numbers it could not verify."
+      "answer_withheld_numbers_it_could": "Answer withheld numbers it could not verify.",
+      "s_red": "Why is this red?",
+      "s_exit": "Which exit are these people heading for?",
+      "s_reduce": "What would reduce the density here?"
     },
     "branchtree": {
       "breaks": "Breaks",
@@ -2039,7 +2100,10 @@
       "simulating": "Simulating…"
     },
     "commandbar": {
-      "apply": "Apply"
+      "apply": "Apply",
+      "applied": "Change applied",
+      "failed": "The change couldn't be made.",
+      "unavailable": "Text editing isn't available yet on this server."
     },
     "estimatespanel": {
       "open_for": "Open for",
@@ -2210,7 +2274,11 @@
       "people_share": "{n} people ({pct}%)",
       "crowd_size_applied_to_the": "Crowd size applied to the plan",
       "what_if_simulation_started_open": "What-if simulation started. Open Simulate to watch it.",
-      "apply_the_crowd_size_first": "Apply the crowd size first, then simulate"
+      "apply_the_crowd_size_first": "Apply the crowd size first, then simulate",
+      "score": "What-if score",
+      "peak": "Peak per m²",
+      "capacity": "Safe capacity",
+      "unit_s": " s"
     },
     "windpanel": {
       "wind_on_the_day": "Wind on the day",
@@ -2239,7 +2307,10 @@
       "stopped_at_the_time_limit": "Stopped at the time limit.",
       "danger_time_help": "Total time any cell is above {danger} people per m².",
       "run_blocked": "Blocked: {exits}",
-      "run_stress": "Stress test"
+      "run_stress": "Stress test",
+      "p95_help": "95th percentile of the times people pass an exit, from the start of movement (pre-movement excluded).",
+      "peak_help": "Max over time of the Gaussian-smoothed 1 m density grid, divided by the walkable area of each cell.",
+      "inside_help": "People still inside when the run stopped (time limit or no route)."
     },
     "home": {
       "people": "{n} people",
@@ -2254,5 +2325,69 @@
     "floormenu": {
       "ground": "Ground"
     }
+  },
+  "verdict": {
+    "tier_preview": "Preview only (no simulation)",
+    "run_ref": "(run {id})",
+    "tier_partial": "Partial simulation (stopped early)",
+    "tier_instant": "Instant estimate (formula)",
+    "tier_quick": "Quick simulation (first minutes only)",
+    "tier_full": "Full simulation",
+    "not_tested": "Not tested yet",
+    "preview": "Preview only — not simulated",
+    "incomplete": "Simulation did not complete",
+    "r_danger": "density above {danger} people per m² for {time}",
+    "r_trapped": "{n} people trapped with no open exit",
+    "r_quick": "only {pct}% out when the quick simulation stopped at {time}",
+    "r_inside": "{n} people still inside at the end",
+    "s_out": "95% of {n} people are out in {time}.",
+    "s_some_out": "{pct}% of {n} people got out within the simulated time.",
+    "s_not_all_out": "Not all of {n} people got out within the simulated time.",
+    "s_peak": "The crowd peaks at {ppm2} people per m²",
+    "s_peak_near": "The crowd peaks at {ppm2} people per m² near {near}",
+    "s_peak_warn": "{peak}, above the warning level for {time}.",
+    "s_calm": "Density stays below {warn} people per m² everywhere.",
+    "h_fails": "This plan fails",
+    "h_at_risk": "This plan is at risk",
+    "h_incomplete": "Test incomplete",
+    "h_holds": "This plan holds"
+  },
+  "describe": {
+    "side": {
+      "north": "north",
+      "south": "south",
+      "east": "east",
+      "west": "west"
+    },
+    "at": "{what} at {time}",
+    "ev_block": "{exit} blocked",
+    "ev_unblock": "{exit} reopened",
+    "ev_surge": "{n} more people into {zone}",
+    "ev_slow": "Everyone slows to {p}% speed",
+    "ev_counter": "{n} people push in through {exit}",
+    "ev_hold": "Hold {zone} for {s} s",
+    "ev_marshal": "Marshals send {p}% to {to}",
+    "ev_marshal_from": "Marshals send {p}% from {from} to {to}",
+    "ev_one_way": "One-way flow at {exit}",
+    "ev_script": "Scenario written as code",
+    "ev_script_titled": "Scenario written as code: {title}",
+    "op_add_exit": "New {w} m exit",
+    "op_add_exit_wall": "New {w} m exit on the {wall} wall",
+    "op_resize": "Widen {name} to {w} m",
+    "op_barrier": "New barrier line",
+    "op_move": "Move {name}",
+    "op_remove": "Remove {name}",
+    "op_open": "Open {name}",
+    "op_close": "Close {name}",
+    "op_people": "{name}: {n} people",
+    "new_exit": "New {side} exit"
+  },
+  "failure_map": {
+    "tone_empty": "Not tested yet",
+    "tone_holds": "Holds",
+    "tone_near": "Close to breaking",
+    "tone_break": "Breaks the plan",
+    "round": "Round {n}: {pct}% · {qd}",
+    "severity": "severity {s}"
   }
 }

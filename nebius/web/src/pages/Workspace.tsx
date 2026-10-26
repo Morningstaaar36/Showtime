@@ -25,7 +25,7 @@ import { SimulatePanel } from "@/panels/SimulatePanel";
 import { Timeline, type TimelineMarker } from "@/panels/Timeline";
 import { ToolRail } from "@/panels/ToolRail";
 import { TopBar } from "@/panels/TopBar";
-import { tierLabel, type Thresholds } from "@/panels/verdict";
+import { thresholdsOf, tierLabel, type Thresholds } from "@/panels/verdict";
 import { ViewMenu } from "@/panels/ViewMenu";
 import { useReplay } from "@/replay/useReplay";
 import { exitRectAt, polygonArea, venueBounds } from "@/scene/geom";
@@ -96,7 +96,7 @@ export function WorkspacePage() {
     }
   }, [ui.tool, ui.editFloor, ui.floorView, floorCount]); // eslint-disable-line react-hooks/exhaustive-deps
   const eff = settings.data?.effective ?? {};
-  const th: Thresholds = { warn: Number(eff.density_warn_ppm2 ?? 3.5), danger: Number(eff.density_danger_ppm2 ?? 5), dangerMinS: 5 };
+  const th: Thresholds = thresholdsOf(eff);
 
   // Instant estimate of the current plan (Tier 1, milliseconds).
   const estimate = useQuery({
@@ -123,11 +123,11 @@ export function WorkspacePage() {
     const st = run.data?.status;
     const prev = watched.current;
     if (run.data && prev.id === run.data.id && (prev.status === "queued" || prev.status === "running")) {
-      const label = run.data.label || "Simulation";
+      const label = run.data.label || t("workspace.run_label");
       if (st === "ok" || st === "partial") {
-        toast.success(label === "Stress test" ? t("workspace.stress_test_finished") : `${label} finished`);
+        toast.success(t("workspace.run_finished", { label }));
       } else if (st === "failed" || st === "timeout") {
-        toast.error(label === "Stress test" ? t("workspace.stress_test_failed") : `${label} didn't finish`,
+        toast.error(t("workspace.run_failed", { label }),
                     { description: run.data.error ?? undefined });
       }
     }
@@ -183,7 +183,7 @@ export function WorkspacePage() {
 
   const runStress = useCallback(() => {
     if (!p) return;
-    start.mutate({ project_id: p.id, tier: 3, label: "Stress test" }, {
+    start.mutate({ project_id: p.id, tier: 3 }, { // the server names it a stress test
       onSuccess: (r) => {
         useUi.getState().setActiveRun(r.id);
         if (mode === "plan") navigate(`/p/${p.id}/expert/simulate`);

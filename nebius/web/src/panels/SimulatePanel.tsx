@@ -47,7 +47,7 @@ function HotspotList({ hotspots, onPick, label }: { hotspots: Hotspot[]; onPick:
           <button type="button" onClick={() => onPick(h)}
                   className="flex w-full items-center gap-2 rounded-[var(--radius-control)] border border-border px-2.5 py-2 text-left text-sm hover:bg-surface-2">
             <Flame className={cn("size-4 shrink-0", h.level === "danger" ? "text-danger" : "text-caution")} />
-            <span className="min-w-0 flex-1 truncate">{h.near ? `Near ${label(h.near)}` : `At ${fmtNum(h.x, 0)}, ${fmtNum(h.y, 0)} m`}</span>
+            <span className="min-w-0 flex-1 truncate">{h.near ? t("metrics.near", { name: label(h.near) }) : t("metrics.at_xy", { x: fmtNum(h.x, 0), y: fmtNum(h.y, 0) })}</span>
             <span className="tabular text-muted">{fmtNum(h.peak_density_ppm2, 1)}</span>
             <span className="text-xs tabular text-muted">{fmtClock(h.t_s)}</span>
           </button>
@@ -128,16 +128,16 @@ export function SimulatePanel({ project, run, estimate, replay, th, onAsk }: {
         <>
           <div className="grid grid-cols-2 gap-2">
             <MetricTile label={t("metrics.evac_p95")} value={result.metrics.evac_time_p95_s != null ? fmtDuration(result.metrics.evac_time_p95_s) : "–"} run={result}
-                        formula="95th percentile of the times people pass an exit, from the start of movement (pre-movement excluded)." />
-            <MetricTile label={t("metrics.peak_density")} value={fmtNum(result.metrics.peak_density_ppm2, 1)} unit="per m²" run={result}
+                        formula={t("ui.simulatepanel.p95_help")} />
+            <MetricTile label={t("metrics.peak_density")} value={fmtNum(result.metrics.peak_density_ppm2, 1)} unit={t("metrics.per_m2_unit")} run={result}
                         tone={(result.metrics.peak_density_ppm2 ?? 0) >= th.danger ? "danger" : (result.metrics.peak_density_ppm2 ?? 0) >= th.warn ? "caution" : "egress"}
-                        formula="Max over time of the Gaussian-smoothed 1 m density grid, divided by the walkable area of each cell." />
+                        formula={t("ui.simulatepanel.peak_help")} />
             <MetricTile label={t("metrics.above_danger")} value={fmtDuration(result.metrics.time_above_danger_s)} run={result}
                         tone={(result.metrics.time_above_danger_s ?? 0) >= th.dangerMinS ? "danger" : "egress"}
                         formula={t("ui.simulatepanel.danger_time_help", { danger: th.danger })} />
             <MetricTile label={t("metrics.not_evacuated")} value={fmtInt(result.metrics.agents_not_evacuated)} run={result}
                         tone={(result.metrics.agents_not_evacuated ?? 0) > 0 ? "caution" : "egress"}
-                        formula="People still inside when the run stopped (time limit or no route)." />
+                        formula={t("ui.simulatepanel.inside_help")} />
           </div>
           {replay && counts.length > 1 && (
             <section>

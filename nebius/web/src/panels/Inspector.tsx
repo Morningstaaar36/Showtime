@@ -79,11 +79,11 @@ function VenueFacts({ venue }: { venue: Venue }) {
     <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-control)] border border-border bg-border text-sm">
       {[
         [t("inspector.people_total"), fmtInt(people)],
-        ["Exits open", `${venue.floors.reduce((a, f) => a + f.exits.filter((e) => !e.blocked).length, 0)}`],
+        [t("inspector.exits_open"), `${venue.floors.reduce((a, f) => a + f.exits.filter((e) => !e.blocked).length, 0)}`],
         [t("inspector.exit_width_total"), units === "imperial" ? `${fmtNum(width * 3.281, 0)} ft` : `${fmtNum(width, 1)} m`],
-        ["People per metre of exit", fmtNum(perM, 0)],
-        ["Floor area", `${fmtInt(area)} m²`],
-        ["Floors", String(venue.floors.length)],
+        [t("inspector.people_per_m_exit"), fmtNum(perM, 0)],
+        [t("inspector.floor_area"), `${fmtInt(area)} m²`],
+        [t("inspector.floors"), String(venue.floors.length)],
       ].map(([k, val]) => (
         <div key={k} className="bg-surface px-3 py-2">
           <dt className="text-xs text-muted">{k}</dt>

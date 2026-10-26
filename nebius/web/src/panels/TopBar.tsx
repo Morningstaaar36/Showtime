@@ -148,7 +148,7 @@ function CountdownChip({ data }: { data: CountdownOut | undefined }) {
             <Row k={t("countdown.pre")} v={fmtDuration(c.pre_movement_s)} />
             <Row k={t("countdown.rset")} v={c.rset_s != null ? fmtDuration(c.rset_s) : "–"} />
             <Row k={t("countdown.sf")} v={`× ${c.safety_factor}`} />
-            <div className="border-t border-border pt-2"><Row k="Latest start" v={c.t_latest_iso ? fmtHM(c.t_latest_iso) : c.t_latest_s != null ? fmtClock(c.t_latest_s) : "–"} strong /></div>
+            <div className="border-t border-border pt-2"><Row k={t("countdown.latest_start")} v={c.t_latest_iso ? fmtHM(c.t_latest_iso) : c.t_latest_s != null ? fmtClock(c.t_latest_s) : "–"} strong /></div>
             <p className="pt-1 text-xs text-muted">{c.formula}</p>
             {c.hazard_explanation && <p className="text-xs text-muted">{c.hazard_explanation}</p>}
             {c.rset_source && <p className="text-xs text-muted">{t("ui.topbar.rset_source", { source: c.rset_source })}</p>}

@@ -1,4 +1,5 @@
 /** Fetch wrapper: JSON in/out, designed errors ({code, message, hint}) surfaced as ApiError. */
+import { t as tr } from "@/i18n"; // `t` names the request timer below
 
 export class ApiError extends Error {
   code: string;
@@ -33,14 +34,13 @@ async function parse<T>(res: Response): Promise<T> {
   } catch {
     // a proxy page (502/503 while the API starts or restarts) instead of our JSON
     if (res.status >= 500 || res.status === 0) {
-      throw new ApiError(res.status, "network", "The Showtime server isn't reachable.",
-                         "It may still be starting; this retries automatically. Otherwise start it with: make up");
+      throw new ApiError(res.status, "network", tr("errors.unreachable"), tr("errors.unreachable_starting"));
     }
-    throw new ApiError(res.status, "bad_response", `Unexpected response from the server (${res.status}).`, null);
+    throw new ApiError(res.status, "bad_response", tr("errors.bad_response", { status: res.status }), null);
   }
   if (!res.ok) {
     const b = (body ?? {}) as { code?: string; message?: string; hint?: string; details?: Record<string, unknown> };
-    throw new ApiError(res.status, b.code ?? "http_error", b.message ?? `Request failed (${res.status})`,
+    throw new ApiError(res.status, b.code ?? "http_error", b.message ?? tr("errors.request_failed", { status: res.status }),
                        b.hint ?? null, b.details ?? {});
   }
   return body as T;
@@ -70,8 +70,7 @@ function withTimeout(ms: number, signal?: AbortSignal): { signal: AbortSignal; t
 }
 
 function timeoutError(ms: number): ApiError {
-  return new ApiError(0, "timeout", `The server took too long to answer (over ${Math.round(ms / 1000)} s).`,
-                      "Try again. If it keeps happening, check the provider badges at the top right.");
+  return new ApiError(0, "timeout", tr("errors.timeout", { s: Math.round(ms / 1000) }), tr("errors.timeout_hint"));
 }
 
 async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
@@ -88,7 +87,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   } catch (e) {
     if (t.timedOut()) throw timeoutError(ms);
     if ((e as Error).name === "AbortError") throw e;
-    throw new ApiError(0, "network", "The Showtime server isn't reachable.", "Start it with: make up");
+    throw new ApiError(0, "network", tr("errors.unreachable"), tr("errors.unreachable_hint"));
   } finally {
     t.done();
   }

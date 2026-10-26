@@ -13,6 +13,7 @@ import { fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useUi } from "@/state/ui";
 import { ScoreGauge, useCountTo } from "./ScoreGauge";
+import { useThresholds } from "./useThresholds";
 
 const SPEEDS = [
   { key: "normal", label: "Normal", factor: 1.0, icon: Footprints },
@@ -64,6 +65,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
   const exits = useMemo(() => venue.floors.flatMap((f) => f.exits.map((e) => ({ id: e.id, name: exitName(f, e) }))), [venue]);
   // what-ifs use the instant estimate, so compare them with the instant estimate of the plan
   const baseInstant = useWhatIf(project.id, version, BASE, null);
+  const th = useThresholds();
   const [scale, setScale] = useState(1);
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]["key"]>("normal");
   const [closed, setClosed] = useState<string[]>([]);
@@ -134,11 +136,11 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
       )}
       {w && (
         <div className={cn("space-y-2 transition-opacity", lab.isFetching && "opacity-70")}>
-          <ScoreGauge score={w.score} size={64} label="What-if score" delta={baseInstant.data ? w.score.score - baseInstant.data.score.score : undefined} />
+          <ScoreGauge score={w.score} size={64} label={t("ui.whatiflab.score")} delta={baseInstant.data ? w.score.score - baseInstant.data.score.score : undefined} />
           <div className="grid grid-cols-3 gap-1.5">
-            <Stat label="95% out" value={w.metrics.evac_time_p95_s} unit=" s" worse={!!baseInstant.data?.metrics.evac_time_p95_s && (w.metrics.evac_time_p95_s ?? 0) > baseInstant.data.metrics.evac_time_p95_s * 1.15} />
-            <Stat label="Peak per m²" value={w.metrics.peak_density_ppm2} unit="" digits={1} worse={w.metrics.peak_density_ppm2 >= 5} />
-            <Stat label="Safe capacity" value={w.capacity.safe_people} unit="" worse={w.people > w.capacity.safe_people} />
+            <Stat label={t("metrics.p95_out")} value={w.metrics.evac_time_p95_s} unit={t("ui.whatiflab.unit_s")} worse={!!baseInstant.data?.metrics.evac_time_p95_s && (w.metrics.evac_time_p95_s ?? 0) > baseInstant.data.metrics.evac_time_p95_s * 1.15} />
+            <Stat label={t("ui.whatiflab.peak")} value={w.metrics.peak_density_ppm2} unit="" digits={1} worse={w.metrics.peak_density_ppm2 >= th.danger} />
+            <Stat label={t("ui.whatiflab.capacity")} value={w.capacity.safe_people} unit="" worse={w.people > w.capacity.safe_people} />
           </div>
         </div>
       )}

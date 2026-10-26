@@ -1,4 +1,6 @@
 import type { Venue } from "@/api/types";
+import { t } from "@/i18n";
+import { sideName } from "@/panels/describe";
 
 /** Side of a floor an exit sits on (for naming exits that have no label). */
 function sideOf(walkable: number[][], polygon: number[][]): string {
@@ -15,7 +17,7 @@ function sideOf(walkable: number[][], polygon: number[][]): string {
 
 /** Name of one exit: its label, or "New east exit" for an exit added without one. */
 export function exitName(floor: Venue["floors"][number], exit: Venue["floors"][number]["exits"][number]): string {
-  return exit.label ?? `New ${sideOf(floor.walkable, exit.polygon)} exit`;
+  return exit.label ?? t("describe.new_exit", { side: sideName(sideOf(floor.walkable, exit.polygon)) });
 }
 
 /** Readable names for exits, zones and objects: labels first; unlabelled exits by side. */

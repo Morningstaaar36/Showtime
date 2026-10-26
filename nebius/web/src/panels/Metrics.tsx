@@ -63,7 +63,7 @@ export function EvacuationCurve({ times, counts, p95 }: { times: number[]; count
             <YAxis tick={axis} stroke="var(--border)" width={40} />
             <Tooltip formatter={(v) => [Number(v).toLocaleString(), "Inside"]} labelFormatter={(v) => fmtClock(Number(v))}
                      contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
-            {p95 != null && <ReferenceLine x={p95} stroke="var(--egress)" strokeDasharray="4 3" label={{ value: "95% out", fontSize: 10, fill: "var(--egress)", position: "insideTopRight" }} />}
+            {p95 != null && <ReferenceLine x={p95} stroke="var(--egress)" strokeDasharray="4 3" label={{ value: t("metrics.p95_out"), fontSize: 10, fill: "var(--egress)", position: "insideTopRight" }} />}
             <Area type="monotone" dataKey="n" stroke="var(--signal)" strokeWidth={1.8} fill="url(#inside)" isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>

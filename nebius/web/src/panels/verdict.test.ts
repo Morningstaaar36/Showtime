@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { RunResult } from "@/api/types";
-import { tierLabel, verdictOf } from "./verdict";
+import { thresholdsOf, tierLabel, verdictOf } from "./verdict";
 
-const thresholds = { warn: 3.5, danger: 5, dangerMinS: 5 };
+const thresholds = thresholdsOf({});
 const run = (fields: Partial<RunResult> = {}) => ({
   run_id: "r_test", tier: 3, status: "ok", provider: "docker", engine: "jupedsim",
   metrics: { agents_total: 20, agents_not_evacuated: 0, peak_density_ppm2: 1, time_above_danger_s: 0 },
@@ -37,6 +37,14 @@ describe("evidence labels", () => {
     // a full simulation that ends with people inside still fails on them
     expect(verdictOf(run({ metrics: { agents_total: 100, agents_not_evacuated: 40, peak_density_ppm2: 1, time_above_danger_s: 0 } } as unknown as Partial<RunResult>), thresholds, (id) => id).reasons)
       .toEqual(["40 people still inside at the end"]);
+  });
+  it("judges by the server's settings, not by numbers of its own", () => {
+    const left = run({ metrics: { agents_total: 100, agents_not_evacuated: 3, peak_density_ppm2: 1, time_above_danger_s: 0, evac_time_p95_s: 60 } } as unknown as Partial<RunResult>);
+    expect(verdictOf(left, thresholds, (id) => id).level).toBe("holds"); // 3 is within the default tolerance
+    expect(verdictOf(left, thresholdsOf({ stuck_tolerance_people: 0 }), (id) => id).level).toBe("fails");
+    const busy = run({ metrics: { agents_total: 100, agents_not_evacuated: 0, peak_density_ppm2: 1, time_above_danger_s: 0, time_above_warning_s: 20, evac_time_p95_s: 60 } } as unknown as Partial<RunResult>);
+    expect(verdictOf(busy, thresholds, (id) => id).level).toBe("holds");
+    expect(verdictOf(busy, thresholdsOf({ at_risk_warning_s: 10 }), (id) => id).level).toBe("at_risk");
   });
   it("does not pass a partial result with no recorded failure", () => {
     expect(verdictOf(run({ status: "partial" }), thresholds, (id) => id).level).toBe("unknown");

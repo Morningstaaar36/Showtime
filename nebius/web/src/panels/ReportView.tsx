@@ -77,7 +77,7 @@ export function ReportView({ project }: { project: ProjectDetail }) {
                   className="size-full border-0" />
         ) : (
           <div className="mx-auto max-w-xl p-10">
-            <EmptyState icon={<FileText />} title={t("report.empty")} body="The report uses confirmed simulation results only." />
+            <EmptyState icon={<FileText />} title={t("report.empty")} body={t("report.empty_body")} />
           </div>
         )}
       </div>

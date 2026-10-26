@@ -11,7 +11,7 @@ import { t } from "@/i18n";
 import { fmtClock, fmtNum } from "@/lib/format";
 import { useUi } from "@/state/ui";
 
-const SUGGESTIONS = ["Why is this red?", "Which exit are these people heading for?", "What would reduce the density here?"];
+const SUGGESTIONS = ["s_red", "s_exit", "s_reduce"].map((k) => t(`ui.askdialog.${k}`));
 
 /** "Ask the venue": the Explainer answers from this run's numbers only. */
 export function AskDialog({ open, onOpenChange, projectId, runId, hotspot }: {

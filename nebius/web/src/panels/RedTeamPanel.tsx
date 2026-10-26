@@ -23,6 +23,8 @@ import { FailureMap } from "./FailureMap";
 import { cellLabel, type FailureMap as FailureMapData } from "./failureMap";
 import { describeEvent, describeOp } from "./describe";
 import { exitLabeler, textHumanizer } from "./Inspector";
+import { stuckTolerance } from "./verdict";
+import { useThresholds } from "./useThresholds";
 
 const PHASES = ["baseline", "red_team", "screening", "simulating", "blue_team", "confirming", "judging", "done"];
 
@@ -93,7 +95,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
         {!running ? (
           <Button variant="primary" size="lg" className="flex-1" disabled={start.isPending || !project.validation.ok}
                   onClick={() => start.mutate({ project_id: project.id, config: cfg }, {
-                    onSuccess: (s) => { onPickSession(s.id); toast(t("redteam.title") + " started"); },
+                    onSuccess: (s) => { onPickSession(s.id); toast(t("redteam.started")); },
                     onError: (e) => toast.error(e.message, { description: (e as { hint?: string }).hint }),
                   })}>
             <Swords />{t("redteam.start")}
@@ -117,7 +119,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
         </Popover>
       </div>
 
-      {!sessionId && <EmptyState icon={<Swords />} title={t("redteam.empty")} body="Attack cards cite the real incident that inspired them. Fixes are kept only when the simulation shows they help." />}
+      {!sessionId && <EmptyState icon={<Swords />} title={t("redteam.empty")} body={t("redteam.empty_body")} />}
 
       {sessionId && (
         <>
@@ -141,7 +143,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
           )}
           <Tabs.Root defaultValue="cards">
             <Tabs.List className="flex gap-0.5 overflow-x-auto rounded-full bg-surface-2 p-1 scrollbar-thin">
-              {[["cards", <Swords key="s" />, "Attacks and fixes"], ["map", <LayoutGrid key="m" />, "Failure map"], ["tree", <GitBranch key="g" />, t("redteam.branch_tree")], ["activity", <Activity key="a" />, t("redteam.activity")]].map(([v, icon, l]) => (
+              {[["cards", <Swords key="s" />, t("redteam.tab_cards")], ["map", <LayoutGrid key="m" />, t("redteam.tab_map")], ["tree", <GitBranch key="g" />, t("redteam.branch_tree")], ["activity", <Activity key="a" />, t("redteam.activity")]].map(([v, icon, l]) => (
                 <Tabs.Trigger key={v as string} value={v as string}
                               className="flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm text-muted hover:text-ink data-[state=active]:bg-surface data-[state=active]:font-medium data-[state=active]:text-ink data-[state=active]:shadow-sm [&_svg]:size-3.5">
                   {icon}{l}
@@ -322,6 +324,7 @@ function FinalCard({ view, summary, onApply, applying, onShow, human }: {
   view: SessionView; summary: Record<string, unknown>; onApply: () => void; applying: boolean; onShow: (id: string) => void;
   human: (text: string) => string;
 }) {
+  const th = useThresholds();
   const before = summary.before as Record<string, number | null> | null;
   const after = summary.after as Record<string, number | null> | null;
   const kept = (summary.accepted_fixes as string[] | undefined)?.length ?? 0;
@@ -335,9 +338,9 @@ function FinalCard({ view, summary, onApply, applying, onShow, human }: {
   );
   // evacuation time (95%) is undefined when 95% never got out: say how many were left instead
   const evac = (v: number | null | undefined, m: Record<string, number | null>) =>
-    v == null && (m.agents_not_evacuated ?? 0) > 0 ? `${fmtInt(m.agents_not_evacuated)} still inside` : fmtDuration(v ?? null);
+    v == null && (m.agents_not_evacuated ?? 0) > 0 ? t("redteam.still_inside", { n: fmtInt(m.agents_not_evacuated) }) : fmtDuration(v ?? null);
   const final = after ?? before;
-  const stillAtRisk = !!final && ((final.agents_not_evacuated ?? 0) > 0 || (final.time_above_danger_s ?? 0) >= 5);
+  const stillAtRisk = !!final && ((final.agents_not_evacuated ?? 0) > stuckTolerance(final.agents_total ?? 0, th) || (final.time_above_danger_s ?? 0) >= th.dangerMinS);
   return (
     <section className={`rounded-[var(--radius-panel)] border p-4 ${stillAtRisk ? "border-caution/40 bg-caution-soft/40" : "border-egress/35 bg-egress-soft/40"}`}>
       <p className="flex items-center gap-2 font-semibold">

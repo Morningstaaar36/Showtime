@@ -38,7 +38,7 @@ export function Timeline({ markers }: { markers: TimelineMarker[] }) {
   const pb = usePlayback.getState();
   return (
     <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-[var(--radius-panel)] sm:gap-3 border border-border bg-surface/95 px-3 py-2 shadow-[var(--shadow-float)] backdrop-blur">
-      <Tip content="Back to start">
+      <Tip content={t("ui.timeline.back_to_start")}>
         <button type="button" aria-label={t("ui.timeline.back_to_start")} onClick={() => pb.setT(0)} className="text-muted hover:text-ink"><SkipBack className="size-4" /></button>
       </Tip>
       <button type="button" aria-label={playing ? t("timeline.pause") : t("timeline.play")} onClick={() => pb.toggle()}

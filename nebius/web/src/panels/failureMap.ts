@@ -1,5 +1,6 @@
 /** Pure helpers for the failure map (the red team's quality-diversity archive, docs/RAINBOW.md). */
 import type { FailureMap, FailureMapCell, FailureMapElite } from "@/types/generated";
+import { t } from "@/i18n";
 
 export type { FailureMap, FailureMapCell, FailureMapElite };
 
@@ -27,12 +28,7 @@ export function tone(sev: number | null | undefined): Tone {
   return "holds";
 }
 
-export const TONE_LABEL: Record<Tone, string> = {
-  empty: "Not tested yet",
-  holds: "Holds",
-  near: "Close to breaking",
-  break: "Breaks the plan",
-};
+export const toneLabel = (tone: Tone) => t(`failure_map.tone_${tone}`);
 
 export interface GridRow { id: string; label: string; cells: (FailureMapCell | null)[] }
 export interface Grid { cols: FailureMap["wheres"]; rows: GridRow[] }
@@ -58,7 +54,7 @@ export function fmtSeverity(sev: number | null | undefined): string {
 
 /** Coverage and QD-score per round, oldest first ("Round 1: 29% · 4.20"). */
 export function historyLine(map: FailureMap): string {
-  return map.history.map((h) => `Round ${h.round}: ${Math.round(h.coverage * 100)}% · ${h.qd_score.toFixed(2)}`).join(" → ");
+  return map.history.map((h) => t("failure_map.round", { n: h.round, pct: Math.round(h.coverage * 100), qd: h.qd_score.toFixed(2) })).join(" → ");
 }
 
 
