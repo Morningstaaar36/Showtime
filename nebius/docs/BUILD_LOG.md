@@ -317,6 +317,7 @@ including the sample report preview that had flaked under load. `make check`: 87
 | Check | Result |
 | --- | --- |
 | `make test` (all Python tests, including the 19 slow simulator tests) | 917 passed, 1 skipped |
+| Full Playwright suite in system Chrome, on the final code | 28 passed (20.2 min) |
 | `make check` | 875 passed, 1 skipped; ruff, mypy and import contracts clean |
 | `make smoke` (live: OpenRouter Nemotron + Docker) | SMOKE OK: a red-team session in 62 s, 21,341 tokens, report and map with the disclaimer |
 | `make verify-live` | OpenRouter PASS, Docker PASS (network call stopped); Nebius Token Factory, Nebius Sandboxes and Tavily SKIPPED (no keys) |
