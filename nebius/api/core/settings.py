@@ -342,7 +342,9 @@ class Settings(BaseSettings):
                 continue  # another provider's own settings (its base URL, label) stay as they are
             now = str(getattr(self, name))
             leftover = bool(now.strip()) and any(key in p and str(p[key]) == now for p in others)
-            if leftover or (unset and not now.strip()):
+            # with no model chosen, a value still at its setting's default was not chosen either
+            untouched = not now.strip() or now == str(fields[name].default)
+            if leftover or (unset and untouched):
                 value = own.get(key, fields[name].default)
                 setattr(self, name, TypeAdapter(fields[name].annotation).validate_python(value))
 

@@ -93,3 +93,23 @@ def test_a_configured_runner_reports_its_network_off_at_once(tmp_path: Path) -> 
 
     s = _s(tmp_path, nebius_api_key="nb-key", nebius_project_id="project-e00x")
     assert NebiusRunner(s).isolation.network_off is True
+
+
+def test_the_readme_quickstart_needs_only_three_lines(tmp_path: Path, monkeypatch: Any) -> None:
+    # .env.example plus the three lines the README tells a new user to set (the test run's own
+    # provider variables would override the file, so they are cleared)
+    from api.core.settings import ROOT_DIR
+
+    for var in ("LLM_PROVIDER", "SANDBOX_PROVIDER", "LLM_CACHE_MODE", "TAVILY_API_KEY", "OFFLINE"):
+        monkeypatch.delenv(var, raising=False)
+    env = tmp_path / ".env"
+    env.write_text(
+        (ROOT_DIR / ".env.example").read_text()
+        + "\nLLM_PROVIDER=openai\nOPENAI_COMPAT_BASE_URL=https://openrouter.ai/api/v1\n"
+        + "OPENAI_COMPAT_API_KEY=sk-or-test\n"
+    )
+    s = Settings(_env_file=env, cache_dir=tmp_path, runs_dir=tmp_path / "runs")
+    assert s.model_for("fast") == OPENROUTER["MODEL_FAST"]
+    assert s.model_for("judge") == OPENROUTER["MODEL_JUDGE"]
+    assert s.llm_extra_body == OPENROUTER["LLM_EXTRA_BODY"]
+    assert s.llm_label == "OPENROUTER"

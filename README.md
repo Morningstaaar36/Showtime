@@ -78,8 +78,10 @@ Linux with Docker. Hosted NVIDIA Nemotron on OpenRouter (a free key from openrou
 ```bash
 cd nebius
 cp .env.example .env
-make use-openrouter   # writes the OpenRouter Nemotron model ids into .env (keeps keys, backs up .env)
-# then put your key in .env: OPENAI_COMPAT_API_KEY=...
+# in .env, set these three lines (the OpenRouter Nemotron model ids fill in on their own):
+#   LLM_PROVIDER=openai
+#   OPENAI_COMPAT_BASE_URL=https://openrouter.ai/api/v1
+#   OPENAI_COMPAT_API_KEY=<your key>
 make setup            # uv, Python 3.12, web deps, the sandbox image, the incident dataset
 make up               # Docker Compose → http://localhost:5173  (API docs: http://127.0.0.1:8000/api/docs)
 ```
