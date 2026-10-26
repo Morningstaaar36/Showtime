@@ -39,7 +39,7 @@ export function Timeline({ markers }: { markers: TimelineMarker[] }) {
   return (
     <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-[var(--radius-panel)] sm:gap-3 border border-border bg-surface/95 px-3 py-2 shadow-[var(--shadow-float)] backdrop-blur">
       <Tip content="Back to start">
-        <button type="button" aria-label="Back to start" onClick={() => pb.setT(0)} className="text-muted hover:text-ink"><SkipBack className="size-4" /></button>
+        <button type="button" aria-label={t("ui.timeline.back_to_start")} onClick={() => pb.setT(0)} className="text-muted hover:text-ink"><SkipBack className="size-4" /></button>
       </Tip>
       <button type="button" aria-label={playing ? t("timeline.pause") : t("timeline.play")} onClick={() => pb.toggle()}
               className="grid size-9 place-items-center rounded-full bg-ink text-plan transition hover:scale-105">
@@ -54,7 +54,7 @@ export function Timeline({ markers }: { markers: TimelineMarker[] }) {
         ))}
       </div>
       <div className="relative min-w-0 flex-1">
-        <Slider value={[now]} min={0} max={Math.max(duration, 1)} step={0.25} thumbLabel="Replay time"
+        <Slider value={[now]} min={0} max={Math.max(duration, 1)} step={0.25} thumbLabel={t("ui.timeline.replay_time")}
                 onValueChange={(v) => { pb.setT(v[0]); }} />
         <div className="pointer-events-none absolute inset-x-0 -top-2.5 h-2">
           {markers.filter((m) => m.t <= duration).map((m, i) => (

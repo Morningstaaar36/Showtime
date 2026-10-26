@@ -16,6 +16,7 @@ import { SettingsPage } from "@/pages/Settings";
 import { WorkspacePage } from "@/pages/Workspace";
 import { YourPlanPage } from "@/pages/YourPlan";
 import { useApplyTheme } from "./useTheme";
+import { t } from "@/i18n";
 
 const EXPERT_MODES = ["plan", "simulate", "redteam", "report"];
 
@@ -31,8 +32,7 @@ export function App() {
   return (
     <TooltipProvider>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-surface focus:px-3 focus:py-2">
-        Skip to content
-      </a>
+        {t("ui.app.skip_to_content")}</a>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/projects" element={<ProjectsPage />} />

@@ -48,7 +48,7 @@ export function VerdictCard({ run, th, venue, compact }: { run: RunResult | null
     : v.level === "holds" ? "border-egress/35 bg-egress-soft" : "border-border bg-surface-2";
   const iconTone = v.level === "fails" ? "text-danger" : v.level === "at_risk" ? "text-caution" : v.level === "holds" ? "text-egress" : "text-line";
   return (
-    <section aria-label="Plan verdict" className={cn("rounded-[var(--radius-panel)] border-2 p-4", tone)}>
+    <section aria-label={t("ui.inspector.plan_verdict")} className={cn("rounded-[var(--radius-panel)] border-2 p-4", tone)}>
       <div className="flex items-start gap-3">
         <span className={cn("mt-0.5 [&_svg]:size-6", iconTone)}>{icon}</span>
         <div className="min-w-0">
@@ -136,9 +136,9 @@ function StagePanel({ project }: { project: ProjectDetail }) {
         {check.isLoading ? <Spinner className="mt-2" /> : check.data ? (
           <>
             <p className="mt-1 text-xl font-semibold tabular">{fmtSpeed(check.data.v_limit_ms, units)}</p>
-            <p className="text-xs text-muted">Screening estimate · governed by {check.data.governing} · Pynite frame model</p>
+            <p className="text-xs text-muted">{t("ui.inspector.stage_basis", { governing: check.data.governing })}</p>
           </>
-        ) : <p className="mt-1 text-sm text-muted">Unavailable</p>}
+        ) : <p className="mt-1 text-sm text-muted">{t("ui.inspector.unavailable")}</p>}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <NumberField label={t("inspector.ballast")} unit="kg" value={stage.ballast_kg_per_leg} step={100} onCommit={(v) => set("ballast_kg_per_leg", v)} />
@@ -220,11 +220,11 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
   if (exit) {
     return (
       <section className="space-y-3">
-        <PanelTitle action={<Badge tone={exit.blocked ? "danger" : "egress"}>{exit.blocked ? "Blocked" : "Exit"}</Badge>}>{exit.label ?? exit.id}</PanelTitle>
+        <PanelTitle action={<Badge tone={exit.blocked ? "danger" : "egress"}>{exit.blocked ? t("ui.inspector.blocked") : t("ui.inspector.exit")}</Badge>}>{exit.label ?? exit.id}</PanelTitle>
         <NumberField label={t("inspector.width")} unit="m" value={exit.width_m} step={0.5}
                      onCommit={(v) => run([{ op: "resize", target: exit.id, width_m: v } as PatchOpIn])} />
         <div className="flex items-center justify-between text-sm">
-          <label htmlFor="blk">Blocked in the plan</label>
+          <label htmlFor="blk">{t("ui.inspector.blocked_in_the_plan")}</label>
           <Switch id="blk" checked={!!exit.blocked} onCheckedChange={(v) => run([{ op: "block_exit", exit_id: exit.id, blocked: v } as PatchOpIn])} />
         </div>
         <Button variant="danger-ghost" size="sm" onClick={() => { run([{ op: "remove_exit", exit_id: exit.id } as PatchOpIn]); select(null); }}><Trash2 />{t("inspector.remove")}</Button>
@@ -235,7 +235,7 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
     const area = polygonArea(zone.polygon);
     return (
       <section className="space-y-3">
-        <PanelTitle action={<Badge tone="signal">Zone</Badge>}>{zone.label ?? zone.id}</PanelTitle>
+        <PanelTitle action={<Badge tone="signal">{t("ui.inspector.zone")}</Badge>}>{zone.label ?? zone.id}</PanelTitle>
         <NumberField label={t("inspector.people")} unit="people" value={zone.people} step={50}
                      onCommit={(v) => run([{ op: "set_people", zone_id: zone.id, people: Math.round(v) } as PatchOpIn])} />
         <p className="text-sm text-muted">{t("inspector.people_per_m2", { n: fmtNum(zone.people / Math.max(area, 1), 1) })} · {fmtInt(area)} m²</p>
@@ -248,7 +248,7 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
     return (
       <section className="space-y-3">
         <PanelTitle action={<Badge tone="outline">{obstacle.kind}</Badge>}>{obstacle.label ?? obstacle.id}</PanelTitle>
-        <p className="text-sm text-muted">Drag the arrows in 3D to move it (snaps to 0.5 m), or type a change below.</p>
+        <p className="text-sm text-muted">{t("ui.inspector.drag_the_arrows_in_3d")}</p>
         <div className="flex gap-2">
           {([[0, 2, "North 2 m"], [0, -2, "South 2 m"], [-2, 0, "West 2 m"], [2, 0, "East 2 m"]] as const).map(([dx, dy, l]) => (
             <Button key={l} size="sm" variant="subtle" onClick={() => run([{ op: "move", target: obstacle.id, dx, dy } as PatchOpIn])}>{l}</Button>
@@ -274,7 +274,7 @@ function RulesSection({ project }: { project: ProjectDetail }) {
   const fails = rows.filter((r) => r.status === "fail").length;
   return (
     <section className="space-y-2">
-      <PanelTitle action={<Badge tone={fails ? "caution" : "egress"}>{fails ? `${fails} to review` : "all pass"}</Badge>}>
+      <PanelTitle action={<Badge tone={fails ? "caution" : "egress"}>{fails ? t("ui.inspector.to_review", { n: fails }) : t("ui.inspector.all_pass")}</Badge>}>
         {t("inspector.rules")}
       </PanelTitle>
       <ul className="space-y-1.5">
@@ -283,12 +283,12 @@ function RulesSection({ project }: { project: ProjectDetail }) {
             {r.status === "pass" ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-egress" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-caution" />}
             <span>
               {r.message}{" "}
-              {r.source_url && <a className="text-xs text-signal hover:underline" href={r.source_url} target="_blank" rel="noreferrer">source</a>}
+              {r.source_url && <a className="text-xs text-signal hover:underline" href={r.source_url} target="_blank" rel="noreferrer">{t("ui.inspector.source")}</a>}
             </span>
           </li>
         ))}
       </ul>
-      <p className="text-xs text-muted">{t("inspector.rule_unconfirmed")}. Local codes differ.</p>
+      <p className="text-xs text-muted">{t("inspector.rule_unconfirmed")}. {t("ui.inspector.local_codes_differ")}</p>
     </section>
   );
 }

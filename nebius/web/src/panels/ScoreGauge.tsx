@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PlanScore } from "@/api/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 const TONE: Record<string, string> = { A: "var(--egress)", B: "var(--egress)", C: "var(--caution)", D: "var(--caution)", F: "var(--danger)" };
 
@@ -37,7 +38,7 @@ export function ScoreGauge({ score, size = 88, label = "Planning score", delta }
     <Popover>
       <PopoverTrigger asChild>
         <button type="button" className="group flex items-center gap-3 rounded-[var(--radius-panel)] text-left focus-visible:outline-2 focus-visible:outline-signal"
-                aria-label={`${label}: ${score.grade}, ${score.score} of 100. Show how it is computed.`}>
+                aria-label={t("ui.scoregauge.aria", { label, grade: score.grade, score: score.score })}>
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0 -rotate-90">
             <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={7} />
             <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={7} strokeLinecap="round"
@@ -49,15 +50,15 @@ export function ScoreGauge({ score, size = 88, label = "Planning score", delta }
             <span className="block text-xs text-muted">{label}</span>
             <span className="block text-2xl font-semibold tabular leading-tight">{Math.round(v)}<span className="text-sm font-normal text-muted">/100</span></span>
             {delta !== undefined && delta !== 0 && (
-              <span className={cn("block text-xs font-semibold tabular", delta > 0 ? "text-egress" : "text-danger")}>{delta > 0 ? "+" : ""}{delta} vs plan (same method)</span>
+              <span className={cn("block text-xs font-semibold tabular", delta > 0 ? "text-egress" : "text-danger")}>{t("ui.scoregauge.delta", { d: `${delta > 0 ? "+" : ""}${delta}` })}</span>
             )}
-            <span className="block text-2xs text-muted group-hover:text-signal">How is this computed?</span>
+            <span className="block text-2xs text-muted group-hover:text-signal">{t("ui.scoregauge.how_is_this_computed")}</span>
           </span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80 text-sm">
         <p className="font-semibold">{label}: {score.grade} ({score.score}/100)</p>
-        <p className="mt-0.5 text-xs text-muted">{score.basis}. Weighted sum of five parts; a planning aid, not a certification.</p>
+        <p className="mt-0.5 text-xs text-muted">{t("ui.scoregauge.basis", { basis: score.basis })}</p>
         <ul className="mt-2 space-y-2">
           {score.parts.map((p) => (
             <li key={p.key}>

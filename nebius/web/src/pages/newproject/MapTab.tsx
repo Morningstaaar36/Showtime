@@ -161,7 +161,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
       if (seq !== lookSeq.current) return; // the user has moved on
       const f = r.selection;
       if (!f) {
-        toast.message("Nothing is mapped exactly here. Click a building or a park, or use “Draw an area”.");
+        toast.message(t("ui.maptab.nothing_is_mapped_exactly_here"));
         return;
       }
       const fallback = f.kind === "building" ? "Building" : f.tags.leisure ?? f.tags.amenity ?? f.tags.landuse ?? "Open area";
@@ -180,7 +180,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
     try {
       const r = await api.get<Place[]>(`/places/search?q=${encodeURIComponent(q.trim())}`);
       setResults(r);
-      if (!r.length) toast.message("No place found. Try a fuller address or a nearby landmark.");
+      if (!r.length) toast.message(t("ui.maptab.no_place_found_try_a"));
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -217,7 +217,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
   return (
     <div className="space-y-3">
       {guided && (
-        <ol className="grid gap-2 sm:grid-cols-3" aria-label="Steps">
+        <ol className="grid gap-2 sm:grid-cols-3" aria-label={t("ui.maptab.steps")}>
           {["Find your place", "Click the building or park", "Build your venue"].map((label, i) => (
             <li key={label} aria-current={stage === i + 1 ? "step" : undefined}
                 className={cn("flex items-center gap-2 rounded-[var(--radius-control)] border px-3 py-2 text-sm transition",
@@ -233,10 +233,10 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void search(); }}>
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
-            <Input aria-label="Search for a place" placeholder="Search a place: “Ramna Park Dhaka”, “BUET”, an address…" value={q}
+            <Input aria-label={t("ui.maptab.search_for_a_place")} placeholder={t("ui.maptab.search_a_place_ramna_park")} value={q}
                    onChange={(e) => setQ(e.target.value)} className="h-11 pl-9 text-base" />
           </div>
-          <Button type="submit" variant="primary" disabled={searching || q.trim().length < 2}>{searching ? <Loader2 className="animate-spin" /> : <MapPin />}Find</Button>
+          <Button type="submit" variant="primary" disabled={searching || q.trim().length < 2}>{searching ? <Loader2 className="animate-spin" /> : <MapPin />}{t("ui.maptab.find")}</Button>
         </form>
         {results.length > 0 && (
           <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-[10px] border border-border bg-surface p-1 shadow-[var(--shadow-float)]">
@@ -256,17 +256,17 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
         <div ref={holder} className={cn(mapClassName, "w-full bg-plan")} />
         {mapError && (
           <div className="absolute inset-0 grid place-items-center bg-surface/90 p-6 text-center text-sm">
-            <p>{mapError} <br /><span className="text-muted">Search still works, and you can describe the venue in words instead.</span></p>
+            <p>{mapError} <br /><span className="text-muted">{t("ui.maptab.search_still_works_and_you")}</span></p>
           </div>
         )}
         <div className="absolute left-2.5 top-2.5 flex flex-wrap gap-1.5">
           <span className="inline-flex h-8 items-center gap-1.5 rounded-[var(--radius-control)] border border-border bg-surface/95 px-2.5 text-xs shadow-sm">
             {looking ? <Loader2 className="size-3.5 animate-spin text-signal" /> : <MousePointerClick className="size-3.5 text-signal" />}
-            {looking ? "Finding what’s here…" : drawing ? "Click the second corner" : "Click a building or a park"}
+            {looking ? t("ui.maptab.finding_whats_here") : drawing ? t("ui.maptab.click_the_second_corner") : t("ui.maptab.click_a_building_or_a")}
           </span>
           <Button size="sm" className={cn("bg-surface shadow-sm", drawing && "ring-2 ring-signal")}
                   onClick={() => { corner.current = null; setDrawing((d) => !d); }}>
-            <Square />{drawing ? "Cancel drawing" : "Draw an area"}
+            <Square />{drawing ? t("ui.maptab.cancel_drawing") : t("ui.maptab.draw_an_area")}
           </Button>
         </div>
       </div>
@@ -274,17 +274,17 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
       {sel ? (
         <div className="grid gap-3 rounded-[var(--radius-panel)] border-2 border-signal/40 bg-surface p-3 shadow-sm sm:flex sm:flex-wrap sm:items-end [&>*:first-child]:min-w-[10rem] [&>*:first-child]:flex-1">
           <div className="min-w-0">
-            <p className="text-xs text-muted">Selected</p>
+            <p className="text-xs text-muted">{t("ui.maptab.selected")}</p>
             <p className="truncate font-medium">{sel.name}</p>
           </div>
           <div className="grid gap-1">
-            <Label>Treat as</Label>
+            <Label>{t("ui.maptab.treat_as")}</Label>
             <div className="inline-flex rounded-[var(--radius-control)] border border-border p-0.5">
               {(["indoor", "outdoor"] as const).map((m) => (
                 <button key={m} type="button" onClick={() => setMode(m)}
                         className={cn("inline-flex items-center gap-1 rounded-[4px] px-2.5 py-1 text-xs", mode === m ? "bg-signal text-white" : "text-muted hover:text-ink")}>
                   {m === "indoor" ? <Building2 className="size-3.5" /> : <Trees className="size-3.5" />}
-                  {m === "indoor" ? "Building (indoor)" : "Open-air area"}
+                  {m === "indoor" ? t("ui.maptab.building_indoor") : t("ui.maptab.open_air_area")}
                 </button>
               ))}
             </div>
@@ -344,22 +344,21 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
             </div>
           )}
           <div className="grid gap-1">
-            <Label htmlFor="mpeople">People (optional)</Label>
-            <Input id="mpeople" inputMode="numeric" placeholder="auto" value={people} onChange={(e) => setPeople(e.target.value)} className="w-28" />
+            <Label htmlFor="mpeople">{t("ui.maptab.people_optional")}</Label>
+            <Input id="mpeople" inputMode="numeric" placeholder={t("ui.maptab.auto")} value={people} onChange={(e) => setPeople(e.target.value)} className="w-28" />
           </div>
           <Button variant="primary" size="lg" disabled={build.isPending} onClick={make}>
-            {build.isPending ? <Loader2 className="animate-spin" /> : null}{build.isPending ? "Building…" : "Build venue"}
+            {build.isPending ? <Loader2 className="animate-spin" /> : null}{build.isPending ? t("ui.maptab.building") : t("ui.maptab.build_venue")}
           </Button>
         </div>
       ) : (
         <p className="text-xs text-muted">
-          Search a place, then click the building (indoor event) or the park, square or campus (open-air event).
-          Or <b>Draw an area</b> with two clicks around the part you will use. Map © OpenFreeMap, data © OpenStreetMap contributors.
+          {t("ui.maptab.how_to_pick")} {t("ui.maptab.or")} <b>{t("ui.maptab.draw_an_area")}</b> {t("ui.maptab.draw_how")} {t("ui.maptab.attribution")}
         </p>
       )}
 
       {build.isError && (
-        <ErrorState title="The venue couldn't be built" message={(build.error as Error).message}
+        <ErrorState title={t("ui.maptab.the_venue_couldnt_be_built")} message={(build.error as Error).message}
                     hint={(build.error as { hint?: string }).hint} onRetry={make} />
       )}
       {build.data?.venue && <DraftPreview draft={build.data} surroundingsAsked={mode === "indoor" && surround ? surroundM : 0} />}

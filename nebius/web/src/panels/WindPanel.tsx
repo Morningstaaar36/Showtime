@@ -3,6 +3,7 @@ import { Area, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveCont
 import type { CountdownOut } from "@/api/types";
 import { PanelTitle } from "@/components/ui/misc";
 import { fmtHM, fmtNum } from "@/lib/format";
+import { t } from "@/i18n";
 
 interface Forecast {
   times?: string[];
@@ -31,10 +32,10 @@ export function WindPanel({ data, eventStart }: { data: CountdownOut | undefined
   const peak = Math.max(0, ...rows.map((r) => r.g ?? 0));
   return (
     <section className="space-y-2">
-      <PanelTitle>Wind on the day</PanelTitle>
+      <PanelTitle>{t("ui.windpanel.wind_on_the_day")}</PanelTitle>
       <figure>
         <figcaption className="sr-only">
-          Forecast gusts peak at {fmtNum(peak, 1)} m/s; the stage wind limit is {fmtNum(limit, 1)} m/s.
+          {t("ui.windpanel.summary", { peak: fmtNum(peak, 1), limit: fmtNum(limit, 1) })}
         </figcaption>
         <div className="h-40">
           <ResponsiveContainer>
@@ -66,8 +67,8 @@ export function WindPanel({ data, eventStart }: { data: CountdownOut | undefined
       <p className="flex items-start gap-1.5 text-xs text-muted">
         <Wind className="mt-0.5 size-3.5 shrink-0" />
         <span>
-          {hazard ? `Gusts reach the stage limit at ${hazard}.` : "Gusts stay below the stage limit."}
-          {latest ? ` Start evacuating by ${latest}.` : ""} {fc.source ?? "Open-Meteo"} · hourly gusts at 10 m.
+          {hazard ? t("ui.windpanel.reach_limit", { at: hazard }) : t("ui.windpanel.below_limit")}
+          {latest ? ` ${t("ui.windpanel.start_by", { at: latest })}` : ""} {t("ui.windpanel.source", { source: fc.source ?? "Open-Meteo" })}
         </span>
       </p>
     </section>

@@ -4,6 +4,7 @@ import "@xyflow/react/dist/style.css";
 import { useMemo } from "react";
 import { api } from "@/api/client";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 export type NodeStatus = "idle" | "running" | "done" | "warn" | "failed";
 
@@ -65,7 +66,7 @@ export function AgentGraph({ status }: { status: Record<string, NodeStatus> }) {
     return { nodes, edges };
   }, [shape.data, status]);
   return (
-    <div className="h-[500px] w-[300px] shrink-0 rounded-[var(--radius-panel)] border border-border bg-plan/60" aria-label="Agent graph">
+    <div className="h-[500px] w-[300px] shrink-0 rounded-[var(--radius-panel)] border border-border bg-plan/60" aria-label={t("ui.agentgraph.agent_graph")}>
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.04 }}
                  nodesConnectable={false} elementsSelectable={false} panOnDrag={false} zoomOnScroll={false}
                  zoomOnPinch={false} zoomOnDoubleClick={false} proOptions={{ hideAttribution: true }}>

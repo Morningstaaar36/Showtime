@@ -81,7 +81,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
   const applyCrowd = () => {
     const ops = venue.floors.flatMap((f) => f.zones.map((z) => ({ op: "set_people", zone_id: z.id, people: Math.round(z.people * scale) }))) as unknown as PatchOpIn[];
     patch.mutate({ patch: { ops }, message: `Crowd × ${scale.toFixed(2)}` }, {
-      onSuccess: () => { toast.success("Crowd size applied to the plan"); setScale(1); },
+      onSuccess: () => { toast.success(t("ui.whatiflab.crowd_size_applied_to_the")); setScale(1); },
       onError: (e) => toast.error(e.message),
     });
   };
@@ -91,7 +91,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
       events: factor < 1 ? [{ type: "slowdown", factor, at_s: 0 }] : [],
       label: "What-if",
     }, {
-      onSuccess: () => toast.success("What-if simulation started. Open Simulate to watch it."),
+      onSuccess: () => toast.success(t("ui.whatiflab.what_if_simulation_started_open")),
       onError: (e) => toast.error(e.message),
     });
   };
@@ -101,12 +101,12 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
     <section className="space-y-4" aria-label={t("workspace.day_whatif")}>
       <p className="text-xs text-muted">{t("workspace.whatif_lead")}</p>
       <div>
-        <div className="flex items-baseline justify-between text-xs"><span>Crowd size</span>
-          <span className="tabular font-semibold">{fmtInt(Math.round(venue.floors.reduce((n, f) => n + f.zones.reduce((m, z) => m + z.people, 0), 0) * scale))} people ({Math.round(scale * 100)}%)</span></div>
-        <Slider className="mt-2" min={25} max={300} step={5} value={[Math.round(scale * 100)]} onValueChange={([v]) => setScale(v / 100)} thumbLabel="Crowd size" />
+        <div className="flex items-baseline justify-between text-xs"><span>{t("ui.whatiflab.crowd_size")}</span>
+          <span className="tabular font-semibold">{t("ui.whatiflab.people_share", { n: fmtInt(Math.round(venue.floors.reduce((n, f) => n + f.zones.reduce((m, z) => m + z.people, 0), 0) * scale)), pct: Math.round(scale * 100) })}</span></div>
+        <Slider className="mt-2" min={25} max={300} step={5} value={[Math.round(scale * 100)]} onValueChange={([v]) => setScale(v / 100)} thumbLabel={t("ui.whatiflab.crowd_size")} />
       </div>
       <div>
-        <p className="text-xs">Walking speed</p>
+        <p className="text-xs">{t("ui.whatiflab.walking_speed")}</p>
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
           {SPEEDS.map((s) => (
             <button key={s.key} type="button" onClick={() => setSpeed(s.key)}
@@ -119,7 +119,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
       </div>
       {exits.length > 0 && (
         <div>
-          <p className="text-xs">Close exits</p>
+          <p className="text-xs">{t("ui.whatiflab.close_exits")}</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {exits.map((e) => (
               <button key={e.id} type="button"
@@ -144,9 +144,9 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
       )}
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="primary" disabled={!changed || scale !== 1 || start.isPending} onClick={simulate}
-                title={scale !== 1 ? "Apply the crowd size first, then simulate" : undefined}>Simulate this</Button>
-        {scale !== 1 && <Button size="sm" onClick={applyCrowd} disabled={patch.isPending}>Apply crowd size</Button>}
-        {changed && <Button size="sm" variant="ghost" onClick={reset}><RotateCcw />Reset</Button>}
+                title={scale !== 1 ? t("ui.whatiflab.apply_the_crowd_size_first") : undefined}>{t("ui.whatiflab.simulate_this")}</Button>
+        {scale !== 1 && <Button size="sm" onClick={applyCrowd} disabled={patch.isPending}>{t("ui.whatiflab.apply_crowd_size")}</Button>}
+        {changed && <Button size="sm" variant="ghost" onClick={reset}><RotateCcw />{t("ui.whatiflab.reset")}</Button>}
       </div>
     </section>
   );

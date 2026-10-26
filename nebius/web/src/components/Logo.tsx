@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 /** Wordmark: a plan-drawing frame with a green exit. */
 export function Logo({ className, compact, wordmarkClassName }: { className?: string; compact?: boolean; wordmarkClassName?: string }) {
@@ -9,7 +10,7 @@ export function Logo({ className, compact, wordmarkClassName }: { className?: st
         <path d="M7 23V9h6l3 5 3-5h6v14" fill="none" className="stroke-plan" strokeWidth="2.2" strokeLinejoin="round" />
         <rect x="13" y="19" width="6" height="4" className="fill-egress" />
       </svg>
-      {!compact && <span className={cn("text-[17px]", wordmarkClassName)}>Showtime</span>}
+      {!compact && <span className={cn("text-[17px]", wordmarkClassName)}>{t("ui.logo.showtime")}</span>}
     </span>
   );
 }

@@ -31,7 +31,7 @@ export function DensityLegend({ warn, danger }: { warn: number; danger: number }
   const pos = (v: number) => `${(v / DENSITY_MAX) * 100}%`;
   return (
     <div className="pointer-events-none w-64 rounded-[var(--radius-control)] border border-border bg-surface/90 px-3 py-2 shadow-sm backdrop-blur">
-      <p className="text-2xs font-medium text-muted">People per m²</p>
+      <p className="text-2xs font-medium text-muted">{t("ui.overlays.people_per_m")}</p>
       <div className="relative mt-1.5 h-2.5 rounded-[2px]" style={{ background: `linear-gradient(90deg,${stops})` }}>
         <span className="absolute -top-1 h-4.5 w-0.5 bg-caution" style={{ left: pos(warn) }} />
         <span className="absolute -top-1 h-4.5 w-0.5 bg-danger" style={{ left: pos(danger) }} />
@@ -43,8 +43,8 @@ export function DensityLegend({ warn, danger }: { warn: number; danger: number }
         <span className="absolute right-0">{DENSITY_MAX}+</span>
       </div>
       <div className="mt-1 flex gap-3 text-2xs text-muted">
-        <span className="flex items-center gap-1"><span className="h-2 w-0.5 bg-caution" />warning</span>
-        <span className="flex items-center gap-1"><span className="h-2 w-0.5 bg-danger" />danger (outlined in 3D)</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-0.5 bg-caution" />{t("ui.overlays.warning")}</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-0.5 bg-danger" />{t("ui.overlays.danger_outlined_in_3d")}</span>
       </div>
     </div>
   );

@@ -35,6 +35,7 @@ import { stairGeometry, stairOpenings, stairPlacement } from "./mesh/stairs";
 import type { ScenePalette } from "./palette";
 import { RouteLayer } from "./RouteLayer";
 import { SceneHtml } from "./SceneHtml";
+import { t } from "@/i18n";
 
 export interface ModelHandlers {
   onExitClick?: (exit: Exit, floor: Floor, e: ThreeEvent<MouseEvent>) => void;
@@ -433,7 +434,7 @@ function StageModel({ obstacle, stage, palette, selected, labels, venue, onClick
       {labels && (
         <SceneHtml position={[cx, (stage ? roofH : deckH) + 1.2, -cy]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs font-semibold text-ink shadow-sm">
-            {obstacle.label ?? "Stage"}
+            {obstacle.label ?? t("ui.venuemodel.stage")}
           </div>
         </SceneHtml>
       )}
@@ -592,7 +593,7 @@ function StairMesh({ stair, venue, palette, exploded, selected, labels, highligh
       {labels && (
         <SceneHtml position={[run / 2, rise / 2 + 1.6, 0]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs text-muted shadow-sm">
-            Stair · {fmtNum(stair.width_m, 1)} m
+            {t("ui.venuemodel.stair", { w: fmtNum(stair.width_m, 1) })}
           </div>
         </SceneHtml>
       )}
@@ -631,7 +632,7 @@ function StairStub({ stair, floor, y, palette, selected, labels, goesDown, onCli
       {labels && (
         <SceneHtml position={[cx, 1.0, -cy]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs text-muted shadow-sm">
-            {goesDown ? "Stairs down" : "Stairs up"} · {fmtNum(stair.width_m, 1)} m
+            {goesDown ? t("ui.venuemodel.stairs_down") : t("ui.venuemodel.stairs_up")} · {fmtNum(stair.width_m, 1)} m
           </div>
         </SceneHtml>
       )}

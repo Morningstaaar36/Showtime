@@ -40,13 +40,13 @@ export function AskDialog({ open, onOpenChange, projectId, runId, hotspot }: {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><MessageCircleQuestion className="size-5 text-signal" />{t("redteam.ask_title")}</DialogTitle>
           <DialogDescription>
-            {hotspot ? `Hotspot: ${fmtNum(hotspot.peak_density_ppm2, 1)} people per m² at ${fmtClock(hotspot.t_s)}${hotspot.near ? ` near ${hotspot.near}` : ""}.`
-              : "Ask about the busiest spot in this run."} Answers use only this simulation's numbers.
+            {hotspot ? t(hotspot.near ? "ui.askdialog.hotspot_near" : "ui.askdialog.hotspot", { ppm2: fmtNum(hotspot.peak_density_ppm2, 1), at: fmtClock(hotspot.t_s), near: hotspot.near ?? "" })
+              : t("ui.askdialog.ask_busiest")} {t("ui.askdialog.only_numbers")}
           </DialogDescription>
         </DialogHeader>
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); submit(q); }}>
-          <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("redteam.ask_ph")} aria-label="Question" />
-          <Button variant="primary" type="submit" disabled={ask.isPending || !q.trim()}>Ask</Button>
+          <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("redteam.ask_ph")} aria-label={t("ui.askdialog.question")} />
+          <Button variant="primary" type="submit" disabled={ask.isPending || !q.trim()}>{t("ui.askdialog.ask")}</Button>
         </form>
         {!answer && !ask.isPending && (
           <div className="flex flex-wrap gap-1.5">
@@ -56,14 +56,14 @@ export function AskDialog({ open, onOpenChange, projectId, runId, hotspot }: {
             ))}
           </div>
         )}
-        {ask.isPending && <p className="flex items-center gap-2 text-sm text-muted"><Spinner />Reading the run data…</p>}
+        {ask.isPending && <p className="flex items-center gap-2 text-sm text-muted"><Spinner />{t("ui.askdialog.reading_the_run_data")}</p>}
         {ask.isError && <ErrorState message={ask.error.message} hint={(ask.error as { hint?: string }).hint} />}
         {answer && (
           <div className="space-y-2 rounded-[var(--radius-panel)] border border-border bg-surface-2 p-4">
             <p className="text-sm leading-relaxed">{answer.answer}</p>
             <p className="flex items-center gap-1.5 text-2xs text-muted">
               <ShieldCheck className="size-3.5 text-egress" />
-              {answer.numbers_checked ? "Every number was checked against the simulation." : "Answer withheld numbers it could not verify."}
+              {answer.numbers_checked ? t("ui.askdialog.every_number_was_checked_against") : t("ui.askdialog.answer_withheld_numbers_it_could")}
             </p>
             {answer.sources.map((s) => (
               <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-xs text-signal hover:underline">

@@ -5,6 +5,7 @@ import { api } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { PanelTitle } from "@/components/ui/misc";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 interface Review { summary: string; actions: { title: string; why: string; how: string; priority: 1 | 2 | 3 }[] }
 
@@ -19,11 +20,11 @@ export function OfficerCard({ projectId }: { projectId: string }) {
   });
   const r = q.data;
   return (
-    <section className="space-y-2" aria-label="Safety officer">
+    <section className="space-y-2" aria-label={t("ui.officercard.safety_officer")}>
       <div className="flex items-center justify-between">
-        <PanelTitle><ShieldCheck className="mr-1.5 inline size-4 text-signal" />Safety officer</PanelTitle>
+        <PanelTitle><ShieldCheck className="mr-1.5 inline size-4 text-signal" />{t("ui.officercard.safety_officer")}</PanelTitle>
         <Button size="sm" variant="ghost" disabled={run.isPending} onClick={() => run.mutate()}>
-          {run.isPending ? <Loader2 className="animate-spin" /> : null}{r?.actions.length ? "Review again" : "Review my plan"}
+          {run.isPending ? <Loader2 className="animate-spin" /> : null}{r?.actions.length ? t("ui.officercard.review_again") : t("ui.officercard.review_my_plan")}
         </Button>
       </div>
       {r?.summary && <p className="text-xs text-muted">{r.summary}</p>}
@@ -37,7 +38,7 @@ export function OfficerCard({ projectId }: { projectId: string }) {
             </li>
           ))}
         </ol>
-      ) : !run.isPending && <p className="text-xs text-muted">An AI safety officer reads the estimates, checks and what-if results and lists what to fix first. Every number it quotes is checked.</p>}
+      ) : !run.isPending && <p className="text-xs text-muted">{t("ui.officercard.an_ai_safety_officer_reads")}</p>}
     </section>
   );
 }

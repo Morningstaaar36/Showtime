@@ -14,6 +14,7 @@ import { floorY } from "./geom";
 import type { ScenePalette } from "./palette";
 import { PEOPLE_LOOK } from "./peopleLook";
 import { SceneHtml } from "./SceneHtml";
+import { t } from "@/i18n";
 
 export const DENSITY_MAX = 7; // colormap range (people per m²)
 const TERRAIN_SCALE = 0.55; // metres of height per person per m²
@@ -97,9 +98,9 @@ export function Agents({ traj, density, venue, exploded, palette, onlyFloor = nu
   useFrame(() => {
     const ms = meshes.current;
     if (!ms[0]) return;
-    const t = usePlayback.getState().t;
-    const n = traj.sample(t, buf, kinds ? ids : undefined);
-    const frame = density ? density.pairAt(t)[0] : -1;
+    const nowS = usePlayback.getState().t;
+    const n = traj.sample(nowS, buf, kinds ? ids : undefined);
+    const frame = density ? density.pairAt(nowS)[0] : -1;
     written.fill(0); // instances written per mesh (people on hidden floors are skipped)
     for (let j = 0; j < n; j++) {
       const x = buf[j * 3];
@@ -247,8 +248,8 @@ export function DensityLayer({ density, venue, exploded, palette, terrain, onlyF
   useEffect(() => () => lut.dispose(), [lut]);
 
   useFrame(() => {
-    const t = usePlayback.getState().t;
-    const [ka, kb, f] = density.pairAt(t);
+    const nowS = usePlayback.getState().t;
+    const [ka, kb, f] = density.pairAt(nowS);
     layers.forEach((L, fi) => {
       if (L.ka !== ka) {
         (L.a.image.data as Uint8Array).set(density.slice(ka, fi));
@@ -301,7 +302,7 @@ export function Hotspots({ hotspots, venue, exploded, palette, labels, selectedK
   selectedKey: string | null; onSelect: (h: Hotspot, key: string) => void; showAll: boolean;
 }) {
   const group = useRef<THREE.Group>(null);
-  const [t, setT] = useState(0);
+  const [nowS, setNowS] = useState(0);
   useFrame((state) => {
     const time = state.clock.elapsedTime;
     group.current?.children.forEach((c, i) => {
@@ -312,7 +313,7 @@ export function Hotspots({ hotspots, venue, exploded, palette, labels, selectedK
       (ring.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - ((time * 0.6 + i * 0.37) % 1));
     });
     const pt = usePlayback.getState().t;
-    if (Math.abs(pt - t) > 0.5) setT(pt);
+    if (Math.abs(pt - nowS) > 0.5) setNowS(pt);
   });
   const items = useMemo(() => hotspots.slice(0, 8), [hotspots]);
   // One label per cluster: hotspots are sorted worst first; nearby ones keep only their ring.
@@ -327,7 +328,7 @@ export function Hotspots({ hotspots, venue, exploded, palette, labels, selectedK
     <group ref={group}>
       {items.map((h, i) => {
         const key = `${h.floor_id}:${h.x}:${h.y}`;
-        const visible = showAll || t >= (h.t_s ?? 0) - 20;
+        const visible = showAll || nowS >= (h.t_s ?? 0) - 20;
         const color = h.level === "danger" ? palette.danger : palette.caution;
         const y = floorY(venue, h.floor_id, exploded) + 0.12;
         const r = Math.min(3.5, 0.9 + Math.sqrt((h as Hotspot & { cells?: number }).cells ?? 4) * 0.35);
@@ -351,7 +352,7 @@ export function Hotspots({ hotspots, venue, exploded, palette, labels, selectedK
                   onClick={() => onSelect(h, key)}
                   className={`whitespace-nowrap rounded-[4px] px-1.5 py-0.5 text-2xs font-semibold text-on-strong shadow tabular ${h.level === "danger" ? "bg-danger-strong" : "bg-caution-strong"}`}
                 >
-                  {fmtNum(h.peak_density_ppm2, 1)} people per m² · {fmtClock(h.t_s)}
+                  {t("ui.replaylayers.hotspot", { ppm2: fmtNum(h.peak_density_ppm2, 1), at: fmtClock(h.t_s) })}
                 </button>
               </SceneHtml>
             )}
@@ -374,18 +375,18 @@ export interface MarshalNote {
 /** Speech bubbles where marshals redirect people (shown for 10 s after each decision). */
 export function Marshals({ notes, venue, exploded }: { notes: MarshalNote[]; venue: Venue; exploded: boolean }) {
   const human = useMemo(() => textHumanizer(venue), [venue]);
-  const [t, setT] = useState(0);
+  const [nowS, setNowS] = useState(0);
   useFrame(() => {
     const pt = usePlayback.getState().t;
-    if (Math.abs(pt - t) > 0.25) setT(pt);
+    if (Math.abs(pt - nowS) > 0.25) setNowS(pt);
   });
   return (
     <group>
       {notes.map((m, i) => (
         <SceneHtml key={i} position={[m.x, floorY(venue, m.floor_id, exploded) + 3.2, -m.y]} center zIndexRange={[50, 0]}
-              style={{ display: t >= m.t_s && t <= m.t_s + 10 ? "block" : "none" }}>
+              style={{ display: nowS >= m.t_s && nowS <= m.t_s + 10 ? "block" : "none" }}>
           <div className="relative max-w-56 rounded-[8px] border border-border bg-surface px-2.5 py-1.5 text-xs text-ink shadow-[var(--shadow-float)]">
-            <span className="mr-1 font-semibold text-signal">Marshal:</span>{human(m.speech)}
+            <span className="mr-1 font-semibold text-signal">{t("ui.replaylayers.marshal")}</span>{human(m.speech)}
             <span className="absolute -bottom-1.5 left-1/2 size-3 -translate-x-1/2 rotate-45 border-b border-r border-border bg-surface" />
           </div>
         </SceneHtml>

@@ -305,7 +305,7 @@ export function WorkspacePage() {
     }
     if (tool === "exit") {
       const rect = exitRectAt(floor.walkable as Pt[], x, y, 2.0);
-      if (!rect) { toast.error("Click closer to an outer wall to place an exit."); return; }
+      if (!rect) { toast.error(t("ui.workspace.click_closer_to_an_outer")); return; }
       submitOps([{ op: "add_exit", floor_id: floor.floor_id, id: shortId("exit"), width_m: 2.0, polygon: rect, label: "New exit" } as PatchOpIn], "Added exit");
       ui.setTool("select");
     } else if (tool === "barrier" || tool === "zone" || tool === "measure") {
@@ -358,12 +358,12 @@ export function WorkspacePage() {
                            editable={false} resetNonce={resetNonce} quality="low" clock={false}
                            onExitClick={() => {}} onObjectClick={() => {}} onFloorClick={() => {}}
                            onFloorDoubleClick={() => {}} onMove={() => {}} onHotspot={() => {}} />
-                <span className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-danger-strong px-3 py-1 text-xs font-semibold text-on-strong shadow">Before fixes</span>
+                <span className="pointer-events-none absolute bottom-24 left-1/2 -translate-x-1/2 rounded-full bg-danger-strong px-3 py-1 text-xs font-semibold text-on-strong shadow">{t("ui.workspace.before_fixes")}</span>
               </div>
             )}
             <div className={compareId && compareReplay.data ? "absolute inset-y-0 right-0 w-1/2" : "absolute inset-0"}>
             {compareId && compareReplay.data && (
-              <span className="pointer-events-none absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full bg-egress-strong px-3 py-1 text-xs font-semibold text-on-strong shadow">After fixes</span>
+              <span className="pointer-events-none absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full bg-egress-strong px-3 py-1 text-xs font-semibold text-on-strong shadow">{t("ui.workspace.after_fixes")}</span>
             )}
             <SceneRoot
               venue={mode !== "plan" && runVenue.data ? runVenue.data : venue}
@@ -399,8 +399,7 @@ export function WorkspacePage() {
               {compareId && (
                 <button type="button" onClick={() => ui.setCompareRun(null)}
                         className="pointer-events-auto absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium shadow hover:bg-surface-2">
-                  Exit comparison
-                </button>
+                  {t("ui.workspace.exit_comparison")}</button>
               )}
               {mode === "plan" && ui.tool !== "select" && (
                 <div className="absolute left-16 top-3 max-w-sm rounded-[var(--radius-control)] border border-border bg-surface/95 px-3 py-2 text-sm shadow-sm">
@@ -419,7 +418,7 @@ export function WorkspacePage() {
               </div>
             </div>
           </main>
-          <aside aria-label="Inspector" className={`scrollbar-thin shrink-0 overflow-y-auto border-l border-border bg-surface p-4 ${mode === "redteam" ? "w-[440px] xl:w-[500px]" : "w-[380px] xl:w-[420px]"}`}>
+          <aside aria-label={t("ui.workspace.inspector")} className={`scrollbar-thin shrink-0 overflow-y-auto border-l border-border bg-surface p-4 ${mode === "redteam" ? "w-[440px] xl:w-[500px]" : "w-[380px] xl:w-[420px]"}`}>
             {mode === "plan" && isBuildTool(ui.tool) && <BuildPanel project={p} tool={ui.tool} />}
             {mode === "plan" && !isBuildTool(ui.tool) && <PlanInspector project={p} estimate={confirmed ?? estimate.data} th={th} countdown={countdown.data} />}
             {mode === "simulate" && <SimulatePanel project={p} run={run.data} estimate={estimate.data} replay={replay.data ?? null} th={th} onAsk={(h) => setAsk({ open: true, hotspot: h })} />}

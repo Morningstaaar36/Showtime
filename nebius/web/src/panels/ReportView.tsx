@@ -30,19 +30,19 @@ export function ReportView({ project }: { project: ProjectDetail }) {
       <aside className="w-80 shrink-0 space-y-5 overflow-y-auto border-r border-border bg-surface p-5 scrollbar-thin" aria-label={t("report.title")}>
         <div>
           <h2 className="text-lg font-semibold tracking-tight">{t("report.title")}</h2>
-          <p className="mt-1 text-sm text-muted">A document for your safety team and the permit office: verdict, countdown, evacuation map, red-team results, assumptions and sources.</p>
+          <p className="mt-1 text-sm text-muted">{t("ui.reportview.a_document_for_your_safety")}</p>
         </div>
         {finished.length > 0 && (
           <section>
-            <p className="text-sm font-semibold">Based on</p>
+            <p className="text-sm font-semibold">{t("ui.reportview.based_on")}</p>
             <ul className="mt-2 space-y-1.5">
               {finished.map((s) => (
                 <li key={s.id}>
                   <button type="button" onClick={() => setSessionId(s.id)}
                           className={cn("w-full rounded-[var(--radius-control)] border px-3 py-2 text-left text-sm",
                             s.id === sid ? "border-2 border-signal bg-signal-soft/50" : "border-2 border-border hover:bg-surface-2")}>
-                    <span className="font-medium">Red Team Night</span>
-                    <span className="block text-xs text-muted">{fmtRelative(s.created_at)} · {(s.summary?.accepted_fixes ?? []).length} {(s.summary?.accepted_fixes ?? []).length === 1 ? "fix" : "fixes"} kept</span>
+                    <span className="font-medium">{t("ui.reportview.red_team_night")}</span>
+                    <span className="block text-xs text-muted">{t((s.summary?.accepted_fixes ?? []).length === 1 ? "ui.reportview.when_fix" : "ui.reportview.when_fixes", { when: fmtRelative(s.created_at), n: (s.summary?.accepted_fixes ?? []).length })}</span>
                   </button>
                 </li>
               ))}
@@ -68,12 +68,12 @@ export function ReportView({ project }: { project: ProjectDetail }) {
             <a href={api.url(`/projects/${project.id}/export`)} download><Download />{t("report.export_project")}</a>
           </Button>
         </section>
-        <Button variant="ghost" size="sm" onClick={() => setNonce((n) => n + 1)}><RefreshCw />Refresh preview</Button>
+        <Button variant="ghost" size="sm" onClick={() => setNonce((n) => n + 1)}><RefreshCw />{t("ui.reportview.refresh_preview")}</Button>
         <p className="text-xs text-muted">{t("app.disclaimer")}</p>
       </aside>
       <div className="min-w-0 flex-1 bg-plan">
         {ready ? (
-          <iframe key={`${sid}:${nonce}:${project.current_version}`} ref={frame} title="Report preview" src={reportUrl}
+          <iframe key={`${sid}:${nonce}:${project.current_version}`} ref={frame} title={t("ui.reportview.report_preview")} src={reportUrl}
                   className="size-full border-0" />
         ) : (
           <div className="mx-auto max-w-xl p-10">

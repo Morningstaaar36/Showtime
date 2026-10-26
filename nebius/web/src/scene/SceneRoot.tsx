@@ -17,6 +17,7 @@ import { Agents, DensityLayer, Hotspots, Marshals, PlaybackClock, type MarshalNo
 import { ShowLights } from "./ShowLights";
 import { osmSite, SiteContext } from "./SiteContext";
 import { VenueModel } from "./VenueModel";
+import { t } from "@/i18n";
 
 export interface SceneProps {
   venue: Venue;
@@ -88,7 +89,7 @@ export function SceneRoot(p: SceneProps) {
       camera={{ fov: 38, near: 0.5, far: Math.max(3000, span * 6), position: [cx + span, span, -cy + span] }}
       onPointerMissed={() => useUi.getState().select(null)}
       role="img"
-      aria-label="3D view of the venue"
+      aria-label={t("ui.sceneroot.3d_view_of_the_venue")}
     >
       <color attach="background" args={[palette.bg]} />
       <fog attach="fog" args={[palette.bg, span * 3.5, span * 8]} />
@@ -186,8 +187,7 @@ export function SceneRoot(p: SceneProps) {
     <div ref={labelLayer} className="pointer-events-none absolute inset-0 overflow-hidden [&>*]:pointer-events-auto" />
     {site && (
       <span className="pointer-events-none absolute bottom-1 right-2 z-10 text-[10px] text-muted">
-        Map and data © OpenStreetMap contributors
-      </span>
+        {t("ui.sceneroot.map_and_data_openstreetmap_contributors")}</span>
     )}
     </LabelLayer.Provider>
   );

@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { EmptyState } from "@/components/ui/states";
 import { t } from "@/i18n";
 import { ScriptCode } from "@/journey/ScriptCode";
-import { fmtDuration, fmtInt, fmtMoney, fmtNum, fmtTokens } from "@/lib/format";
+import { fmtClock, fmtDuration, fmtInt, fmtMoney, fmtNum, fmtTokens } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
@@ -102,7 +102,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
           <Button size="lg" className="flex-1" onClick={() => sessionId && stop.mutate(sessionId)}><Square className="size-3.5" />{t("redteam.stop")}</Button>
         )}
         <Popover>
-          <PopoverTrigger asChild><Button size="lg" variant="secondary" aria-label="Session settings"><Settings2 /></Button></PopoverTrigger>
+          <PopoverTrigger asChild><Button size="lg" variant="secondary" aria-label={t("ui.redteampanel.session_settings")}><Settings2 /></Button></PopoverTrigger>
           <PopoverContent align="end" className="w-64 space-y-3">
             <p className="font-semibold">{t("redteam.budget")}</p>
             {([["max_rounds", t("redteam.rounds"), 1, 4], ["attacks_per_round", t("redteam.attacks"), 1, 6], ["fixes_per_attack", t("redteam.fixes"), 1, 4]] as const).map(([k, l, lo, hi]) => (
@@ -112,7 +112,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
                        onChange={(e) => setCfg((c) => ({ ...c, [k]: Math.min(hi, Math.max(lo, Number(e.target.value) || lo)) }))} />
               </div>
             ))}
-            <p className="text-xs text-muted">More rounds find more weaknesses but take longer. Each attack and fix is a real simulation.</p>
+            <p className="text-xs text-muted">{t("ui.redteampanel.more_rounds_find_more_weaknesses")}</p>
           </PopoverContent>
         </Popover>
       </div>
@@ -149,7 +149,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
               ))}
             </Tabs.List>
             <Tabs.Content value="cards" className="mt-3 space-y-3">
-              {view.attacks.length === 0 && <p className="text-sm text-muted">{running ? "The red team is reading the plan and similar real incidents…" : "No attacks yet."}</p>}
+              {view.attacks.length === 0 && <p className="text-sm text-muted">{running ? t("ui.redteampanel.the_red_team_is_reading") : t("ui.redteampanel.no_attacks_yet")}</p>}
               {view.attacks.map(({ attack, round, cell }, i) => (
                 <AttackCard key={attack.attack_id} index={i} attack={attack} round={round} cell={cellLabel(view.archive, cell)} view={view} label={label} human={human}
                             active={activeRun} onShow={(id) => setActive(id)} projectId={project.id} />
@@ -161,7 +161,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
             </Tabs.Content>
             <Tabs.Content value="tree" className="mt-3">
               <BranchTree nodes={view.nodes} activeRunId={activeRun} onPick={pick} human={human} />
-              <p className="mt-2 text-xs text-muted">Click a branch to replay that simulation in 3D.</p>
+              <p className="mt-2 text-xs text-muted">{t("ui.redteampanel.click_a_branch_to_replay")}</p>
             </Tabs.Content>
             <Tabs.Content value="activity" className="mt-3">
               <ActivityFeed view={view} />
@@ -169,7 +169,7 @@ export function RedTeamPanel({ project, sessionId, onPickSession }: {
           </Tabs.Root>
           {view.cost && (
             <p className="text-xs text-muted tabular">
-              AI usage: {fmtTokens(view.cost.tokens_total)} of {fmtTokens(view.cost.budget_tokens)} tokens · {fmtMoney(view.cost.cost_usd)}
+              {t("ui.redteampanel.ai_usage", { used: fmtTokens(view.cost.tokens_total), budget: fmtTokens(view.cost.budget_tokens), cost: fmtMoney(view.cost.cost_usd) })}
             </p>
           )}
         </>
@@ -190,16 +190,16 @@ function Scoreboard({ view }: { view: SessionView }) {
             {i > 0 && <ArrowRight className="size-4 text-line" />}
             <span className="text-center">
               <span className={cn("block text-2xl font-semibold leading-none tabular", r.breaks ? "text-danger" : "text-egress")}>{r.breaks}</span>
-              <span className="text-2xs text-muted">round {r.round} · {r.attacks} attacks</span>
+              <span className="text-2xs text-muted">{t("ui.redteampanel.round_attacks", { n: r.round, attacks: r.attacks })}</span>
             </span>
           </span>
         ))}
         <span className="ml-auto text-right">
           <span className="block text-2xl font-semibold leading-none text-egress tabular">{view.fixesAccepted}</span>
-          <span className="text-2xs text-muted">fixes kept</span>
+          <span className="text-2xs text-muted">{t("ui.redteampanel.fixes_kept")}</span>
         </span>
       </div>
-      <p className="mt-2 text-xs text-muted">Breaks per round. The red team attacks the improved plan in each new round.</p>
+      <p className="mt-2 text-xs text-muted">{t("ui.redteampanel.breaks_per_round_the_red")}</p>
     </section>
   );
 }
@@ -210,22 +210,22 @@ function TimeTravel({ projectId, attack, fix, attackRunId, active }: {
 }) {
   const start = useStartRun();
   const setActive = useUi((s) => s.setActiveRun);
-  const [t, setT] = useState(0);
+  const [nowS, setNowS] = useState(0);
   useEffect(() => {
     if (active !== attackRunId) return;
-    const id = window.setInterval(() => setT(Math.round(usePlayback.getState().t)), 500);
+    const id = window.setInterval(() => setNowS(Math.round(usePlayback.getState().t)), 500);
     return () => window.clearInterval(id);
   }, [active, attackRunId]);
-  if (active !== attackRunId || t < 5) return null;
+  if (active !== attackRunId || nowS < 5) return null;
   return (
     <Button size="sm" variant="ghost" className="h-7" disabled={start.isPending}
-            title="Re-run this attack with the fix starting at the current replay time"
-            onClick={() => start.mutate({ project_id: projectId, tier: 2, attack, fix, intervention_at_s: t,
-                                          parent_run_id: attackRunId, label: `${fix.fix_id} from ${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}` }, {
-              onSuccess: (r) => { setActive(r.id); toast(`Time travel: ${fix.title} from ${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`); },
+            title={t("ui.redteampanel.re_run_this_attack_with")}
+            onClick={() => start.mutate({ project_id: projectId, tier: 2, attack, fix, intervention_at_s: nowS,
+                                          parent_run_id: attackRunId, label: t("ui.redteampanel.time_travel_label", { fix: fix.fix_id, at: fmtClock(nowS) }) }, {
+              onSuccess: (r) => { setActive(r.id); toast(t("ui.redteampanel.time_travel_toast", { fix: fix.title, at: fmtClock(nowS) })); },
               onError: (e) => toast.error(e.message),
             })}>
-      <History />Apply from {Math.floor(t / 60)}:{String(t % 60).padStart(2, "0")}
+      <History />{t("ui.redteampanel.apply_from", { at: fmtClock(nowS) })}
     </Button>
   );
 }
@@ -248,12 +248,12 @@ function AttackCard({ attack, round, cell, view, label, human, index, active, on
       <div className="space-y-2 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-2xs font-medium text-muted">{attack.attack_id} · round {round}{cell && <span title="Failure-map cell this attack landed in"> · {cell}</span>}</p>
+            <p className="text-2xs font-medium text-muted">{t("ui.redteampanel.attack_round", { id: attack.attack_id, n: round })}{cell && <span title={t("ui.redteampanel.failure_map_cell_this_attack")}> · {cell}</span>}</p>
             <h4 className="font-semibold leading-snug">{human(attack.title)}</h4>
           </div>
           {status === "break" && <Badge tone="danger">{t("redteam.break")}</Badge>}
           {status === "holds" && <Badge tone="egress">{t("redteam.holds")}</Badge>}
-          {status === "running" && <Badge tone="signal"><Spinner className="size-3" />Simulating</Badge>}
+          {status === "running" && <Badge tone="signal"><Spinner className="size-3" />{t("ui.redteampanel.simulating")}</Badge>}
         </div>
         <ul className="flex flex-wrap gap-1.5">
           {attack.events.map((e, i) => <li key={i}><Badge tone="outline">{describeEvent(e as Record<string, unknown>, label)}</Badge></li>)}
@@ -270,9 +270,9 @@ function AttackCard({ attack, round, cell, view, label, human, index, active, on
         <ScriptCode attack={attack} />
         {run && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs tabular">
-            <span>Peak <b>{fmtNum(run.metrics.peak_density_ppm2 ?? null, 1)}</b> per m²</span>
-            <span>Danger <b>{fmtDuration(run.metrics.time_above_danger_s ?? 0)}</b></span>
-            <span>95% out <b>{fmtDuration(run.metrics.evac_time_p95_s ?? run.metrics.evac_time_estimate_s ?? null)}</b></span>
+            <span>{t("ui.failuremap.peak")} <b>{fmtNum(run.metrics.peak_density_ppm2 ?? null, 1)}</b> {t("ui.failuremap.per_m2")}</span>
+            <span>{t("ui.redteampanel.danger")} <b>{fmtDuration(run.metrics.time_above_danger_s ?? 0)}</b></span>
+            <span>{t("ui.redteampanel.95_out")} <b>{fmtDuration(run.metrics.evac_time_p95_s ?? run.metrics.evac_time_estimate_s ?? null)}</b></span>
             <Button size="sm" variant="ghost" className="ml-auto h-7" onClick={() => onShow(run.run_id)}><Eye />{t("redteam.view_run")}</Button>
           </div>
         )}
@@ -281,7 +281,7 @@ function AttackCard({ attack, round, cell, view, label, human, index, active, on
         )}
         {fixes.length > 0 && (
           <div className="space-y-2 border-t border-border pt-2">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-muted"><Wrench className="size-3.5" />Blue team fixes</p>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-muted"><Wrench className="size-3.5" />{t("ui.redteampanel.blue_team_fixes")}</p>
             {fixes.map(({ fix }) => {
               const fn = view.nodes[`fix:${fix.fix_id}`];
               const fr = fn ? view.runs[fn.run_id] : undefined;
@@ -297,14 +297,14 @@ function AttackCard({ attack, round, cell, view, label, human, index, active, on
                     {fn?.status === "running" && <Spinner className="size-3.5" />}
                   </div>
                   <p className="mt-1 text-xs text-muted">{items.join(" · ")}</p>
-                  <p className="mt-1 text-2xs text-muted">{(fix.extensions as Record<string, unknown> | undefined)?.generated_by === "rules" ? "Standard engineering response" : "Proposed by the blue team (AI)"} · cost {fix.cost_label}</p>
+                  <p className="mt-1 text-2xs text-muted">{t((fix.extensions as Record<string, unknown> | undefined)?.generated_by === "rules" ? "ui.redteampanel.fix_by_rules" : "ui.redteampanel.fix_by_ai", { cost: fix.cost_label })}</p>
                   {fr && run && (
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs tabular">
-                      <span>Peak {fmtNum(run.metrics.peak_density_ppm2 ?? null, 1)} → <b>{fmtNum(fr.metrics.peak_density_ppm2 ?? null, 1)}</b></span>
-                      <span>Danger {fmtDuration(run.metrics.time_above_danger_s ?? 0)} → <b>{fmtDuration(fr.metrics.time_above_danger_s ?? 0)}</b></span>
+                      <span>{t("ui.redteampanel.peak_from", { before: fmtNum(run.metrics.peak_density_ppm2 ?? null, 1) })} <b>{fmtNum(fr.metrics.peak_density_ppm2 ?? null, 1)}</b></span>
+                      <span>{t("ui.redteampanel.danger_from", { before: fmtDuration(run.metrics.time_above_danger_s ?? 0) })} <b>{fmtDuration(fr.metrics.time_above_danger_s ?? 0)}</b></span>
                       <span className="ml-auto flex">
                         {run && <TimeTravel projectId={projectId} attack={attack} fix={fix} attackRunId={run.run_id} active={active} />}
-                        <Button size="sm" variant="ghost" className="h-7" onClick={() => onShow(fr.run_id)}><Eye />Show</Button>
+                        <Button size="sm" variant="ghost" className="h-7" onClick={() => onShow(fr.run_id)}><Eye />{t("ui.redteampanel.show")}</Button>
                       </span>
                     </div>
                   )}
@@ -345,10 +345,10 @@ function FinalCard({ view, summary, onApply, applying, onShow, human }: {
         {stillAtRisk ? t("redteam.finished_at_risk") : t("redteam.finished")}
       </p>
       {typeof summary.judge_text === "string" && <p className="mt-2 text-sm leading-relaxed">{human(summary.judge_text)}</p>}
-      {!summary.numbers_checked && <p className="mt-1 text-2xs text-muted">Summary generated from computed results.</p>}
+      {!summary.numbers_checked && <p className="mt-1 text-2xs text-muted">{t("ui.redteampanel.summary_generated_from_computed_results")}</p>}
       {before && (
         <table className="mt-3 w-full text-sm">
-          <thead><tr className="text-xs text-muted"><th className="text-left font-normal">Worst attack</th><th className="text-right font-normal">Before</th><th className="text-right font-normal">After fixes</th></tr></thead>
+          <thead><tr className="text-xs text-muted"><th className="text-left font-normal">{t("ui.redteampanel.worst_attack")}</th><th className="text-right font-normal">{t("ui.redteampanel.before")}</th><th className="text-right font-normal">{t("ui.redteampanel.after_fixes")}</th></tr></thead>
           <tbody>
             {row("evac_time_p95_s", "Evacuation time (95%)", evac)}
             {row("peak_density_ppm2", "Peak density (per m²)", (v) => fmtNum(v ?? null, 1))}
@@ -359,12 +359,12 @@ function FinalCard({ view, summary, onApply, applying, onShow, human }: {
       {recs.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">{recs.map((r) => <li key={r}>{human(r)}</li>)}</ul>}
       <div className="mt-3 flex flex-wrap gap-2">
         {kept > 0 && <Button variant="primary" onClick={onApply} disabled={applying}><Check />{t("redteam.apply_plan")} ({kept})</Button>}
-        {typeof summary.final_run_id === "string" && <Button onClick={() => onShow(summary.final_run_id as string)}><Eye />Show fixed plan</Button>}
+        {typeof summary.final_run_id === "string" && <Button onClick={() => onShow(summary.final_run_id as string)}><Eye />{t("ui.redteampanel.show_fixed_plan")}</Button>}
         {typeof summary.final_run_id === "string" && (
           <CompareButton finalRunId={summary.final_run_id as string} view={view} />
         )}
       </div>
-      <p className="mt-2 text-2xs text-muted">Stopped because: {String(summary.stopped_reason ?? "")} · {view.fixesAccepted} fixes kept</p>
+      <p className="mt-2 text-2xs text-muted">{t("ui.redteampanel.stopped_because", { why: String(summary.stopped_reason ?? ""), n: view.fixesAccepted })}</p>
     </section>
   );
 }
@@ -375,12 +375,12 @@ function CompareButton({ finalRunId, view }: { finalRunId: string; view: Session
   const setCompare = useUi((s) => s.setCompareRun);
   if (!before) return null;
   return (
-    <Button onClick={() => { setActive(finalRunId); setCompare(before); }}><Columns2 />Compare before and after</Button>
+    <Button onClick={() => { setActive(finalRunId); setCompare(before); }}><Columns2 />{t("ui.redteampanel.compare_before_and_after")}</Button>
   );
 }
 
 function ActivityFeed({ view }: { view: SessionView }) {
-  if (!view.feed.length) return <p className="text-sm text-muted">Agent calls, tool calls and decisions appear here.</p>;
+  if (!view.feed.length) return <p className="text-sm text-muted">{t("ui.redteampanel.agent_calls_tool_calls_and")}</p>;
   return (
     <ol className="max-h-[420px] space-y-1.5 overflow-y-auto pr-1 scrollbar-thin">
       {[...view.feed].reverse().map((l) => (
@@ -388,8 +388,8 @@ function ActivityFeed({ view }: { view: SessionView }) {
           {l.type === "agent_call" ? <Bot className="mt-0.5 size-3.5 shrink-0 text-signal" /> : l.type === "tool_call" ? <Wrench className="mt-0.5 size-3.5 shrink-0 text-muted" /> : <Activity className={cn("mt-0.5 size-3.5 shrink-0", l.level === "warning" || l.level === "error" ? "text-caution" : "text-muted")} />}
           <div className="min-w-0 flex-1">
             <p className="font-medium">
-              {l.type === "agent_call" ? `${l.agent} agent` : l.type === "tool_call" ? l.agent : "Note"}
-              {l.type === "agent_call" && <span className="ml-1.5 font-normal text-muted tabular">{fmtTokens(l.tokens)} tokens · {((l.ms ?? 0) / 1000).toFixed(1)} s{l.ok === false ? " · repaired/partial" : ""}</span>}
+              {l.type === "agent_call" ? t("ui.redteampanel.agent_name", { agent: l.agent ?? "" }) : l.type === "tool_call" ? l.agent : t("ui.redteampanel.note")}
+              {l.type === "agent_call" && <span className="ml-1.5 font-normal text-muted tabular">{t(l.ok === false ? "ui.redteampanel.call_stats_partial" : "ui.redteampanel.call_stats", { tokens: fmtTokens(l.tokens), s: ((l.ms ?? 0) / 1000).toFixed(1) })}</span>}
             </p>
             <p className="text-muted">{l.summary}</p>
           </div>

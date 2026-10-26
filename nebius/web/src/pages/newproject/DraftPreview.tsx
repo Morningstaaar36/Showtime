@@ -36,11 +36,11 @@ export function DraftPreview({ draft, surroundingsAsked = 0 }: { draft: VenueDra
         <div>
           <p className="font-semibold">{v.name}</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            <Badge tone="outline">{v.mode === "indoor" ? "Indoor" : "Open-air"}</Badge>
+            <Badge tone="outline">{v.mode === "indoor" ? t("ui.draftpreview.indoor") : "Open-air"}</Badge>
             <Badge tone="neutral" className="tabular">{fmtInt(x1 - x0)} × {fmtInt(y1 - y0)} m</Badge>
             <Badge tone="neutral"><Users />{fmtInt(people)}</Badge>
-            <Badge tone="neutral">{exits} exits</Badge>
-            {v.floors.length > 1 && <Badge tone="neutral"><Layers />{v.floors.length} floors</Badge>}
+            <Badge tone="neutral">{t("ui.draftpreview.exits", { n: exits })}</Badge>
+            {v.floors.length > 1 && <Badge tone="neutral"><Layers />{t("ui.draftpreview.floors", { n: v.floors.length })}</Badge>}
             {surroundings > 0 && <Badge tone="neutral"><Trees />{t("editor.map.surroundings_badge", { m: fmtInt(surroundings) })}</Badge>}
           </div>
         </div>
@@ -49,14 +49,14 @@ export function DraftPreview({ draft, surroundingsAsked = 0 }: { draft: VenueDra
         )}
         {errors.length === 0 ? (
           <p className="flex items-start gap-1.5 text-egress"><CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-            Passes the geometry checks: every crowd area reaches an exit.</p>
+            {t("ui.draftpreview.passes_the_geometry_checks_every")}</p>
         ) : (
           <ul className="space-y-1">
             {errors.map((c, i) => (
               <li key={i} className="flex items-start gap-1.5 text-danger"><AlertTriangle className="mt-0.5 size-4 shrink-0" />
                 <span>{c.message}{c.hint ? <span className="text-muted"> {c.hint}</span> : null}</span></li>
             ))}
-            <li className="text-xs text-muted">You can still create it and fix these in the editor.</li>
+            <li className="text-xs text-muted">{t("ui.draftpreview.you_can_still_create_it")}</li>
           </ul>
         )}
         {[...draft.problems, ...warnings.map((w) => w.message)].length > 0 && (
@@ -68,7 +68,7 @@ export function DraftPreview({ draft, surroundingsAsked = 0 }: { draft: VenueDra
         )}
         {[...draft.assumptions, ...draft.notes].length > 0 && (
           <div>
-            <p className="text-xs font-medium text-muted">Assumed or adjusted</p>
+            <p className="text-xs font-medium text-muted">{t("ui.draftpreview.assumed_or_adjusted")}</p>
             <ul className="mt-1 space-y-1">
               {[...draft.assumptions, ...draft.notes].slice(0, 7).map((a, i) => (
                 <li key={i} className="flex items-start gap-1.5"><Info className="mt-0.5 size-3.5 shrink-0 text-muted" /><span>{a}</span></li>
@@ -77,7 +77,7 @@ export function DraftPreview({ draft, surroundingsAsked = 0 }: { draft: VenueDra
           </div>
         )}
         {(draft.model || draft.attribution) && (
-          <p className="text-2xs text-muted">{draft.model ? `Layout by ${draft.model}; geometry solved and checked in code.` : draft.attribution}</p>
+          <p className="text-2xs text-muted">{draft.model ? t("ui.draftpreview.layout_by", { model: draft.model }) : draft.attribution}</p>
         )}
       </div>
     </div>

@@ -36,7 +36,7 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
 
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <label className="inline-flex items-center gap-1.5">
-          <span className="text-muted">Open for</span>
+          <span className="text-muted">{t("ui.estimatespanel.open_for")}</span>
           <select className="h-7 rounded-[var(--radius-control)] border border-border bg-surface px-1.5 tabular"
                   value={est.event.duration_h}
                   onChange={(e) => setEvent({ duration_h: Number(e.target.value) }, `Event open ${e.target.value} h`)}>
@@ -44,8 +44,8 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
           </select>
         </label>
         <label className="inline-flex items-center gap-1.5">
-          <Switch checked={!!est.event.alcohol} onCheckedChange={(v) => setEvent({ alcohol: v }, v ? "Alcohol served" : "No alcohol")} aria-label="Alcohol served" />
-          <span>Alcohol</span>
+          <Switch checked={!!est.event.alcohol} onCheckedChange={(v) => setEvent({ alcohol: v }, v ? "Alcohol served" : "No alcohol")} aria-label={t("ui.estimatespanel.alcohol_served")} />
+          <span>{t("ui.estimatespanel.alcohol")}</span>
         </label>
         <div className="inline-flex rounded-[var(--radius-control)] border border-border p-0.5">
           {(["standing", "seated", "mixed"] as const).map((a) => (
@@ -60,16 +60,16 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
       <div className={cn("rounded-[var(--radius-panel)] border p-3", over ? "border-caution/50 bg-caution-soft/60" : "border-egress/30 bg-egress-soft/50")}>
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="text-xs text-muted">Safe capacity</p>
-            <p className="text-2xl font-semibold tabular leading-tight">{fmtInt(cap.safe_people)} <span className="text-sm font-normal text-muted">people</span></p>
+            <p className="text-xs text-muted">{t("ui.estimatespanel.safe_capacity")}</p>
+            <p className="text-2xl font-semibold tabular leading-tight">{fmtInt(cap.safe_people)} <span className="text-sm font-normal text-muted">{t("ui.estimatespanel.people")}</span></p>
           </div>
-          <p className="text-right text-xs"><Users className="mr-1 inline size-3.5" />you plan <b className="tabular">{fmtInt(cap.current_people)}</b></p>
+          <p className="text-right text-xs"><Users className="mr-1 inline size-3.5" />{t("ui.estimatespanel.you_plan")} <b className="tabular">{fmtInt(cap.current_people)}</b></p>
         </div>
         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-border" aria-hidden>
           <div className={cn("h-full rounded-full", over ? "bg-caution" : "bg-egress")} style={{ width: `${pct}%` }} />
         </div>
         <p className="mt-2 text-xs text-muted">
-          Limited by <b className="text-ink">{{ exits: "exit width", stairs: "stair width", space: "floor space" }[cap.limited_by]}</b>. {cap.note}
+          {t("ui.estimatespanel.limited_by")} <b className="text-ink">{t(`ui.estimatespanel.limit_${cap.limited_by}`)}</b>. {cap.note}
         </p>
       </div>
 
@@ -82,7 +82,7 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
             </div>
             <p className="mt-0.5 text-xs text-muted">
               {l.detail}{" "}
-              {l.url ? <a href={l.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-signal hover:underline" title={l.source}>source<ExternalLink className="size-3" /></a>
+              {l.url ? <a href={l.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 text-signal hover:underline" title={l.source}>{t("ui.estimatespanel.source")}<ExternalLink className="size-3" /></a>
                 : <span title={l.source}>({l.source})</span>}
             </p>
           </li>
@@ -91,7 +91,7 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
 
       <details className="rounded-[var(--radius-panel)] border border-border px-3 py-2 text-sm">
         <summary className="flex cursor-pointer items-baseline justify-between">
-          <span>Budget estimate</span><span className="tabular font-semibold">{money(est.budget_total)}</span>
+          <span>{t("ui.estimatespanel.budget_estimate")}</span><span className="tabular font-semibold">{money(est.budget_total)}</span>
         </summary>
         <table className="mt-2 w-full text-xs">
           <tbody>
@@ -104,7 +104,7 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
             ))}
           </tbody>
         </table>
-        <p className="mt-1 text-2xs text-muted">{est.prices_are_examples ? "Example unit prices: replace them with your quotes in Settings." : "Your unit prices from Settings."}</p>
+        <p className="mt-1 text-2xs text-muted">{est.prices_are_examples ? t("ui.estimatespanel.example_unit_prices_replace_them") : t("ui.estimatespanel.your_unit_prices_from_settings")}</p>
       </details>
     </div>
   );

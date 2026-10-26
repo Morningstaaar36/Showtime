@@ -130,7 +130,7 @@ export function FloorPicker({ project }: { project: ProjectDetail }) {
                     className="grid size-10 place-items-center rounded-[var(--radius-control)] text-muted hover:bg-surface-2 hover:text-ink">
               <span className="flex flex-col items-center leading-none">
                 <Layers3 className="size-[16px]" aria-hidden />
-                <span className="mt-0.5 max-w-9 truncate text-[10px] font-semibold tabular">{short === "Ground" ? "G" : short}</span>
+                <span className="mt-0.5 max-w-9 truncate text-[10px] font-semibold tabular">{short === t("ui.floormenu.ground") ? "G" : short}</span>
               </span>
             </button>
           </PopoverTrigger>

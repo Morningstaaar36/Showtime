@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { fmtClock, fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { tierLabel } from "./verdict";
+import { t } from "@/i18n";
 
 export function MetricTile({ label, value, unit, tone = "neutral", run, formula, sub }: {
   label: string; value: string; unit?: string; tone?: "neutral" | "egress" | "caution" | "danger";
@@ -29,9 +30,9 @@ export function MetricTile({ label, value, unit, tone = "neutral", run, formula,
       <PopoverContent className="w-80 text-sm">
         <p className="font-semibold">{label}</p>
         <dl className="mt-2 space-y-1.5 text-xs">
-          <div><dt className="text-muted">Source</dt><dd>{run ? tierLabel(run) : "–"}</dd></div>
-          {run && <div><dt className="text-muted">Engine · seed</dt><dd className="tabular">{run.engine} · {run.seed} · {run.provider}</dd></div>}
-          <div><dt className="text-muted">How it's computed</dt><dd>{formula}</dd></div>
+          <div><dt className="text-muted">{t("ui.metrics.source")}</dt><dd>{run ? tierLabel(run) : "–"}</dd></div>
+          {run && <div><dt className="text-muted">{t("ui.metrics.engine_seed")}</dt><dd className="tabular">{run.engine} · {run.seed} · {run.provider}</dd></div>}
+          <div><dt className="text-muted">{t("ui.metrics.how_its_computed")}</dt><dd>{formula}</dd></div>
         </dl>
       </PopoverContent>
     </Popover>
@@ -78,7 +79,7 @@ export function DensityCurve({ series, duration, warn, danger }: { series: numbe
   const peak = Math.max(0, ...series);
   return (
     <figure>
-      <figcaption className="sr-only">{`Peak density over time reaches ${fmtNum(peak, 1)} people per m².`}</figcaption>
+      <figcaption className="sr-only">{t("ui.metrics.peak_over_time", { ppm2: fmtNum(peak, 1) })}</figcaption>
       <div className="h-32">
         <ResponsiveContainer>
           <LineChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>

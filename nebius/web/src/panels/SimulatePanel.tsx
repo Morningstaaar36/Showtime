@@ -33,7 +33,7 @@ export function RunStatus({ run, onCancel }: { run: RunOut; onCancel: () => void
         <Button size="sm" variant="ghost" className="ml-auto" onClick={onCancel}><Square className="size-3" />{t("workspace.cancel_run")}</Button>
       </div>
       <Progress className="mt-3" value={pct} />
-      {p && <p className="mt-2 text-xs text-muted tabular">Simulated {fmtClock(p.sim_time_s)} · {fmtInt(p.agents_remaining)} people still inside{p.floor_id ? ` · floor ${p.floor_id}` : ""}</p>}
+      {p && <p className="mt-2 text-xs text-muted tabular">{t(p.floor_id ? "ui.simulatepanel.progress_floor" : "ui.simulatepanel.progress", { at: fmtClock(p.sim_time_s), n: fmtInt(p.agents_remaining), floor: p.floor_id ?? "" })}</p>}
     </div>
   );
 }
@@ -98,26 +98,26 @@ export function SimulatePanel({ project, run, estimate, replay, th, onAsk }: {
       {project.validation.ok && <ScenarioMatrix projectId={project.id} version={project.version.version} danger={th.danger} warn={th.warn} />}
       {running && run && <RunStatus run={run} onCancel={() => cancel.mutate(run.id)} />}
       {run?.status === "failed" && <ErrorState title={t("workspace.stress_test_failed")} message={run.error ?? ""} />}
-      {run?.status === "timeout" && <ErrorState title={t("workspace.stress_test_failed")} message={run.error ?? "Stopped at the time limit."} />}
+      {run?.status === "timeout" && <ErrorState title={t("workspace.stress_test_failed")} message={run.error ?? t("ui.simulatepanel.stopped_at_the_time_limit")} />}
 
       {blocked.length > 0 && (
         <section className="rounded-[var(--radius-panel)] border border-danger/30 bg-danger-soft/60 p-3">
-          <div className="flex items-center gap-2 text-sm font-semibold"><Ban className="size-4 text-danger" />Break it yourself</div>
+          <div className="flex items-center gap-2 text-sm font-semibold"><Ban className="size-4 text-danger" />{t("ui.simulatepanel.break_it_yourself")}</div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {blocked.map((id) => <Badge key={id} tone="danger">{label(id)}</Badge>)}
           </div>
           {preview?.metrics && (
             <p className="mt-2 text-sm">
-              Instant estimate: 95% out in <b className="tabular">{fmtDuration(preview.metrics.evac_time_p95_s)}</b>
+              {t("ui.simulatepanel.estimate_out")} <b className="tabular">{fmtDuration(preview.metrics.evac_time_p95_s)}</b>
               {estimate?.metrics?.evac_time_p95_s != null && preview.metrics.evac_time_p95_s != null && (
                 <> ({preview.metrics.evac_time_p95_s >= estimate.metrics.evac_time_p95_s ? "+" : ""}{fmtDuration(preview.metrics.evac_time_p95_s - estimate.metrics.evac_time_p95_s)})</>
-              )}, density up to <b className="tabular">{fmtNum(preview.metrics.peak_density_ppm2, 1)}</b>.
-              {(preview.metrics.agents_not_evacuated ?? 0) > 0 && <> <b className="text-danger">{fmtInt(preview.metrics.agents_not_evacuated)} people have no way out.</b></>}
+              )}{t("ui.simulatepanel.density_up_to")} <b className="tabular">{fmtNum(preview.metrics.peak_density_ppm2, 1)}</b>.
+              {(preview.metrics.agents_not_evacuated ?? 0) > 0 && <> <b className="text-danger">{t("ui.simulatepanel.no_way_out", { n: fmtInt(preview.metrics.agents_not_evacuated) })}</b></>}
             </p>
           )}
           <div className="mt-3 flex gap-2">
             <Button size="sm" variant="primary" onClick={() => launch(2, true)} disabled={start.isPending}>{t("workspace.confirm_with_simulation")}</Button>
-            <Button size="sm" variant="ghost" onClick={clearBlocked}><X />Reopen all</Button>
+            <Button size="sm" variant="ghost" onClick={clearBlocked}><X />{t("ui.simulatepanel.reopen_all")}</Button>
           </div>
         </section>
       )}
@@ -134,7 +134,7 @@ export function SimulatePanel({ project, run, estimate, replay, th, onAsk }: {
                         formula="Max over time of the Gaussian-smoothed 1 m density grid, divided by the walkable area of each cell." />
             <MetricTile label={t("metrics.above_danger")} value={fmtDuration(result.metrics.time_above_danger_s)} run={result}
                         tone={(result.metrics.time_above_danger_s ?? 0) >= th.dangerMinS ? "danger" : "egress"}
-                        formula={`Total time any cell is above ${th.danger} people per m².`} />
+                        formula={t("ui.simulatepanel.danger_time_help", { danger: th.danger })} />
             <MetricTile label={t("metrics.not_evacuated")} value={fmtInt(result.metrics.agents_not_evacuated)} run={result}
                         tone={(result.metrics.agents_not_evacuated ?? 0) > 0 ? "caution" : "egress"}
                         formula="People still inside when the run stopped (time limit or no route)." />

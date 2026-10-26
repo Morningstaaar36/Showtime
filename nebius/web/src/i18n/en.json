@@ -55,7 +55,7 @@
     "your_plans": "Your plans",
     "provider_aria": "AI: {label}. Show details",
     "provider_local": "AI runs on this computer",
-        "provider_cloud": "AI runs on {label}",
+    "provider_cloud": "AI runs on {label}",
     "provider_ai": "AI model",
     "provider_sim": "Simulator",
     "provider_ready": "Ready",
@@ -1872,5 +1872,385 @@
     "simulated_anywhere": "Simulated here: peak {peak} people per m².",
     "sources": "Sources",
     "reconstruction": "A reconstruction from published dimensions, built by the AI and simulated: it shows the danger, it is not a forensic finding."
+  },
+  "ui": {
+    "app": {
+      "skip_to_content": "Skip to content"
+    },
+    "logo": {
+      "showtime": "Showtime"
+    },
+    "journeyshell": {
+      "showtime_home": "Showtime home"
+    },
+    "planeditor": {
+      "resources_and_operational_plan": "Resources and operational plan",
+      "loading_plan": "Loading plan…",
+      "allowed_changes": "Allowed changes",
+      "cost_figures_are_declared_estimates": "Cost figures are declared estimates, not measured quotes. A budget requires cost estimates for every action and proposed object.",
+      "staff_and_equipment": "Staff and equipment",
+      "remove_resource": "Remove resource",
+      "staff": "Staff",
+      "equipment": "Equipment",
+      "new_resource_id": "New resource ID",
+      "stewards_or_radios": "stewards or radios",
+      "add_resource": "Add resource",
+      "permissions": "Permissions",
+      "remove_permission": "Remove permission",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "new_permission_id": "New permission ID",
+      "venue_permission": "venue_permission",
+      "add_permission": "Add permission",
+      "object_constraints": "Object constraints",
+      "movable": "Movable",
+      "fixed": "Fixed",
+      "existing": "Existing",
+      "proposed_construction": "Proposed construction",
+      "allowed": "Allowed",
+      "needs_permission": "Needs permission",
+      "unavailable": "Unavailable",
+      "save_organizer_settings": "Save organizer settings",
+      "save_settings_to_enable_action": "Save settings to enable action proposals.",
+      "operational_actions": "Operational actions",
+      "no_saved_actions": "No saved actions.",
+      "edit_action": "Edit action",
+      "preview_removal": "Preview removal",
+      "create_another_action": "Create another action",
+      "staggered_release": "Staggered release",
+      "one_way_exit": "One-way exit",
+      "marshal_redirect": "Marshal redirect",
+      "checklist_task_no_simulation_effect": "Checklist task (no simulation effect)",
+      "select_exit": "Select exit",
+      "preview_action": "Preview action",
+      "apply_operational_proposal": "Apply operational proposal",
+      "enforce_organizer_constraints": "Enforce organizer constraints",
+      "construction_allowed_with_recorded_approval": "Construction allowed with recorded approval",
+      "require_staff_for_operational_measures": "Require staff for operational measures",
+      "locked": "Locked",
+      "saved_version_note": "Saved version {n}. Save organizer settings before previewing actions. Changing these settings makes earlier evidence stale.",
+      "checklist_only": "Checklist only",
+      "resources_line": "Resources: {list}",
+      "none_allocated": "None allocated",
+      "after_line": "After: {list}",
+      "permissions_line": "Permissions: {list}",
+      "cost_line": "Declared cost: {cost}",
+      "propose_an_action": "Propose an action",
+      "valid_proposal_not_saved": "Valid proposal — not saved",
+      "proposal_rejected_nothing_saved": "Proposal rejected — nothing saved",
+      "available_from": "{id} available from (s)",
+      "available_until": "{id} available until (s)",
+      "recorded_by": "{id} recorded by",
+      "obj_cost": "{id} declared cost",
+      "obj_permissions": "{id} permission IDs",
+      "action_cost": "Action declared cost ({currency})"
+    },
+    "workspace": {
+      "before_fixes": "Before fixes",
+      "after_fixes": "After fixes",
+      "exit_comparison": "Exit comparison",
+      "inspector": "Inspector",
+      "click_closer_to_an_outer": "Click closer to an outer wall to place an exit."
+    },
+    "describetab": {
+      "describe_the_venue": "Describe the venue",
+      "size_indoor_or_open_air": "Size, indoor or open-air, how many people, where the stage and the doors or gates are, bars, a balcony…",
+      "the_venue_couldnt_be_designed": "The venue couldn't be designed",
+      "no_layout_came_back": "No layout came back",
+      "designing": "Designing…",
+      "design_again": "Design again",
+      "design_venue": "Design venue",
+      "the_ai_writes_the_layout": "The AI writes the layout, then code places every wall, exit and zone and checks it.",
+      "the_ai_chooses_sizes_and": "The AI chooses sizes and positions; exact geometry is computed and checked in code.",
+      "try_describing_it_in_more": "Try describing it in more detail.",
+      "examples": {
+        "hall": {
+          "label": "Two-floor conference hall",
+          "text": "A two-storey conference hall 45 × 30 m for 1,500 people: stage on the north wall, two 3 m doors on the south, a fire exit east, and a 350-seat balcony along the south wall."
+        },
+        "concert": {
+          "label": "Open-air concert",
+          "text": "Open-air concert on a 150 × 90 m field in Chattogram for 9,000 people, stage on the east with a crowd barrier, four gates on the west and one on the north, two bars and toilets at the back."
+        },
+        "wedding": {
+          "label": "Wedding hall",
+          "text": "A wedding hall for 300 guests with one main door and a small stage."
+        }
+      }
+    },
+    "draftpreview": {
+      "you_can_still_create_it": "You can still create it and fix these in the editor.",
+      "assumed_or_adjusted": "Assumed or adjusted",
+      "passes_the_geometry_checks_every": "Passes the geometry checks: every crowd area reaches an exit.",
+      "exits": "{n} exits",
+      "floors": "{n} floors",
+      "indoor": "Indoor",
+      "layout_by": "Layout by {model}; geometry solved and checked in code."
+    },
+    "maptab": {
+      "steps": "Steps",
+      "search_for_a_place": "Search for a place",
+      "search_a_place_ramna_park": "Search a place: “Ramna Park Dhaka”, “BUET”, an address…",
+      "search_still_works_and_you": "Search still works, and you can describe the venue in words instead.",
+      "selected": "Selected",
+      "treat_as": "Treat as",
+      "people_optional": "People (optional)",
+      "auto": "auto",
+      "draw_an_area": "Draw an area",
+      "the_venue_couldnt_be_built": "The venue couldn't be built",
+      "find": "Find",
+      "how_to_pick": "Search a place, then click the building (indoor event) or the park, square or campus (open-air event).",
+      "or": "Or",
+      "draw_how": "with two clicks around the part you will use.",
+      "attribution": "Map © OpenFreeMap, data © OpenStreetMap contributors.",
+      "nothing_is_mapped_exactly_here": "Nothing is mapped exactly here. Click a building or a park, or use “Draw an area”.",
+      "no_place_found_try_a": "No place found. Try a fuller address or a nearby landmark.",
+      "finding_whats_here": "Finding what’s here…",
+      "click_the_second_corner": "Click the second corner",
+      "click_a_building_or_a": "Click a building or a park",
+      "cancel_drawing": "Cancel drawing",
+      "building_indoor": "Building (indoor)",
+      "open_air_area": "Open-air area",
+      "building": "Building…",
+      "build_venue": "Build venue"
+    },
+    "agentgraph": {
+      "agent_graph": "Agent graph"
+    },
+    "askdialog": {
+      "question": "Question",
+      "ask": "Ask",
+      "reading_the_run_data": "Reading the run data…",
+      "hotspot": "Hotspot: {ppm2} people per m² at {at}.",
+      "hotspot_near": "Hotspot: {ppm2} people per m² at {at} near {near}.",
+      "ask_busiest": "Ask about the busiest spot in this run.",
+      "only_numbers": "Answers use only this simulation's numbers.",
+      "every_number_was_checked_against": "Every number was checked against the simulation.",
+      "answer_withheld_numbers_it_could": "Answer withheld numbers it could not verify."
+    },
+    "branchtree": {
+      "breaks": "Breaks",
+      "holds": "Holds",
+      "the_tree_grows_as_attacks": "The tree grows as attacks and fixes are simulated.",
+      "branch_tree_of_simulated_scenarios": "Branch tree of simulated scenarios",
+      "kept": "Kept",
+      "not_kept": "Not kept",
+      "simulating": "Simulating…"
+    },
+    "commandbar": {
+      "apply": "Apply"
+    },
+    "estimatespanel": {
+      "open_for": "Open for",
+      "alcohol_served": "Alcohol served",
+      "alcohol": "Alcohol",
+      "safe_capacity": "Safe capacity",
+      "people": "people",
+      "budget_estimate": "Budget estimate",
+      "you_plan": "you plan",
+      "source": "source",
+      "limited_by": "Limited by",
+      "limit_exits": "exit width",
+      "limit_stairs": "stair width",
+      "limit_space": "floor space",
+      "example_unit_prices_replace_them": "Example unit prices: replace them with your quotes in Settings.",
+      "your_unit_prices_from_settings": "Your unit prices from Settings."
+    },
+    "failuremap": {
+      "the_failure_map_fills_in": "The failure map fills in as the red team’s attacks are simulated.",
+      "failure_map": "Failure map",
+      "total_severity_of_the_worst": "total severity · of the worst attack in each place",
+      "hazard": "Hazard",
+      "not_possible_here": "Not possible here",
+      "a_kept_fix_was_tested": "a kept fix was tested here",
+      "legend": "Legend",
+      "no_attack_has_landed_here": "No attack has landed here yet. The red team aims at gaps like this one first.",
+      "scored_by_the_simulator_never": "Scored by the simulator, never by the AI. How?",
+      "1_00_breaks_the_plan": "≥ 1.00 breaks the plan",
+      "0_70_0_99_close": "0.70–0.99 close",
+      "below_0_70_holds": "below 0.70 holds",
+      "gap_not_tested_yet": "gap: not tested yet",
+      "danger": "Danger",
+      "95_out": "95% out",
+      "still_inside": "Still inside",
+      "show_attack": "Show attack",
+      "show_with_fix": "Show with fix",
+      "coverage_note": "of the map tried · {filled} of {total} places and hazards",
+      "round_n": "round {n}",
+      "severity": "Severity",
+      "breaks_note": "(breaks)",
+      "peak": "Peak",
+      "per_m2": "per m²",
+      "with_fix": "With the kept fix: severity {before} →",
+      "severity_how": "Severity comes from each simulation’s numbers only: {fitness}. 1 or more means the run breaks the plan.",
+      "aim_note": "The red team was aimed at {targeted} gaps and landed in {hit}."
+    },
+    "inspector": {
+      "plan_verdict": "Plan verdict",
+      "unavailable": "Unavailable",
+      "blocked_in_the_plan": "Blocked in the plan",
+      "zone": "Zone",
+      "drag_the_arrows_in_3d": "Drag the arrows in 3D to move it (snaps to 0.5 m), or type a change below.",
+      "source": "source",
+      "stage_basis": "Screening estimate · governed by {governing} · Pynite frame model",
+      "local_codes_differ": "Local codes differ.",
+      "blocked": "Blocked",
+      "exit": "Exit",
+      "all_pass": "all pass",
+      "to_review": "{n} to review"
+    },
+    "metrics": {
+      "source": "Source",
+      "engine_seed": "Engine · seed",
+      "how_its_computed": "How it's computed",
+      "peak_over_time": "Peak density over time reaches {ppm2} people per m²."
+    },
+    "officercard": {
+      "safety_officer": "Safety officer",
+      "an_ai_safety_officer_reads": "An AI safety officer reads the estimates, checks and what-if results and lists what to fix first. Every number it quotes is checked.",
+      "review_again": "Review again",
+      "review_my_plan": "Review my plan"
+    },
+    "overlays": {
+      "people_per_m": "People per m²",
+      "warning": "warning",
+      "danger_outlined_in_3d": "danger (outlined in 3D)"
+    },
+    "redteampanel": {
+      "session_settings": "Session settings",
+      "more_rounds_find_more_weaknesses": "More rounds find more weaknesses but take longer. Each attack and fix is a real simulation.",
+      "click_a_branch_to_replay": "Click a branch to replay that simulation in 3D.",
+      "fixes_kept": "fixes kept",
+      "breaks_per_round_the_red": "Breaks per round. The red team attacks the improved plan in each new round.",
+      "re_run_this_attack_with": "Re-run this attack with the fix starting at the current replay time",
+      "failure_map_cell_this_attack": "Failure-map cell this attack landed in",
+      "summary_generated_from_computed_results": "Summary generated from computed results.",
+      "worst_attack": "Worst attack",
+      "before": "Before",
+      "after_fixes": "After fixes",
+      "agent_calls_tool_calls_and": "Agent calls, tool calls and decisions appear here.",
+      "simulating": "Simulating",
+      "danger": "Danger",
+      "95_out": "95% out",
+      "blue_team_fixes": "Blue team fixes",
+      "show": "Show",
+      "show_fixed_plan": "Show fixed plan",
+      "compare_before_and_after": "Compare before and after",
+      "ai_usage": "AI usage: {used} of {budget} tokens · {cost}",
+      "round_attacks": "round {n} · {attacks} attacks",
+      "time_travel_label": "{fix} from {at}",
+      "time_travel_toast": "Time travel: {fix} from {at}",
+      "apply_from": "Apply from {at}",
+      "attack_round": "{id} · round {n}",
+      "fix_by_rules": "Standard engineering response · cost {cost}",
+      "fix_by_ai": "Proposed by the blue team (AI) · cost {cost}",
+      "peak_from": "Peak {before} →",
+      "danger_from": "Danger {before} →",
+      "stopped_because": "Stopped because: {why} · {n} fixes kept",
+      "agent_name": "{agent} agent",
+      "note": "Note",
+      "call_stats": "{tokens} tokens · {s} s",
+      "call_stats_partial": "{tokens} tokens · {s} s · repaired/partial",
+      "the_red_team_is_reading": "The red team is reading the plan and similar real incidents…",
+      "no_attacks_yet": "No attacks yet."
+    },
+    "reportview": {
+      "a_document_for_your_safety": "A document for your safety team and the permit office: verdict, countdown, evacuation map, red-team results, assumptions and sources.",
+      "based_on": "Based on",
+      "red_team_night": "Red Team Night",
+      "report_preview": "Report preview",
+      "refresh_preview": "Refresh preview",
+      "when_fix": "{when} · {n} fix kept",
+      "when_fixes": "{when} · {n} fixes kept"
+    },
+    "scenariomatrix": {
+      "scenario_sweep": "Scenario sweep",
+      "95_out": "95% out",
+      "peak_m": "Peak / m²",
+      "still_inside": "Still inside",
+      "lead": "The plan under six what-ifs, each simulated in its own sandbox.",
+      "lead_partial": "The plan under six what-ifs, each simulated in its own sandbox (the first 3 minutes of each).",
+      "stale": "These results are for an older version of the plan.",
+      "closes": "closes {exit}",
+      "six_scenarios_queued_in_sandboxes": "Six scenarios queued in sandboxes",
+      "run_again": "Run again",
+      "run_6_scenarios": "Run 6 scenarios"
+    },
+    "scoregauge": {
+      "how_is_this_computed": "How is this computed?",
+      "delta": "{d} vs plan (same method)",
+      "basis": "{basis}. Weighted sum of five parts; a planning aid, not a certification.",
+      "aria": "{label}: {grade}, {score} of 100. Show how it is computed."
+    },
+    "timeline": {
+      "back_to_start": "Back to start",
+      "replay_time": "Replay time"
+    },
+    "topbar": {
+      "ctrl": "Ctrl",
+      "shift": "Shift",
+      "current": "Current",
+      "version_history": "Version history",
+      "restore": "Restore",
+      "rset_source": "Evacuation time from: {source}",
+      "edited": "Edited",
+      "ai_edit": "AI edit",
+      "system": "System",
+      "you": "You",
+      "after_alarm": "{at} after the alarm"
+    },
+    "whatiflab": {
+      "crowd_size": "Crowd size",
+      "walking_speed": "Walking speed",
+      "close_exits": "Close exits",
+      "simulate_this": "Simulate this",
+      "apply_crowd_size": "Apply crowd size",
+      "reset": "Reset",
+      "people_share": "{n} people ({pct}%)",
+      "crowd_size_applied_to_the": "Crowd size applied to the plan",
+      "what_if_simulation_started_open": "What-if simulation started. Open Simulate to watch it.",
+      "apply_the_crowd_size_first": "Apply the crowd size first, then simulate"
+    },
+    "windpanel": {
+      "wind_on_the_day": "Wind on the day",
+      "summary": "Forecast gusts peak at {peak} m/s; the stage wind limit is {limit} m/s.",
+      "reach_limit": "Gusts reach the stage limit at {at}.",
+      "below_limit": "Gusts stay below the stage limit.",
+      "start_by": "Start evacuating by {at}.",
+      "source": "{source} · hourly gusts at 10 m."
+    },
+    "replaylayers": {
+      "marshal": "Marshal:",
+      "hotspot": "{ppm2} people per m² · {at}"
+    },
+    "sceneroot": {
+      "3d_view_of_the_venue": "3D view of the venue",
+      "map_and_data_openstreetmap_contributors": "Map and data © OpenStreetMap contributors"
+    },
+    "simulatepanel": {
+      "break_it_yourself": "Break it yourself",
+      "reopen_all": "Reopen all",
+      "progress": "Simulated {at} · {n} people still inside",
+      "progress_floor": "Simulated {at} · {n} people still inside · floor {floor}",
+      "estimate_out": "Instant estimate: 95% out in",
+      "density_up_to": ", density up to",
+      "no_way_out": "{n} people have no way out.",
+      "stopped_at_the_time_limit": "Stopped at the time limit.",
+      "danger_time_help": "Total time any cell is above {danger} people per m²."
+    },
+    "home": {
+      "people": "{n} people",
+      "people_when": "{n} people · {when}"
+    },
+    "venuemodel": {
+      "stair": "Stair · {w} m",
+      "stage": "Stage",
+      "stairs_down": "Stairs down",
+      "stairs_up": "Stairs up"
+    },
+    "floormenu": {
+      "ground": "Ground"
+    }
   }
 }

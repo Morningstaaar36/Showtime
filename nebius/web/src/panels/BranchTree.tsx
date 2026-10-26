@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { TreeNode } from "@/api/useSessionStream";
 import { fmtNum } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 type FlowData = { node: TreeNode; active: boolean; human: (text: string) => string };
 
@@ -21,14 +22,14 @@ function BranchCard({ data }: NodeProps<Node<FlowData>>) {
       <div className="flex items-center justify-between text-[10px] font-medium uppercase-none text-muted">
         <span>{KIND_LABEL[n.kind]}{n.fix_id ? ` ${n.fix_id}` : n.attack_id && n.kind === "attack" ? ` ${n.attack_id}` : ""}</span>
         {n.kind === "fix" && n.accepted != null && (
-          <span className={n.accepted ? "text-egress" : "text-muted"}>{n.accepted ? "Kept" : "Not kept"}</span>
+          <span className={n.accepted ? "text-egress" : "text-muted"}>{n.accepted ? t("ui.branchtree.kept") : t("ui.branchtree.not_kept")}</span>
         )}
-        {n.kind !== "fix" && n.status === "break" && <span className="text-danger">Breaks</span>}
-        {n.kind !== "fix" && n.status === "ok" && <span className="text-egress">Holds</span>}
+        {n.kind !== "fix" && n.status === "break" && <span className="text-danger">{t("ui.branchtree.breaks")}</span>}
+        {n.kind !== "fix" && n.status === "ok" && <span className="text-egress">{t("ui.branchtree.holds")}</span>}
       </div>
       <p className="truncate text-xs font-medium text-ink" title={data.human(n.label)}>{data.human(n.label)}</p>
       <p className="text-[10px] tabular text-muted">
-        {n.status === "running" ? "Simulating…" : peak != null ? `${fmtNum(peak, 1)} per m²` : "–"}
+        {n.status === "running" ? t("ui.branchtree.simulating") : peak != null ? `${fmtNum(peak, 1)} per m²` : "–"}
         {n.metrics?.time_above_danger_s ? ` · ${Math.round(n.metrics.time_above_danger_s)} s danger` : ""}
       </p>
       <Handle type="source" position={Position.Bottom} style={{ left: 12 }} className="!size-1.5 !border-0 !bg-line" />
@@ -77,10 +78,10 @@ export function BranchTree({ nodes, activeRunId, onPick, human = (x) => x }: {
     }));
     return { flowNodes, edges, height };
   }, [list, nodes, activeRunId, human]);
-  if (!list.length) return <p className="p-4 text-sm text-muted">The tree grows as attacks and fixes are simulated.</p>;
+  if (!list.length) return <p className="p-4 text-sm text-muted">{t("ui.branchtree.the_tree_grows_as_attacks")}</p>;
   return (
     <div className="overflow-hidden rounded-[var(--radius-panel)] border border-border bg-plan" style={{ height: height + 24 }}
-         aria-label="Branch tree of simulated scenarios">
+         aria-label={t("ui.branchtree.branch_tree_of_simulated_scenarios")}>
       {/* full size, no inner pan/zoom: the side panel scrolls, so every branch stays readable */}
       <ReactFlow nodes={flowNodes} edges={edges} nodeTypes={nodeTypes} defaultViewport={{ x: 12, y: 12, zoom: 1 }}
                  proOptions={{ hideAttribution: true }} nodesConnectable={false} elementsSelectable

@@ -43,13 +43,13 @@ export function TopBar({ project, mode, countdown, cost }: {
         <VersionMenu project={project} />
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
-        <Tip content={<span>{t("common.undo")} <Kbd>Ctrl</Kbd> <Kbd>Z</Kbd></span>}>
+        <Tip content={<span>{t("common.undo")} <Kbd>{t("ui.topbar.ctrl")}</Kbd> <Kbd>Z</Kbd></span>}>
           <Button variant="ghost" size="icon" aria-label={t("common.undo")} disabled={!project.can_undo || undo.isPending}
                   onClick={() => undo.mutate(undefined, { onSuccess: () => toast(t("workspace.undone")), onError: (e) => toast.error(e.message) })}>
             <Undo2 />
           </Button>
         </Tip>
-        <Tip content={<span>{t("common.redo")} <Kbd>Ctrl</Kbd> <Kbd>Shift</Kbd> <Kbd>Z</Kbd></span>}>
+        <Tip content={<span>{t("common.redo")} <Kbd>{t("ui.topbar.ctrl")}</Kbd> <Kbd>{t("ui.topbar.shift")}</Kbd> <Kbd>Z</Kbd></span>}>
           <Button variant="ghost" size="icon" aria-label={t("common.redo")} disabled={!project.can_redo || redo.isPending}
                   onClick={() => redo.mutate(undefined, { onSuccess: () => toast(t("workspace.redone")), onError: (e) => toast.error(e.message) })}>
             <Redo2 />
@@ -94,22 +94,21 @@ function VersionMenu({ project }: { project: ProjectDetail }) {
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-0">
-        <p className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-sm font-semibold"><History className="size-4" />Version history</p>
+        <p className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-sm font-semibold"><History className="size-4" />{t("ui.topbar.version_history")}</p>
         <ScrollArea className="max-h-80">
           <ul className="py-1">
             {(versions.data ?? []).map((v) => (
               <li key={v.version} className="group flex items-start gap-2 px-4 py-2 hover:bg-surface-2">
                 <span className="mt-0.5 w-8 shrink-0 text-xs font-semibold text-muted tabular">v{v.version}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{v.message || "Edited"}</p>
-                  <p className="text-xs text-muted">{v.author === "agent" ? "AI edit" : v.author === "system" ? "System" : "You"} · {fmtRelative(v.created_at)}</p>
+                  <p className="truncate text-sm">{v.message || t("ui.topbar.edited")}</p>
+                  <p className="text-xs text-muted">{v.author === "agent" ? t("ui.topbar.ai_edit") : v.author === "system" ? t("ui.topbar.system") : t("ui.topbar.you")} · {fmtRelative(v.created_at)}</p>
                 </div>
                 {v.version !== project.current_version ? (
                   <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 focus:opacity-100"
                           onClick={() => restore.mutate(v.version, { onSuccess: (r) => toast.success(t("workspace.saved", { n: r.version.version })) })}>
-                    <RotateCcw />Restore
-                  </Button>
-                ) : <span className="text-xs text-egress">Current</span>}
+                    <RotateCcw />{t("ui.topbar.restore")}</Button>
+                ) : <span className="text-xs text-egress">{t("ui.topbar.current")}</span>}
               </li>
             ))}
           </ul>
@@ -145,14 +144,14 @@ function CountdownChip({ data }: { data: CountdownOut | undefined }) {
         <p className="font-semibold">{t("countdown.title")}</p>
         {c ? (
           <dl className="mt-3 space-y-2 text-sm">
-            <Row k={t("countdown.hazard")} v={c.t_hazard_s != null ? (c.t_hazard_iso ? fmtHM(c.t_hazard_iso) : `${fmtClock(c.t_hazard_s)} after the alarm`) : "none"} />
+            <Row k={t("countdown.hazard")} v={c.t_hazard_s != null ? (c.t_hazard_iso ? fmtHM(c.t_hazard_iso) : t("ui.topbar.after_alarm", { at: fmtClock(c.t_hazard_s) })) : "none"} />
             <Row k={t("countdown.pre")} v={fmtDuration(c.pre_movement_s)} />
             <Row k={t("countdown.rset")} v={c.rset_s != null ? fmtDuration(c.rset_s) : "–"} />
             <Row k={t("countdown.sf")} v={`× ${c.safety_factor}`} />
             <div className="border-t border-border pt-2"><Row k="Latest start" v={c.t_latest_iso ? fmtHM(c.t_latest_iso) : c.t_latest_s != null ? fmtClock(c.t_latest_s) : "–"} strong /></div>
             <p className="pt-1 text-xs text-muted">{c.formula}</p>
             {c.hazard_explanation && <p className="text-xs text-muted">{c.hazard_explanation}</p>}
-            {c.rset_source && <p className="text-xs text-muted">Evacuation time from: {c.rset_source}</p>}
+            {c.rset_source && <p className="text-xs text-muted">{t("ui.topbar.rset_source", { source: c.rset_source })}</p>}
           </dl>
         ) : <p className="mt-2 text-sm text-muted">{t("countdown.unknown")}</p>}
       </PopoverContent>

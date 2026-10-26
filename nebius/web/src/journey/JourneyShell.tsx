@@ -56,7 +56,7 @@ export function JourneyShell({ step, projectId, title, back, children, wide, fil
             <Link to={back.to} className="flex min-h-11 items-center gap-1 text-sm text-muted hover:text-ink" aria-label={back.label}>
               <ChevronLeft className="size-4" /><Logo compact />
             </Link>
-          ) : <Link to="/" aria-label="Showtime home"><Logo wordmarkClassName="max-[359px]:hidden" /></Link>}
+          ) : <Link to="/" aria-label={t("ui.journeyshell.showtime_home")}><Logo wordmarkClassName="max-[359px]:hidden" /></Link>}
           {title && <span className="hidden min-w-0 max-w-[22rem] truncate font-semibold md:inline">{title}</span>}
           <div className="mx-auto"><StepIndicator step={step} projectId={projectId} /></div>
           {projectId && (

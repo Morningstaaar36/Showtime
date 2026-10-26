@@ -17,3 +17,16 @@ export function t(key: string, vars?: Record<string, string | number>): string {
   }
   return s;
 }
+
+/** A group of items in en.json (e.g. the example sentences under one key), in file order, each
+ * with its own fields; [] when the key is not a group. */
+export function tItems(key: string): Record<string, string>[] {
+  let node: string | Dict | undefined = dict;
+  for (const part of key.split(".")) {
+    if (typeof node !== "object" || node === null) return [];
+    node = node[part];
+  }
+  if (typeof node !== "object" || node === null) return [];
+  return Object.values(node).filter((v): v is Dict => typeof v === "object" && v !== null)
+    .map((item) => Object.fromEntries(Object.entries(item).filter(([, v]) => typeof v === "string")) as Record<string, string>);
+}

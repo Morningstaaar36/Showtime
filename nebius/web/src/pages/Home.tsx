@@ -183,7 +183,7 @@ export function HomePage() {
                                 {creating === tpl.id && <Loader2 className="ml-auto size-4 animate-spin text-signal" />}
                               </span>
                               <span className="line-clamp-2 text-sm text-muted">{tpl.description}</span>
-                              <span className="mt-auto flex items-center gap-1 pt-1 text-sm text-muted tabular"><Users className="size-3.5" />{fmtInt(tpl.people)} people</span>
+                              <span className="mt-auto flex items-center gap-1 pt-1 text-sm text-muted tabular"><Users className="size-3.5" />{t("ui.home.people", { n: fmtInt(tpl.people) })}</span>
                             </span>
                           </button>
                         ) : <Skeleton className="h-56" />}
@@ -218,7 +218,7 @@ export function HomePage() {
                         <span className="h-12 w-16 shrink-0 rounded-[8px] bg-signal-soft p-1">{p.thumb && <VenueThumb venue={p.thumb} className="size-full" />}</span>
                         <span className="min-w-0">
                           <span className="block truncate font-semibold">{p.name}</span>
-                          <span className="block text-sm text-muted">{fmtInt(p.people)} people · {fmtRelative(p.updated_at)}</span>
+                          <span className="block text-sm text-muted">{t("ui.home.people_when", { n: fmtInt(p.people), when: fmtRelative(p.updated_at) })}</span>
                         </span>
                       </Link>
                     </li>
