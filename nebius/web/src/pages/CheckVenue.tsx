@@ -33,10 +33,6 @@ import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import { FloorSwitch } from "@/panels/FloorSwitch";
 
-/** Quick depth (one round): finishes in minutes and keeps AI usage low. */
-/** The standard test (kept for callers that do not offer a choice). */
-export const QUICK_TEST = testMode("standard").config;
-
 export function CheckVenuePage() {
   const { projectId = "" } = useParams();
   const navigate = useNavigate();

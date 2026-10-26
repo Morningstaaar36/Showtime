@@ -12,7 +12,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { api } from "@/api/client";
 import { useApplyFixes, usePlan, useProject, useRewind, useRun, useRunVenue, useSeedCheck, useSensitivity, useSession, useSessions, useSettings, useStartSession, useStartTogether, useStress, useTogether, useUndo, useVersions } from "@/api/queries";
-import type { Countdown, Fix, RunOut } from "@/api/types";
+import type { Fix, RunOut } from "@/api/types";
 import { useSessionStream } from "@/api/useSessionStream";
 import { Button } from "@/components/ui/button";
 import { Skeleton, Spinner } from "@/components/ui/misc";
@@ -50,7 +50,7 @@ import { rowOutcome, stressCounter } from "@/journey/plan/stress";
 import { RealCaseCard } from "@/journey/RealCases";
 import { realCaseOf, simulatedPeak } from "@/journey/realCases";
 import { runBasisLabel } from "@/lib/evidence";
-import { fmtClock, fmtDuration, fmtHM, fmtNum, withoutRunIds } from "@/lib/format";
+import { fmtClock, fmtNum, withoutRunIds } from "@/lib/format";
 import { cn, UNDO_TOAST_ID } from "@/lib/utils";
 import { displayNames, textHumanizer } from "@/lib/venueText";
 import { FloorSwitch } from "@/panels/FloorSwitch";
@@ -74,14 +74,6 @@ const TARGET_OUTDOOR_S = 480;
 const TabsPrimitiveList = TabsPrimitive.List;
 const TabsPrimitiveTrigger = TabsPrimitive.Trigger;
 const Tabs = TabsPrimitive.Root;
-
-export function countdownText(c: Countdown | null | undefined): string {
-  if (!c) return t("yourplan.cd_unknown");
-  if (c.status === "ok") return c.t_latest_iso ? t("yourplan.cd_by", { time: fmtHM(c.t_latest_iso) }) : t("yourplan.cd_within", { d: fmtDuration(c.t_latest_s) });
-  if (c.status === "too_late") return t("yourplan.cd_too_late");
-  if (c.status === "no_hazard") return t("yourplan.cd_no_hazard");
-  return t("yourplan.cd_unknown");
-}
 
 const usable = (r: RunOut | undefined) => !!r && (r.status === "ok" || r.status === "partial");
 const noop = () => {};

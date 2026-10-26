@@ -44,17 +44,6 @@ export function annotationWithScene(venue: Venue, scene: SceneSnapshot | undefin
   return fromScene ? { ...a, provenance: { ...fromScene, basis: fromScene.basis as Basis } } : a;
 }
 
-export function AnnotationBadges({ a, blocked }: { a: ObjectAnnotation; blocked?: boolean }) {
-  return (
-    <span className="flex flex-wrap gap-1">
-      {a.change === "proposed" && <Badge tone="signal">{t("check.proposed")}</Badge>}
-      {a.change === "existing" && <Badge tone="outline">{t("check.existing")}</Badge>}
-      {a.locked && <Badge tone="ink"><Lock className="size-3" />{t("check.locked")}</Badge>}
-      {blocked && <Badge tone="danger">{t("check.closed")}</Badge>}
-    </span>
-  );
-}
-
 function NumberInput({ id, label, unit, value, step, min, disabled, onCommit }: {
   id: string; label: string; unit: string; value: number; step: number; min?: number; disabled?: boolean; onCommit: (v: number) => void;
 }) {

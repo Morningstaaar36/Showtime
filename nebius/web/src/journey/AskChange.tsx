@@ -1,11 +1,10 @@
-/** "Ask AI to change the venue": the venue agent proposes a patch, the server dry-runs it, the
- * 3D view previews it, and nothing is saved until the organizer applies it. The preview hook,
- * the proposal card and the input are shared with the "Ask or change anything" box. */
-import { AlertTriangle, Check, CornerDownLeft, Lock, Sparkles, X } from "lucide-react";
+/** Venue changes asked in words: the venue agent proposes a patch, the server dry-runs it, the 3D
+ * view previews it, and nothing is saved until the organizer applies it. The preview hook, the
+ * proposal card and the input used by the "Ask or change anything" box. */
+import { Check, CornerDownLeft, Lock, Sparkles, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ApiError } from "@/api/client";
-import { usePreviewPatch, useTextEdit } from "@/api/queries";
+import { usePreviewPatch } from "@/api/queries";
 import type { EditOut, PatchOpIn, PatchPreview, ProjectDetail, Venue } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/misc";
@@ -115,44 +114,5 @@ export function AskInput({ id, label, placeholder, sendLabel, value, busy, onCha
         <CornerDownLeft className="size-4" />
       </button>
     </form>
-  );
-}
-
-/** The edit-only box: a sentence becomes a previewed proposal for the venue. */
-export function AskChange({ project, onPreview }: { project: ProjectDetail; onPreview: (p: ProposalPreview | null) => void }) {
-  const edit = useTextEdit(project.id);
-  const proposal = useEditPreview(project, onPreview);
-  const [text, setText] = useState("");
-  const [out, setOut] = useState<EditOut | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const reset = () => { setOut(null); setError(null); proposal.clear(); };
-  const ask = (value: string) => {
-    if (!value.trim() || edit.isPending) return;
-    reset();
-    edit.mutate({ text: value, apply: false }, {
-      onSuccess: (r) => { setOut(r); proposal.start(r); },
-      onError: (e) => {
-        const err = e as ApiError;
-        setError(err.code === "llm_unavailable" || err.status === 503 ? t("check.ai_unavailable") : err.message);
-      },
-    });
-  };
-  const shownError = error ?? proposal.error;
-  const busy = edit.isPending || proposal.previewing;
-
-  return (
-    <div className="pointer-events-auto w-full max-w-2xl space-y-2">
-      {(out || shownError) && (
-        <section aria-live="polite" aria-label={t("check.ai_proposal")}
-                 className="max-h-[45vh] overflow-y-auto rounded-[12px] border border-border bg-surface p-4 text-sm shadow-[var(--shadow-float)]">
-          {shownError && <p className="flex gap-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-caution" />{shownError}</p>}
-          {out && <EditProposal project={project} out={out} dry={proposal.dry} previewing={proposal.previewing}
-                                onApplied={() => { reset(); setText(""); }} onDiscard={reset} />}
-        </section>
-      )}
-      <AskInput id="ask-change" label={t("check.ask_label")} sendLabel={t("check.ask_send")} value={text} busy={busy}
-                placeholder={busy ? t("tools.thinking") : t("check.ask_ph")} onChange={setText} onSubmit={ask} />
-    </div>
   );
 }

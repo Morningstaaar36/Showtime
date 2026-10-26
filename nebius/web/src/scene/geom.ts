@@ -183,11 +183,6 @@ export function resolveFloorView(v: Venue, view: string | null | undefined): str
   return v.floors.some((f) => f.floor_id === view) ? view : "all";
 }
 
-/** Is this floor drawn in the given (resolved) floor view? */
-export function floorShown(view: string, floorId: string): boolean {
-  return view === "all" || view === "exploded" || view === floorId;
-}
-
 /** Bounds of one floor's walkable area. */
 export function floorBounds(v: Venue, floorId: string): [number, number, number, number] {
   const f = v.floors.find((x) => x.floor_id === floorId);

@@ -29,7 +29,6 @@ import type {
   Venue,
   VenueDraft,
   VersionOut,
-  WeatherOut,
 } from "./types";
 
 export const qk = {
@@ -127,11 +126,6 @@ export const useSession = (id: string | null | undefined) =>
     refetchInterval: (q) => (q.state.data?.status === "running" || q.state.data?.status === "queued" ? 3000 : false),
   });
 
-export const useWeather = (projectId: string | undefined, enabled: boolean) =>
-  useQuery({ queryKey: ["weather", projectId], enabled: !!projectId && enabled, retry: false,
-             staleTime: 10 * 60_000,
-             queryFn: () => api.get<WeatherOut>(`/weather?project_id=${projectId}`) });
-
 export const useStageCheck = (projectId: string | undefined, key: string, enabled: boolean) =>
   useQuery({ queryKey: ["stage", projectId, key], enabled: !!projectId && enabled, staleTime: Infinity,
              queryFn: () => api.post<StageCheckResult>("/stage-check", { project_id: projectId }) });
@@ -187,14 +181,6 @@ export function useDuplicateProject() {
   return useMutation({
     mutationFn: (id: string) => api.post<ProjectSummary>(`/projects/${id}/duplicate`),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.projects }),
-  });
-}
-
-export function useRenameProject() {
-  const inv = useInvalidateProject();
-  return useMutation({
-    mutationFn: (v: { id: string; name: string }) => api.patch<ProjectSummary>(`/projects/${v.id}`, { name: v.name }),
-    onSuccess: (_d, v) => inv(v.id),
   });
 }
 
@@ -430,11 +416,6 @@ export const useAutopilot = (id: string | null | undefined) =>
     refetchInterval: (q) => (q.state.data?.status === "running" || q.state.data?.status === "queued" ? 3000 : false),
   });
 
-/** A project's latest Autopilot run (null when it never had one). */
-export const useProjectAutopilot = (projectId: string | undefined) =>
-  useQuery({ queryKey: ["project-autopilot", projectId], enabled: !!projectId, retry: false,
-             queryFn: () => api.get<AutopilotRun | null>(`/projects/${projectId}/autopilot`) });
-
 /** Plan an event from one sentence (or test a project): returns the run at once. */
 export function useStartAutopilot() {
   const qc = useQueryClient();
@@ -510,14 +491,6 @@ export interface AnalyseOut {
   run_id: string;
   basis: string;
   sandbox: string;
-}
-
-/** Ask the analyst about a run (default: the run a question would use). */
-export function useAnalyse(projectId: string) {
-  return useMutation({
-    mutationFn: (v: { question: string; run_id?: string | null; session_id?: string | null }) =>
-      api.post<AnalyseOut>(`/projects/${projectId}/analyse`, v),
-  });
 }
 
 export type UserScriptKind = "analysis" | "scenario";
