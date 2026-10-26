@@ -97,8 +97,8 @@ await page.goto(`${BASE}/p/${pid}/scripts`);
 await say("Now try something unsafe: a script that imports socket to reach the network.");
 await page.getByRole("button", { name: "New script" }).first().click();
 const code2 = page.getByRole("textbox", { name: "Code" });
+await code2.fill(""); // "New script" starts from an example: clear it, then type
 await code2.click();
-await page.keyboard.press("Control+A"); // "New script" starts from an example: replace it
 await page.keyboard.type("import socket\nsocket.create_connection(('example.org', 80))\n", { delay: 35 });
 await page.getByRole("button", { name: "Run in sandbox" }).click();
 const why = page.getByRole("listitem").filter({ hasText: /socket.* is not allowed/ });

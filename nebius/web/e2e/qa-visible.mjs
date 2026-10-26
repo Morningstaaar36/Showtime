@@ -4,6 +4,7 @@
 // Usage: node e2e/qa-visible.mjs <outdir> [check-name-substring ...]
 //   QA_HEADLESS=1 runs without a window; QA_PAUSE_MS sets the pause after each caption.
 import { chromium, expect } from "@playwright/test";
+import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
 const BASE = process.env.BASE ?? "http://127.0.0.1:5173";
@@ -126,6 +127,36 @@ await check("Projects: search, copy, download, import, delete", async () => {
   await expect(page.getByText(T("projects.deleted")).first()).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("link", { name: starts(T("projects.open", { name: "" })) })).toHaveCount(before - 1);
   return `${before} plans (original, copy, import), then one deleted`;
+});
+
+await check("Projects: import a venue JSON and a DXF drawing", async () => {
+  // a venue JSON from a template, and a DXF drawn with the importer plugin's own layer names
+  const venue = TEMPLATES[0].venue;
+  const json = `${out}/qa-venue.json`;
+  writeFileSync(json, JSON.stringify({ ...venue, name: "QA imported JSON" }));
+  const dxf = `${out}/qa-drawing.dxf`;
+  const py = [
+    "import ezdxf, sys; from plugins.import_dxf import LAYERS as L",
+    "d = ezdxf.new(); m = d.modelspace()",
+    "m.add_lwpolyline([(0,0),(30,0),(30,20),(0,20)], close=True, dxfattribs={'layer': L['walk']})",
+    "m.add_lwpolyline([(14,0),(16,0),(16,0.4),(14,0.4)], close=True, dxfattribs={'layer': L['exit']})",
+    "m.add_lwpolyline([(5,5),(25,5),(25,15),(5,15)], close=True, dxfattribs={'layer': L['zone']})",
+    "d.saveas(sys.argv[1])",
+  ].join("\n");
+  const root = new URL("../../", import.meta.url).pathname; // nebius/
+  const r = spawnSync("uv", ["run", "--project", "api", "python", "-c", py, dxf], { cwd: root, env: { ...process.env, PYTHONPATH: root }, encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`could not write the DXF: ${r.error?.message ?? r.stderr}`);
+  const got = [];
+  for (const file of [json, dxf]) {
+    await go("/projects");
+    await page.getByLabel(starts(T("projects.import_hint", { types: "" }).trim())).setInputFiles(file);
+    await expect(page.getByText(T("projects.imported")).first()).toBeVisible({ timeout: 30_000 });
+    await page.waitForURL(/\/p\/p_/, { timeout: 15_000 }).catch(() => {});
+    const pid = page.url().split("/p/")[1]?.split(/[/?]/)[0];
+    if (pid) created.push(pid);
+    got.push(`${file.split(".").pop()} → ${pid}`);
+  }
+  return got.join("; ");
 });
 
 // --- check your venue -------------------------------------------------------------------------
