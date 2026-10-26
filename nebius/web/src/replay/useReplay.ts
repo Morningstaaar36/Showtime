@@ -1,7 +1,6 @@
 /** Load a run's trajectory and density grid as binary ArrayBuffers (never as large JSON). */
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
-import type { Venue } from "@/api/types";
 import { DensityGrid, type DensityIndex } from "./density";
 import { type AgentKinds, parseAgentKinds } from "./kinds";
 import { Trajectory, type TrajIndex } from "./trajectory";
@@ -13,14 +12,13 @@ export interface Replay {
   kinds: AgentKinds | null;
 }
 
-/** Who each person is. Only a venue with people groups has anyone but general adults, so other
- * runs never ask; a run simulated before the people mix was simulated has no list (404). */
-
-const hasGroups = (v: Venue) => v.floors.some((f) => f.zones.some((z) => (z.groups ?? []).some((g) => g.kind !== "general" && g.share > 0)));
-
-async function agentKinds(runId: string, signal: AbortSignal): Promise<AgentKinds | null> {
+/** Who each person is, when the run recorded it (a run with a people mix writes agents.json and
+ * lists it in its artifacts). The run's own record is read first, so a run without the file is
+ * never asked for it: no 404 in the browser's console. */
+export async function agentKinds(runId: string, signal: AbortSignal): Promise<AgentKinds | null> {
   try {
-    if (!hasGroups(await api.get<Venue>(`/runs/${runId}/venue`, signal))) return null;
+    const run = await api.get<{ result?: { artifacts?: { agents?: string | null } } | null }>(`/runs/${runId}`, signal);
+    if (!run.result?.artifacts?.agents) return null;
     return parseAgentKinds(await api.get<unknown>(`/runs/${runId}/agents`, signal));
   } catch {
     return null;
