@@ -101,6 +101,7 @@ class ExitSpec(_Spec):
     position: float = Field(default=0.5, ge=0, le=1)
     label: str | None = Field(default=None, max_length=40)
     level: int = Field(default=0, ge=-3, le=39)
+    closed: bool = False  # locked, chained or blocked: drawn, but nobody can use it
 
 
 class ZoneSpec(_Spec):
@@ -148,6 +149,7 @@ class PassageExitSpec(_Spec):
     width_m: float = Field(default=2.0, ge=0.8, le=60)
     at: float = Field(default=0.5, ge=0, le=1)
     label: str | None = Field(default=None, max_length=40)
+    closed: bool = False  # locked, chained or blocked: drawn, but nobody can use it
 
 
 class NarrowingSpec(_Spec):

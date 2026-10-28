@@ -198,6 +198,7 @@ def _passage_exits(part: PassagePart, base: str, problems: list[str], notes: lis
                 polygon=geo.to_points(got[0]),
                 width_m=got[1],
                 label=label,
+                blocked=e.closed,
             )
         )
     if ps.end_area is not None:
@@ -214,6 +215,7 @@ def _passage_exits(part: PassagePart, base: str, problems: list[str], notes: lis
                     polygon=geo.to_points(got[0]),
                     width_m=got[1],
                     label=label,
+                    blocked=e.closed,
                 )
             )
 

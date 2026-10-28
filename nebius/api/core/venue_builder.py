@@ -246,6 +246,7 @@ def _place_exits(
                         polygon=chosen,
                         width_m=round(width, 2),
                         label=label,
+                        blocked=e.closed,
                     ),
                 )
             )

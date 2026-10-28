@@ -547,3 +547,15 @@ def test_a_short_headcount_names_the_passages_and_areas_with_no_zone() -> None:
     assert not any('"Alley"' in p for p in problems) and any(
         '"Upper street"' in p for p in problems
     )
+
+
+def test_a_locked_exit_is_drawn_but_closed() -> None:
+    """A door the description says is locked stays in the plan, closed (on a wall or a passage)."""
+    raw = json.loads((ROOT_DIR / "api/tests/fixtures/real_cases/love_parade_2010.json").read_text())
+    spec = raw["spec"]
+    spec["exits"][0]["closed"] = True
+    spec["passages"][0]["exits"][1]["closed"] = True
+    v = build_venue(VenueSpec.model_validate(spec)).venue
+    exits = {e.label: e for f in v.floors for e in f.exits}
+    assert exits["Tunnel west end"].blocked and not exits["Tunnel east end"].blocked
+    assert exits["Narrow staircase"].blocked and not exits["Festival grounds"].blocked
