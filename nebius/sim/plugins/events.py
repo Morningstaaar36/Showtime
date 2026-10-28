@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 from script_api import ScriptRunner
 from shapely.geometry import Point
+from sim_defaults import setting
 
 Step = Callable[[Any], bool]
 HELD_SPEED = 0.0
@@ -143,8 +144,8 @@ def counterflow(ctx: Any, ev: dict[str, Any]) -> Step | None:
             return True
         if state["left"] <= 0:
             return True
-        # at most ~1.3 people per metre of width per second can push in
-        budget = max(1, int(1.3 * ex.width_m * c.frame_dt))
+        # at most the specific flow (people per metre of width per second) can push in
+        budget = max(1, int(setting(c.settings, "specific_flow") * ex.width_m * c.frame_dt))
         placed = c.spawn_points(
             seed_box,
             min(budget, state["left"]),

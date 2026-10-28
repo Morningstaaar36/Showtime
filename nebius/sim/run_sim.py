@@ -19,6 +19,7 @@ APP = Path(__file__).resolve().parent
 sys.path.insert(0, str(APP))
 
 import metrics  # noqa: E402
+from sim_defaults import setting  # noqa: E402
 
 REGISTRY = json.loads((APP / "plugins" / "registry.json").read_text())
 
@@ -79,7 +80,11 @@ def main(work: Path) -> int:
                 f"This scenario has {people:,} people but the limit is {max_people:,}. "
                 "Raise MAX_PEOPLE in Settings or lower a zone's headcount."
             )
-        frame_hz = float(settings.get("frame_hz") or (2.0 if people > 2500 else 4.0))
+        # fewer saved frames for a big crowd keeps the replay file small
+        big = people > setting(settings, "big_crowd")
+        frame_hz = float(
+            settings.get("frame_hz") or setting(settings, "frame_hz_big" if big else "frame_hz")
+        )
         settings["frame_dt"] = 1.0 / frame_hz
         if "dt" not in settings:
             # Tier 3 small crowds: 0.025 s (within ~4 % of 0.01 s); otherwise 0.05 s (~8 %
@@ -95,8 +100,8 @@ def main(work: Path) -> int:
         x0, y0, nx, ny = metrics.grid_for(venue)
         bounds = metrics.bounds_for(venue)
         metrics.write_trajectory(work, times, frames, x0, y0, floors, bounds)
-        warn = float(settings.get("density_warn_ppm2", 3.5))
-        danger = float(settings.get("density_danger_ppm2", 5.0))
+        warn = float(setting(settings, "density_warn_ppm2"))
+        danger = float(setting(settings, "density_danger_ppm2"))
         dens = metrics.density_and_hotspots(
             work, venue, times, frames, x0, y0, nx, ny, warn, danger
         )
@@ -125,7 +130,7 @@ def main(work: Path) -> int:
                 nx,
                 ny,
                 min_density=float(settings.get("pressure_min_density_ppm2", warn)),
-                threshold=float(settings.get("turbulence_pressure", 0.02)),
+                threshold=float(setting(settings, "turbulence_pressure")),
             )
             extra["peak_pressure"] = round(turbulence["peak"], 4)
             extra["time_turbulent_s"] = round(turbulence["turbulent_s"], 1)

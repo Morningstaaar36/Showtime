@@ -81,7 +81,7 @@ def sim_settings(settings: Settings, tier: int) -> dict[str, Any]:
     }
     if tier == 2:
         s["dt"] = settings.sim_dt_s
-        s["frame_hz"] = 2.0
+        s["frame_hz"] = settings.tier2_frame_hz
     return s
 
 

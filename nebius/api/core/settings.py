@@ -202,6 +202,7 @@ class Settings(BaseSettings):
     max_sim_s: float = 900.0
     max_wall_s: float = 600.0
     tier2_max_sim_s: float = 180.0
+    tier2_frame_hz: float = Field(default=2.0, gt=0)  # replay frames per second of a quick run
     walk_speed_mean: float = 1.34
     walk_speed_sd: float = 0.26
     slow_walker_fraction: float = 0.05

@@ -32,6 +32,7 @@ from jps_build import (
 )
 from script_api import ScriptRunner
 from shapely.geometry import Polygon
+from sim_defaults import setting
 
 from plugins.events import FLOOR_KEYS, HANDLERS, surge_step
 
@@ -122,10 +123,10 @@ class FloorRun:
         self.rng = np.random.default_rng(seed)
         self.seed = seed
         self.gids = gids  # shared counter [next_gid]
-        self.dt = float(settings.get("dt", 0.05))
-        self.frame_dt = float(settings.get("frame_dt", 0.25))
-        self.radius = float(settings.get("agent_radius", 0.22))
-        self.time_gap = float(settings.get("agent_time_gap", 1.0))
+        self.dt = float(setting(settings, "dt"))
+        self.frame_dt = float(setting(settings, "frame_dt"))
+        self.radius = float(setting(settings, "agent_radius"))
+        self.time_gap = float(setting(settings, "agent_time_gap"))
         self.rejected = 0
         self.out = FloorOutput(floor_id=self.floor_id)
         self.t = 0.0
@@ -142,7 +143,7 @@ class FloorRun:
             and intervention_at_s is not None
             and not self.free.equals(self.patched_free)
         )
-        self.model_name = str(settings.get("model", "cfsm"))
+        self.model_name = str(setting(settings, "model"))
         if self.model_name == "avm":
             # Anticipation velocity model (JuPedSim >= 1.3): fewer deadlocks at bottlenecks
             model: Any = jps.AnticipationVelocityModel(rng_seed=seed & 0x7FFFFFFF)
@@ -156,7 +157,7 @@ class FloorRun:
         self.exits: dict[str, ExitInfo] = {}
         self.load: dict[str, int] = {}
         self.late_exits: set[str] = set()
-        flow = float(settings.get("specific_flow", 1.3))
+        flow = float(setting(settings, "specific_flow"))
         for e in floor.get("exits", []):
             poly = patched_geom.exit_stages[e["id"]]
             info = ExitInfo(
@@ -176,7 +177,7 @@ class FloorRun:
                 self.load[info.id] = 0
                 continue
             self._add_exit(info)
-        stair_flow = float(settings.get("stair_flow", 1.0))
+        stair_flow = float(setting(settings, "stair_flow"))
         for s in venue.get("stairs", []):
             if s["from_floor"] == self.floor_id:
                 poly = inside(self.free, to_poly(s["top_polygon"]))
@@ -236,8 +237,8 @@ class FloorRun:
         self.last_exit_t: dict[str, float] = {}
         self.squeezed: set[int] = set()
         self.clogs: list[dict[str, Any]] = []
-        self.squeeze_radius = float(settings.get("squeeze_radius", 0.15))
-        self.clog_after_s = float(settings.get("clog_after_s", 4.0))
+        self.squeeze_radius = float(setting(settings, "squeeze_radius"))
+        self.clog_after_s = float(setting(settings, "clog_after_s"))
         self._next_clog_check = 2.0
         self._snap: dict[int, tuple[float, float]] = {}
         self._still: dict[int, int] = {}
@@ -1023,9 +1024,9 @@ def stair_schedule(
     plain FIFO queue max(t + length / speed, previous + headway).
     """
     stairs = {s["id"]: s for s in venue.get("stairs", [])}
-    speed = float(settings.get("stair_speed", 0.6))
-    flow = float(settings.get("stair_flow", 1.0))
-    mean = float(settings.get("walk_speed_mean", 1.34))
+    speed = float(setting(settings, "stair_speed"))
+    flow = float(setting(settings, "stair_flow"))
+    mean = float(setting(settings, "walk_speed_mean"))
     slow = slow or {}
     counterflow = counterflow or {}
     out: list[tuple[float, int, str]] = []

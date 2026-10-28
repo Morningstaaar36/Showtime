@@ -23,7 +23,7 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | Evacuation target without a hazard | Indoor 5 min, open-air 8 min (× safety factor) | Planning targets, not code limits; open-air follows UK Green Guide 8-minute egress practice | `TARGET_EVAC_INDOOR_S`, `TARGET_EVAC_OUTDOOR_S` |
 | Pre-movement time | 60 s | Typical for alerted, awake audiences; set per event | `PRE_MOVEMENT_S` |
 | Safety factor | 1.5 | Common engineering margin on egress time | `SAFETY_FACTOR` |
-| Crowd model | JuPedSim collision-free speed model, Δt 0.025 s (≤ 2,500 people) or 0.05 s | Tordeux et al. (2016). Δt 0.05 s is ~8% conservative vs 0.01 s on the 1,200-person hall | — |
+| Crowd model | JuPedSim collision-free speed model, Δt 0.025 s (≤ 2,500 people) or 0.05 s | Tordeux et al. (2016). Δt 0.05 s errs on the safe side: ~8% slower than 0.01 s on the 1,200-person hall at the model's own time gap, ~21% slower on a 60-person room at the calibrated 0.25 s gap (`test_time_step_calibration`) | — |
 | Deadlock handling | Door "squeeze" (radius 0.15 m after 4 s without flow) and 1 m sidestep for isolated deadlocks | Known artefact of collision-free models; bodies compress under pressure. Dense jams are left alone | — |
 | Door model | 0.6 m passage through the wall; people standing in a doorway leave through it | Prevents side-entry and doorway "plugs" (measured, `docs/PROGRESS.md`) | — |
 | Multi-floor | Each floor runs before the floors its stairs lead to (top down; a basement before street level); stair queue; people re-enter at the far landing | Approximation of stair flow; stairs are not walkable ramps; climbing out of a basement uses the same stair speed as going down | — |
