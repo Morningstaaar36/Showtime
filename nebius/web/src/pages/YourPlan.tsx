@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { api } from "@/api/client";
-import { useApplyFixes, usePlan, useProject, useRewind, useRun, useRunVenue, useSeedCheck, useSensitivity, useSession, useSessions, useSettings, useStartSession, useStartTogether, useStress, useTogether, useUndo, useVersions } from "@/api/queries";
+import { useApplyFixes, usePlan, useProject, useRewind, useRun, useRunVenue, useSeedCheck, useSensitivity, useSession, useSessions, useSettings, useStartSession, useStartTogether, useStress, useTestModes, useTogether, useUndo, useVersions } from "@/api/queries";
 import type { Fix, RunOut } from "@/api/types";
 import { useSessionStream } from "@/api/useSessionStream";
 import { Button } from "@/components/ui/button";
@@ -61,15 +61,10 @@ import { useReplay } from "@/replay/useReplay";
 import { SceneRoot } from "@/scene/SceneRoot";
 import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
-import { savedTestMode } from "@/journey/testModes";
+import { savedTestMode, testModesOf } from "@/journey/testModes";
 
 const PLAN_TABS = ["overview", "replay", "scenarios", "sandboxes", "fixes", "floors", "handover"] as const;
 type PlanTab = (typeof PLAN_TABS)[number];
-
-/** Showtime's planning targets for "everyone out" when no hazard time is known (api settings
- * `target_evac_indoor_s` / `target_evac_outdoor_s`); shown as targets, never as results. */
-const TARGET_INDOOR_S = 300;
-const TARGET_OUTDOOR_S = 480;
 
 const TabsPrimitiveList = TabsPrimitive.List;
 const TabsPrimitiveTrigger = TabsPrimitive.Trigger;
@@ -106,6 +101,7 @@ export function YourPlanPage() {
   const selectedPlan = usePlan(projectId);
   const versions = useVersions(projectId);
   const settings = useSettings();
+  const testModes = testModesOf(useTestModes().data);
   const sessions = useSessions(projectId);
   const sessionId = params.get("session") ?? sessions.data?.[0]?.id ?? null;
   const session = useSession(sessionId);
@@ -247,7 +243,7 @@ export function YourPlanPage() {
 
   const label = (id: string) => names.get(id) ?? id;
   // the depth this browser chose last on "Test this plan"
-  const testAgain = () => start.mutate({ project_id: p.id, config: savedTestMode().config }, {
+  const testAgain = () => start.mutate({ project_id: p.id, config: savedTestMode(testModes).config }, {
     onSuccess: (s) => navigate(`/p/${p.id}/work?session=${s.id}&live=1`),
     onError: (e) => toast.error(e.message),
   });
@@ -441,7 +437,7 @@ export function YourPlanPage() {
                       sandboxes={{ runs: sandboxRows(view).rows.length, scripts: scriptOutcomes(view, summary?.attacks ?? []).length, onOpen: () => go("sandboxes") }}
                       score={{ attacks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.attacks, 0) || (summary?.attacks?.length ?? 0),
                                breaks: (summary?.scoreboard ?? []).reduce((n, r) => n + r.breaks, 0), fixes: kept.length }} basis={basis} countdown={cd} countdownBasis={cdBasis} th={th}
-                      targetS={venue.mode === "indoor" ? TARGET_INDOOR_S : TARGET_OUTDOOR_S}
+                      targetS={venue.mode === "indoor" ? th.targetIndoorS : th.targetOutdoorS}
                       before={summary?.before as SessionMetrics | undefined}
                       after={subsetRun ? metricsOf(after.data) : summary?.after as SessionMetrics | undefined}
                       insideSeries={insideSeries(afterReplay.data ?? null)} hero={hero} next={next}

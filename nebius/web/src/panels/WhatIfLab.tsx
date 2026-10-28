@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { CloudRain, Footprints, RotateCcw, Users, Zap } from "lucide-react";
+import { CloudRain, Footprints, Gauge, type LucideIcon, RotateCcw, Users, Zap } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { api } from "@/api/client";
@@ -13,14 +13,14 @@ import { fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useUi } from "@/state/ui";
 import { ScoreGauge, useCountTo } from "./ScoreGauge";
+import { useSpeedPresets } from "./speedPresets";
 import { useThresholds } from "./useThresholds";
 
-const SPEEDS = [
-  { key: "normal", factor: 1.0, icon: Footprints },
-  { key: "rain", factor: 0.85, icon: CloudRain },
-  { key: "families", factor: 0.75, icon: Users },
-  { key: "smoke", factor: 0.6, icon: Zap },
-] as const;
+/** Icons for the server's speed presets; a preset this page does not know yet gets a plain one. */
+const SPEED_ICON: Record<string, LucideIcon> = { normal: Footprints, rain: CloudRain, families: Users, smoke: Zap };
+/** A what-if is shown as slower only past this share of the plan's own estimate: the instant
+ * estimate moves a little with any change, and a few percent is not a finding. */
+const SLOWER_RATIO = 1.15;
 
 interface Params { people_scale: number; speed_factor: number; blocked_exits: string[] }
 /** The plan as it stands (a constant, so the debounce below settles). */
@@ -67,9 +67,10 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
   const baseInstant = useWhatIf(project.id, version, BASE, null);
   const th = useThresholds();
   const [scale, setScale] = useState(1);
-  const [speed, setSpeed] = useState<(typeof SPEEDS)[number]["key"]>("normal");
+  const speeds = useSpeedPresets();
+  const [speed, setSpeed] = useState("normal");
   const [closed, setClosed] = useState<string[]>([]);
-  const factor = SPEEDS.find((s) => s.key === speed)!.factor;
+  const factor = speeds.find((s) => s.key === speed)?.factor ?? 1;
   const changed = scale !== 1 || factor !== 1 || closed.length > 0;
   const params = useMemo(() => ({ people_scale: scale, speed_factor: factor, blocked_exits: closed }), [scale, factor, closed]);
   const lab = useWhatIf(project.id, version, params);
@@ -89,7 +90,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
   };
   const simulate = () => {
     start.mutate({
-      project_id: project.id, tier: 3, seed: 42, blocked_exits: closed,
+      project_id: project.id, tier: 3, blocked_exits: closed,
       events: factor < 1 ? [{ type: "slowdown", factor, at_s: 0 }] : [],
       label: t("ui.whatiflab.run_label"),
     }, {
@@ -110,13 +111,16 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
       <div>
         <p className="text-xs">{t("ui.whatiflab.walking_speed")}</p>
         <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-          {SPEEDS.map((s) => (
-            <button key={s.key} type="button" onClick={() => setSpeed(s.key)}
-                    className={cn("flex items-center gap-1.5 rounded-[var(--radius-control)] border px-2 py-1 text-xs",
-                      speed === s.key ? "border-signal bg-signal-soft text-ink" : "border-border text-muted hover:text-ink")}>
-              <s.icon className="size-3.5" />{t(`ui.whatiflab.speed.${s.key}`)}<span className="ml-auto tabular text-2xs">{Math.round(s.factor * 100)}%</span>
-            </button>
-          ))}
+          {speeds.map((s) => {
+            const Icon = SPEED_ICON[s.key] ?? Gauge;
+            return (
+              <button key={s.key} type="button" onClick={() => setSpeed(s.key)}
+                      className={cn("flex items-center gap-1.5 rounded-[var(--radius-control)] border px-2 py-1 text-xs",
+                        speed === s.key ? "border-signal bg-signal-soft text-ink" : "border-border text-muted hover:text-ink")}>
+                <Icon className="size-3.5" />{t(`ui.whatiflab.speed.${s.key}`)}<span className="ml-auto tabular text-2xs">{Math.round(s.factor * 100)}%</span>
+              </button>
+            );
+          })}
         </div>
       </div>
       {exits.length > 0 && (
@@ -138,7 +142,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
         <div className={cn("space-y-2 transition-opacity", lab.isFetching && "opacity-70")}>
           <ScoreGauge score={w.score} size={64} label={t("ui.whatiflab.score")} delta={baseInstant.data ? w.score.score - baseInstant.data.score.score : undefined} />
           <div className="grid grid-cols-3 gap-1.5">
-            <Stat label={t("metrics.p95_out")} value={w.metrics.evac_time_p95_s} unit={t("ui.whatiflab.unit_s")} worse={!!baseInstant.data?.metrics.evac_time_p95_s && (w.metrics.evac_time_p95_s ?? 0) > baseInstant.data.metrics.evac_time_p95_s * 1.15} />
+            <Stat label={t("metrics.p95_out")} value={w.metrics.evac_time_p95_s} unit={t("ui.whatiflab.unit_s")} worse={!!baseInstant.data?.metrics.evac_time_p95_s && (w.metrics.evac_time_p95_s ?? 0) > baseInstant.data.metrics.evac_time_p95_s * SLOWER_RATIO} />
             <Stat label={t("ui.whatiflab.peak")} value={w.metrics.peak_density_ppm2} unit="" digits={1} worse={w.metrics.peak_density_ppm2 >= th.danger} />
             <Stat label={t("ui.whatiflab.capacity")} value={w.capacity.safe_people} unit="" worse={w.people > w.capacity.safe_people} />
           </div>

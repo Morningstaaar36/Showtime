@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Boxes, Loader2, Play } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/api/client";
+import { SWEEP_POLL_MS } from "@/api/poll";
 import { Button } from "@/components/ui/button";
 import { PanelTitle } from "@/components/ui/misc";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,7 @@ export function ScenarioMatrix({ projectId, version, danger, warn }: { projectId
   const q = useQuery({
     queryKey: ["sweep", projectId],
     queryFn: () => api.get<Sweep>(`/projects/${projectId}/sweep`),
-    refetchInterval: (query) => (query.state.data?.items.some((i) => i.status === "running" || i.status === "queued") ? 2500 : false),
+    refetchInterval: (query) => (query.state.data?.items.some((i) => i.status === "running" || i.status === "queued") ? SWEEP_POLL_MS : false),
   });
   const start = useMutation({
     mutationFn: () => api.post<Sweep>(`/projects/${projectId}/sweep`),

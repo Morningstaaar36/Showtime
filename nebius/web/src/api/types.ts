@@ -244,10 +244,13 @@ export interface Features {
   provider: string;
 }
 
+/** A setting, or a table of them (`editor`, `speed_presets`). */
+export type SettingValue = number | string | boolean | Record<string, number>;
+
 export interface SettingsOut {
-  effective: Record<string, number | string | boolean>;
+  effective: Record<string, SettingValue>;
   ui: Record<string, unknown>;
-  defaults: Record<string, number | string | boolean>;
+  defaults: Record<string, SettingValue>;
 }
 
 export interface CountdownOut {

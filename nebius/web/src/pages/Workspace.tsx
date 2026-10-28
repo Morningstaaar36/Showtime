@@ -35,7 +35,8 @@ import { usePlayback } from "@/state/playback";
 import { isBuildTool, type Mode, type Tool, useUi } from "@/state/ui";
 import { FloorSwitch } from "@/panels/FloorSwitch";
 import { BuildPanel, useApplyStep } from "@/panels/BuildPanel";
-import { clickStep, dropLastPoint, finishStep, isPolylineTool } from "@/lib/buildTools";
+import { buildOptionsOf, clickStep, dropLastPoint, finishStep, isPolylineTool } from "@/lib/buildTools";
+import { useEditorDefaults } from "@/lib/useEditorDefaults";
 import { resolveEditFloor } from "@/lib/venueOps";
 import { useBuild } from "@/state/build";
 
@@ -75,6 +76,7 @@ export function WorkspacePage() {
   const start = useStartRun();
   const tier1 = useTier1(projectId);
   const build = useApplyStep(projectId);
+  const ed = useEditorDefaults();
 
   useEffect(() => { useUi.getState().resetForProject(); usePlayback.getState().reset(); }, [projectId]);
   useEffect(() => { useUi.getState().setTool("select"); useUi.getState().select(null); }, [mode]);
@@ -216,7 +218,7 @@ export function WorkspacePage() {
         if (!isPolylineTool(ui.tool) || !p) return;
         e.preventDefault();
         if (k === "backspace") ui.setDraft(dropLastPoint(ui.draft));
-        else build.apply(finishStep(ui.tool, resolveEditFloor(p.version.venue, ui.editFloor), ui.draft, useBuild.getState().opts));
+        else build.apply(finishStep(ui.tool, resolveEditFloor(p.version.venue, ui.editFloor), ui.draft, buildOptionsOf(ed, useBuild.getState().chosen)));
       }
       else if (k === "r") runStress();
       else if (["1", "2", "3", "4"].includes(k)) navigate(`/p/${projectId}/expert/${MODES[Number(k) - 1]}`);
@@ -224,7 +226,7 @@ export function WorkspacePage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [p, mode, projectId, runStress, navigate, undo, redo, build]);
+  }, [p, mode, projectId, runStress, navigate, undo, redo, build, ed]);
 
   const result = run.data?.result ?? null;
   // the verdict in Plan prefers a confirmed simulation of exactly this version over the formula
@@ -300,13 +302,13 @@ export function WorkspacePage() {
     if (mode !== "plan" && tool !== "measure") { ui.select(null); return; }
     if (isBuildTool(tool)) {
       if (floor.floor_id !== resolveEditFloor(venue, useUi.getState().editFloor)) ui.setEditFloor(floor.floor_id);
-      build.apply(clickStep(tool, venue, floor.floor_id, useUi.getState().draft, x, y, useBuild.getState().opts));
+      build.apply(clickStep(tool, venue, floor.floor_id, useUi.getState().draft, x, y, buildOptionsOf(ed, useBuild.getState().chosen)));
       return;
     }
     if (tool === "exit") {
-      const rect = exitRectAt(floor.walkable as Pt[], x, y, 2.0);
+      const rect = exitRectAt(floor.walkable as Pt[], x, y, ed.exitWidth);
       if (!rect) { toast.error(t("ui.workspace.click_closer_to_an_outer")); return; }
-      submitOps([{ op: "add_exit", floor_id: floor.floor_id, id: shortId("exit"), width_m: 2.0, polygon: rect, label: t("ui.workspace.new_exit") } as PatchOpIn], t("ui.workspace.added_exit"));
+      submitOps([{ op: "add_exit", floor_id: floor.floor_id, id: shortId("exit"), width_m: ed.exitWidth, polygon: rect, label: t("ui.workspace.new_exit") } as PatchOpIn], t("ui.workspace.added_exit"));
       ui.setTool("select");
     } else if (tool === "barrier" || tool === "zone" || tool === "measure") {
       const d = useUi.getState().draft;
@@ -318,14 +320,14 @@ export function WorkspacePage() {
     const tool = useUi.getState().tool;
     const d = useUi.getState().draft;
     if (isBuildTool(tool)) {
-      if (isPolylineTool(tool) && d.length >= 2) build.apply(finishStep(tool, floor.floor_id, d, useBuild.getState().opts));
+      if (isPolylineTool(tool) && d.length >= 2) build.apply(finishStep(tool, floor.floor_id, d, buildOptionsOf(ed, useBuild.getState().chosen)));
       return;
     }
     if (tool === "barrier" && d.length >= 2) {
       submitOps([{ op: "add_barrier_line", floor_id: floor.floor_id, id: shortId("barrier"), points: d.slice(0, 20) } as PatchOpIn], t("ui.workspace.added_barrier"));
       ui.setDraft([]);
     } else if (tool === "zone" && d.length >= 3) {
-      const people = Math.round(polygonArea(d) * 1.5);
+      const people = Math.round(polygonArea(d) * ed.zoneDensity);
       submitOps([{ op: "add_zone", floor_id: floor.floor_id, id: shortId("zone"), polygon: d, people, label: t("ui.workspace.new_zone") } as PatchOpIn], t("ui.workspace.added_zone"));
       ui.setDraft([]);
     }

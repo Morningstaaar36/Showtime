@@ -95,12 +95,12 @@ export function nextFloorName(venue: Venue): string {
 }
 
 /** A new storey above the current top one (the server places it `height_m` higher). */
-export function addFloorOp(venue: Venue, opts: { name?: string; height_m?: number; copy_walls?: boolean } = {}): PatchOpIn {
+export function addFloorOp(venue: Venue, opts: { name?: string; height_m: number; copy_walls?: boolean }): PatchOpIn {
   return asOp({
     op: "add_floor",
     floor_id: nextFloorId(venue),
     name: opts.name?.trim() || nextFloorName(venue),
-    height_m: r2(opts.height_m ?? 3.5),
+    height_m: r2(opts.height_m),
     copy_walls: opts.copy_walls ?? true,
   });
 }
@@ -120,12 +120,12 @@ export function stairEnds(venue: Venue, floorId: string): { from_floor: string; 
 }
 
 export function addStairOp(venue: Venue, floorId: string, x: number, y: number,
-  opts: { direction?: Direction; width_m?: number; run_m?: number; id?: string } = {}): PatchOpIn | null {
+  opts: { direction?: Direction; width_m: number; run_m: number; id?: string }): PatchOpIn | null {
   const ends = stairEnds(venue, floorId);
   if (!ends) return null;
   const op: AddStairOp = {
     op: "add_stair", ...(opts.id ? { id: opts.id } : {}), ...ends, x: r2(x), y: r2(y),
-    width_m: r2(opts.width_m ?? 1.5), run_m: r2(opts.run_m ?? 6), direction: opts.direction ?? "north",
+    width_m: r2(opts.width_m), run_m: r2(opts.run_m), direction: opts.direction ?? "north",
   };
   return asOp(op);
 }
@@ -144,11 +144,11 @@ export function cleanPolyline(points: Pt[], tol = 0.05): Pt[] {
   return out;
 }
 
-export function addWallOp(floorId: string, points: Pt[], opts: { id?: string; thickness_m?: number } = {}): PatchOpIn | null {
+export function addWallOp(floorId: string, points: Pt[], opts: { id?: string; thickness_m: number }): PatchOpIn | null {
   const pts = cleanPolyline(points);
   if (pts.length < 2) return null;
   return asOp({ op: "add_wall", floor_id: floorId, ...(opts.id ? { id: opts.id } : {}), points: pts.slice(0, 50),
-                thickness_m: r2(opts.thickness_m ?? 0.2) });
+                thickness_m: r2(opts.thickness_m) });
 }
 
 function closestOnSegment(p: Pt, a: Pt, b: Pt): { point: Pt; dist: number } {
@@ -191,8 +191,11 @@ function distanceToOutline(floor: Floor, x: number, y: number): number {
 
 type DoorPlan = { op: PatchOpIn; at: Pt; wallId: string } | { error: "door_no_wall" | "door_outer_wall" | "door_wall_short" };
 
-/** A door cut into the inner wall nearest the click (within `reach` metres). */
-export function planDoor(floor: Floor, x: number, y: number, width = 1.0, reach = 1.5): DoorPlan {
+/** How near a wall a click must land to put a door in it: a pointer's slack, not a size rule. */
+export const DOOR_REACH_M = 1.5;
+
+/** A door `width` metres wide cut into the inner wall nearest the click (within `reach` metres). */
+export function planDoor(floor: Floor, x: number, y: number, width: number, reach = DOOR_REACH_M): DoorPlan {
   const hit = nearestWall(floor, x, y);
   if (!hit || hit.dist > reach) return { error: distanceToOutline(floor, x, y) <= reach ? "door_outer_wall" : "door_no_wall" };
   if (hit.length < width) return { error: "door_wall_short" };
@@ -235,12 +238,16 @@ export function roomOutline(r: RoomSpec): Pt[] {
 
 type RoomPlan = { op: PatchOpIn } | { error: "room_too_small" | "room_door_wide" };
 
+/** The smallest room side the server's add_room accepts (plugins/ops_core): a room, not a
+ * passage, so it is not the minimum passage width. */
+const MIN_ROOM_SIDE_M = 1.5;
+
 export function planRoom(floorId: string, r: RoomSpec, opts: {
-  door_wall?: Direction; door_width_m?: number; people?: number | null; label?: string; groups?: PeopleGroup[]; id?: string;
-} = {}): RoomPlan {
-  if (r.width_m < 1.5 || r.depth_m < 1.5) return { error: "room_too_small" };
+  door_wall?: Direction; door_width_m: number; people?: number | null; label?: string; groups?: PeopleGroup[]; id?: string;
+}): RoomPlan {
+  if (r.width_m < MIN_ROOM_SIDE_M || r.depth_m < MIN_ROOM_SIDE_M) return { error: "room_too_small" };
   const side = opts.door_wall ?? "south";
-  const door = opts.door_width_m ?? 1.0;
+  const door = opts.door_width_m;
   if (door > (side === "north" || side === "south" ? r.width_m : r.depth_m) - 0.2) return { error: "room_door_wide" };
   const op: AddRoomOp = {
     op: "add_room", floor_id: floorId, ...(opts.id ? { id: opts.id } : {}), ...r, door_wall: side, door_width_m: r2(door),

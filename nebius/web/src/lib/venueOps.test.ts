@@ -5,7 +5,10 @@ import {
   nextFloorId, normalizeGroups, planDoor, planRoom, removeFloorOp, removeStairOp, resolveEditFloor, roomFromCorners,
   setEventKindOp, snapPoint, stairEnds, zoneProfileOp,
 } from "./venueOps";
+import { editorDefaultsOf } from "./editorDefaults";
 
+// the sizes the page uses before the settings load
+const ed = editorDefaultsOf({});
 const square = (s: number): [number, number][] => [[0, 0], [s, 0], [s, s], [0, s]];
 const floor = (id: string, elevation: number, extra: Partial<Venue["floors"][number]> = {}) => ({
   floor_id: id, name: null, elevation_m: elevation, walkable: square(20), obstacles: [], exits: [], zones: [], ...extra,
@@ -35,7 +38,7 @@ describe("floor labels and ids", () => {
   it("adds a floor with a free id and a default name", () => {
     const v = venue([floor("F0", 0), floor("F1", 3.5)]);
     expect(nextFloorId(v)).toBe("F2");
-    expect(addFloorOp(v)).toEqual({ op: "add_floor", floor_id: "F2", name: "Floor 2", height_m: 3.5, copy_walls: true });
+    expect(addFloorOp(v, { height_m: ed.floorHeight })).toEqual({ op: "add_floor", floor_id: "F2", name: "Floor 2", height_m: 3.5, copy_walls: true });
     expect(addFloorOp(v, { name: " Roof ", height_m: 4.25, copy_walls: false }))
       .toEqual({ op: "add_floor", floor_id: "F2", name: "Roof", height_m: 4.25, copy_walls: false });
     expect(removeFloorOp("F1")).toEqual({ op: "remove_floor", floor_id: "F1" });
@@ -51,18 +54,18 @@ describe("stairs", () => {
   });
   it("builds add_stair with the contract fields", () => {
     const v = venue([floor("F0", 0), floor("F1", 3.5)]);
-    expect(addStairOp(v, "F1", 4.123, 5, { direction: "east" })).toEqual({
+    expect(addStairOp(v, "F1", 4.123, 5, { direction: "east", width_m: ed.stairWidth, run_m: ed.stairRun })).toEqual({
       op: "add_stair", from_floor: "F1", to_floor: "F0", x: 4.12, y: 5, width_m: 1.5, run_m: 6, direction: "east",
     });
-    expect(addStairOp(venue([floor("F0", 0)]), "F0", 1, 1)).toBeNull();
+    expect(addStairOp(venue([floor("F0", 0)]), "F0", 1, 1, { width_m: ed.stairWidth, run_m: ed.stairRun })).toBeNull();
     expect(removeStairOp("s1")).toEqual({ op: "remove_stair", stair_id: "s1" });
   });
 });
 
 describe("walls and doors", () => {
   it("drops the doubled last point of a double-click", () => {
-    expect(addWallOp("F0", [[0, 0], [5, 0], [5, 0.01]])).toEqual({ op: "add_wall", floor_id: "F0", points: [[0, 0], [5, 0]], thickness_m: 0.2 });
-    expect(addWallOp("F0", [[1, 1], [1, 1]])).toBeNull();
+    expect(addWallOp("F0", [[0, 0], [5, 0], [5, 0.01]], { thickness_m: ed.wallThickness })).toEqual({ op: "add_wall", floor_id: "F0", points: [[0, 0], [5, 0]], thickness_m: 0.2 });
+    expect(addWallOp("F0", [[1, 1], [1, 1]], { thickness_m: ed.wallThickness })).toBeNull();
   });
   it("finds the nearest inner wall and cuts the door there", () => {
     const f = floor("F0", 0, { obstacles: [wall] });
@@ -72,8 +75,8 @@ describe("walls and doors", () => {
   });
   it("explains a click that is not on an inner wall", () => {
     const f = floor("F0", 0, { obstacles: [wall] });
-    expect(planDoor(f, 5, 7)).toEqual({ error: "door_no_wall" });
-    expect(planDoor(f, 0.5, 7)).toEqual({ error: "door_outer_wall" });
+    expect(planDoor(f, 5, 7, ed.doorWidth)).toEqual({ error: "door_no_wall" });
+    expect(planDoor(f, 0.5, 7, ed.doorWidth)).toEqual({ error: "door_outer_wall" });
     expect(planDoor(f, 10, 7, 20)).toEqual({ error: "door_wall_short" });
   });
   it("snaps to corners first, then onto lines", () => {
@@ -90,13 +93,13 @@ describe("rooms", () => {
   });
   it("builds add_room and adds people only when given", () => {
     const r = { x: 2, y: 3, width_m: 6, depth_m: 4 };
-    expect(planRoom("F1", r)).toEqual({ op: { op: "add_room", floor_id: "F1", x: 2, y: 3, width_m: 6, depth_m: 4, door_wall: "south", door_width_m: 1 } });
-    expect(planRoom("F1", r, { door_wall: "west", people: 12.4, label: "Ward A", groups: [{ kind: "bed", share: 0.5 }] })).toEqual({
+    expect(planRoom("F1", r, { door_width_m: ed.doorWidth })).toEqual({ op: { op: "add_room", floor_id: "F1", x: 2, y: 3, width_m: 6, depth_m: 4, door_wall: "south", door_width_m: 1 } });
+    expect(planRoom("F1", r, { door_width_m: ed.doorWidth, door_wall: "west", people: 12.4, label: "Ward A", groups: [{ kind: "bed", share: 0.5 }] })).toEqual({
       op: { op: "add_room", floor_id: "F1", x: 2, y: 3, width_m: 6, depth_m: 4, door_wall: "west", door_width_m: 1, people: 12, label: "Ward A", groups: [{ kind: "bed", share: 0.5 }] },
     });
   });
   it("refuses rooms too small for a door", () => {
-    expect(planRoom("F0", { x: 0, y: 0, width_m: 1, depth_m: 5 })).toEqual({ error: "room_too_small" });
+    expect(planRoom("F0", { x: 0, y: 0, width_m: 1, depth_m: 5 }, { door_width_m: ed.doorWidth })).toEqual({ error: "room_too_small" });
     expect(planRoom("F0", { x: 0, y: 0, width_m: 2, depth_m: 5 }, { door_width_m: 1.9 })).toEqual({ error: "room_door_wide" });
   });
 });

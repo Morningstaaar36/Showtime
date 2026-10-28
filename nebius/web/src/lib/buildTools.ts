@@ -4,6 +4,7 @@
 import type { PatchOpIn, Pt, Venue } from "@/api/types";
 import { t } from "@/i18n";
 import type { BuildTool } from "@/state/ui";
+import type { EditorDefaults } from "./editorDefaults";
 import {
   addRouteOp, addStairOp, addWallOp, cleanPolyline, type Direction, planDoor, planRoom, roomFromCorners,
   snapPoint, stairEnds,
@@ -23,10 +24,14 @@ export interface BuildOptions {
   routeLabel: string;
 }
 
-export const DEFAULT_BUILD_OPTIONS: BuildOptions = {
-  wallThickness: 0.2, doorWidth: 1.0, roomDoorSide: "south", roomDoorWidth: 1.0, roomPeople: null, roomLabel: "",
-  stairDirection: "north", stairWidth: 1.5, stairRun: 6, routeWidth: null, routeLabel: "",
-};
+/** The tools' options: what the organizer chose, over the editor defaults from the settings. */
+export function buildOptionsOf(ed: EditorDefaults, chosen: Partial<BuildOptions> = {}): BuildOptions {
+  return {
+    wallThickness: ed.wallThickness, doorWidth: ed.doorWidth, roomDoorSide: "south", roomDoorWidth: ed.doorWidth, roomPeople: null, roomLabel: "",
+    stairDirection: "north", stairWidth: ed.stairWidth, stairRun: ed.stairRun, routeWidth: null, routeLabel: "",
+    ...chosen,
+  };
+}
 
 type ErrorKey =
   | "door_no_wall" | "door_outer_wall" | "door_wall_short" | "room_too_small" | "room_door_wide"

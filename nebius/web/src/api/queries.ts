@@ -1,10 +1,12 @@
 /** TanStack Query hooks for every server resource. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, configureTimeouts } from "./client";
+import { CHECK_POLL_MS, HEALTH_POLL_MS, RUN_POLL_MS, SESSION_POLL_MS, SWEEP_POLL_MS } from "./poll";
 import { useMapConfig } from "@/state/mapConfig";
 import type { ImportKind } from "@/lib/importTypes";
 import type { PlanSnapshot } from "@/types/generated";
 import type { CaseFacts, OpenCaseOut, RealCase } from "@/journey/realCases";
+import type { TestModes } from "@/journey/testModes";
 import type {
   SandboxIsolation,
   AskOut,
@@ -59,7 +61,7 @@ export const useHealth = () =>
       useMapConfig.getState().set(h.client?.map); // and which maps it shows
       return h;
     },
-    refetchInterval: 15000,
+    refetchInterval: HEALTH_POLL_MS,
     retry: 1,
   });
 /** One attack from `make sandbox-proof`, as the sandbox reported it. */
@@ -74,6 +76,9 @@ export const useFeatures = () =>
   useQuery({ queryKey: qk.features, queryFn: () => api.get<Features>("/features"), staleTime: 60000 });
 export const useSettings = () =>
   useQuery({ queryKey: qk.settings, queryFn: () => api.get<SettingsOut>("/settings") });
+/** How deep a test can go: the modes "Test this plan" offers and their session settings. */
+export const useTestModes = () =>
+  useQuery({ queryKey: ["test_modes"], queryFn: () => api.get<TestModes>("/test_modes"), staleTime: Infinity, retry: false });
 export const useTemplates = () =>
   useQuery({ queryKey: qk.templates, queryFn: () => api.get<Template[]>("/templates"),
              staleTime: Infinity });
@@ -115,7 +120,7 @@ export const useRun = (id: string | null | undefined) =>
     enabled: !!id,
     refetchInterval: (q) => {
       const s = q.state.data?.status;
-      return s === "queued" || s === "running" ? 1000 : false;
+      return s === "queued" || s === "running" ? RUN_POLL_MS : false;
     },
   });
 
@@ -129,7 +134,7 @@ export const useSession = (id: string | null | undefined) =>
     queryKey: qk.session(id ?? ""),
     queryFn: () => api.get<SessionOut>(`/sessions/${id}`),
     enabled: !!id,
-    refetchInterval: (q) => (q.state.data?.status === "running" || q.state.data?.status === "queued" ? 3000 : false),
+    refetchInterval: (q) => (q.state.data?.status === "running" || q.state.data?.status === "queued" ? SESSION_POLL_MS : false),
   });
 
 export const useStageCheck = (projectId: string | undefined, key: string, enabled: boolean) =>
@@ -438,7 +443,7 @@ export const useAutopilot = (id: string | null | undefined) =>
     queryFn: () => api.get<AutopilotRun>(`/autopilot/${id}`),
     enabled: !!id,
     retry: (n, e) => (e as { status?: number }).status !== 404 && n < 2,
-    refetchInterval: (q) => (q.state.data?.status === "running" || q.state.data?.status === "queued" ? 3000 : false),
+    refetchInterval: (q) => (q.state.data?.status === "running" || q.state.data?.status === "queued" ? SESSION_POLL_MS : false),
   });
 
 /** Plan an event from one sentence (or test a project): returns the run at once. */
@@ -590,13 +595,11 @@ export function useRunScript(projectId: string) {
 import type { RewindRecord } from "@/journey/plan/rewind";
 import type { StressRecord } from "@/journey/plan/stress";
 
-const POLL_MS = 1500;
-
 /** A session's latest rewind (null when none); polled while its branches run. */
 export const useRewind = (sessionId: string | null | undefined) =>
   useQuery({ queryKey: ["rewind", sessionId], enabled: !!sessionId,
              queryFn: () => api.get<RewindRecord | null>(`/sessions/${sessionId}/rewind`),
-             refetchInterval: (q) => (q.state.data?.status === "running" ? POLL_MS : false) });
+             refetchInterval: (q) => (q.state.data?.status === "running" ? CHECK_POLL_MS : false) });
 
 /** Rewind the session's worst attack to its moment of peak danger and try every response. */
 export function useStartRewind(sessionId: string | null | undefined) {
@@ -611,7 +614,7 @@ export function useStartRewind(sessionId: string | null | undefined) {
 export const useStress = (projectId: string | undefined) =>
   useQuery({ queryKey: ["stress", projectId], enabled: !!projectId,
              queryFn: () => api.get<StressRecord | null>(`/projects/${projectId}/stress`),
-             refetchInterval: (q) => (q.state.data?.status === "running" ? POLL_MS : false) });
+             refetchInterval: (q) => (q.state.data?.status === "running" ? CHECK_POLL_MS : false) });
 
 export function useStartStress(projectId: string) {
   const qc = useQueryClient();
@@ -635,7 +638,7 @@ export function useSeedCheck(sessionId: string | null) {
     enabled: !!sessionId,
     queryFn: () => api.get<SeedCheck>(`/sessions/${sessionId}/seeds`),
     // follow the runs while any is still going
-    refetchInterval: (q) => (q.state.data?.status === "running" ? 2500 : false),
+    refetchInterval: (q) => (q.state.data?.status === "running" ? SWEEP_POLL_MS : false),
   });
 }
 
@@ -654,7 +657,7 @@ import type { AppliedRecord } from "./types";
 export const useSensitivity = (sessionId: string | null | undefined) =>
   useQuery({ queryKey: ["sensitivity", sessionId], enabled: !!sessionId,
              queryFn: () => api.get<SensitivityRecord>(`/sessions/${sessionId}/sensitivity`),
-             refetchInterval: (q) => (q.state.data?.status === "running" ? POLL_MS : false) });
+             refetchInterval: (q) => (q.state.data?.status === "running" ? CHECK_POLL_MS : false) });
 
 export function useStartSensitivity(sessionId: string | null | undefined) {
   const qc = useQueryClient();
@@ -680,7 +683,7 @@ export function useTogether(sessionId: string | null | undefined, enabled: boole
       if (out.status !== "running" && sessionId) void qc.invalidateQueries({ queryKey: qk.session(sessionId) });
       return out;
     },
-    refetchInterval: (q) => (q.state.data?.status === "running" ? POLL_MS : false),
+    refetchInterval: (q) => (q.state.data?.status === "running" ? CHECK_POLL_MS : false),
   });
 }
 

@@ -3,14 +3,12 @@
 import type { Exit, Floor, PatchOpIn, Pt, Venue } from "@/api/types";
 import { t } from "@/i18n";
 import { annotateOp, annotationOf, type ChangeStatus } from "@/lib/annotations";
+import type { EditorDefaults } from "@/lib/editorDefaults";
 import { centroid, edgesOf, exitRectAt, pointInPolygon } from "@/scene/geom";
 
 export type PaletteItem = "door" | "fence" | "crowd" | "stall";
 export type GrabKind = "exit" | "obstacle" | "zone" | "stage";
 
-/** A new crowd area holds this many people at about 2 people per m² (easy to change after). */
-export const CROWD_PEOPLE = 200;
-export const DOOR_WIDTH = 2;
 const SNAP = 0.5;
 
 export interface Hit { floorId: string; x: number; y: number; inside: boolean }
@@ -46,24 +44,26 @@ const allInside = (poly: Pt[], pts: Pt[]) => pts.every(([px, py]) => pointInPoly
 
 /** A door dropped anywhere on the floor goes to the closest point of the nearest outer wall long
  * enough for it, so it need not be aimed at a wall; null off the floor. */
-function onNearestWall(walkable: Pt[], x: number, y: number): Pt[] | null {
+function onNearestWall(walkable: Pt[], x: number, y: number, width: number): Pt[] | null {
   if (!pointInPolygon(x, y, walkable)) return null;
   let best: { px: number; py: number; d: number } | null = null;
   for (const e of edgesOf(walkable)) {
-    if (e.len < DOOR_WIDTH + 0.2) continue;
+    if (e.len < width + 0.2) continue;
     const t = Math.max(0, Math.min(1, ((x - e.a[0]) * e.ux + (y - e.a[1]) * e.uy) / e.len));
     const px = e.a[0] + e.ux * e.len * t, py = e.a[1] + e.uy * e.len * t;
     const d = Math.hypot(x - px, y - py);
     if (!best || d < best.d) best = { px, py, d };
   }
-  return best ? exitRectAt(walkable, best.px, best.py, DOOR_WIDTH) : null;
+  return best ? exitRectAt(walkable, best.px, best.py, width) : null;
 }
 
-/** Where the item would go; null when it does not fit there (a door off the floor, etc.). */
-export function itemShape(floor: Floor, item: PaletteItem, x: number, y: number): ItemShape | null {
+/** Where the item would go; null when it does not fit there (a door off the floor, etc.). A door
+ * is a new exit (`ed.exitWidth` wide); a crowd area holds `ed.crowdPeople` at the new-area
+ * density, shrinking near walls (easy to change after). */
+export function itemShape(floor: Floor, item: PaletteItem, x: number, y: number, ed: EditorDefaults): ItemShape | null {
   const walkable = floor.walkable as Pt[];
   if (item === "door") {
-    const rect = exitRectAt(walkable, x, y, DOOR_WIDTH) ?? onNearestWall(walkable, x, y);
+    const rect = exitRectAt(walkable, x, y, ed.exitWidth) ?? onNearestWall(walkable, x, y, ed.exitWidth);
     return rect ? { item, points: rect } : null;
   }
   if (!pointInPolygon(x, y, walkable)) return null;
@@ -77,7 +77,7 @@ export function itemShape(floor: Floor, item: PaletteItem, x: number, y: number)
     }
     return null;
   }
-  const sides = item === "crowd" ? [Math.sqrt(CROWD_PEOPLE / 2), 8, 6, 4, 3] : [3, 2];
+  const sides = item === "crowd" ? [Math.sqrt(ed.crowdPeople / ed.zoneDensity), 8, 6, 4, 3] : [3, 2];
   for (const side of sides) {
     const sq = square(x, y, side);
     if (allInside(walkable, sq)) return { item, points: sq };
@@ -110,17 +110,17 @@ export interface Placement { ops: PatchOpIn[]; id: string; kind: GrabKind; name:
 
 /** Patch ops for a palette item dropped at (x, y) on a floor, or an error message key. */
 export function placeItem(venue: Venue, floorId: string, item: PaletteItem, x: number, y: number,
-  change: ChangeStatus, newId: (prefix: string) => string): Placement | { error: string } {
+  change: ChangeStatus, newId: (prefix: string) => string, ed: EditorDefaults): Placement | { error: string } {
   const floor = venue.floors.find((f) => f.floor_id === floorId);
   if (!floor) return { error: "check.drop_on_venue" };
-  const shape = itemShape(floor, item, x, y);
+  const shape = itemShape(floor, item, x, y, ed);
   if (!shape) return { error: item === "door" ? "check.door_near_wall" : "check.drop_no_room" };
   const outdoor = venue.mode === "outdoor";
   if (item === "door") {
     const id = newId("exit");
     const name = freeName(venue, t(`check.new_name.${outdoor ? "gate" : "door"}`, { side: wallName(floor.walkable as Pt[], shape.points) }));
     return { id, kind: "exit", name, ops: [
-      { op: "add_exit", floor_id: floorId, id, width_m: DOOR_WIDTH, polygon: shape.points, label: name } as PatchOpIn,
+      { op: "add_exit", floor_id: floorId, id, width_m: ed.exitWidth, polygon: shape.points, label: name } as PatchOpIn,
       annotateOp(id, { change }),
     ] };
   }
@@ -135,7 +135,7 @@ export function placeItem(venue: Venue, floorId: string, item: PaletteItem, x: n
     const id = newId("zone");
     const name = freeName(venue, t("check.new_name.crowd"));
     return { id, kind: "zone", name, ops: [
-      { op: "add_zone", floor_id: floorId, id, polygon: shape.points, people: CROWD_PEOPLE, label: name } as PatchOpIn,
+      { op: "add_zone", floor_id: floorId, id, polygon: shape.points, people: ed.crowdPeople, label: name } as PatchOpIn,
     ] };
   }
   const id = newId("stall");

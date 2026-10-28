@@ -1,5 +1,9 @@
 /** Reader for density.bin: uint8 [frames, floors, ny, nx], value × scale = people per m². */
 
+/** Top of every density scale (heatmap, legend, peak chart), in people per m²: above the
+ * danger line with room to spare, so one scale reads the same everywhere. */
+export const DENSITY_MAX = 7;
+
 export interface DensityIndex {
   format: string;
   times: number[];
@@ -20,7 +24,7 @@ export class DensityGrid {
   readonly index: DensityIndex;
   readonly data: Uint8Array;
   readonly frameSize: number;
-  /** top of the colour scale; unset = people per m² ({@link DENSITY_MAX} in the scene). Grids in
+  /** top of the colour scale; unset = people per m² ({@link DENSITY_MAX}). Grids in
    * another unit (crowd pressure) set their own. */
   displayMax?: number;
 

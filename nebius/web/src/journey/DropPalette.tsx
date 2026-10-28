@@ -5,7 +5,8 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { CROWD_PEOPLE, DOOR_WIDTH, type Hit, type PaletteItem } from "./dragDrop";
+import { useEditorDefaults } from "@/lib/useEditorDefaults";
+import { type Hit, type PaletteItem } from "./dragDrop";
 import { type Grab, useDrag } from "./dragStore";
 
 const PALETTE: { item: PaletteItem; icon: React.ReactNode; tone: string }[] = [
@@ -27,6 +28,7 @@ export function DropPalette({ disabled, onPlace, onMove }: {
   const pointer = useDrag((s) => s.pointer);
   const hit = useDrag((s) => s.hit);
   const down = useRef<[number, number] | null>(null);
+  const ed = useEditorDefaults();
   const busy = !!(item || armed || grab);
 
   useEffect(() => {
@@ -78,7 +80,7 @@ export function DropPalette({ disabled, onPlace, onMove }: {
            className="pointer-events-auto flex gap-1.5 rounded-[14px] border border-border bg-surface/95 p-1.5 shadow-[var(--shadow-float)]">
         {PALETTE.map((p) => (
           <button key={p.item} type="button" disabled={disabled} aria-pressed={armed === p.item}
-                  title={t(`check.palette_${p.item}_hint`, { w: DOOR_WIDTH, n: CROWD_PEOPLE })}
+                  title={t(`check.palette_${p.item}_hint`, { w: ed.exitWidth, n: ed.crowdPeople })}
                   onPointerDown={(e) => {
                     if (disabled || e.button !== 0) return;
                     e.preventDefault();

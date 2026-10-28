@@ -6,6 +6,7 @@ import { Accessibility, Ambulance, ArrowUpDown, CircleCheck, CloudFog, CloudRain
 import type * as React from "react";
 import { useState } from "react";
 import { api } from "@/api/client";
+import { SWEEP_POLL_MS } from "@/api/poll";
 import type { Attack } from "@/api/types";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -168,7 +169,7 @@ export function ScenarioCatalogue({ projectId, version, onPlay, danger = 5 }: {
   const sweep = useQuery({
     queryKey: ["sweep", projectId],
     queryFn: () => api.get<Sweep>(`/projects/${projectId}/sweep`),
-    refetchInterval: (q) => (q.state.data?.items.some(busy) ? 2500 : false),
+    refetchInterval: (q) => (q.state.data?.items.some(busy) ? SWEEP_POLL_MS : false),
   });
   const [chosen, setChosen] = useState<Set<string> | null>(null);
   const picks = chosen ?? new Set(defaults ?? items.filter((i) => i.applicable !== false).slice(0, 6).map((i) => i.id));

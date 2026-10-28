@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { Hotspot, Venue } from "@/api/types";
 import { fmtClock, fmtNum } from "@/lib/format";
-import type { DensityGrid } from "@/replay/density";
+import { DENSITY_MAX, type DensityGrid } from "@/replay/density";
 import { type AgentKinds, kindsPresent, PEOPLE_KINDS, type PeopleKindId } from "@/replay/kinds";
 import type { Trajectory } from "@/replay/trajectory";
 import { usePlayback } from "@/state/playback";
@@ -16,7 +16,6 @@ import { PEOPLE_LOOK } from "./peopleLook";
 import { SceneHtml } from "./SceneHtml";
 import { t } from "@/i18n";
 
-export const DENSITY_MAX = 7; // colormap range (people per m²)
 const TERRAIN_SCALE = 0.55; // metres of height per person per m²
 
 /** Advances the replay clock once per rendered frame. */

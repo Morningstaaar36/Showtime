@@ -7,6 +7,7 @@ import * as THREE from "three";
 import type { Pt, Venue } from "@/api/types";
 import { centroid, floorY, pointInPolygon, shapeOf } from "@/scene/geom";
 import type { ScenePalette } from "@/scene/palette";
+import { useEditorDefaults } from "@/lib/useEditorDefaults";
 import { type Hit, itemShape, moveObject, type PaletteItem } from "./dragDrop";
 import { useDrag } from "./dragStore";
 
@@ -73,11 +74,12 @@ export function DragGhost({ venue, exploded, palette }: { venue: Venue; exploded
   const item = useDrag((s) => s.item ?? s.armed);
   const grab = useDrag((s) => s.grab);
   const hit = useDrag((s) => s.hit);
+  const ed = useEditorDefaults();
   if (!hit) return null;
   const y = floorY(venue, hit.floorId, exploded) + 0.03;
   if (item) {
     const floor = venue.floors.find((f) => f.floor_id === hit.floorId);
-    const shape = floor ? itemShape(floor, item, hit.x, hit.y) : null;
+    const shape = floor ? itemShape(floor, item, hit.x, hit.y, ed) : null;
     if (!shape) return null;
     const color = itemColor(item, palette);
     if (item === "fence") {

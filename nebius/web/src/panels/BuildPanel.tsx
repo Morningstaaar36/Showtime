@@ -1,7 +1,7 @@
 /** Right-hand panel while a building tool is active: what to click, the tool's options, and typed
  * input for rooms and stairs (exact sizes, and a keyboard path that needs no 3D clicks). */
 import { Check, CornerUpLeft, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import type { ProjectDetail } from "@/api/types";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,10 @@ import { PanelTitle } from "@/components/ui/misc";
 import { t } from "@/i18n";
 import { type BuildStep, finishStep, isPolylineTool, roomStep, stairConnects, stairStep } from "@/lib/buildTools";
 import { cn } from "@/lib/utils";
+import { useEditorDefaults } from "@/lib/useEditorDefaults";
 import { DIRECTIONS, type Direction, resolveEditFloor } from "@/lib/venueOps";
 import { useVenueEdit } from "@/journey/useVenueEdit";
-import { useBuild } from "@/state/build";
+import { useBuild, useBuildOptions } from "@/state/build";
 import { type BuildTool, useUi } from "@/state/ui";
 import { floorNamer } from "./FloorMenu";
 
@@ -33,6 +34,8 @@ function NumberOpt({ id, label, value, step, min, max, unit = t("units.m"), opti
   onChange: (v: number | null) => void;
 }) {
   const [text, setText] = useState(value == null ? "" : String(value));
+  // the editor defaults can arrive after the panel opens: show them unless this is what was typed
+  useEffect(() => { setText((s) => (s !== "" && Number(s) === value ? s : value == null ? "" : String(value))); }, [value]);
   return (
     <div className="grid gap-1">
       <Label htmlFor={id} className="text-sm text-muted">{label}</Label>
@@ -106,8 +109,9 @@ export function BuildPanel({ project, tool }: { project: ProjectDetail; tool: Bu
   const draft = useUi((s) => s.draft);
   const floorId = resolveEditFloor(venue, editFloor);
   const name = useMemo(() => floorNamer(venue), [venue]);
-  const opts = useBuild((s) => s.opts);
+  const opts = useBuildOptions();
   const setOpt = useBuild((s) => s.setOpt);
+  const ed = useEditorDefaults();
   const { apply, pending } = useApplyStep(project.id);
   const polyline = isPolylineTool(tool);
   const hint = tool === "room" && draft.length === 1 ? t("editor.hints.room_second") : t(`editor.hints.${tool}`);
@@ -146,15 +150,15 @@ export function BuildPanel({ project, tool }: { project: ProjectDetail; tool: Bu
                      onChange={(v) => v != null && setOpt("wallThickness", v)} />
         )}
         {tool === "door" && (
-          <NumberOpt id="opt-door-w" label={t("editor.options.door_width")} value={opts.doorWidth} step={0.1} min={0.6} max={10}
+          <NumberOpt id="opt-door-w" label={t("editor.options.door_width")} value={opts.doorWidth} step={0.1} min={ed.minWidth} max={10}
                      onChange={(v) => v != null && setOpt("doorWidth", v)} />
         )}
         {tool === "room" && (
           <>
             <Sides label={t("editor.options.door_side")} value={opts.roomDoorSide} onChange={(d) => setOpt("roomDoorSide", d)} />
-            <NumberOpt id="opt-room-door" label={t("editor.options.door_width")} value={opts.roomDoorWidth} step={0.1} min={0.6} max={10}
+            <NumberOpt id="opt-room-door" label={t("editor.options.door_width")} value={opts.roomDoorWidth} step={0.1} min={ed.minWidth} max={10}
                        onChange={(v) => v != null && setOpt("roomDoorWidth", v)} />
-            <NumberOpt id="opt-room-people" label={t("editor.options.people")} value={opts.roomPeople} step={5} min={0} unit="" optional
+            <NumberOpt id="opt-room-people" label={t("editor.options.people")} value={opts.roomPeople} step={5} min={0} max={ed.maxPeople} unit="" optional
                        onChange={(v) => setOpt("roomPeople", v)} />
             <TextOpt id="opt-room-name" label={t("editor.options.name")} value={opts.roomLabel} onChange={(v) => setOpt("roomLabel", v)} />
           </>

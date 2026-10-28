@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { t } from "@/i18n";
 import { annotateOp, annotationOf, BASES, type Basis, type ChangeStatus, type ObjectAnnotation } from "@/lib/annotations";
 import { fmtInt, fmtNum } from "@/lib/format";
+import { useEditorDefaults } from "@/lib/useEditorDefaults";
 import { cn } from "@/lib/utils";
 import { displayNames } from "@/lib/venueText";
 import { Tip } from "@/components/ui/tooltip";
@@ -44,8 +45,8 @@ function annotationWithScene(venue: Venue, scene: SceneSnapshot | undefined, ver
   return fromScene ? { ...a, provenance: { ...fromScene, basis: fromScene.basis as Basis } } : a;
 }
 
-function NumberInput({ id, label, unit, value, step, min, disabled, onCommit }: {
-  id: string; label: string; unit: string; value: number; step: number; min?: number; disabled?: boolean; onCommit: (v: number) => void;
+function NumberInput({ id, label, unit, value, step, min, max, disabled, onCommit }: {
+  id: string; label: string; unit: string; value: number; step: number; min?: number; max?: number; disabled?: boolean; onCommit: (v: number) => void;
 }) {
   const [v, setV] = useState(String(value));
   // Enter commits, and the blur that follows must not save the same value a second time
@@ -56,14 +57,14 @@ function NumberInput({ id, label, unit, value, step, min, disabled, onCommit }: 
     if (!v.trim()) { setV(String(value)); return; }
     const n = Number(v);
     if (n === sent.current) return;
-    if (Number.isFinite(n) && n !== value && (min == null || n >= min)) { sent.current = n; onCommit(n); }
+    if (Number.isFinite(n) && n !== value && (min == null || n >= min) && (max == null || n <= max)) { sent.current = n; onCommit(n); }
     else setV(String(value));
   };
   return (
     <div className="grid gap-1">
       <Label htmlFor={id} className="text-sm text-muted">{label}</Label>
       <div className="flex items-center gap-2">
-        <Input id={id} type="number" inputMode="decimal" step={step} min={min} value={v} disabled={disabled}
+        <Input id={id} type="number" inputMode="decimal" step={step} min={min} max={max} value={v} disabled={disabled}
                onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && commit()}
                className="h-11 text-base" />
         <span className="text-sm text-muted">{unit}</span>
@@ -132,6 +133,7 @@ export function ObjectCard({ project, scene, selection }: { project: ProjectDeta
   const names = useMemo(() => displayNames(venue), [venue]);
   const select = useUi((s) => s.select);
   const { submit, pending } = useVenueEdit(project.id);
+  const ed = useEditorDefaults();
   const [move, setMove] = useState({ dx: 0, dy: 0 });
   const found = findObject(venue, selection.id);
   if (!found) return <p className="text-sm text-muted">{t("check.nothing_selected")}</p>;
@@ -159,7 +161,7 @@ export function ObjectCard({ project, scene, selection }: { project: ProjectDeta
 
       {found.what === "exit" && (
         <>
-          <NumberInput id={`w-${id}`} label={t("check.width")} unit={t("units.m")} step={0.5} min={0.6} value={found.item.width_m} disabled={off}
+          <NumberInput id={`w-${id}`} label={t("check.width")} unit={t("units.m")} step={0.5} min={ed.minWidth} value={found.item.width_m} disabled={off}
                        onCommit={(v) => submit([{ op: "resize", target: id, width_m: v } as never], t("check.msg_width", { name, w: fmtNum(v, 1) }))} />
           <div className="flex items-center justify-between gap-3 text-sm">
             <label htmlFor={`blk-${id}`}>{t("check.closed_in_plan")}</label>
@@ -171,7 +173,7 @@ export function ObjectCard({ project, scene, selection }: { project: ProjectDeta
 
       {found.what === "zone" && (
         <>
-          <NumberInput id={`p-${id}`} label={t("check.people")} unit={t("check.people_unit")} step={50} min={0} value={found.item.people} disabled={off}
+          <NumberInput id={`p-${id}`} label={t("check.people")} unit={t("check.people_unit")} step={50} min={0} max={ed.maxPeople} value={found.item.people} disabled={off}
                        onCommit={(v) => submit([{ op: "set_people", zone_id: id, people: Math.round(v) } as never], t("check.msg_people", { name, n: fmtInt(v) }))} />
           <ZoneProfileEditor project={project} zoneId={id} disabled={locked} />
         </>
@@ -267,7 +269,9 @@ function Step({ icon, tone, title, hint, aside, children }: {
 }
 
 /** Headcount for one crowd area: − / number / + (saved on Enter, when leaving the field, or per press). */
-function PeopleInput({ id, name, value, disabled, onCommit }: { id: string; name: string; value: number; disabled: boolean; onCommit: (v: number) => void }) {
+function PeopleInput({ id, name, value, max, disabled, onCommit }: {
+  id: string; name: string; value: number; max: number; disabled: boolean; onCommit: (v: number) => void;
+}) {
   const [v, setV] = useState(String(value));
   const sent = useRef<number | null>(null);
   useEffect(() => { setV(String(value)); sent.current = null; }, [value]);
@@ -275,22 +279,22 @@ function PeopleInput({ id, name, value, disabled, onCommit }: { id: string; name
     if (!v.trim()) { setV(String(value)); return; }
     const n = Math.round(Number(v));
     if (n === sent.current) return;
-    if (Number.isFinite(n) && n >= 0 && n !== value) { sent.current = n; onCommit(n); } else setV(String(value));
+    if (Number.isFinite(n) && n >= 0 && n <= max && n !== value) { sent.current = n; onCommit(n); } else setV(String(value));
   };
   const step = value < 50 ? 5 : value < 500 ? 10 : 50;
   const bump = (d: number) => {
-    const n = Math.max(0, value + d);
+    const n = Math.min(max, Math.max(0, value + d));
     if (n !== value) { sent.current = n; setV(String(n)); onCommit(n); }
   };
   const btn = "grid size-10 place-items-center text-muted transition hover:bg-surface-2 hover:text-ink disabled:opacity-40";
   return (
     <div className="flex h-10 shrink-0 items-center overflow-hidden rounded-[var(--radius-control)] border border-border bg-surface">
       <button type="button" className={btn} disabled={disabled || value <= 0} onClick={() => bump(-step)} aria-label={t("check.fewer", { n: step, name })}><Minus className="size-4" /></button>
-      <input id={`pp-${id}`} aria-label={t("check.people_of", { name })} type="number" inputMode="numeric" min={0} step={step}
+      <input id={`pp-${id}`} aria-label={t("check.people_of", { name })} type="number" inputMode="numeric" min={0} max={max} step={step}
              value={v} disabled={disabled} onChange={(e) => setV(e.target.value)} onBlur={commit}
              onKeyDown={(e) => e.key === "Enter" && commit()}
              className="h-full w-16 border-x border-border bg-transparent text-center text-base font-semibold tabular outline-none [appearance:textfield] focus-visible:bg-signal-soft [&::-webkit-inner-spin-button]:appearance-none" />
-      <button type="button" className={btn} disabled={disabled} onClick={() => bump(step)} aria-label={t("check.more", { n: step, name })}><Plus className="size-4" /></button>
+      <button type="button" className={btn} disabled={disabled || value >= max} onClick={() => bump(step)} aria-label={t("check.more", { n: step, name })}><Plus className="size-4" /></button>
     </div>
   );
 }
@@ -310,6 +314,7 @@ export function VenueChecklist({ project, scene }: { project: ProjectDetail; sce
   const fly = useUi((s) => s.flyToPoint);
   const floorView = useUi((s) => s.floorView);
   const { submit, pending } = useVenueEdit(project.id);
+  const maxPeople = useEditorDefaults().maxPeople;
   const multi = venue.floors.length > 1;
   const view = resolveFloorView(venue, floorView);
   const onFloor = multi && view !== "all" && view !== "exploded" ? view : null;
@@ -389,7 +394,7 @@ export function VenueChecklist({ project, scene }: { project: ProjectDetail; sce
                         <span aria-hidden className="absolute inset-y-1.5 left-0 rounded-r-[6px] bg-sky-soft" style={{ width: `${Math.max(4, share * 100)}%` }} />
                         <span className="relative truncate">{name}</span>
                       </button>
-                      <PeopleInput id={z.id} name={name} value={z.people} disabled={pending || locked}
+                      <PeopleInput id={z.id} name={name} value={z.people} max={maxPeople} disabled={pending || locked}
                                    onCommit={(v) => submit([{ op: "set_people", zone_id: z.id, people: v } as never], t("check.msg_people", { name, n: fmtInt(v) }))} />
                     </li>
                   );

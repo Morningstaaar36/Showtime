@@ -25,6 +25,7 @@ import { WindPanel } from "./WindPanel";
 import type { CountdownOut } from "@/api/types";
 
 import { annotationOf } from "@/lib/annotations";
+import { useEditorDefaults } from "@/lib/useEditorDefaults";
 import { removeStairOp } from "@/lib/venueOps";
 import { floorNamer } from "./FloorMenu";
 import { ZoneProfileEditor } from "./ZoneProfile";
@@ -150,13 +151,15 @@ function StagePanel({ project }: { project: ProjectDetail }) {
   );
 }
 
-function NumberField({ label, unit, value, step, onCommit }: { label: string; unit: string; value: number; step: number; onCommit: (v: number) => void }) {
+function NumberField({ label, unit, value, step, max, onCommit }: {
+  label: string; unit: string; value: number; step: number; max?: number; onCommit: (v: number) => void;
+}) {
   const [v, setV] = useState(String(value));
   useEffect(() => setV(String(value)), [value]);
   const commit = () => {
     // an emptied field means "never mind", not 0
     const n = v.trim() ? Number(v) : NaN;
-    if (Number.isFinite(n) && n !== value) onCommit(n);
+    if (Number.isFinite(n) && n !== value && (max == null || n <= max)) onCommit(n);
     else setV(String(value));
   };
   const id = `f-${label.replace(/\W/g, "")}`;
@@ -164,7 +167,7 @@ function NumberField({ label, unit, value, step, onCommit }: { label: string; un
     <div className="grid gap-1">
       <Label htmlFor={id} className="text-xs text-muted">{label}</Label>
       <div className="flex items-center gap-1.5">
-        <Input id={id} type="number" step={step} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit}
+        <Input id={id} type="number" step={step} max={max} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit}
                onKeyDown={(e) => e.key === "Enter" && commit()} className="h-8" />
         {unit && <span className="text-xs text-muted">{unit}</span>}
       </div>
@@ -195,6 +198,7 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
   const select = useUi((s) => s.select);
   const venue = project.version.venue;
   const patch = usePatchProject(project.id);
+  const ed = useEditorDefaults();
   const run = (ops: PatchOpIn[], msg?: string) => patch.mutate({ patch: { ops }, message: msg },
     { onSuccess: (r) => toast.success(t("workspace.saved", { n: r.version.version })), onError: (e) => toast.error(e.message) });
   const floor = venue.floors.find((f) => f.floor_id === selection.floorId) ?? venue.floors[0];
@@ -236,7 +240,7 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
     return (
       <section className="space-y-3">
         <PanelTitle action={<Badge tone="signal">{t("ui.inspector.zone")}</Badge>}>{zone.label ?? zone.id}</PanelTitle>
-        <NumberField label={t("inspector.people")} unit={t("common.people")} value={zone.people} step={50}
+        <NumberField label={t("inspector.people")} unit={t("common.people")} value={zone.people} step={50} max={ed.maxPeople}
                      onCommit={(v) => run([{ op: "set_people", zone_id: zone.id, people: Math.round(v) } as PatchOpIn])} />
         <p className="text-sm text-muted">{t("inspector.people_per_m2", { n: fmtNum(zone.people / Math.max(area, 1), 1) })} · {t("units.n_m2", { n: fmtInt(area) })}</p>
         <ZoneProfileEditor project={project} zoneId={zone.id} />

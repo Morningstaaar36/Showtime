@@ -1,6 +1,6 @@
 import { Navigation } from "lucide-react";
 import { CIVIDIS } from "@/scene/colormaps";
-import { DENSITY_MAX } from "@/scene/ReplayLayers";
+import { DENSITY_MAX } from "@/replay/density";
 import { t } from "@/i18n";
 import { fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";

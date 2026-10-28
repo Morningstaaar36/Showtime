@@ -1,6 +1,6 @@
 /** Follows a red-team session's SSE stream and folds events into view state. */
 import { useEffect, useReducer, useRef } from "react";
-import { reconnectDelay } from "./reconnect";
+import { followStream } from "./reconnect";
 import type { FailureMap } from "@/types/generated";
 import type { Attack, Countdown, Fix, SessionEvent } from "./types";
 
@@ -180,43 +180,11 @@ export function useSessionStream(sessionId: string | null | undefined): SessionV
     dispatch({ kind: "reset" });
     lastSeq.current = 0;
     if (!sessionId) return;
-    let es: EventSource | null = null;
-    let closed = false;
-    let retry: number | undefined;
-    let failures = 0;
-    const open = () => {
-      es = new EventSource(`/api/v1/sessions/${sessionId}/events?after=${lastSeq.current}`);
-      // only a delivered event proves the stream works: a stream that opens and drops at once
-      // must still back off
-      es.onopen = () => dispatch({ kind: "conn", v: true });
-      es.onmessage = (m) => {
-        failures = 0;
-        try {
-          dispatch({ kind: "event", ev: JSON.parse(m.data) as SessionEvent });
-        } catch {
-          /* ignore malformed lines */
-        }
-      };
-      es.addEventListener("end", () => {
-        closed = true;
-        es?.close();
-        dispatch({ kind: "end" });
-      });
-      es.onerror = () => {
-        es?.close();
-        dispatch({ kind: "conn", v: false });
-        const wait = closed ? null : reconnectDelay(++failures);
-        if (wait != null) retry = window.setTimeout(open, wait);
-        // given up: stop waiting on the stream (the page re-reads the session from the API)
-        else if (!closed) dispatch({ kind: "end" });
-      };
-    };
-    open();
-    return () => {
-      closed = true;
-      if (retry) window.clearTimeout(retry);
-      es?.close();
-    };
+    return followStream<SessionEvent>(() => `/api/v1/sessions/${sessionId}/events?after=${lastSeq.current}`, {
+      event: (ev) => dispatch({ kind: "event", ev }),
+      conn: (v) => dispatch({ kind: "conn", v }),
+      end: () => dispatch({ kind: "end" }),
+    });
   }, [sessionId]);
   return state;
 }

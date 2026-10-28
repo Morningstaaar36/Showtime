@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Venue } from "@/api/types";
-import { clickStep, DEFAULT_BUILD_OPTIONS as O, dropLastPoint, finishStep, roomStep, stairConnects, stairWell, stairStep } from "./buildTools";
+import { buildOptionsOf, clickStep, dropLastPoint, finishStep, roomStep, stairConnects, stairWell, stairStep } from "./buildTools";
+import { editorDefaultsOf } from "./editorDefaults";
 
 const square = (s: number): [number, number][] => [[0, 0], [s, 0], [s, s], [0, s]];
 const floor = (id: string, elevation: number, extra: Partial<Venue["floors"][number]> = {}) => ({
@@ -10,6 +11,8 @@ const venue = (floors: Venue["floors"][number][]): Venue => ({
   schema_version: 1, venue_id: "v", name: "Test", description: null, mode: "indoor", event_kind: null,
   floors: floors as Venue["floors"], stairs: [], routes: [], stage: null, location: null, rules_profile: "generic", extensions: {},
 } as unknown as Venue);
+// the options before the organizer changes any, with the sizes used until the settings load
+const O = buildOptionsOf(editorDefaultsOf({}));
 const wall = { id: "w1", kind: "wall" as const, polygon: [[9.9, 2], [10.1, 2], [10.1, 18], [9.9, 18]] as [number, number][],
   height_m: null, label: null, line: [[10, 2], [10, 18]] as [number, number][] };
 

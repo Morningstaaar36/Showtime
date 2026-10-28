@@ -25,10 +25,17 @@ export interface Thresholds {
   quickMinOut: number;
   /** seconds above the warning density that mark a plan "at risk" */
   atRiskS: number;
+  /** planning targets for "everyone out" when no hazard time is known; shown as targets,
+   * never as results */
+  targetIndoorS: number;
+  targetOutdoorS: number;
 }
 
 /** Used only until the settings arrive: the documented defaults (docs/ASSUMPTIONS.md). */
-const DEFAULTS: Thresholds = { warn: 3.5, danger: 5, dangerMinS: 5, stuckPeople: 5, stuckFraction: 0.005, quickMinOut: 0.5, atRiskS: 30 };
+const DEFAULTS: Thresholds = {
+  warn: 3.5, danger: 5, dangerMinS: 5, stuckPeople: 5, stuckFraction: 0.005, quickMinOut: 0.5, atRiskS: 30,
+  targetIndoorS: 300, targetOutdoorS: 480,
+};
 
 /** Thresholds from the effective settings (`GET /settings`). */
 export function thresholdsOf(eff: Record<string, unknown>): Thresholds {
@@ -41,6 +48,8 @@ export function thresholdsOf(eff: Record<string, unknown>): Thresholds {
     stuckFraction: num("stuck_tolerance_fraction", DEFAULTS.stuckFraction),
     quickMinOut: num("quick_min_out_fraction", DEFAULTS.quickMinOut),
     atRiskS: num("at_risk_warning_s", DEFAULTS.atRiskS),
+    targetIndoorS: num("target_evac_indoor_s", DEFAULTS.targetIndoorS),
+    targetOutdoorS: num("target_evac_outdoor_s", DEFAULTS.targetOutdoorS),
   };
 }
 

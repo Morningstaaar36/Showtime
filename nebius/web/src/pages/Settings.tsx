@@ -5,7 +5,7 @@ import type * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useHealth, useSaveSettings, useSettings } from "@/api/queries";
-import type { ProviderStatus } from "@/api/types";
+import type { ProviderStatus, SettingValue } from "@/api/types";
 import { AppShell } from "@/app/AppHeader";
 import { ProviderBadge, providerWhere } from "@/components/ProviderBadge";
 import { Button } from "@/components/ui/button";
@@ -213,7 +213,7 @@ function ServiceRow({ label, status, optional }: { label: string; status: Provid
 }
 
 function NumberField({ field, value, fallback, onChange }: {
-  field: Field; value: string; fallback: number | string | boolean | undefined; onChange: (v: string) => void;
+  field: Field; value: string; fallback: SettingValue | undefined; onChange: (v: string) => void;
 }) {
   const id = `set-${field.key}`;
   return (

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Venue } from "@/api/types";
-import { CROWD_PEOPLE, itemShape, moveObject, placeItem } from "./dragDrop";
+import { editorDefaultsOf } from "@/lib/editorDefaults";
+import { itemShape, moveObject, placeItem } from "./dragDrop";
 
 // 40 x 20 m room, counter-clockwise; one 2 m door on the south wall
 const venue = {
@@ -16,14 +17,16 @@ const venue = {
   extensions: {},
 } as unknown as Venue;
 const ids = (p: string) => `${p}_new`;
+// the sizes the page uses before the settings load
+const ed = editorDefaultsOf({});
 
 describe("drag and drop", () => {
   it("drops a door on the nearest wall and names it after that wall", () => {
-    const r = placeItem(venue, "F0", "door", 39, 10, "existing", ids);
+    const r = placeItem(venue, "F0", "door", 39, 10, "existing", ids, ed);
     expect("error" in r).toBe(false);
     if ("error" in r) return;
     expect(r.name).toBe("East door");
-    const south = placeItem(venue, "F0", "door", 30, 1, "existing", ids);
+    const south = placeItem(venue, "F0", "door", 30, 1, "existing", ids, ed);
     expect("error" in south ? south.error : south.name).toBe("South door 2");
     expect(r.ops[0]).toMatchObject({ op: "add_exit", floor_id: "F0", id: "exit_new", width_m: 2 });
     expect(r.ops[1]).toMatchObject({ op: "set_annotation", target: "exit_new", change: "existing" });
@@ -31,27 +34,27 @@ describe("drag and drop", () => {
 
   it("puts a door dropped anywhere on the venue on its nearest outer wall", () => {
     // in the middle of the floor, a little nearer the south wall: no need to aim at the wall
-    const r = placeItem(venue, "F0", "door", 20, 8, "existing", ids);
+    const r = placeItem(venue, "F0", "door", 20, 8, "existing", ids, ed);
     if ("error" in r) throw new Error(r.error);
     expect(r.name).toBe("South door 2");
     expect(r.ops[0]).toMatchObject({ op: "add_exit", width_m: 2 });
   });
 
   it("refuses a door dropped off the venue", () => {
-    expect(placeItem(venue, "F0", "door", 60, 10, "existing", ids)).toEqual({ error: "check.door_near_wall" });
+    expect(placeItem(venue, "F0", "door", 60, 10, "existing", ids, ed)).toEqual({ error: "check.door_near_wall" });
   });
 
   it("makes a crowd area that fits inside the venue, shrinking near walls", () => {
-    const r = placeItem(venue, "F0", "crowd", 20, 10, "existing", ids);
+    const r = placeItem(venue, "F0", "crowd", 20, 10, "existing", ids, ed);
     if ("error" in r) throw new Error(r.error);
-    expect(r.ops[0]).toMatchObject({ op: "add_zone", people: CROWD_PEOPLE, label: "Crowd area" });
-    const corner = itemShape(venue.floors[0], "crowd", 1.5, 1.5);
+    expect(r.ops[0]).toMatchObject({ op: "add_zone", people: ed.crowdPeople, label: "Crowd area" });
+    const corner = itemShape(venue.floors[0], "crowd", 1.5, 1.5, ed);
     expect(corner?.points.every(([x, y]) => x >= 0 && y >= 0)).toBe(true);
-    expect(itemShape(venue.floors[0], "crowd", -5, 5)).toBeNull();
+    expect(itemShape(venue.floors[0], "crowd", -5, 5, ed)).toBeNull();
   });
 
   it("lays a fence along the nearest wall", () => {
-    const shape = itemShape(venue.floors[0], "fence", 20, 2);
+    const shape = itemShape(venue.floors[0], "fence", 20, 2, ed);
     expect(shape?.points[0][1]).toBeCloseTo(shape?.points[1][1] ?? NaN);
   });
 

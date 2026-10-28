@@ -5,8 +5,9 @@ import * as THREE from "three";
 import type { Pt, Venue } from "@/api/types";
 import { lockedIds } from "@/lib/annotations";
 import { stairWell } from "@/lib/buildTools";
-import { nearestWall, roomFromCorners, roomOutline } from "@/lib/venueOps";
-import { useBuild } from "@/state/build";
+import { useEditorDefaults } from "@/lib/useEditorDefaults";
+import { DOOR_REACH_M, nearestWall, roomFromCorners, roomOutline } from "@/lib/venueOps";
+import { useBuildOptions } from "@/state/build";
 import { t } from "@/i18n";
 import { fmtNum } from "@/lib/format";
 import type { ObjectChange } from "@/lib/venueDiff";
@@ -73,7 +74,8 @@ export function DraftPreview({ venue, exploded, palette, cursor }: {
 }) {
   const tool = useUi((s) => s.tool);
   const draft = useUi((s) => s.draft);
-  const opts = useBuild((s) => s.opts);
+  const opts = useBuildOptions();
+  const exitWidth = useEditorDefaults().exitWidth;
   const floorId = cursor?.floorId ?? venue.floors[0].floor_id;
   const y = floorY(venue, floorId, exploded) + 0.06;
   const pts = useMemo(() => {
@@ -83,7 +85,7 @@ export function DraftPreview({ venue, exploded, palette, cursor }: {
 
   if (tool === "exit" && cursor) {
     const floor = venue.floors.find((f) => f.floor_id === cursor.floorId);
-    const rect = floor ? exitRectAt(floor.walkable as Pt[], cursor.x, cursor.y, 2.0) : null;
+    const rect = floor ? exitRectAt(floor.walkable as Pt[], cursor.x, cursor.y, exitWidth) : null;
     if (!rect) return null;
     const [cx, cy] = centroid(rect);
     return (
@@ -108,7 +110,7 @@ export function DraftPreview({ venue, exploded, palette, cursor }: {
   if (tool === "door" && cursor) {
     const floor = venue.floors.find((f) => f.floor_id === cursor.floorId);
     const hit = floor ? nearestWall(floor, cursor.x, cursor.y) : null;
-    if (!hit || hit.dist > 1.5) return null;
+    if (!hit || hit.dist > DOOR_REACH_M) return null;
     const [a, b] = hit.segment;
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
     const [ux, uy] = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];

@@ -1,12 +1,12 @@
 /** Step 1b of the guided journey (route `/p/:projectId/describe`): the organizer checks the
  * drafted venue (doors, people, what is in the way), drags things into place, then tests it. */
 import { TestModePicker } from "@/journey/TestModePicker";
-import { saveTestMode, savedTestMode, testMode, type TestMode } from "@/journey/testModes";
+import { saveTestMode, savedTestModeId, testMode, testModesOf } from "@/journey/testModes";
 import { AlertTriangle, CircleAlert, Hand, MousePointerClick, RotateCcw, SlidersHorizontal, Swords } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
-import { useProject, useScene, useStartSession } from "@/api/queries";
+import { useProject, useScene, useStartSession, useTestModes } from "@/api/queries";
 import type { Floor } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Skeleton, Spinner } from "@/components/ui/misc";
@@ -15,6 +15,7 @@ import { t } from "@/i18n";
 import { AskAnything } from "@/journey/AskAnything";
 import type { ProposalPreview } from "@/journey/AskChange";
 import { type Hit, moveObject, type PaletteItem, placeItem } from "@/journey/dragDrop";
+import { useEditorDefaults } from "@/lib/useEditorDefaults";
 import { DragBridge, DragGhost } from "@/journey/DragLayer";
 import { type Grab, useDrag } from "@/journey/dragStore";
 import { DropPalette } from "@/journey/DropPalette";
@@ -40,7 +41,11 @@ export function CheckVenuePage() {
   const p = project.data;
   const scene = useScene(projectId, p?.current_version);
   const start = useStartSession();
-  const [mode, setMode] = useState<TestMode>(() => savedTestMode().id);
+  const modes = testModesOf(useTestModes().data);
+  // the stored id, resolved against the list on use: the server's list can arrive after this
+  const [picked, setPicked] = useState(savedTestModeId);
+  const mode = testMode(picked, modes);
+  const ed = useEditorDefaults();
   const { submit } = useVenueEdit(projectId);
   const selection = useUi((s) => s.selection);
   const layers = useUi((s) => s.layers);
@@ -80,7 +85,7 @@ export function CheckVenuePage() {
   const previewing = !!proposal && showProposal;
 
   const place = (item: PaletteItem, hit: Hit) => {
-    const r = placeItem(venue, hit.floorId, item, hit.x, hit.y, newChange, shortId);
+    const r = placeItem(venue, hit.floorId, item, hit.x, hit.y, newChange, shortId, ed);
     if ("error" in r) { toast.message(t(r.error)); return; }
     submit(r.ops, t("check.msg_added", { name: r.name }), () => useUi.getState().select({ kind: r.kind, id: r.id, floorId: hit.floorId }));
   };
@@ -106,7 +111,7 @@ export function CheckVenuePage() {
     if (d.controls) d.controls.enabled = false; // before the camera sees this press
     d.set({ grab: { kind, id, floorId: floor.floor_id, start: [start.x, start.y], client, active: false, locked: locked.has(id) }, hit: start });
   };
-  const test = () => start.mutate({ project_id: p.id, config: testMode(mode).config }, {
+  const test = () => start.mutate({ project_id: p.id, config: mode.config }, {
     onSuccess: (s) => navigate(`/p/${p.id}/work?session=${s.id}&live=1`),
     onError: (e) => toast.error(e.message, { description: (e as { hint?: string }).hint ?? undefined }),
   });
@@ -196,11 +201,11 @@ export function CheckVenuePage() {
           </div>
           <div className="space-y-2 border-t border-border p-4">
             {errors.length > 0 && <p className="flex gap-2 text-sm text-danger"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{t("check.fix_errors_first")}</p>}
-            <TestModePicker value={mode} disabled={start.isPending} onChange={(m) => { setMode(m); saveTestMode(m); }} />
+            <TestModePicker modes={modes.modes} value={mode.id} disabled={start.isPending} onChange={(m) => { setPicked(m); saveTestMode(m); }} />
             <Button variant="primary" size="lg" className="w-full" disabled={errors.length > 0 || start.isPending || previewing} onClick={test}>
               {start.isPending ? <Spinner /> : <Swords />}{t("check.test")}
             </Button>
-            <p className="text-xs text-muted">{t("check.test_hint_mode", { m: testMode(mode).minutes, what: t(`check.mode_${mode}_hint`) })}</p>
+            <p className="text-xs text-muted">{t("check.test_hint_mode", { m: mode.minutes, what: t(`check.mode_${mode.id}_hint`) })}</p>
           </div>
         </aside>
       </div>

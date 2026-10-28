@@ -4,6 +4,7 @@ import { Area, AreaChart, CartesianGrid, Line, LineChart, ReferenceLine, Respons
 import type { RunResult } from "@/api/types";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { fmtClock, fmtNum } from "@/lib/format";
+import { DENSITY_MAX } from "@/replay/density";
 import { cn } from "@/lib/utils";
 import { tierLabel } from "./verdict";
 import { t } from "@/i18n";
@@ -85,7 +86,7 @@ export function DensityCurve({ series, duration, warn, danger }: { series: numbe
           <LineChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid stroke="var(--border)" strokeDasharray="2 4" vertical={false} />
             <XAxis dataKey="t" tickFormatter={(v: number) => fmtClock(v)} tick={axis} stroke="var(--border)" minTickGap={30} />
-            <YAxis tick={axis} stroke="var(--border)" width={40} domain={[0, Math.max(7, Math.ceil(peak))]} />
+            <YAxis tick={axis} stroke="var(--border)" width={40} domain={[0, Math.max(DENSITY_MAX, Math.ceil(peak))]} />
             <Tooltip formatter={(v) => [t("units.density", { n: fmtNum(Number(v), 1) }), t("ui.metrics.peak")]} labelFormatter={(v) => fmtClock(Number(v))}
                      contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
             <ReferenceLine y={warn} stroke="var(--caution)" strokeDasharray="4 3" />

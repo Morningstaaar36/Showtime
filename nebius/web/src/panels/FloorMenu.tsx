@@ -14,6 +14,7 @@ import { Tip } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
 import { fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useEditorDefaults } from "@/lib/useEditorDefaults";
 import { addFloorOp, floorLevels, floorsByElevation, levelName, levelTag, nextFloorName, removeFloorOp, resolveEditFloor } from "@/lib/venueOps";
 import { useVenueEdit } from "@/journey/useVenueEdit";
 import { useUi } from "@/state/ui";
@@ -66,13 +67,14 @@ function AddFloorDialog({ venue, open, onOpenChange, pending, onAdd }: {
   onAdd: (opts: { name: string; height_m: number; copy_walls: boolean }) => void;
 }) {
   const [name, setName] = useState("");
-  const [height, setHeight] = useState("3.5");
+  const floorHeight = String(useEditorDefaults().floorHeight);
+  const [height, setHeight] = useState(floorHeight);
   const [copy, setCopy] = useState(true);
   const fallback = nextFloorName(venue);
   const h = Number(height);
   const ok = Number.isFinite(h) && h >= 2 && h <= 20;
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (v) { setName(""); setHeight("3.5"); setCopy(true); } }}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (v) { setName(""); setHeight(floorHeight); setCopy(true); } }}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("editor.floor.add_title")}</DialogTitle>
