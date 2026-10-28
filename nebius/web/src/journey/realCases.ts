@@ -2,6 +2,7 @@
  * descriptions (GET /real_cases, POST /real_cases/{id}/open). A project built from one keeps
  * the case's facts in venue.extensions.real_case. */
 import type { RunResult, Venue } from "@/api/types";
+import type { EventKindId } from "@/lib/venueOps";
 
 export interface CaseSource { label: string; url: string }
 
@@ -20,11 +21,73 @@ export interface RealCaseCard {
   approximations: string[];
 }
 
-/** A case as GET /real_cases lists it, with the project already built from it (if any). */
-export interface RealCase extends RealCaseCard {
+/** What an organizer writes to save a case (api/core/real_cases.py CaseFacts); the server
+ * makes the id from the title. */
+export interface CaseFacts {
+  title: string;
+  incident: string;
+  date: string;
+  place: string;
+  deaths: number;
+  people: number;
+  toll: string;
+  event_kind: EventKindId;
+  location: { lat: number; lon: number; timezone: string };
   description: string;
+  what_happened: string;
+  lesson: string;
+  sources: CaseSource[];
   dimensions: string[];
+  approximations: string[];
+}
+
+/** A case as GET /real_cases lists it: a shipped example or one an organizer saved, with the
+ * project already built from it (if any). */
+export interface RealCase extends RealCaseCard, Omit<CaseFacts, keyof RealCaseCard> {
+  origin: "example" | "saved";
   project_id: string | null;
+}
+
+/** The facts of a case, to edit it or to start a new case from a copy of it. */
+export function factsOf(c: RealCase): CaseFacts {
+  return {
+    title: c.title, incident: c.incident, date: c.date, place: c.place, deaths: c.deaths, people: c.people,
+    toll: c.toll, event_kind: c.event_kind, location: { ...c.location }, description: c.description,
+    what_happened: c.what_happened, lesson: c.lesson, sources: c.sources.map((s) => ({ ...s })),
+    dimensions: [...c.dimensions], approximations: [...c.approximations],
+  };
+}
+
+/** A blank case for the form (nothing about any incident is assumed). */
+export const blankFacts = (): CaseFacts => ({
+  title: "", incident: "", date: "", place: "", deaths: 0, people: 0, toll: "", event_kind: "other",
+  location: { lat: 0, lon: 0, timezone: "UTC" }, description: "", what_happened: "", lesson: "",
+  sources: [{ label: "", url: "" }], dimensions: [], approximations: [],
+});
+
+/** One entry per non-empty line (dimensions, approximations). */
+export const linesOf = (text: string) => text.split("\n").map((l) => l.trim()).filter(Boolean);
+
+/** The first field the server would refuse as missing or too short, so the form can say so
+ * at once (the server checks everything again). */
+export function missingField(f: CaseFacts): keyof CaseFacts | null {
+  const short: [keyof CaseFacts, number][] = [["title", 3], ["incident", 3], ["place", 2], ["toll", 1], ["description", 40], ["what_happened", 10], ["lesson", 5]];
+  for (const [k, n] of short) if (String(f[k]).trim().length < n) return k;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f.date)) return "date";
+  if (f.location.lat === 0 && f.location.lon === 0) return "location"; // not found or entered yet
+  if (f.people < 1) return "people";
+  if (!f.sources.some((s) => /^https?:\/\/\S+\.\S+/.test(s.url.trim()) && s.label.trim().length >= 3)) return "sources";
+  if (!f.dimensions.length) return "dimensions";
+  if (!f.approximations.length) return "approximations";
+  return null;
+}
+
+/** The form field a server validation error is about ("sources.0.url" → "sources"). */
+export function fieldOfError(details: Record<string, unknown> | undefined): string | null {
+  const errors = details?.errors;
+  if (!Array.isArray(errors) || !errors.length) return null;
+  const loc = (errors[0] as { loc?: unknown }).loc;
+  return Array.isArray(loc) && typeof loc[1] === "string" ? loc[1] : null;
 }
 
 /** POST /real_cases/{id}/open */

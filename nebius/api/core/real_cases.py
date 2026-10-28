@@ -8,16 +8,20 @@ happened, the sources) travels in the venue's `extensions["real_case"]`.
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, StringConstraints
 
 from api.models import EventKind, Location
 
 CASES_FILE = Path(__file__).resolve().parents[1] / "data" / "real_cases.json"
 EXTENSION_KEY = "real_case"
+
+
+Line = Annotated[str, StringConstraints(strip_whitespace=True, min_length=2, max_length=400)]
 
 
 class CaseSource(BaseModel):
@@ -26,26 +30,32 @@ class CaseSource(BaseModel):
     url: HttpUrl
 
 
-class RealCase(BaseModel):
-    """One incident: what the site was, what happened, and where every number comes from."""
+class CaseFacts(BaseModel):
+    """One incident: what the site was, what happened, and where every number comes from. What
+    an organizer writes to save a case of their own; the id is made from the title."""
 
-    model_config = ConfigDict(extra="forbid")
-    id: str = Field(pattern=r"^[a-z0-9_]+$")
-    title: str = Field(max_length=60)
-    incident: str
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    title: str = Field(min_length=3, max_length=60)
+    incident: str = Field(min_length=3, max_length=160)
     date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
-    place: str
-    deaths: int = Field(gt=0)
+    place: str = Field(min_length=2, max_length=160)
+    deaths: int = Field(ge=0)
     people: int = Field(gt=0)  # the crowd the description models (it states the number)
-    toll: str
+    toll: str = Field(min_length=1, max_length=200)
     event_kind: EventKind
     location: Location
     description: str = Field(min_length=40, max_length=2000)
-    what_happened: str = Field(max_length=300)
-    lesson: str = Field(max_length=160)
-    sources: list[CaseSource] = Field(min_length=1)
-    dimensions: list[str] = Field(min_length=1)
-    approximations: list[str] = Field(min_length=1)
+    what_happened: str = Field(min_length=10, max_length=300)
+    lesson: str = Field(min_length=5, max_length=160)
+    sources: list[CaseSource] = Field(min_length=1, max_length=12)
+    dimensions: list[Line] = Field(min_length=1, max_length=30)
+    approximations: list[Line] = Field(min_length=1, max_length=30)
+
+
+class RealCase(CaseFacts):
+    """A case with its id: shipped in api/data/real_cases.json or saved by an organizer."""
+
+    id: str = Field(pattern=r"^[a-z0-9_]+$", max_length=64)
 
     def card(self) -> dict[str, Any]:
         """What a project built from this case keeps (venue.extensions.real_case)."""
@@ -79,6 +89,15 @@ def list_cases() -> list[RealCase]:
 def get_case(case_id: str) -> RealCase:
     """One case; KeyError if unknown."""
     return _load()[case_id]
+
+
+def case_id_for(title: str, taken: set[str]) -> str:
+    """An id from a title ("Astroworld 2021 · Houston" → astroworld_2021_houston), made unique."""
+    base = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_")[:56] or "case"
+    out, n = base, 2
+    while out in taken:
+        out, n = f"{base}_{n}", n + 1
+    return out
 
 
 def case_of(venue_extensions: dict[str, Any]) -> str | None:

@@ -193,3 +193,15 @@ class ShareLink(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
     expires_at: datetime
     revoked_at: datetime | None = None
+
+
+class SavedCase(SQLModel, table=True):
+    """A real case an organizer wrote and saved (api.core.real_cases.CaseFacts as JSON). The
+    shipped examples stay in api/data/real_cases.json; these sit next to them."""
+
+    __tablename__ = "saved_case"
+
+    id: str = Field(primary_key=True)
+    data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)

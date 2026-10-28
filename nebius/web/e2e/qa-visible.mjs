@@ -332,6 +332,56 @@ await check("Expert: Red Team tab (cards, failure map, branch tree, compare)", a
   return `${breaks} breaks, ${holds} holds; ${tabs.length} tabs opened; ${compared}`;
 });
 
+// --- real cases -------------------------------------------------------------------------------
+await check("Real cases: write a case, save it, edit it, copy an example, delete it", async () => {
+  const tag = `QA case ${Date.now() % 100000}`;
+  const F = (k) => T(`realcase.form.${k}`);
+  await go("/");
+  const add = page.getByRole("button", { name: starts(T("realcase.add")) });
+  await add.scrollIntoViewIfNeeded();
+  await add.click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel(F("title"), { exact: true }).fill(tag);
+  await dialog.getByLabel(F("incident"), { exact: true }).fill("A test incident written by the QA run");
+  await dialog.getByLabel(F("date"), { exact: true }).fill("2020-01-01");
+  await dialog.getByLabel(F("place"), { exact: true }).fill("A test place");
+  await dialog.getByLabel(F("lat"), { exact: true }).fill("10");
+  await dialog.getByLabel(F("lon"), { exact: true }).fill("20");
+  await dialog.getByLabel(F("people"), { exact: true }).fill("500");
+  await dialog.getByLabel(F("deaths"), { exact: true }).fill("1");
+  await dialog.getByLabel(F("toll"), { exact: true }).fill("One test entry, not a real event.");
+  await dialog.getByLabel(F("description"), { exact: true }).fill("500 people: a square 40 m by 30 m with one exit 2 m wide in its south side.");
+  await dialog.getByLabel(F("what_happened"), { exact: true }).fill("Nothing happened: this case checks the form.");
+  await dialog.getByLabel(F("lesson"), { exact: true }).fill("Forms keep what you type.");
+  await dialog.getByLabel(T("realcase.form.source_label", { n: 1 })).fill("Test source");
+  await dialog.getByLabel(T("realcase.form.source_url", { n: 1 })).fill("https://example.org/report");
+  await dialog.getByLabel(F("dimensions"), { exact: true }).fill("Square 40 m by 30 m.");
+  // the server refuses a case without simplifications: the form says which field to fix
+  await dialog.getByRole("button", { name: F("save") }).click();
+  await dialog.getByText(F("fix_marked")).waitFor({ timeout: 10_000 });
+  await dialog.getByLabel(F("approximations"), { exact: true }).fill("Everything here is made up for the test.");
+  await dialog.getByRole("button", { name: F("save") }).click();
+  await dialog.waitFor({ state: "detached", timeout: 10_000 });
+  const saved = (await api("/real_cases")).find((c) => c.title === tag);
+  if (!saved || saved.origin !== "saved") throw new Error("the case was not saved");
+  // edit: the change is stored
+  await page.getByRole("button", { name: T("realcase.edit_named", { title: tag }) }).click();
+  await dialog.getByLabel(F("deaths"), { exact: true }).fill("2");
+  await dialog.getByRole("button", { name: F("save") }).click();
+  await dialog.waitFor({ state: "detached", timeout: 10_000 });
+  await expect.poll(async () => (await api("/real_cases")).find((c) => c.id === saved.id)?.deaths).toBe(2);
+  // a built-in example cannot be edited, only copied into a new case (cancelled here)
+  const example = (await api("/real_cases")).find((c) => c.origin === "example");
+  await page.getByRole("button", { name: T("realcase.copy_named", { title: example.title }) }).click();
+  await expect(dialog.getByLabel(F("description"), { exact: true })).toHaveValue(example.description);
+  await dialog.getByRole("button", { name: T("common.cancel") }).click();
+  // delete, after confirming
+  await page.getByRole("button", { name: T("realcase.delete_named", { title: tag }) }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: T("realcase.delete") }).click();
+  await expect.poll(async () => (await api("/real_cases")).some((c) => c.id === saved.id)).toBe(false);
+  return `saved ${saved.id}, refused without simplifications, edited (deaths 1 → 2), copied “${example.title}”, deleted`;
+});
+
 // --- scripts ----------------------------------------------------------------------------------
 await check("Scripts: the example analysis script runs and shows its result", async () => {
   const plan = await testedPlan();

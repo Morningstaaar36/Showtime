@@ -4,7 +4,7 @@ import { api, configureTimeouts } from "./client";
 import { useMapConfig } from "@/state/mapConfig";
 import type { ImportKind } from "@/lib/importTypes";
 import type { PlanSnapshot } from "@/types/generated";
-import type { OpenCaseOut, RealCase } from "@/journey/realCases";
+import type { CaseFacts, OpenCaseOut, RealCase } from "@/journey/realCases";
 import type {
   SandboxIsolation,
   AskOut,
@@ -328,6 +328,25 @@ export function useAsk() {
 /** Documented crowd disasters, rebuilt by the Designer agent from their sourced descriptions. */
 export const useRealCases = () =>
   useQuery({ queryKey: ["real_cases"], queryFn: () => api.get<RealCase[]>("/real_cases") });
+
+/** Save a new real case, or change a saved one (`id`). */
+export function useSaveRealCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, facts }: { id?: string; facts: CaseFacts }) =>
+      id ? api.put<RealCase>(`/real_cases/${id}`, facts) : api.post<RealCase>("/real_cases", facts),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["real_cases"] }),
+  });
+}
+
+/** Delete a saved real case (projects built from it stay). */
+export function useDeleteRealCase() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.del<null>(`/real_cases/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["real_cases"] }),
+  });
+}
 
 /** Build a real case's venue (one model call) and start its rule-based test; a case built
  * before opens its project. */

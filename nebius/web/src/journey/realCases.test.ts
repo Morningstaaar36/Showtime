@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RunResult, Venue } from "@/api/types";
-import { openTarget, realCaseOf, simulatedPeak } from "./realCases";
+import { blankFacts, type CaseFacts, factsOf, fieldOfError, linesOf, missingField, openTarget, type RealCase, realCaseOf, simulatedPeak } from "./realCases";
 
 const card = {
   id: "love_parade_2010",
@@ -48,5 +48,48 @@ describe("real cases", () => {
     expect(openTarget({ project_id: "p1", session_id: "s1", status: "existing" })).toBe("/p/p1");
     expect(openTarget({ project_id: "p1", session_id: null, status: "needs_fixes" })).toBe("/p/p1/describe");
     expect(openTarget({ project_id: "p1", session_id: null, status: "existing" })).toBe("/p/p1/describe");
+  });
+});
+
+describe("a case written in the form", () => {
+  it("keeps one entry per non-empty line", () => {
+    expect(linesOf(" Ramp 26 m wide \n\n Tunnels 16 m \n")).toEqual(["Ramp 26 m wide", "Tunnels 16 m"]);
+  });
+  it("points a server error at its field", () => {
+    expect(fieldOfError({ errors: [{ loc: ["body", "sources", 0, "url"], msg: "bad url" }] })).toBe("sources");
+    expect(fieldOfError({})).toBeNull();
+  });
+  it("starts blank, assuming nothing about any incident", () => {
+    const f = blankFacts();
+    expect([f.title, f.description, f.place]).toEqual(["", "", ""]);
+    expect(f.sources).toHaveLength(1);
+  });
+  it("copies a case's facts without its id, origin or project", () => {
+    const c = { id: "x", origin: "example", project_id: "p_1", ...blankFacts(), title: "A case", dimensions: ["d"] } as RealCase;
+    const f = factsOf(c);
+    expect(f.title).toBe("A case");
+    expect(f).not.toHaveProperty("id");
+    expect(f).not.toHaveProperty("project_id");
+    f.dimensions.push("e");
+    expect(c.dimensions).toEqual(["d"]); // a copy, not the same list
+  });
+});
+
+describe("the form says what is missing before saving", () => {
+  const full = (): CaseFacts => ({
+    ...blankFacts(), location: { lat: 1, lon: 2, timezone: "UTC" }, title: "A case", incident: "An incident", place: "A place", toll: "None.", date: "2020-01-01", people: 10,
+    description: "10 people: a room 10 m by 10 m with one door 1 m wide.", what_happened: "Nothing at all.", lesson: "Test it.",
+    sources: [{ label: "A report", url: "https://example.org/r" }], dimensions: ["Room 10 m."], approximations: ["All of it."],
+  });
+  it("accepts a complete case", () => expect(missingField(full())).toBeNull());
+  it.each([
+    [{ description: "too short" }, "description"],
+    [{ sources: [{ label: "A report", url: "example.org" }] }, "sources"],
+    [{ approximations: [] }, "approximations"],
+    [{ people: 0 }, "people"],
+    [{ date: "" }, "date"],
+    [{ location: { lat: 0, lon: 0, timezone: "UTC" } }, "location"],
+  ] as [Partial<CaseFacts>, string][])("names the first missing field (%o)", (change, field) => {
+    expect(missingField({ ...full(), ...change })).toBe(field);
   });
 });

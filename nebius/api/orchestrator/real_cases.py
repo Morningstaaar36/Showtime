@@ -16,7 +16,8 @@ from typing import Any
 
 from api.agents.base import AgentEnv
 from api.agents.venue_designer import design_venue
-from api.core.real_cases import EXTENSION_KEY, RealCase, case_of, get_case
+from api.core.real_cases import EXTENSION_KEY, RealCase, case_of
+from api.orchestrator.case_library import find_case
 
 # one round, two what-ifs, two fixes for the worst; tier 2 for the what-ifs keeps a crowd
 # that cannot get out (Hillsborough) inside the session's wall-clock budget
@@ -70,6 +71,16 @@ def existing_project(st: Any, case_id: str) -> str | None:
     return case_projects(st).get(case_id)
 
 
+def current_project(st: Any, project_id: str | None, case: RealCase) -> str | None:
+    """The project if it was built from the case as it reads now; None once the case was
+    edited after the build (the project stays, with the text it was built from)."""
+    if project_id is None:
+        return None
+    venue = st.projects.venue(project_id)
+    same = venue.extensions.get(EXTENSION_KEY) == case.card() and venue.location == case.location
+    return project_id if same else None
+
+
 def _latest_session(st: Any, project_id: str) -> str | None:
     rows = st.sessions.list_sessions(project_id)
     return str(rows[0].id) if rows else None
@@ -81,15 +92,15 @@ async def open_case(st: Any, case_id: str) -> dict[str, Any]:
     Raises KeyError for an unknown case and CaseBuildFailed when no venue came back.
     A second call while the case is being built waits for that build and opens its project.
     """
-    get_case(case_id)
+    find_case(st, case_id)
     lock = _building.setdefault(case_id, asyncio.Lock())
     async with lock:
         return await _open_case(st, case_id)
 
 
 async def _open_case(st: Any, case_id: str) -> dict[str, Any]:
-    case = get_case(case_id)
-    pid = existing_project(st, case_id)
+    case, _ = find_case(st, case_id)
+    pid = current_project(st, existing_project(st, case_id), case)
     if pid is not None:
         sid = _latest_session(st, pid)
         if sid is not None:

@@ -1,29 +1,42 @@
-/** Real cases: a row of tiles on Home (each rebuilds a documented disaster and tests it) and a
+/** Real cases: a row of tiles on Home (each rebuilds a documented disaster and tests it; saved
+ * cases can be written, changed and deleted here) and a
  * compact card on Your plan (what happened, the sources, what the simulation found here). */
-import { ArrowRight, BookOpenText, ExternalLink, History, Loader2 } from "lucide-react";
+import { ArrowRight, BookOpenText, Copy, ExternalLink, History, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import { useOpenRealCase, useRealCases } from "@/api/queries";
+import { useDeleteRealCase, useOpenRealCase, useRealCases } from "@/api/queries";
+import { Confirm } from "@/components/ui/alert-dialog";
 import { t } from "@/i18n";
 import { fmtNum } from "@/lib/format";
-import { openTarget, type RealCaseCard as Card } from "./realCases";
+import { CaseForm } from "./CaseForm";
+import { blankFacts, type CaseFacts, factsOf, openTarget, type RealCase, type RealCaseCard as Card } from "./realCases";
 
-/** Home › Events like yours › Learn from real cases. */
+type FormState = { initial: CaseFacts; editId?: string } | null;
+
+/** Home › Events like yours › Learn from real cases: the shipped examples, the cases organizers
+ * saved, and a tile to write a new one. */
 export function RealCaseRow() {
   const cases = useRealCases();
   const open = useOpenRealCase();
+  const remove = useDeleteRealCase();
   const navigate = useNavigate();
-  if (!cases.data?.length) return null;
-  const pick = (id: string, projectId: string | null) => {
-    if (projectId) {
-      navigate(`/p/${projectId}`);
-      return;
-    }
+  const [form, setForm] = useState<FormState>(null);
+  const [deleting, setDeleting] = useState<RealCase | null>(null);
+  if (!cases.data) return null;
+  // always through the server: it opens a tested project at once, and designs again a layout
+  // that was never fixed or tested (a model's second answer may get it right)
+  const pick = (id: string) => {
     open.mutate(id, {
-      onSuccess: (out) => navigate(openTarget(out)),
+      onSuccess: (out) => {
+        // the designer's layout needs a fix before it can be tested: say what, in the editor
+        if (out.status === "needs_fixes") toast.warning(t("realcase.needs_fixes"), { description: out.problems?.join(" ") || t("realcase.needs_fixes_hint"), duration: 15_000 });
+        navigate(openTarget(out));
+      },
       onError: (e) => toast.error(t("realcase.open_failed"), { description: e.message }),
     });
   };
+  const small = "inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-control)] px-2 text-xs font-medium text-muted hover:bg-surface-2 hover:text-ink";
   return (
     <section aria-labelledby="rc-h" className="space-y-2">
       <div>
@@ -34,10 +47,10 @@ export function RealCaseRow() {
         {cases.data.map((c) => {
           const busy = open.isPending && open.variables === c.id;
           return (
-            <li key={c.id}>
-              <button type="button" onClick={() => pick(c.id, c.project_id)} disabled={open.isPending}
+            <li key={c.id} className="flex flex-col rounded-[var(--radius-panel)] bg-surface shadow-sm">
+              <button type="button" onClick={() => pick(c.id)} disabled={open.isPending}
                       data-testid={`real-case-${c.id}`}
-                      className="group flex h-full w-full flex-col gap-1 rounded-[var(--radius-panel)] border-2 border-transparent bg-surface p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-60">
+                      className="group flex h-full w-full flex-1 flex-col gap-1 rounded-[var(--radius-panel)] border-2 border-transparent p-3 text-left transition hover:border-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal disabled:opacity-60">
                 <span className="font-semibold leading-snug">{c.title}</span>
                 <span className="text-xs text-muted">{c.lesson}</span>
                 <span className="mt-auto inline-flex items-center gap-1 pt-1.5 text-xs font-semibold text-signal">
@@ -45,10 +58,41 @@ export function RealCaseRow() {
                     : <>{c.project_id ? t("home.uc_open") : t("realcase.open")}<ArrowRight className="size-3.5 transition group-hover:translate-x-0.5" aria-hidden /></>}
                 </span>
               </button>
+              <div className="flex flex-wrap items-center gap-1 border-t border-border px-2 py-1">
+                <span className="mr-auto text-2xs text-muted">{t(`realcase.origin_${c.origin}`)}</span>
+                {c.origin === "saved" ? (
+                  <>
+                    <button type="button" className={small} aria-label={t("realcase.edit_named", { title: c.title })}
+                            onClick={() => setForm({ initial: factsOf(c), editId: c.id })}><Pencil className="size-3.5" aria-hidden />{t("realcase.edit")}</button>
+                    <button type="button" className={small} aria-label={t("realcase.delete_named", { title: c.title })}
+                            onClick={() => setDeleting(c)}><Trash2 className="size-3.5" aria-hidden />{t("realcase.delete")}</button>
+                  </>
+                ) : (
+                  <button type="button" className={small} aria-label={t("realcase.copy_named", { title: c.title })}
+                          onClick={() => setForm({ initial: { ...factsOf(c), title: t("realcase.copy_title", { title: c.title }).slice(0, 60) } })}>
+                    <Copy className="size-3.5" aria-hidden />{t("realcase.copy")}
+                  </button>
+                )}
+              </div>
             </li>
           );
         })}
+        <li>
+          <button type="button" onClick={() => setForm({ initial: blankFacts() })}
+                  className="flex h-full min-h-28 w-full flex-col items-center justify-center gap-1 rounded-[var(--radius-panel)] border-2 border-dashed border-border p-3 text-center text-sm font-semibold text-signal transition hover:border-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal">
+            <Plus className="size-5" aria-hidden />{t("realcase.add")}
+            <span className="text-xs font-normal text-muted">{t("realcase.add_hint")}</span>
+          </button>
+        </li>
       </ul>
+      {form && <CaseForm key={form.editId ?? "new"} open onOpenChange={(v) => !v && setForm(null)} initial={form.initial} editId={form.editId} />}
+      <Confirm open={!!deleting} onOpenChange={(v) => !v && setDeleting(null)} danger
+               title={t("realcase.delete_title", { title: deleting?.title ?? "" })} body={t("realcase.delete_body")}
+               confirmLabel={t("realcase.delete")}
+               onConfirm={() => deleting && remove.mutate(deleting.id, {
+                 onSuccess: () => toast.success(t("realcase.deleted", { title: deleting.title })),
+                 onError: (e) => toast.error(e.message),
+               })} />
     </section>
   );
 }
