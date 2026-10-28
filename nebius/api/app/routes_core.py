@@ -14,6 +14,7 @@ from api.adapters.weather import WeatherUnavailable
 from api.app.errors import ApiException
 from api.app.state import AppState
 from api.core.event_profiles import event_kinds
+from api.core.scenarios import SPEED_PRESETS
 from api.core.session_modes import session_modes
 from api.core.templates import list_templates
 from api.core.validation import load_validation
@@ -178,10 +179,15 @@ def get_test_modes() -> dict[str, Any]:
 def get_settings_route(st: AppState = Depends(get_state)) -> dict[str, Any]:
     """Settings safe for the browser (no keys) plus UI preferences."""
     return {
-        "effective": st.settings.public_dict(),
+        "effective": _effective(st),
         "ui": st.ui,
         "defaults": st.base_settings.public_dict(),
     }
+
+
+def _effective(st: AppState) -> dict[str, Any]:
+    """The settings the page uses, with the walking-speed choices of the what-if lab."""
+    return {**st.settings.public_dict(), "speed_presets": SPEED_PRESETS}
 
 
 class SettingsIn(BaseModel):
@@ -199,7 +205,7 @@ def put_settings(body: SettingsIn, st: AppState = Depends(get_state)) -> dict[st
         raise ApiException(
             422, "invalid_settings", str(exc).splitlines()[0], "Check the highlighted value."
         ) from exc
-    return {"saved": saved, "effective": st.settings.public_dict(), "ui": st.ui}
+    return {"saved": saved, "effective": _effective(st), "ui": st.ui}
 
 
 @router.get("/event-kinds")

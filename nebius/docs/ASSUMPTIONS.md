@@ -73,6 +73,7 @@ the ground (ties: the lowest). Strengths:
 | Scenario | Value | Source / reasoning |
 | --- | --- | --- |
 | Heavy rain | walking speed × 0.85 | Planning assumption kept from the original sweep |
+| Families with young children (what-if lab) | walking speed × 0.75 | Planning assumption: a crowd paced by children and pushchairs; no measured source |
 | Night-time power cut, late surge in the dark | walking speed × 0.7 | Planning assumption kept from the original sweep (emergency lighting only) |
 | Smoke on the fire floor | walking speed × 0.5 on that floor (people reaching it later too) | Planning assumption: walking speed in dense irritant smoke falls to roughly half (Jin 1978, *J. Fire & Flammability* 9) [VERIFY exact factor] |
 | Stairwell lost to smoke | every flight of the main stairwell blocked from 0 s | Only offered with at least two stairwells; with one, everyone above the ground would be trapped |

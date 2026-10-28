@@ -37,6 +37,14 @@ Tag = Literal[
 RAIN_SPEED = 0.85
 DARK_SPEED = 0.7
 SMOKE_SPEED = 0.5
+FAMILIES_SPEED = 0.75
+# the walking-speed choices of the what-if lab and "Ask anything" (served with GET /settings)
+SPEED_PRESETS: dict[str, float] = {
+    "normal": 1.0,
+    "rain": RAIN_SPEED,
+    "families": FAMILIES_SPEED,
+    "smoke": SMOKE_SPEED,
+}
 LATE_SURGE_SHARE = 0.25
 LATE_SURGE_AT_S = 30.0
 COUNTERFLOW_SHARE = 0.05

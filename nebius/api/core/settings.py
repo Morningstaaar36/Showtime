@@ -221,6 +221,16 @@ class Settings(BaseSettings):
     at_risk_warning_s: float = Field(default=30.0, ge=0)
     # planning targets for 'everyone out' when no hazard time is known (labelled as targets)
     unit_costs: dict[str, Any] = Field(default_factory=dict)  # budget prices; example ones if empty
+    # what the editor and the palette add, before the organizer changes it
+    new_exit_width_m: float = Field(default=2.0, gt=0)
+    new_door_width_m: float = Field(default=1.0, gt=0)
+    new_zone_density_ppm2: float = Field(default=2.0, gt=0)  # people placed per m² of a new area
+    new_crowd_people: int = Field(default=200, ge=1)  # a crowd dragged from the palette
+    new_stair_width_m: float = Field(default=1.5, gt=0)
+    new_stair_run_m: float = Field(default=6.0, gt=0)
+    new_wall_thickness_m: float = Field(default=0.2, gt=0)
+    new_floor_height_m: float = Field(default=3.5, gt=0)
+    min_passage_width_m: float = Field(default=0.6, gt=0)  # narrower is not a way through
     target_evac_indoor_s: float = 300.0
     target_evac_outdoor_s: float = 480.0
     specific_flow: float = 1.3
@@ -445,6 +455,19 @@ class Settings(BaseSettings):
             "tavily_max_calls": self.tavily_max_calls,
             "specific_flow": self.specific_flow,
             "walk_speed_mean": self.walk_speed_mean,
+            "target_evac_indoor_s": self.target_evac_indoor_s,
+            "target_evac_outdoor_s": self.target_evac_outdoor_s,
+            "editor": {
+                "exit_width_m": self.new_exit_width_m,
+                "door_width_m": self.new_door_width_m,
+                "zone_density_ppm2": self.new_zone_density_ppm2,
+                "crowd_people": self.new_crowd_people,
+                "stair_width_m": self.new_stair_width_m,
+                "stair_run_m": self.new_stair_run_m,
+                "wall_thickness_m": self.new_wall_thickness_m,
+                "floor_height_m": self.new_floor_height_m,
+                "min_width_m": self.min_passage_width_m,
+            },
         }
 
 

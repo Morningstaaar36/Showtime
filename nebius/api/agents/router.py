@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, field_validator
 from api.adapters.llm import LLMReplayMiss
 from api.agents.base import AgentDef, AgentEnv, AgentUnavailable, call_agent
 from api.agents.context import wall_of
+from api.core.scenarios import RAIN_SPEED, SMOKE_SPEED
 from api.models import Venue
 
 Intent = Literal["edit", "question", "what_if", "analyse", "navigate", "other"]
@@ -30,7 +31,7 @@ Screen = Literal["check", "plan"]
 
 CROWD_SCALE_MIN, CROWD_SCALE_MAX = 0.25, 3.0
 # walking-speed factors: the same presets as the What-if lab in Expert view
-WEATHER_SPEED: dict[str, float] = {"rain": 0.85, "smoke": 0.6, "none": 1.0}
+WEATHER_SPEED: dict[str, float] = {"rain": RAIN_SPEED, "smoke": SMOKE_SPEED, "none": 1.0}
 SCREENS: dict[str, str] = {"check": "checking the venue", "plan": "reading the tested plan"}
 
 
