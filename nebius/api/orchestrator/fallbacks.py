@@ -8,9 +8,34 @@ from typing import Any
 from api.agents.red_team import inspired_by, script_attack, signature
 from api.core.extensions import IncidentRecord, Registry
 from api.core.extensions import geometry as geo
+from api.core.scenarios import (
+    COUNTERFLOW_PEOPLE,
+    DARK_SPEED,
+    FIREFIGHTERS_AT_S,
+    FIREFIGHTERS_PER_FLOOR,
+    SMOKE_SPEED,
+)
 from api.core.scripts import EXAMPLE_SCRIPT
 from api.models import Attack, Fix, RunResult, Venue
 from api.orchestrator.archive import EVERYWHERE, Region
+
+# strengths of the rule-written attacks and fixes (speeds are the scenario library's, see
+# docs/ASSUMPTIONS.md): an attack takes the worst plausible case, a fix a moderate one
+BLOCK_AT_S = 60  # an exit lost a minute in
+COUNTERFLOW_SHARE = 1 / 8  # a group pushing back in, as a share of the crowd
+COUNTERFLOW_AT_S = 30
+SLOWDOWN_AT_S = 20
+WRONG_WAY_FRACTION = 0.6  # people sent the wrong way by bad directions
+WRONG_WAY_AT_S = 15
+REDIRECT_FRACTION = 0.4  # people stewards move to the quietest exit (a fix)
+REDIRECT_AT_S = 20
+STAGGER_DELAY_S = 60
+
+
+def _counterflow_people(total: int) -> int:
+    lo, hi = COUNTERFLOW_PEOPLE
+    return max(lo, min(int(total * COUNTERFLOW_SHARE), hi))
+
 
 PREFERRED_KEYWORDS = {
     "block_exit": ["locked", "exit", "gate", "blocked"],
@@ -58,7 +83,7 @@ def rule_attacks(
             (
                 "block_exit",
                 f"{busiest.label or busiest.id} lost one minute into the exit",
-                [{"type": "block_exit", "exit_id": busiest.id, "at_s": 60}],
+                [{"type": "block_exit", "exit_id": busiest.id, "at_s": BLOCK_AT_S}],
                 f"{busiest.id} carries the most people, so losing it overloads the others.",
             )
         )
@@ -88,8 +113,8 @@ def rule_attacks(
                     {
                         "type": "counterflow",
                         "exit_id": busiest.id,
-                        "people": max(20, min(total // 8, 400)),
-                        "at_s": 30,
+                        "people": _counterflow_people(total),
+                        "at_s": COUNTERFLOW_AT_S,
                     }
                 ],
                 f"A group entering through {busiest.id} meets the outgoing crowd head-on.",
@@ -99,8 +124,8 @@ def rule_attacks(
         (
             "slowdown",
             "Power cut slows everyone down",
-            [{"type": "slowdown", "factor": 0.6, "at_s": 20}],
-            "With lights out people walk at about 60% of normal speed.",
+            [{"type": "slowdown", "factor": DARK_SPEED, "at_s": SLOWDOWN_AT_S}],
+            f"With lights out people walk at about {DARK_SPEED:.0%} of normal speed.",
         )
     )
     out: list[Attack] = []
@@ -219,7 +244,7 @@ def rule_attacks_for_cells(
             options = [
                 (
                     f"{s.id} lost to smoke one minute in",
-                    [{"type": "block_exit", "exit_id": s.id, "at_s": 60}],
+                    [{"type": "block_exit", "exit_id": s.id, "at_s": BLOCK_AT_S}],
                     f"With {s.id} gone, its floor has to use its other stairs.",
                 )
                 for s in r_stairs
@@ -229,7 +254,14 @@ def rule_attacks_for_cells(
             options = [
                 (
                     f"People come up {s.id} against the crowd",
-                    [{"type": "counterflow", "exit_id": s.id, "people": 4, "at_s": 60}],
+                    [
+                        {
+                            "type": "counterflow",
+                            "exit_id": s.id,
+                            "people": FIREFIGHTERS_PER_FLOOR,
+                            "at_s": FIREFIGHTERS_AT_S,
+                        }
+                    ],
                     f"A group climbing {s.id} halves its flow down.",
                 )
                 for s in r_stairs
@@ -238,7 +270,7 @@ def rule_attacks_for_cells(
             options = [
                 (
                     f"{name(e.id)} lost one minute into the exit",
-                    [{"type": "block_exit", "exit_id": e.id, "at_s": 60}],
+                    [{"type": "block_exit", "exit_id": e.id, "at_s": BLOCK_AT_S}],
                     f"Losing {e.id} sends its share of the crowd to the other exits.",
                 )
                 for e in r_exits
@@ -268,8 +300,8 @@ def rule_attacks_for_cells(
                         {
                             "type": "counterflow",
                             "exit_id": e.id,
-                            "people": max(20, min(total // 8, 400)),
-                            "at_s": 30,
+                            "people": _counterflow_people(total),
+                            "at_s": COUNTERFLOW_AT_S,
                         }
                     ],
                     f"A group entering through {e.id} meets the outgoing crowd head-on.",
@@ -281,16 +313,24 @@ def rule_attacks_for_cells(
                 options = [
                     (
                         "Power cut slows everyone down",
-                        [{"type": "slowdown", "factor": 0.6, "at_s": 20}],
-                        "With lights out people walk at about 60% of normal speed.",
+                        [{"type": "slowdown", "factor": DARK_SPEED, "at_s": SLOWDOWN_AT_S}],
+                        f"With lights out people walk at about {DARK_SPEED:.0%} of normal speed.",
                     )
                 ]
             else:
                 options = [
                     (
                         f"Smoke slows people in {name(z.id)}",
-                        [{"type": "slowdown", "zone_id": z.id, "factor": 0.5, "at_s": 20}],
-                        f"Smoke in {z.id} halves walking speed where the crowd starts.",
+                        [
+                            {
+                                "type": "slowdown",
+                                "zone_id": z.id,
+                                "factor": SMOKE_SPEED,
+                                "at_s": SLOWDOWN_AT_S,
+                            }
+                        ],
+                        f"Smoke in {z.id} cuts walking speed to {SMOKE_SPEED:.0%} where the "
+                        "crowd starts.",
                     )
                     for z in r_zones
                 ]
@@ -309,8 +349,8 @@ def rule_attacks_for_cells(
                             "type": "marshal_redirect",
                             "from_exit_id": others[0].id,
                             "to_exit_id": e.id,
-                            "fraction": 0.6,
-                            "at_s": 15,
+                            "fraction": WRONG_WAY_FRACTION,
+                            "at_s": WRONG_WAY_AT_S,
                             "speech": f"Everyone use {name(e.id)}!",
                         }
                     ],
@@ -477,7 +517,12 @@ def _stair_fixes(
                     "ops",
                     [],
                     [
-                        {"type": "staggered_release", "zone_id": zid, "delay_s": 60, "at_s": 0}
+                        {
+                            "type": "staggered_release",
+                            "zone_id": zid,
+                            "delay_s": STAGGER_DELAY_S,
+                            "at_s": 0,
+                        }
                         for zid in wait
                     ],
                     f"Phased evacuation: the {name.lower()} goes first",
@@ -549,7 +594,14 @@ def rule_fixes(
             (
                 "ops",
                 [],
-                [{"type": "staggered_release", "zone_id": z.id, "delay_s": 60, "at_s": 0}],
+                [
+                    {
+                        "type": "staggered_release",
+                        "zone_id": z.id,
+                        "delay_s": STAGGER_DELAY_S,
+                        "at_s": 0,
+                    }
+                ],
                 f"Stagger the release of {z.label or z.id}",
                 "Holding the largest zone for a minute spreads the load on the exits.",
             )
@@ -564,8 +616,8 @@ def rule_fixes(
                         "type": "marshal_redirect",
                         "from_exit_id": per[0].exit_id,
                         "to_exit_id": per[-1].exit_id,
-                        "fraction": 0.4,
-                        "at_s": 20,
+                        "fraction": REDIRECT_FRACTION,
+                        "at_s": REDIRECT_AT_S,
                         "speech": f"This way to {per[-1].exit_id}!",
                     }
                 ],
