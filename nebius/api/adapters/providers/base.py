@@ -11,11 +11,27 @@ registries, so the import must go one way).
 
 from __future__ import annotations
 
+import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Generic, Literal, TypeVar
 
 Kind = Literal["llm", "sandbox", "search"]
+
+
+PRESETS_FILE = Path(__file__).resolve().parents[2] / "data" / "llm_presets.json"
+
+
+@lru_cache(maxsize=1)
+def _presets() -> dict[str, Any]:
+    return dict(json.loads(PRESETS_FILE.read_text()))
+
+
+def preset(name: str) -> dict[str, str]:
+    """A provider preset's .env values (api/data/llm_presets.json)."""
+    return dict(_presets()[name]["values"])
 
 
 @dataclass(frozen=True)

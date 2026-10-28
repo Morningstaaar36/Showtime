@@ -286,9 +286,10 @@ class LLMClient:
         return warnings
 
     def _directive(self, reasoning: bool, model: str = "") -> str:
-        # Nemotron Nano 9B v2: "/think" or "/no_think" in the system prompt (model card).
-        # Other model families would read it as noise, so it is sent to Nemotron only.
-        if self.spec.directive_on_every_model or "nemotron" in model.lower():
+        # "/think" or "/no_think" in the system prompt switches reasoning for model families
+        # that read it (Nemotron's model card); others would read it as noise
+        match = self.settings.llm_directive_models.lower()
+        if self.spec.directive_on_every_model or (match and match in model.lower()):
             return "/think" if reasoning else "/no_think"
         return ""
 

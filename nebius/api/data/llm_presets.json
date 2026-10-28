@@ -1,0 +1,38 @@
+{
+  "note": "Provider presets: the .env values a provider fills in when they are empty or left over from another provider. A value set in .env always wins. Edit this file, not the code, when a provider renames, adds or retires a model.",
+  "nebius": {
+    "source": "https://tokenfactory.nebius.com/model-catalog.md and https://docs.tokenfactory.nebius.com/model-deprecations-november-2026.md (checked 2026-10-29: Nemotron 3 Nano and Super leave Serverless on 2026-11-09; Lightning and Nemotron 3.5 Super VL replace them)",
+    "values": {
+      "LLM_PROVIDER": "nebius",
+      "MODEL_FAST": "nvidia/Nemotron-3_5-Lightning",
+      "MODEL_LONG": "nvidia/Nemotron-3_5-Lightning",
+      "MODEL_MAIN": "nvidia/Nemotron-3.5-Super-VL",
+      "MODEL_JUDGE": "nvidia/Nemotron-3-Ultra-550b-a55b",
+      "PRICE_FAST_IN": "0.06",
+      "PRICE_FAST_OUT": "0.24",
+      "PRICE_LONG_IN": "0.06",
+      "PRICE_LONG_OUT": "0.24",
+      "PRICE_MAIN_IN": "0.30",
+      "PRICE_MAIN_OUT": "0.90",
+      "PRICE_JUDGE_IN": "1.00",
+      "PRICE_JUDGE_OUT": "3.00",
+      "LLM_EXTRA_BODY": "{\"reasoning_effort\":\"none\"}",
+      "LLM_SUPPORTS_JSON_SCHEMA": "false"
+    }
+  },
+  "openrouter": {
+    "source": "https://openrouter.ai/models?q=nemotron (free Nemotron models that answer; 3 Super :free returned 404 at the provider)",
+    "values": {
+      "LLM_PROVIDER": "openai",
+      "OPENAI_COMPAT_BASE_URL": "https://openrouter.ai/api/v1",
+      "OPENAI_COMPAT_LABEL": "OpenRouter",
+      "MODEL_FAST": "nvidia/nemotron-3.5-lightning:free",
+      "MODEL_LONG": "nvidia/nemotron-3.5-lightning:free",
+      "MODEL_MAIN": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "MODEL_JUDGE": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "MODEL_FALLBACK": "nvidia/nemotron-3.5-lightning:free",
+      "LLM_EXTRA_BODY": "{\"reasoning\":{\"enabled\":false}}",
+      "LLM_SUPPORTS_JSON_SCHEMA": "false"
+    }
+  }
+}
