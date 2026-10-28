@@ -10,6 +10,7 @@ import pytest
 
 from api.adapters.llm import LLMError
 from api.core.extensions import IncidentRecord
+from api.core.extensions.breaks import BreakRule, break_reasons
 from api.core.scripts import check_script
 from api.core.settings import Settings
 from api.core.templates import get_template
@@ -19,7 +20,6 @@ from api.orchestrator.archive import (
     EVERYWHERE,
     KIND_IDS,
     Archive,
-    BreakRule,
     Elite,
     kind_of,
     pick_candidates,
@@ -27,7 +27,6 @@ from api.orchestrator.archive import (
     severity_score,
 )
 from api.orchestrator.fallbacks import rule_attacks_for_cells
-from api.orchestrator.session import break_reasons
 from api.tests.test_redteam import _run_session, state  # noqa: F401  (fixture)
 
 INC = [

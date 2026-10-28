@@ -237,6 +237,16 @@ class Settings(BaseSettings):
     fixes_per_attack: int = 2
     fix_targets: int = 2
     fix_min_gain: float = 0.10
+    # a scenario the AI proposes: events start within this many seconds after the alarm, and a
+    # surge or counterflow is at most this share of the crowd (or attack_min_people, if more)
+    attack_max_start_s: float = Field(default=600.0, gt=0)
+    surge_max_share: float = Field(default=0.5, gt=0, le=1)
+    counterflow_max_share: float = Field(default=0.34, gt=0, le=1)
+    attack_min_people: int = Field(default=50, ge=0)
+    # a fix is refused when it makes the plan without the attack worse than this: a share of the
+    # plan's ranking score, plus a margin that absorbs estimate noise on calm plans
+    fix_baseline_tolerance: float = Field(default=0.05, ge=0)
+    fix_baseline_margin: float = Field(default=1.0, ge=0)
     marshals: int = 5
     session_max_tokens: int = 400_000
     session_max_runs: int = 40

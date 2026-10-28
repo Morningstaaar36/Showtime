@@ -10,6 +10,8 @@ from typing import Any
 
 import pytest
 
+from api.core.extensions.breaks import BreakRule
+from api.core.settings import Settings
 from api.db.models import RedTeamSession
 from api.db.session import db_session
 from api.models import RunResult
@@ -68,7 +70,10 @@ def test_source_labels_follow_the_basis(kw: dict[str, Any], label: str) -> None:
 
 def test_an_instant_estimate_never_holds() -> None:
     r = RunResult(run_id="r_t", tier=1, status="ok", engine="tier1")
-    assert verdict(r, 5) == ("Instant estimate only — not simulated", "neutral")
+    assert verdict(r, BreakRule.of(Settings(_env_file=None), 300)) == (
+        "Instant estimate only — not simulated",
+        "neutral",
+    )
 
 
 async def test_report_of_a_confirmed_plan(make_state: Callable[..., Any]) -> None:

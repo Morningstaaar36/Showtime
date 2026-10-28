@@ -24,6 +24,7 @@ from sqlmodel import col, select
 
 from api.adapters.llm import BudgetExceeded, LLMError
 from api.agents.base import AgentUnavailable
+from api.core.session_modes import session_modes
 from api.db.models import AutopilotEventRow, AutopilotRunRow
 from api.db.session import db_session
 from api.models import Usage
@@ -42,21 +43,6 @@ from api.orchestrator.copilot_graph import GRAPH, cost_record
 
 log = logging.getLogger("showtime.autopilot")
 
-# Red Team Night settings per depth; the session budgets (runs, wall clock, tokens) come from
-# Settings like any other session. Thorough also runs the six-scenario sweep (graph routing).
-QUICK: dict[str, Any] = {
-    "max_rounds": 1,
-    "attacks_per_round": 3,
-    "fixes_per_attack": 2,
-    "fix_targets": 2,
-}
-THOROUGH: dict[str, Any] = {
-    "max_rounds": 3,
-    "attacks_per_round": 5,
-    "fixes_per_attack": 2,
-    "fix_targets": 2,
-}
-PRESETS: dict[str, dict[str, Any]] = {"quick": QUICK, "thorough": THOROUGH}
 
 PHASE_STEP: dict[str, AutopilotStepKey] = {
     phase: key for key, phases in STEP_PHASES.items() for phase in phases
@@ -317,7 +303,8 @@ class AutopilotManager:
         else:
             start["text"] = live.text or ""
         thread = f"autopilot-{live.id}"
-        hooks = _Hooks(self, live, dict(PRESETS[live.depth]))
+        # the depth's session settings (api/data/test_modes.json); thorough also runs the sweep
+        hooks = _Hooks(self, live, dict(session_modes().autopilot[live.depth]))
         config = {"configurable": {"st": self.st, "thread_id": thread, "autopilot": hooks}}
         final: dict[str, Any] = {}
         error: str | None = None

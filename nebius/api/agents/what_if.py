@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, create_model
 
 from api.agents.base import AgentCall, AgentDef, AgentEnv, call_agent
 from api.agents.context import event_union, events_doc, ids_line, readable, venue_summary
+from api.agents.limits import EventLimits, event_problems
 from api.core.extensions import Registry
 from api.core.scenarios import CATEGORY_LABELS, Built, Category, Resolved, ScenarioSpec
 from api.models import ScenarioEventIn, Venue
@@ -112,12 +113,7 @@ async def design_what_ifs(
         for e in d.events:
             spec = registry.event(e.type)
             p.extend(spec.validate_refs(venue, spec.params_model.model_validate(e.model_dump())))
-            if e.type == "surge" and e.extra_people > max(50, total // 2):
-                p.append(f"a surge of {e.extra_people} is more than half the crowd")
-            if e.type == "counterflow" and e.people > max(50, total // 3):
-                p.append(f"a counterflow of {e.people} is more than a third of the crowd")
-            if e.at_s > 600:
-                p.append("events must start within the first 10 minutes")
+        p.extend(event_problems(d.events, total, EventLimits.of(env.llm.settings)))
         return p
 
     def validate(out: Any) -> list[str]:

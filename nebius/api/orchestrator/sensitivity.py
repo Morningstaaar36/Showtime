@@ -24,14 +24,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 from api.core.estimates import scale_people
+from api.core.extensions.breaks import BreakRule, break_reasons
 from api.core.plan import PlanError
 from api.core.venue_ops import PatchError
 from api.db.models import UserSetting
 from api.db.session import db_session
 from api.models import RunResult
-from api.orchestrator.archive import BreakRule
 from api.orchestrator.seeds import METRICS, PENDING, USABLE, KeyRun, SeedCheckError, spread
-from api.orchestrator.session import break_reasons
 from api.orchestrator.together import plan_key
 
 log = logging.getLogger("showtime.sensitivity")

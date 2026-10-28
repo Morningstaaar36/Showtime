@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, create_model
 
 from api.agents.base import AgentDef, AgentEnv, audit_decision, call_agent
 from api.agents.context import event_union, events_doc, ids_line, venue_summary
+from api.agents.limits import EventLimits, event_problems
 from api.agents.numbers import allowed_numbers, check_numbers
 from api.core.extensions import IncidentRecord, Registry
 from api.core.scripts import MAX_SCRIPT_CHARS, check_script
@@ -411,6 +412,7 @@ async def red_team(
     feats = venue_features(venue, baseline)
     rows = {r.row_id: r for r in incidents}
     total = venue.total_people()
+    limits = EventLimits.of(env.llm.settings)
     model = _model(registry, n)
 
     def problems_of(d: Any) -> list[str]:
@@ -420,12 +422,7 @@ async def red_team(
         for e in d.events:
             spec = registry.event(e.type)
             p.extend(spec.validate_refs(venue, spec.params_model.model_validate(e.model_dump())))
-            if e.type == "surge" and e.extra_people > max(50, total // 2):
-                p.append(f"surge of {e.extra_people} is more than half the crowd")
-            if e.type == "counterflow" and e.people > max(50, total // 3):
-                p.append(f"counterflow of {e.people} is more than a third of the crowd")
-            if e.at_s > 600:
-                p.append("events must start within the first 10 minutes")
+        p.extend(event_problems(d.events, total, limits))
         return p
 
     def script_problems_of(d: Any) -> list[str]:
@@ -482,6 +479,7 @@ async def red_team(
         "aim": "\n".join(f"{i + 1}. {line}" for i, line in enumerate(aim or []))
         or "- any new weakness",
         "aim_script": aim_script or "any part of the venue",
+        "max_start_s": f"{limits.max_start_s:g}",
     }
     call = await call_agent(
         env,

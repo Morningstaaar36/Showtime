@@ -20,11 +20,12 @@ from typing import Any
 
 from api.adapters.sandbox import SimJob
 from api.core.evidence import comparable
+from api.core.extensions.breaks import evac_estimate
 from api.core.plan import PlanError
 from api.db.models import UserSetting
 from api.db.session import db_session
 from api.models import Attack, Fix, RunResult, ScenarioEventIn, Venue
-from api.orchestrator.session import evac_estimate, severity
+from api.orchestrator.session import severity
 
 log = logging.getLogger("showtime.rewind")
 
@@ -201,7 +202,7 @@ def _delta(a: Any, b: Any) -> float | None:
     return None
 
 
-def compare(base: RunResult | None, branches: list[dict[str, Any]]) -> str | None:
+def compare(base: RunResult | None, branches: list[dict[str, Any]], warn_ppm2: float) -> str | None:
     """Fill each branch's change against "do nothing"; returns the key of the best response.
 
     Only a finished branch whose evidence is comparable with "do nothing" can be best, and
@@ -225,10 +226,10 @@ def compare(base: RunResult | None, branches: list[dict[str, Any]]) -> str | Non
         }
         b["comparable"] = comparable(base, r)
         usable = r.status in ("ok", "partial") and b["comparable"]
-        if usable and severity(r) < severity(base):
+        if usable and severity(r, warn_ppm2) < severity(base, warn_ppm2):
             b["better"] = True
-            if best is None or severity(r) < best[0]:
-                best = (severity(r), b["key"])
+            if best is None or severity(r, warn_ppm2) < best[0]:
+                best = (severity(r, warn_ppm2), b["key"])
         else:
             b["better"] = False
     return best[1] if best else None
@@ -269,12 +270,13 @@ def _source_run(st: Any, session_id: str, worst_id: str) -> tuple[str | None, Ru
 def _hardest_attack(st: Any, session_id: str) -> str | None:
     """When no attack broke the plan: the attack whose test run came out worst."""
     best: tuple[float, str] | None = None
+    warn_ppm2 = st.settings.density_warn_ppm2
     for node, rid in _nodes(st, session_id).items():
         if not node.startswith("atk:") or node.count(":") != 1:
             continue
         res = _finished(st, rid)
-        if res is not None and (best is None or severity(res) > best[0]):
-            best = (severity(res), node.split(":", 1)[1])
+        if res is not None and (best is None or severity(res, warn_ppm2) > best[0]):
+            best = (severity(res, warn_ppm2), node.split(":", 1)[1])
     return best[1] if best else None
 
 
@@ -339,7 +341,16 @@ def start_rewind(
         return record
     _save(st, record)
     _TASKS[rid] = asyncio.create_task(
-        _run(st, record, venue, attack, summary, int(row.config.get("seed", 42)), at_s, responses)
+        _run(
+            st,
+            record,
+            venue,
+            attack,
+            summary,
+            int(row.config.get("seed", st.settings.default_seed)),
+            at_s,
+            responses,
+        )
     )
     return record
 
@@ -492,7 +503,7 @@ async def _rewind(
     for b, r in zip(runnable, results, strict=True):
         b["_result"] = r
     base = next((r for b, r in zip(runnable, results, strict=True) if b["key"] == "nothing"), None)
-    record["best"] = compare(base, branches)
+    record["best"] = compare(base, branches, st.settings.density_warn_ppm2)
     record["status"] = "done"
     if base is None or base.status not in ("ok", "partial"):
         record["message"] = "The “do nothing” branch didn't finish, so nothing can be compared."

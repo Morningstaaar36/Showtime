@@ -13,6 +13,7 @@ from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel
 
+from api.core.extensions.breaks import BreakRule
 from api.models import Attack, Countdown, Fix, PatchOpIn, RunResult, ScenarioEventIn, Venue
 
 API_VERSION = "1"
@@ -307,6 +308,8 @@ class ReportBundle(BaseModel):
     disclaimer: str = "Planning aid, not a safety certification."
     density_danger_ppm2: float = 5.0
     density_warn_ppm2: float = 3.5
+    # the server's break and at-risk rules (settings): exporters judge runs with these only
+    break_rule: BreakRule | None = None
     provider_label: str = "LOCAL"
     tokens_total: int = 0
     cost_usd: float = 0.0

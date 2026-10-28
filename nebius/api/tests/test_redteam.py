@@ -20,12 +20,12 @@ from api.agents.judge import judge
 from api.agents.red_team import red_team
 from api.app.state import build_state
 from api.core.extensions import IncidentRecord, Registry
+from api.core.extensions.breaks import BreakRule, break_reasons
 from api.core.settings import Settings
 from api.core.templates import get_template
 from api.models import Attack, Venue
-from api.orchestrator.archive import BreakRule
 from api.orchestrator.reports import build_bundle
-from api.orchestrator.session import SessionManager, break_reasons
+from api.orchestrator.session import SessionManager
 from api.tests.conformance.suites import check_exporter
 
 ROW = re.compile(r"row (\d+):")

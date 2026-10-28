@@ -347,7 +347,7 @@ async def simulate(state: CopilotState, config: RunnableConfig) -> CopilotState:
         )
     )
     p = st.projects.get(state["project_id"])
-    job = st.runs.build_job(venue, tier=3, seed=42)
+    job = st.runs.build_job(venue, tier=3, seed=st.settings.default_seed)
     rid = st.runs.submit(job, project_id=p.id, venue_version=p.current_version, label="Stress test")
     w(
         _step(

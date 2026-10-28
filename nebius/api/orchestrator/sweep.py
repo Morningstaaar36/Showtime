@@ -131,7 +131,11 @@ def start_sweep(
             continue
         try:
             job = st.runs.build_job(
-                v, tier=tier, seed=42, extra=list(r.built.events), parent_run_id=parent_run_id
+                v,
+                tier=tier,
+                seed=st.settings.default_seed,
+                extra=list(r.built.events),
+                parent_run_id=parent_run_id,
             )
             job.request.extensions["events"] = job.events
             job.request.extensions["scenario_id"] = r.spec.id

@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from api.core.extensions import geometry as geo
-from api.core.settings import Settings
+from api.core.extensions.breaks import BreakRule
 from api.models import Attack, RunResult, Venue
 
 # --- descriptor axis 1: hazard kind -------------------------------------------------------
@@ -188,36 +188,6 @@ def regions(venue: Venue) -> list[Region]:
 
 
 # --- fitness: physics, not a model ---------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class BreakRule:
-    """The thresholds of `break_reasons` (session.py); the score mirrors them exactly. Built
-    from the settings with `of`, so the server, the score and the web verdict agree."""
-
-    danger_ppm2: float
-    min_s: float
-    target_s: float | None
-    safety_factor: float
-    stuck_people: int
-    stuck_fraction: float
-    quick_min_out: float
-
-    @classmethod
-    def of(cls, s: Settings, target_s: float | None) -> BreakRule:
-        return cls(
-            s.density_danger_ppm2,
-            s.danger_min_duration_s,
-            target_s,
-            s.safety_factor,
-            s.stuck_tolerance_people,
-            s.stuck_tolerance_fraction,
-            s.quick_min_out_fraction,
-        )
-
-    def stuck_tolerance(self, total: int) -> int:
-        """People still inside at the end that are noise, not a failure."""
-        return max(self.stuck_people, round(total * self.stuck_fraction))
 
 
 SEVERITY_CAP = 3.0  # one extreme metric must not swamp the QD-score

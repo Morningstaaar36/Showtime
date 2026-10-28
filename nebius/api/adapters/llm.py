@@ -868,7 +868,8 @@ class FakeLLM:
 
     def __init__(self, script: dict[str, Any], settings: Settings | None = None) -> None:
         self.script = script
-        self.settings = settings
+        # agents read limits from the settings: a fake without any uses the documented defaults
+        self.settings = settings if settings is not None else Settings(_env_file=None)
         self.calls: list[tuple[str, list[dict[str, str]]]] = []
 
     async def health(self) -> dict[str, Any]:

@@ -14,6 +14,7 @@ from api.adapters.weather import WeatherUnavailable
 from api.app.errors import ApiException
 from api.app.state import AppState
 from api.core.event_profiles import event_kinds
+from api.core.session_modes import session_modes
 from api.core.templates import list_templates
 from api.core.validation import load_validation
 from api.models import StageParams
@@ -164,6 +165,13 @@ def features(st: AppState = Depends(get_state)) -> dict[str, Any]:
 def plugins(st: AppState = Depends(get_state)) -> list[dict[str, Any]]:
     """Discovered plugins with status (also used by `make plugins`)."""
     return [p.__dict__ for p in st.host.statuses.values()]
+
+
+@router.get("/test_modes")
+def get_test_modes() -> dict[str, Any]:
+    """How deep a test can go: the choices the page offers and their session settings."""
+    m = session_modes()
+    return {"default": m.default, "modes": [x.model_dump() for x in m.modes]}
 
 
 @router.get("/settings")

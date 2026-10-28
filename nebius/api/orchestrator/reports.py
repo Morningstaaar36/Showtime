@@ -16,6 +16,7 @@ from api.core.assumptions import assumptions
 from api.core.estimates import compute_estimates
 from api.core.evidence import describe_run
 from api.core.extensions import ReportBundle
+from api.core.extensions.breaks import BreakRule
 from api.core.extensions.geometry import display_names
 from api.core.plan import plan_hash
 from api.core.settings import ROOT_DIR, Settings
@@ -251,6 +252,9 @@ def build_bundle(st: Any, project_id: str, session_id: str | None = None) -> Rep
         session_id=session.id if session else None,
         density_danger_ppm2=s.density_danger_ppm2,
         density_warn_ppm2=s.density_warn_ppm2,
+        break_rule=BreakRule.of(
+            s, s.target_evac_indoor_s if venue.mode == "indoor" else s.target_evac_outdoor_s
+        ),
         provider_label=s.llm_label,
         tokens_total=session.tokens if session else 0,
         cost_usd=session.cost_usd if session else 0.0,

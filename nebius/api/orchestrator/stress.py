@@ -16,13 +16,12 @@ from typing import Any, Literal
 from api.adapters.sandbox import SimJob
 from api.agents.red_team import incident_query, venue_features
 from api.core.extensions import IncidentRecord
+from api.core.extensions.breaks import BreakRule, break_reasons
 from api.core.plan import PlanError
 from api.core.venue_ops import PatchError
 from api.models import Attack, Fix, RunResult, Venue
-from api.orchestrator.archive import BreakRule
 from api.orchestrator.fallbacks import rule_attacks
 from api.orchestrator.rewind import live_or_interrupted, load_record, now_iso, numbers, save_record
-from api.orchestrator.session import break_reasons
 
 log = logging.getLogger("showtime.stress")
 

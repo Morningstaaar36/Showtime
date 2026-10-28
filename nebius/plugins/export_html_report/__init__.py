@@ -9,6 +9,7 @@ from typing import Any
 from pydantic import BaseModel
 
 from api.core.extensions import Registry, ReportBundle
+from api.core.extensions.breaks import BreakRule, at_risk, break_reasons
 from api.core.extensions.geometry import display_names
 from api.models import RunResult
 
@@ -81,7 +82,7 @@ def describe_op(o: dict[str, Any], name: Callable[[Any], str] = _same) -> str:
     return str(k)
 
 
-def verdict(r: RunResult | None, danger: float) -> tuple[str, str]:
+def verdict(r: RunResult | None, rule: BreakRule | None) -> tuple[str, str]:
     """Headline verdict; it never claims more than the result's basis supports."""
     if r is None:
         return "Not tested", "neutral"
@@ -91,15 +92,11 @@ def verdict(r: RunResult | None, danger: float) -> tuple[str, str]:
         return "Simulation did not complete", "neutral"
     if r.basis == "instant_estimate":
         return "Instant estimate only — not simulated", "neutral"
-    m = r.metrics
-    trapped = m.extra.get("trapped", 0)
-    if (
-        m.time_above_danger_s >= 5
-        or trapped
-        or m.agents_not_evacuated > max(5, m.agents_total * 0.005)
-    ):
+    if rule is None:  # a bundle without the server's rules: say so rather than guess
+        return "Not judged", "neutral"
+    if break_reasons(r, rule):
         return "Fails", "danger"
-    if m.peak_density_ppm2 >= 3.5:
+    if at_risk(r, rule):
         return "At risk", "caution"
     if r.basis == "partial_simulation":
         return "Test incomplete", "neutral"
@@ -333,7 +330,7 @@ def render(b: ReportBundle) -> str:
     """The report as a complete HTML document."""
     evaluation = b.extras.get("evaluation")
     run = shown_result(b.final, b.results) or b.baseline
-    v_text, v_tone = verdict(run, b.density_danger_ppm2)
+    v_text, v_tone = verdict(run, b.break_rule)
     venue = b.fixed_venue or b.venue
     labels = display_names(b.venue, b.fixed_venue)
 

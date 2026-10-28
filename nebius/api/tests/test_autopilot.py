@@ -20,6 +20,7 @@ from api.adapters.llm import FakeLLM, LLMError
 from api.adapters.sandbox import FakeRunner
 from api.app.main import create_app
 from api.app.state import build_state
+from api.core.session_modes import session_modes
 from api.core.settings import Settings, get_settings
 from api.db import session as dbs
 from api.db.models import Run
@@ -117,7 +118,8 @@ async def test_quick_autopilot_from_a_sentence_delivers_a_tested_plan(state: Any
 
     session = state.sessions.get(run.session_id)
     assert session.status == "finished"
-    assert {k: session.config[k] for k in ap.QUICK} == ap.QUICK  # the quick preset
+    quick = session_modes().autopilot["quick"]
+    assert {k: session.config[k] for k in quick} == quick  # the quick preset
     summary = session.summary
     assert summary["judge_text"] and summary["attacks"]
     baseline = summary["baseline_run_id"]
@@ -182,7 +184,8 @@ async def test_request_without_the_ai_fails_with_a_way_forward(state: Any) -> No
 
 
 async def test_budget_ends_with_a_partial_plan(state: Any, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setitem(ap.PRESETS, "quick", {**ap.QUICK, "max_tokens": 10})
+    modes = session_modes()
+    monkeypatch.setitem(modes.autopilot, "quick", {**modes.autopilot["quick"], "max_tokens": 10})
     p = state.projects.create("Hall", template_id="conference_hall_2f")
     run = await _plan(state, project_id=p.id)
     assert run.status == "finished" and run.partial_reason == "budget"
@@ -261,7 +264,8 @@ async def test_thorough_adds_the_sweep_and_a_larger_red_team(state: Any) -> None
     run = await _plan(state, project_id=p.id, depth="thorough")
     assert run.status == "finished", (run.error, run.steps)
     config = state.sessions.get(run.session_id).config
-    assert {k: config[k] for k in ap.THOROUGH} == ap.THOROUGH
+    thorough = session_modes().autopilot["thorough"]
+    assert {k: config[k] for k in thorough} == thorough
     assert sweep.sweep_status(state, p.id) is not None
     q = state.projects.create("Hall again", template_id="conference_hall_2f")
     await _plan(state, project_id=q.id)

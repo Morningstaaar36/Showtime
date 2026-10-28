@@ -48,6 +48,7 @@ from api.core.evidence import (
     fallback_for,
 )
 from api.core.extensions import HazardContext, HazardResult, IncidentRecord
+from api.core.extensions.breaks import BreakRule, break_reasons, evac_estimate
 from api.core.plan import (
     PlanConflict,
     PlanError,
@@ -72,7 +73,6 @@ from api.models import (
 from api.orchestrator.archive import (
     KIND_IDS,
     Archive,
-    BreakRule,
     Cell,
     Elite,
     Insert,
@@ -176,54 +176,24 @@ NOT_TESTED_TOGETHER = (
 )
 
 
-def severity(r: RunResult) -> float:
-    """One number to compare runs (lower is better). Danger time dominates, then density,
-    then people left inside, then evacuation time."""
+# ranking weights of `severity`: they only order runs against each other (danger time first,
+# then density over the warning level, people left inside, evacuation time)
+RANK_PER_DANGER_S = 10.0
+RANK_PER_PPM2_OVER_WARN = 60.0
+RANK_PER_PERSON_INSIDE = 2.0
+RANK_PER_EVAC_S = 0.1
+
+
+def severity(r: RunResult, warn_ppm2: float) -> float:
+    """One number to compare runs (lower is better); `warn_ppm2` is the warning density setting."""
     m = r.metrics
     rset = m.evac_time_p95_s or m.extra.get("rset_extrapolated_s") or 0.0
     return (
-        m.time_above_danger_s * 10.0
-        + max(0.0, m.peak_density_ppm2 - 3.5) * 60.0
-        + m.agents_not_evacuated * 2.0
-        + float(rset) / 10.0
+        m.time_above_danger_s * RANK_PER_DANGER_S
+        + max(0.0, m.peak_density_ppm2 - warn_ppm2) * RANK_PER_PPM2_OVER_WARN
+        + m.agents_not_evacuated * RANK_PER_PERSON_INSIDE
+        + float(rset) * RANK_PER_EVAC_S
     )
-
-
-def evac_estimate(r: RunResult) -> float | None:
-    """95% evacuation time, or the extrapolated estimate for partial (Tier 2) runs."""
-    m = r.metrics
-    v = m.evac_time_p95_s if m.evac_time_p95_s is not None else m.extra.get("rset_extrapolated_s")
-    return float(v) if v is not None else None
-
-
-def break_reasons(r: RunResult, rule: BreakRule) -> list[str]:
-    """Why a run counts as a break (contract: docs/API_CONTRACT.md)."""
-    m = r.metrics
-    out: list[str] = []
-    if r.status in ("failed", "timeout"):
-        return []
-    rset = evac_estimate(r)
-    if rule.target_s and rset is not None and rset * rule.safety_factor > rule.target_s:
-        out.append(
-            f"evacuation time {rset:.0f} s × safety factor {rule.safety_factor:g} exceeds the "
-            f"{rule.target_s / 60:.0f} min target"
-        )
-    if m.time_above_danger_s >= rule.min_s:
-        out.append(
-            f"density at or above {rule.danger_ppm2:g} people per m² for "
-            f"{m.time_above_danger_s:.0f} s"
-        )
-    trapped = int(m.extra.get("trapped", 0))
-    if trapped:
-        out.append(f"{trapped} people trapped with no open exit")
-    tol = rule.stuck_tolerance(m.agents_total)
-    if m.agents_not_evacuated > tol and r.tier != 2:
-        out.append(f"{m.agents_not_evacuated} people still inside at the end")
-    if r.tier == 2 and m.agents_not_evacuated > tol and m.evac_time_p95_s is None:
-        frac = m.extra.get("evacuated_fraction")
-        if frac is not None and frac < rule.quick_min_out:
-            out.append(f"only {frac * 100:.0f}% out after {r.sim_time_s:.0f} s")
-    return out
 
 
 # attack_card `screening` label for AI-written scenarios: the instant estimate cannot run
@@ -869,7 +839,7 @@ class SessionManager:
                         )
                         continue
                     est = tier1[old_id]
-                    ranked.append((severity(est), a))
+                    ranked.append((severity(est, s.density_warn_ppm2), a))
                     self.emit(
                         live,
                         "attack_card",
@@ -930,9 +900,9 @@ class SessionManager:
                             )
                             self._archive_event(live, archive, rnd, ins, a.attack_id, score)
                         if reasons:
-                            breaks.append((severity(r), a, r))
-                            if worst is None or severity(r) > worst[0]:
-                                worst = (severity(r), a, r)
+                            breaks.append((severity(r, s.density_warn_ppm2), a, r))
+                            if worst is None or severity(r, s.density_warn_ppm2) > worst[0]:
+                                worst = (severity(r, s.density_warn_ppm2), a, r)
                 point = archive.end_round(rnd)
                 scoreboard.append(
                     {
@@ -985,7 +955,7 @@ class SessionManager:
                             r,
                             break_reasons(r, BreakRule.of(s, self._target(working))),
                         )
-                        sev = severity(r)
+                        sev = severity(r, s.density_warn_ppm2)
                     self._status(live, "blue_team", rnd, f"Blue team is fixing “{a.title}”")
                     fixes = await self._fixes(
                         env,
@@ -1058,7 +1028,9 @@ class SessionManager:
                             )
                             fr = await tried.get(k)
                             results[fr.run_id] = fr
-                            gain = (sev - severity(fr)) / sev if sev > 0 else 0.0
+                            gain = (
+                                (sev - severity(fr, s.density_warn_ppm2)) / sev if sev > 0 else 0.0
+                            )
                             fr_reasons = break_reasons(fr, BreakRule.of(s, self._target(working)))
                             # kept when it removes the break, or improves the result by
                             # FIX_MIN_GAIN, and never when it makes the plan worse without the
@@ -1523,9 +1495,11 @@ class SessionManager:
         """A fix must not make the plan worse without the attack (instant estimate)."""
         if baseline is None:
             return False
+        s = self.st.settings
         before = self._estimate(live, venue, None, extra=live.measures)
         after = self._estimate(live, venue, None, fix, extra=live.measures)
-        return severity(after) > severity(before) * 1.05 + 1.0
+        allowed = severity(before, s.density_warn_ppm2) * (1 + s.fix_baseline_tolerance)
+        return bool(severity(after, s.density_warn_ppm2) > allowed + s.fix_baseline_margin)
 
     def _apply_ops(self, venue: Venue, ops: list[dict[str, Any]], live: LiveSession) -> Venue:
         if not ops:
