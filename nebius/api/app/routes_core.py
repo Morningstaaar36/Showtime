@@ -309,11 +309,13 @@ def stage_check(body: StageCheckIn, st: AppState = Depends(get_state)) -> dict[s
 
 
 @router.get("/glossary")
-def glossary(q: str | None = Query(default=None)) -> list[dict[str, str]]:
-    """Terms used in the UI (Help screen)."""
-    from api.core.glossary import GLOSSARY
+def get_glossary(
+    q: str | None = Query(default=None), st: AppState = Depends(get_state)
+) -> list[dict[str, str]]:
+    """Terms used in the UI (Help screen), with the numbers this server uses."""
+    from api.core.glossary import glossary
 
-    items = GLOSSARY
+    items = glossary(st.settings)
     if q:
         ql = q.lower()
         items = [g for g in items if ql in g["term"].lower() or ql in g["definition"].lower()]

@@ -1,13 +1,16 @@
-"""Glossary shown in Help and linked from jargon in the UI."""
+"""Glossary shown in Help and linked from jargon in the UI. Numbers that are settings are
+placeholders, filled from the settings when the glossary is read (`glossary`)."""
 
 from __future__ import annotations
+
+from typing import Any
 
 GLOSSARY: list[dict[str, str]] = [
     {
         "term": "People per m²",
-        "definition": "Crowd density: how many people stand on one "
-        "square metre. Around 2 is a packed standing crowd that can still move; 3.5 and above is "
-        "our warning level; at 5 and above people can no longer move freely and crush risk rises.",
+        "definition": "Crowd density: how many people stand on one square metre. Around 2 is a "
+        "packed standing crowd that can still move; {warn:g} and above is our warning level; at "
+        "{danger:g} and above people can no longer move freely and crush risk rises.",
     },
     {
         "term": "Evacuation time (95%)",
@@ -62,12 +65,12 @@ GLOSSARY: list[dict[str, str]] = [
     {
         "term": "Pre-movement time",
         "definition": "Time between the alarm and people starting "
-        "to move (default 60 s; set it in Settings).",
+        "to move ({pre_movement:g} s here; set it in Settings).",
     },
     {
         "term": "Safety factor",
         "definition": "Multiplier on the evacuation time in the "
-        "countdown, to cover uncertainty (default 1.5).",
+        "countdown, to cover uncertainty ({safety_factor:g} here).",
     },
     {
         "term": "Wind limit",
@@ -77,7 +80,7 @@ GLOSSARY: list[dict[str, str]] = [
     {
         "term": "Hotspot",
         "definition": "An area where density rose above the warning level "
-        "(3.5 people per m²) or the danger level (5).",
+        "({warn:g} people per m²) or the danger level ({danger:g}).",
     },
     {
         "term": "Counterflow",
@@ -90,3 +93,14 @@ GLOSSARY: list[dict[str, str]] = [
         "certification. Licensed engineers and authorities still sign off.",
     },
 ]
+
+
+def glossary(s: Any) -> list[dict[str, str]]:
+    """The glossary with the settings' numbers filled in (api.core.settings.Settings)."""
+    values = {
+        "warn": s.density_warn_ppm2,
+        "danger": s.density_danger_ppm2,
+        "pre_movement": s.pre_movement_s,
+        "safety_factor": s.safety_factor,
+    }
+    return [{**g, "definition": g["definition"].format(**values)} for g in GLOSSARY]
