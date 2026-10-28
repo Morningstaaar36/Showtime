@@ -16,10 +16,10 @@ from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 
 from api.core.extensions import geometry as geo
+from api.core.extensions.geometry import EXIT_DEPTH_M
 from api.models import Exit, Obstacle
 from api.models.venue_spec import PassageExitSpec, PassageSpec, VenueSpec, Wall
 
-EXIT_DEPTH_M = 0.4
 INSET_M = 0.02
 DIVIDER_M = 0.2
 

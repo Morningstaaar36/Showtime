@@ -17,6 +17,7 @@ from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.geometry.polygon import orient
 from shapely.ops import unary_union
 
+from api.core.building_gen import AUTO_PEOPLE_MAX
 from api.core.extensions import geometry as geo
 from api.models import Exit, Floor, Location, Obstacle, Venue, Zone
 
@@ -25,7 +26,6 @@ MAX_SIDE_M = 1000
 DEFAULT_DENSITY_PPM2 = {"indoor": 1.0, "outdoor": 1.5}
 # a whole park at the default density can mean hundreds of thousands of people; the automatic
 # guess stays at a plausible event size and the organizer sets the real headcount
-AUTO_PEOPLE_MAX = 10_000
 _PATH_WIDTH_M = {
     "footway": 3,
     "path": 3,

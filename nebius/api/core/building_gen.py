@@ -23,10 +23,10 @@ from api.core.extensions import geometry as geo
 from api.core.geometry import validate_venue
 from api.models import Floor, Obstacle, PeopleGroup, Stair, Venue, Zone
 from api.models.venue import EventKind
+from api.models.venue_spec import MAX_LEVELS
 
 Interior = Literal["open", "rooms"]
 
-MAX_LEVELS = 40
 AUTO_PEOPLE_MAX = 10_000
 WALL_T = 0.2  # interior wall thickness, metres
 MIN_ROOM_DEPTH = 4.0  # rooms shallower than this are not laid out

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from api.core.extensions import Registry, ReportBundle
 from api.core.extensions.breaks import BreakRule, at_risk, break_reasons
 from api.core.extensions.geometry import display_names
+from api.core.extensions.palette import css_root
 from api.models import RunResult
 
 
@@ -253,9 +254,9 @@ def _attack_result(r: RunResult | None, shown: RunResult | None, broke: bool, wh
     )
 
 
-CSS = """
-:root{--plan:#EEF2F4;--ink:#1C2329;--muted:#55626D;--line:#8E9BA5;--border:#D3DBE1;--signal:#1F5FBF;
---egress:#0A7F4F;--caution:#B97F00;--danger:#C62828}
+CSS = (
+    css_root()
+    + """
 *{box-sizing:border-box}
 body{margin:0;background:var(--plan);color:var(--ink);font:14px/1.5 "Public Sans",Helvetica,Arial,sans-serif;
 font-variant-numeric:tabular-nums}
@@ -288,10 +289,11 @@ a{color:var(--signal)}ol,ul{padding-left:20px}footer{margin-top:28px;font-size:1
 .toolbar button{font:inherit;border:1px solid var(--border);background:#fff;border-radius:6px;padding:6px 12px;cursor:pointer}
 @media print{body{background:#fff}main{margin:0;border:0;padding:0}.toolbar{display:none}h2{break-after:avoid}
 table,.countdown,.map,.verdict{break-inside:avoid}@page{size:A4;margin:16mm 14mm 18mm;
-@bottom-left{content:"Planning aid, not a safety certification.";font-size:9px;color:#C62828}
+@bottom-left{content:"Planning aid, not a safety certification.";font-size:9px;color:var(--danger)}
 @bottom-right{content:counter(page) " / " counter(pages);font-size:9px}}}
 td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 """
+)
 
 
 def _estimates_html(est: Any) -> str:

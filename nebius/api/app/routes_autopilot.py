@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends
 from sse_starlette.sse import EventSourceResponse
 
 from api.app.errors import ApiException
-from api.app.routes_core import get_state
+from api.app.routes_core import SSE_PING_S, get_state
 from api.app.state import AppState
 from api.models.autopilot import AutopilotRequest, AutopilotRun
 from api.orchestrator.autopilot import AutopilotManager, manager_for
@@ -56,7 +56,7 @@ async def autopilot_events(
             yield {"id": str(ev.seq), "event": "message", "data": json.dumps(ev.model_dump())}
         yield {"event": "end", "data": "{}"}
 
-    return EventSourceResponse(gen(), ping=15)
+    return EventSourceResponse(gen(), ping=SSE_PING_S)
 
 
 @router.post("/autopilot/{run_id}/stop", response_model=AutopilotRun)

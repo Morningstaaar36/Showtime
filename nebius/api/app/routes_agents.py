@@ -14,7 +14,7 @@ from api.adapters.providers import search_provider
 from api.agents.base import AgentEnv, AgentUnavailable
 from api.agents.venue import propose_edit
 from api.app.errors import ApiException, llm_unavailable
-from api.app.routes_core import get_state
+from api.app.routes_core import SSE_PING_S, get_state
 from api.app.routes_projects import _after_edit
 from api.app.state import AppState
 from api.core.venue_ops import PatchError
@@ -261,7 +261,7 @@ async def session_events(session_id: str, after: int = 0, st: AppState = Depends
             yield {"id": str(ev.seq), "event": "message", "data": _json.dumps(ev.model_dump())}
         yield {"event": "end", "data": "{}"}
 
-    return EventSourceResponse(gen(), ping=15)
+    return EventSourceResponse(gen(), ping=SSE_PING_S)
 
 
 @router.get("/sessions/{session_id}/archive")

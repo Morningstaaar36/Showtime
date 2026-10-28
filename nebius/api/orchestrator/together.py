@@ -28,12 +28,11 @@ from api.core.venue_ops import PatchError
 from api.db.models import RedTeamSession
 from api.db.session import db_session
 from api.models import RunResult, Venue
-from api.orchestrator.seeds import KeyRun, SeedCheckError, key_run
+from api.orchestrator.seeds import PENDING, KeyRun, SeedCheckError, key_run
 
 log = logging.getLogger("showtime.together")
 
 TESTED_TOGETHER = "These changes were simulated together under the worst attack."
-PENDING = ("queued", "running")
 
 
 class TogetherCheckError(Exception):

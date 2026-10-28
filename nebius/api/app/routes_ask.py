@@ -37,6 +37,9 @@ from api.core.plan import PlanError, saved_events
 from api.db.models import Run
 from api.models import RunResult, Venue
 
+# runs looked at for the latest usable one (newest first)
+RECENT_RUNS = 30
+
 router = APIRouter(prefix="/api/v1")
 
 
@@ -109,7 +112,7 @@ def question_run(
         saved = [e.model_dump(mode="json") for e in saved_events(venue, st.registry)]
     except PlanError:
         saved = []
-    for row in st.runs.list(project_id, limit=30):
+    for row in st.runs.list(project_id, limit=RECENT_RUNS):
         plain = not (row.attack_id or row.fix_id) and _events(row) == saved
         if _usable(row) and row.venue_version == version and plain:
             return row
@@ -192,7 +195,7 @@ def analysis_run(
     row = question_run(st, project_id, session_id, venue, version)
     if _has_artifacts(st, row):
         return row
-    for candidate in st.runs.list(project_id, limit=30):
+    for candidate in st.runs.list(project_id, limit=RECENT_RUNS):
         if _has_artifacts(st, candidate):
             return candidate
     return None

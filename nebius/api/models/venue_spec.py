@@ -12,6 +12,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+MAX_LEVELS = 40  # storeys a generated or described building may have
+
 Wall = Literal["north", "south", "east", "west"]
 Region = Literal[
     "whole",
@@ -232,7 +234,7 @@ class LevelSpec(_Spec):
 class BuildingSpec(_Spec):
     """A building with several storeys (and basements), built floor by floor by the solver."""
 
-    storeys: int = Field(default=1, ge=1, le=40, description="levels from street level up")
+    storeys: int = Field(default=1, ge=1, le=MAX_LEVELS, description="levels from street level up")
     basements: int = Field(default=0, ge=0, le=3, description="levels below street level")
     use: BuildingUse | None = None
     interior: Literal["open", "rooms", "atrium"] = "open"

@@ -18,6 +18,7 @@ from api.app.routes_core import get_state
 from api.app.state import AppState
 from api.core.building_gen import infer_use, map_levels
 from api.models import EventKind
+from api.models.venue_spec import MAX_LEVELS
 from api.orchestrator import copilot, venue_sources
 
 router = APIRouter(prefix="/api/v1")
@@ -39,7 +40,7 @@ class FromMapIn(BaseModel):
     selected_id: str | None = Field(default=None, max_length=40)
     # buildings: storeys (default: the map's building:levels, else 1), what the building is
     # (default: from its map tags), rooms off a corridor or open floors, storey height
-    levels: int | None = Field(default=None, ge=1, le=40)
+    levels: int | None = Field(default=None, ge=1, le=MAX_LEVELS)
     use: EventKind | None = None
     interior: Literal["open", "rooms"] | None = None
     floor_height_m: float = Field(default=3.5, ge=2.4, le=8.0)

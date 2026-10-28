@@ -29,3 +29,19 @@ def test_simulator_defaults_match_the_settings() -> None:
     s = Settings(_env_file=None)
     for key, name in SHARED.items():
         assert mod.SIM_DEFAULTS[key] == getattr(s, name), key
+
+
+def test_the_simulator_and_the_instant_estimate_share_their_rules() -> None:
+    """Values the sim image can't import from the API are kept equal here."""
+    import re
+
+    from api.core.geometry import EXIT_WALL_TOLERANCE_M
+    from api.core.tier1 import KIND_SPEED
+
+    engine = (ROOT_DIR / "sim" / "plugins" / "engine_jupedsim.py").read_text()
+    build = (ROOT_DIR / "sim" / "jps_build.py").read_text()
+    sim_speeds = re.search(r"^KIND_SPEED = (\{[^}]*\})", engine, re.M)
+    sim_tol = re.search(r"^WALL_TOLERANCE_M = ([\d.]+)", build, re.M)
+    assert sim_speeds and sim_tol
+    assert eval(sim_speeds.group(1)) == KIND_SPEED
+    assert float(sim_tol.group(1)) == EXIT_WALL_TOLERANCE_M

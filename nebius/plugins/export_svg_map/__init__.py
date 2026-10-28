@@ -10,16 +10,11 @@ from pydantic import BaseModel
 
 from api.core.extensions import Registry, ReportBundle
 from api.core.extensions import geometry as geo
+from api.core.extensions.palette import PRINT
 from api.models import Floor, Venue
 
 INK, LINE, SIGNAL, EGRESS, CAUTION, DANGER, PLAN = (
-    "#1C2329",
-    "#8E9BA5",
-    "#1F5FBF",
-    "#0A7F4F",
-    "#B97F00",
-    "#C62828",
-    "#EEF2F4",
+    PRINT[k] for k in ("ink", "line", "signal", "egress", "caution", "danger", "plan")
 )
 FONT = "Public Sans, Helvetica, Arial, sans-serif"
 

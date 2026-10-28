@@ -22,6 +22,8 @@ from api.models import StageParams
 from api.models.validation import SimulatorValidation
 
 router = APIRouter(prefix="/api/v1")
+# keep-alive comments on live streams, so proxies don't close a quiet connection (s)
+SSE_PING_S = 15
 
 
 def get_state(request: Request) -> AppState:

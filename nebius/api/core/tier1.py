@@ -27,6 +27,7 @@ from scipy.sparse.csgraph import dijkstra
 
 from api.core.extensions import Registry, T1Exit, T1Group, Tier1State
 from api.core.extensions import geometry as geo
+from api.core.scenarios import STAIRWELL_LINK_M
 from api.core.venue_ops import venue_hash
 from api.models import Hotspot, PerExit, RunMetrics, RunResult, ScenarioEventIn, Stair, Venue
 
@@ -227,9 +228,6 @@ def build_state(venue: Venue, settings: Any) -> tuple[Tier1State, dict[str, Any]
     return state, {"grids": grids}
 
 
-STAIRWELL_M = 4.0  # flights whose landings are this close belong to one stairwell
-
-
 @dataclass
 class _Route:
     group: str
@@ -270,7 +268,7 @@ def _follow(
     """Routes from `area` on `floor` to every exit, going down chains of stairs.
 
     From a stair landing people keep to the same stairwell when it continues (a flight whose
-    top is within STAIRWELL_M of where they arrived) and cross the floor to another stair only
+    top is within STAIRWELL_LINK_M of where they arrived) and cross the floor to another stair only
     when it does not: one route per stairwell instead of every combination of flights, which
     would grow exponentially with the number of storeys.
     """
@@ -283,7 +281,7 @@ def _follow(
             sid
             for sid, st in w.stairs.items()
             if st.from_floor == floor
-            and math.dist(geo.centroid(st.top_polygon), (lx, ly)) <= STAIRWELL_M
+            and math.dist(geo.centroid(st.top_polygon), (lx, ly)) <= STAIRWELL_LINK_M
         } or None
     for ex in w.state.exits.values():
         if ex.floor_id != floor or ex.id not in grid.dist:

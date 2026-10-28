@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from api.core.extensions import Registry, ReportBundle
 from api.core.extensions.geometry import display_names
+from api.core.extensions.palette import css_root
 from api.models import Fix, Venue
 from api.models.plan import PlanAction, PlanData
 from api.models.scene import SceneMetadata
@@ -549,9 +550,9 @@ def _fixes(
     return f"<ul class='fixes'>{items}</ul>"
 
 
-CSS = """
-:root{--plan:#F6F7FF;--ink:#1D1B3A;--muted:#55607A;--border:#D7DBEE;--signal:#5B4FF5;
---egress:#0F7A46;--caution:#9A5B00;--danger:#C62838}
+CSS = (
+    css_root()
+    + """
 *{box-sizing:border-box}
 body{margin:0;background:var(--plan);color:var(--ink);font:14px/1.5 "Public Sans",Helvetica,Arial,
 sans-serif;font-variant-numeric:tabular-nums}
@@ -582,9 +583,10 @@ footer{margin-top:28px;font-size:11px;color:var(--muted)}
 padding:6px 12px;cursor:pointer}
 @media print{body{background:#fff}main{margin:0;border:0;padding:0}.toolbar{display:none}
 h2{break-after:avoid}table,.map,li{break-inside:avoid}@page{size:A4;margin:14mm 12mm 16mm;
-@bottom-left{content:"Planning aid, not a safety certification.";font-size:9px;color:#C62838}
+@bottom-left{content:"Planning aid, not a safety certification.";font-size:9px;color:var(--danger)}
 @bottom-right{content:counter(page) " / " counter(pages);font-size:9px}}}
 """
+)
 
 
 def render(b: ReportBundle, cfg: Config | None = None) -> str:
