@@ -35,9 +35,10 @@ Cloud (requirement R1).
    - Model ids, prices and request extras that are empty, or still hold another provider's
      preset values (for example OpenRouter's `:free` ids), take the Nebius preset on their own.
    - Ids you chose yourself are kept.
-   - The preset ids are the ones in Nebius's public model info:
-     `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B`, `nvidia/Nemotron-3_5-Lightning`,
-     `nvidia/nemotron-3-super-120b-a12b` and `nvidia/Nemotron-3-Ultra-550b-a55b`.
+   - The preset ids (in `api/data/llm_presets.json`) are the ones in Nebius's public model
+     info: `nvidia/Nemotron-3_5-Lightning`, `nvidia/Nemotron-3.5-Super-VL` and
+     `nvidia/Nemotron-3-Ultra-550b-a55b` (Nano and Super leave Serverless on 2026-11-09).
+   - Add `NEBIUS_PROJECT_ID=` (Token Factory > Project settings) for the sandboxes.
    - If you'd rather see the values in `.env`, `make use-nebius` writes them (it keeps your keys
      and backs up `.env` to `.env.bak`).
 5. Run `make up` (restart), then `make smoke-nebius` (every model role, plain and JSON, with time,

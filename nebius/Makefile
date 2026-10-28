@@ -5,7 +5,7 @@ SIM_PLATFORM ?= linux/amd64
 API := cd api &&
 .DEFAULT_GOAL := help
 
-.PHONY: help fix-perms sandbox-proof verify-live setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
+.PHONY: help cloud-password cloud-up cloud-down deploy-nebius fix-perms sandbox-proof verify-live setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
         types check lint typecheck test test-sim test-web e2e smoke smoke-nebius demo-precompute \
         clean mem plugins new-plugin calibrate validate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
@@ -54,6 +54,23 @@ fix-perms: ## Give runs/, cache/ and state/ back to you (files an older root con
 
 down: ## Stop the Docker Compose stack
 	@docker compose down
+
+CLOUD := docker compose -f docker-compose.yml -f docker-compose.cloud.yml
+
+cloud-password: ## Print a password hash for BASIC_AUTH_HASH (asks for the password)
+	@read -rsp "Password for the hosted app: " pw && echo && \
+	  docker run --rm caddy:2.8.4 caddy hash-password --plaintext "$$pw"
+
+cloud-up: build-sim ## On a server: the stack behind Caddy (HTTPS + password); see docs/HOSTING.md
+	@test -f .env || { echo ".env is missing: copy it to this server first"; exit 1; }
+	@mkdir -p runs cache state data
+	@$(CLOUD) up -d --build
+
+cloud-down: ## On a server: stop the hosted stack
+	@$(CLOUD) down
+
+deploy-nebius: ## Create a Nebius VM (if needed), copy the code and .env, start it (docs/HOSTING.md)
+	@./deploy/nebius_vm.sh
 
 dev: ## Run API + Vite dev server natively (lighter on memory; hot reload)
 	@./scripts/dev_up.sh

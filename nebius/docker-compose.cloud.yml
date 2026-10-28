@@ -1,0 +1,21 @@
+# On a server: Caddy in front (HTTPS when SITE_ADDRESS is a domain, a password on everything,
+# API included, so a public URL can't spend the model credit). Use with: make cloud-up
+services:
+  web:
+    ports: !reset []
+  api:
+    ports: !reset []
+  caddy:
+    image: caddy:2.8.4
+    depends_on: [web]
+    ports: ["80:80", "443:443"]
+    environment:
+      - SITE_ADDRESS=${SITE_ADDRESS:-:80}
+      - BASIC_AUTH_USER=${BASIC_AUTH_USER:?set BASIC_AUTH_USER in .env}
+      - BASIC_AUTH_HASH=${BASIC_AUTH_HASH:?run make cloud-password and put the hash in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./state/caddy:/data
+    mem_limit: 128m
+    labels: ["com.showtime.project=true"]
+    restart: unless-stopped

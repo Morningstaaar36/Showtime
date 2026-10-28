@@ -29,22 +29,28 @@ make up                  # restart the app (or: make dev-down && make dev)
 `make use-openrouter` and `make use-local` switch back the same way (`make use-list` lists the
 presets the providers declare).
 
-The Nebius preset. The ids and prices are from the
-[model catalog](https://tokenfactory.nebius.com/model-catalog.md), and the ids were checked
-against the public model info (`https://tokenfactory.nebius.com/api/public/models_info`) on
-2026-10-26:
+The Nebius preset lives in `api/data/llm_presets.json` (edit that file, not the code, when a
+model is renamed or retired). The ids and prices are from the
+[model catalog](https://tokenfactory.nebius.com/model-catalog.md) and the public model info
+(`https://tokenfactory.nebius.com/api/public/models_info`), checked on 2026-10-29. Nemotron 3
+Nano and Nemotron 3 Super leave Serverless on 2026-11-09
+([deprecations](https://docs.tokenfactory.nebius.com/model-deprecations-november-2026.md)), so
+the preset uses the replacements the notice names:
 
 | Role | Used for | Model id | USD per 1M in / out |
 | --- | --- | --- | --- |
-| fast | red team drafts, routing, classification | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` | 0.06 / 0.24 |
+| fast | red team drafts, routing, classification | `nvidia/Nemotron-3_5-Lightning` | 0.06 / 0.24 |
 | long | long incident texts | `nvidia/Nemotron-3_5-Lightning` | 0.06 / 0.24 |
-| main | venue edits, blue team, explainer | `nvidia/nemotron-3-super-120b-a12b` | 0.30 / 0.90 |
+| main | venue edits, blue team, explainer | `nvidia/Nemotron-3.5-Super-VL` | 0.30 / 0.90 |
 | judge | final judgement | `nvidia/Nemotron-3-Ultra-550b-a55b` | 1.00 / 3.00 |
 
-To keep costs lower, set `MODEL_JUDGE` to the Super id (and its prices) after switching.
+To keep costs lower, set `MODEL_JUDGE` to the Super VL id (and its prices) after switching.
+Not verified live (no key yet): Super VL is listed as an image-to-text model with a text use
+case; `make smoke-nebius` checks every role on the first run.
 
 **Reasoning:** Nemotron 3 reasons by default (model card: "Reasoning ON (default)"). JSON replies
-need it off, so the preset sets `LLM_EXTRA_BODY={"chat_template_kwargs":{"enable_thinking":false}}`.
+need it off, so the preset sets `LLM_EXTRA_BODY={"reasoning_effort":"none"}`, the parameter the
+Token Factory API reference documents. If a model rejects it, the request is retried without it.
 
 **JSON:** the preset asks for JSON in the prompt and validates it with Pydantic, with one repair
 call (`LLM_SUPPORTS_JSON_SCHEMA=false`, the setup proven live on OpenRouter with Nemotron 3 Super).
@@ -77,9 +83,9 @@ the installed SDK source (not against the live service):
 | Step | SDK call (verified in source) |
 | --- | --- |
 | Client | `Contree(ContreeConfig(auth=IAMAuth(token=NEBIUS_API_KEY, project_id=NEBIUS_PROJECT_ID, base_url=...)))`, with values from settings, so no exported environment is needed |
-| No network | every spawn (`POST /v1/instances`) carries `{"networking": {"enabled": false}}` (`network_off`) |
-| Base image | `await client.images.oci("python:3.12-slim")` |
-| Install deps | `await image.run(shell="pip install ...", files={...}, disposable=False)` → child image |
+| No network | every spawn (`POST /v1/instances`) carries `{"networking": {"enabled": false}}` (`network_off`), except the setup run below |
+| Base image | `await client.images.oci(<FROM of sim/Dockerfile>)`, so the cloud runs the local versions |
+| Install deps | `await image.run(shell="pip install ... jupedsim==<pin from sim/Dockerfile>", files={...}, disposable=False)` → child image; the only spawn with the network on (the documented pattern: install with it on, then run without), within `NEBIUS_SETUP_TIMEOUT_S` |
 | Add sim code | `await image.apply_files(files={"/app/...": bytes})` |
 | Venue node (tree root) | `apply_files({"/work/venue.json": ...})` |
 | Each run | `await parent.run(shell="cd /app && python run_sim.py /work", files=..., disposable=False)` |
@@ -94,7 +100,8 @@ results; a rewind branch is a snapshot child of the checkpoint run and starts fr
 - **Network:** outbound network is on by default in Nebius Sandboxes (Sandboxes docs: "Configure
   networking and secrets"). The REST spawn request turns it off with `networking.enabled`.
   contree-sdk 0.3.6 has no argument for it, so the runner adds the field to every spawn request
-  (`network_off` in `api/adapters/nebius_sandbox.py`). If a future SDK removes that seam, the
+  (`network_off` in `api/adapters/nebius_sandbox.py`) except the one setup run that installs the
+  simulator's packages into the base image; no simulation or script ever runs with a network. If a future SDK removes that seam, the
   runner logs a warning and reports the network as not guaranteed. `make verify-nebius-sandbox`
   proves it live with a network call that must fail.
 - **Memory and CPU:** these can't be set per run there. The protection instead is:

@@ -1,0 +1,8 @@
+{$SITE_ADDRESS} {
+	encode gzip
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+	# server-sent events (live test progress) stream through: Caddy flushes them at once
+	reverse_proxy web:80
+}

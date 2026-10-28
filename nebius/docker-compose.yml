@@ -17,7 +17,7 @@ services:
       - DATA_DIR=/app/data
       - DB_URL=sqlite:////app/state/showtime.sqlite
       - API_HOST=0.0.0.0
-      - WEB_ORIGIN=http://localhost:5173
+      - WEB_ORIGIN=${WEB_ORIGIN:-http://localhost:5173}
       - SIM_USER=${SIM_USER:-1000:1000}
       - HOME=/tmp   # the docker CLI keeps its config under $HOME
     ports: ["127.0.0.1:8000:8000"]
@@ -34,7 +34,7 @@ services:
   web:
     build: ./web
     image: showtime-web:latest
-    ports: ["127.0.0.1:5173:80"]
+    ports: ["${WEB_BIND:-127.0.0.1}:${WEB_PORT:-5173}:80"]
     depends_on:
       api:
         condition: service_healthy   # don't serve the app before the API answers
