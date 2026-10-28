@@ -47,6 +47,15 @@ class Settings(BaseSettings):
     local_llm_model: str = "nemotron-nano-9b-v2-q4_k_m"
     llm_supports_json_schema: bool = True
     llm_timeout_s: float = 120.0
+    # network retries of one model call (hosted; the local fallback server retries once less)
+    llm_max_retries: int = Field(default=2, ge=0)
+    # how long a provider health check or model listing may take before it counts as down (s)
+    health_timeout_s: float = Field(default=5.0, gt=0)
+    # the live self-checks (make verify-live): an address a sandbox script must fail to reach,
+    # and a search that must return a cited result
+    check_network_host: str = "1.1.1.1"
+    check_network_port: int = 53
+    check_search_query: str = "crowd crush incident"
     # one agent step in total (its call, the repair round, retries, escalation): a model that
     # never answers cannot hold a test up for retries x attempts x timeouts
     agent_step_timeout_s: float = Field(default=300.0, gt=0)
@@ -132,6 +141,13 @@ class Settings(BaseSettings):
     sandbox_proof_file: Path = ROOT_DIR / "api" / "data" / "sandbox_proof.json"
     sim_pids_limit: int = Field(default=256, ge=16)  # processes in a simulation container
     code_pids_limit: int = Field(default=64, ge=8)  # processes in a code-job container
+    # analysis scripts (AI- or user-written) in the sandbox: wall clock, memory, CPUs
+    code_timeout_s: float = Field(default=30.0, gt=0)
+    code_mem: str = Field(default="1g", pattern=r"^\d+[kmg]$")
+    code_max_cpus: float = Field(default=2.0, gt=0)
+    sim_tmp_mb: int = Field(default=256, ge=16)  # writable /tmp of a simulation container
+    code_tmp_mb: int = Field(default=64, ge=16)  # writable /tmp of a code-job container
+    max_scripts_per_project: int = Field(default=50, ge=1)
 
     # --- Guards on AI-written scenario scripts (sent with each run that has one) ---
     script_call_s: float = Field(default=0.05, gt=0)  # one on_step call

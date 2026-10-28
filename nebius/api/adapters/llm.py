@@ -236,7 +236,7 @@ class LLMClient:
                 base_url=self.base_url,
                 api_key=self.api_key,
                 timeout=self.settings.llm_timeout_s,
-                max_retries=2,
+                max_retries=self.settings.llm_max_retries,
             )
         return self._client
 
@@ -251,7 +251,9 @@ class LLMClient:
         if not self.spec.is_cloud or self.spec.key is None or not self.api_key:
             return []
         try:
-            listing = await asyncio.wait_for(self._get_client().models.list(), timeout=10)
+            listing = await asyncio.wait_for(
+                self._get_client().models.list(), timeout=self.settings.health_timeout_s
+            )
         except Exception as exc:
             log.info("model list unavailable (%s); model ids not checked", type(exc).__name__)
             return []
@@ -345,7 +347,9 @@ class LLMClient:
     async def _local_up(self) -> bool:
         """Does the local model answer (the fallback while the hosted one is paused)?"""
         try:
-            await asyncio.wait_for(self._local().models.list(), timeout=3)
+            await asyncio.wait_for(
+                self._local().models.list(), timeout=self.settings.health_timeout_s
+            )
         except Exception:
             return False
         return True
@@ -371,7 +375,9 @@ class LLMClient:
 
     async def _local_health(self) -> dict[str, Any]:
         try:
-            models = await asyncio.wait_for(self._get_client().models.list(), timeout=5)
+            models = await asyncio.wait_for(
+                self._get_client().models.list(), timeout=self.settings.health_timeout_s
+            )
         except Exception as exc:
             return {
                 "ok": False,
@@ -399,7 +405,7 @@ class LLMClient:
                         "detail": f"{label}: the API key has no credit left.",
                     }
             else:
-                await asyncio.wait_for(client.models.list(), timeout=5)
+                await asyncio.wait_for(client.models.list(), timeout=self.settings.health_timeout_s)
         except Exception as exc:
             status = getattr(exc, "status_code", None)
             if status in (401, 403):
@@ -784,7 +790,7 @@ class LLMClient:
                 base_url=self.settings.local_llm_base_url,
                 api_key="local",
                 timeout=self.settings.llm_timeout_s,
-                max_retries=1,
+                max_retries=max(0, self.settings.llm_max_retries - 1),
             )
         return self._local_client
 

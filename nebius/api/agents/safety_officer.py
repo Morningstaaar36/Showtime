@@ -10,6 +10,8 @@ from pydantic import BaseModel, Field
 from api.agents.base import AgentCall, AgentDef, AgentEnv, call_agent
 from api.agents.numbers import allowed_numbers, check_numbers
 
+MAX_ACTIONS = 5  # a review short enough to act on
+
 
 class Action(BaseModel):
     """One recommended action."""
@@ -24,7 +26,7 @@ class Review(BaseModel):
     """The officer's verdict and actions."""
 
     summary: str = Field(max_length=300)
-    actions: list[Action] = Field(default_factory=list, max_length=5)
+    actions: list[Action] = Field(default_factory=list, max_length=MAX_ACTIONS)
 
 
 OFFICER_AGENT = AgentDef(
@@ -67,7 +69,7 @@ async def review_plan(env: AgentEnv, facts: dict[str, Any]) -> AgentCall[Review]
     return await call_agent(
         env,
         OFFICER_AGENT,
-        {"facts": json.dumps(facts, indent=1, ensure_ascii=False)},
+        {"facts": json.dumps(facts, indent=1, ensure_ascii=False), "max_actions": str(MAX_ACTIONS)},
         "Review this plan.",
         output_model=Review,
         validate=validate,

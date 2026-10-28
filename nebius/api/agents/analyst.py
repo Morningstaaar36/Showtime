@@ -37,8 +37,6 @@ INPUT_FILES = (
     "pressure_index.json",
 )
 MAX_INPUT_BYTES = 256 * 1024 * 1024
-CODE_TIMEOUT_S = 30.0
-CODE_MEM = "1g"
 
 
 class AnalystCode(BaseModel):
@@ -175,7 +173,7 @@ async def analyse(
         audit_decision(env, "analyst", "no safe script", {"question": q})
         return Analysis(NO_SCRIPT, False, "rejected")
     job_id = f"an-{uuid.uuid4().hex[:12]}"
-    res = await _run(runner, job_id, script.code, inputs)
+    res = await _run(runner, job_id, script.code, inputs, env.llm.settings)
     if res.status == "error":  # one round to fix the script with its own error message
         retry = await _write(
             env,
@@ -185,7 +183,7 @@ async def analyse(
         )
         if retry is not None:
             script = retry
-            res = await _run(runner, f"{job_id}-2", script.code, inputs)
+            res = await _run(runner, f"{job_id}-2", script.code, inputs, env.llm.settings)
     _audit(env, q, script, res)
     base = Analysis(
         "",
@@ -208,9 +206,9 @@ async def analyse(
 
 
 async def _run(
-    runner: SandboxRunner, job_id: str, code: str, inputs: dict[str, bytes]
+    runner: SandboxRunner, job_id: str, code: str, inputs: dict[str, bytes], s: Any
 ) -> CodeResult:
-    job = CodeJob(job_id, "analysis", code, inputs, timeout_s=CODE_TIMEOUT_S, mem=CODE_MEM)
+    job = CodeJob(job_id, "analysis", code, inputs, timeout_s=s.code_timeout_s, mem=s.code_mem)
     return await runner.run_code(job)
 
 

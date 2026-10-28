@@ -35,8 +35,6 @@ from api.models import ScenarioEventIn
 
 router = APIRouter(prefix="/api/v1")
 ScriptKind = Literal["analysis", "scenario"]
-MAX_SCRIPTS = 50
-CODE_TIMEOUT_S = 30.0
 SCRIPT_EVENT = "script"
 
 
@@ -138,11 +136,11 @@ def create_script(
     """Save a new script; problems found by the pre-check are returned and block running."""
     st.projects.get(project_id)
     scripts = _load(st, project_id)
-    if len(scripts) >= MAX_SCRIPTS:
+    if len(scripts) >= st.settings.max_scripts_per_project:
         raise ApiException(
             422,
             "too_many_scripts",
-            f"A project keeps at most {MAX_SCRIPTS} scripts.",
+            f"A project keeps at most {st.settings.max_scripts_per_project} scripts.",
             "Delete one you no longer need.",
         )
     now = _now()
@@ -238,7 +236,12 @@ async def _run_analysis(
         )
     inputs = await run_in_threadpool(run_inputs, st.settings.runs_dir / row.id)
     job = CodeJob(
-        f"us-{uuid.uuid4().hex[:12]}", "user_script", item["code"], inputs, CODE_TIMEOUT_S
+        f"us-{uuid.uuid4().hex[:12]}",
+        "user_script",
+        item["code"],
+        inputs,
+        timeout_s=st.settings.code_timeout_s,
+        mem=st.settings.code_mem,
     )
     res = await st.runner.run_code(job)
     return {**res.to_dict(), "run_id": row.id, "sandbox": st.runner.provider, "at": _now()}

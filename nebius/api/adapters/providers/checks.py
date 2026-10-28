@@ -44,7 +44,8 @@ async def sandbox_check(settings: Any) -> LiveCheck:
         CodeJob(
             "verify_net",
             "user_script",
-            "import socket\nsocket.create_connection(('1.1.1.1', 53), timeout=3)\n",
+            "import socket\nsocket.create_connection("
+            f"({settings.check_network_host!r}, {settings.check_network_port}), timeout=3)\n",
             timeout_s=10,
         )
     )
@@ -61,7 +62,7 @@ async def search_check(settings: Any) -> LiveCheck:
     client = search_provider(settings.search_provider).build(settings)
     if not getattr(client, "live", False):
         return LiveCheck("skipped", "Web search is off.", "Set TAVILY_API_KEY in .env.")
-    hits = await client.search("crowd crush stadium exit incident", max_results=2)
+    hits = await client.search(settings.check_search_query, max_results=2)
     if not hits:
         return LiveCheck(
             "failed", "the search returned nothing", "Check TAVILY_API_KEY and the quota."

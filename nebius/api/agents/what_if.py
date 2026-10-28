@@ -132,6 +132,7 @@ async def design_what_ifs(
             "events": events_doc(registry, _allowed(registry)),
             "context": context or "(none)",
             "categories": ", ".join(CATEGORY_LABELS),
+            "max": str(MAX_WHAT_IFS),
         },
         "Choose the what-ifs for this venue.",
         output_model=model,

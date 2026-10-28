@@ -175,7 +175,9 @@ class NebiusRunner:
         if not self.settings.nebius_api_key:
             return {"ok": False, "detail": "NEBIUS_API_KEY is not set."}
         try:
-            info = await asyncio.wait_for(self._get_client().get_token_info(), timeout=10)
+            info = await asyncio.wait_for(
+                self._get_client().get_token_info(), timeout=self.settings.health_timeout_s
+            )
             return {
                 "ok": True,
                 "detail": f"Nebius Sandboxes ready ({getattr(info, 'name', 'token ok')})",

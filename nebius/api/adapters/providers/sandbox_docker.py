@@ -24,6 +24,9 @@ def _build(s: Any) -> Any:
         platform=s.sim_platform,
         pids_limit=s.sim_pids_limit,
         code_pids_limit=s.code_pids_limit,
+        code_cpus=s.code_max_cpus,
+        sim_tmp_mb=s.sim_tmp_mb,
+        code_tmp_mb=s.code_tmp_mb,
     )
 
 

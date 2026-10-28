@@ -25,6 +25,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
+from api.core.settings import Settings
 from api.models import Attack, Fix, RunArtifacts, RunRequest, RunResult, Venue
 
 log = logging.getLogger("showtime.sandbox")
@@ -59,6 +60,12 @@ CODE_START_GRACE_S = 15.0  # container start and imports, on top of the script's
 TIMEOUT_EXIT = 124  # run_code.py exits with this when the script ran out of time
 
 
+def _default(name: str) -> Any:
+    """A setting's declared default: runners and jobs built without the settings (self-checks,
+    tests) use the same numbers as the app."""
+    return Settings.model_fields[name].default
+
+
 @dataclass
 class CodeJob:
     """One piece of AI- or user-written Python to run in a sandbox."""
@@ -67,8 +74,8 @@ class CodeJob:
     kind: CodeKind
     script: str
     inputs: dict[str, bytes] = field(default_factory=dict)  # file name -> bytes, read-only
-    timeout_s: float = 30
-    mem: str = "1g"
+    timeout_s: float = field(default_factory=lambda: _default("code_timeout_s"))
+    mem: str = field(default_factory=lambda: _default("code_mem"))
 
 
 @dataclass
@@ -356,12 +363,18 @@ class DockerRunner:
         sim_code_dir: Path | None = None,
         sim_user: str = "",
         platform: str = "",
-        pids_limit: int = 256,
-        code_pids_limit: int = 64,
+        pids_limit: int = _default("sim_pids_limit"),
+        code_pids_limit: int = _default("code_pids_limit"),
+        code_cpus: float = _default("code_max_cpus"),
+        sim_tmp_mb: int = _default("sim_tmp_mb"),
+        code_tmp_mb: int = _default("code_tmp_mb"),
     ) -> None:
         self.runs_dir = runs_dir
         self.pids_limit = pids_limit
         self.code_pids_limit = code_pids_limit
+        self.code_cpus = code_cpus
+        self.sim_tmp_mb = sim_tmp_mb
+        self.code_tmp_mb = code_tmp_mb
         self.image = image
         self.platform = platform
         self.mem_limit = mem_limit
@@ -465,7 +478,7 @@ class DockerRunner:
             # scenario scripts run in here: only /work (this run's folder) and /tmp writable
             "--read-only",
             "--tmpfs",
-            "/tmp:rw,noexec,nosuid,size=256m",
+            f"/tmp:rw,noexec,nosuid,size={self.sim_tmp_mb}m",
             "--label",
             "com.showtime.project=true",
             "--user",
@@ -578,13 +591,13 @@ class DockerRunner:
             "--network=none",
             f"--memory={job.mem}",
             f"--memory-swap={job.mem}",
-            f"--cpus={min(self.cpus, 2.0)}",
+            f"--cpus={min(self.cpus, self.code_cpus)}",
             f"--pids-limit={self.code_pids_limit}",
             "--security-opt=no-new-privileges",
             "--cap-drop=ALL",
             "--read-only",
             "--tmpfs",
-            "/tmp:rw,noexec,nosuid,size=64m",
+            f"/tmp:rw,noexec,nosuid,size={self.code_tmp_mb}m",
             "--label",
             "com.showtime.project=true",
             "--user",

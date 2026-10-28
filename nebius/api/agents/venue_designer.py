@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from api.agents.base import AgentCall, AgentDef, AgentEnv, call_agent
+from api.core.estimates import ratios
 from api.core.geometry import Check, validate_venue
 from api.core.venue_builder import BuildResult, build_venue
 from api.models import Venue
@@ -126,6 +127,12 @@ def _summary(s: VenueSpec) -> str:
     )
 
 
+def _planning_space() -> dict[str, str]:
+    """Space per person the prompt quotes, from the planning ratios (people per m² → m²)."""
+    d = ratios()["planning_density_ppm2"]
+    return {"seated_m2": f"{1 / d['seated']:.1f}", "standing_m2": f"{1 / d['standing']:.1f}"}
+
+
 async def design_venue(env: AgentEnv, text: str, people: int | None = None) -> DesignOutcome:
     """Ask the designer for a spec, solve it, and repair once if the checks fail.
 
@@ -137,7 +144,7 @@ async def design_venue(env: AgentEnv, text: str, people: int | None = None) -> D
     call = await call_agent(
         env,
         DESIGNER_AGENT,
-        {},
+        _planning_space(),
         task,
         output_model=VenueSpec,
         validate=lambda spec: check_spec(spec, people)[1],
