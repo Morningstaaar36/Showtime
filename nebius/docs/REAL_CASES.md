@@ -85,3 +85,24 @@ The earlier runs on scripted designer replies (23 October) gave the same places:
   3,000 simulated people.
 - Jamarat 2006, Mina 2015 and Astroworld 2021 were considered and left out: their published
   geometry is not enough to describe the site credibly.
+
+## Adding your own
+
+**Add a real case** on Home writes a case from scratch (or **Save a copy** of an example and
+change it). The form asks for what the designer needs and what the plan shows:
+
+- the facts: title, incident, date, place (with **Find** for the coordinates), deaths, toll;
+- **What the site was like**: the crowd first ("3,000 people: …"), then every passage, exit and
+  barrier with its size. Say which exits were locked or blocked: they are drawn, closed;
+- what happened and the lesson, in one sentence each;
+- at least one source with a link, the measurements with where each comes from, and what the
+  model simplifies.
+
+Saved cases are stored in the app's database (table `saved_case`), next to the shipped examples
+in `api/data/real_cases.json`; nothing about an incident is in code. A saved case opens like an
+example: the designer builds the venue from the text and the AI tests it. Editing a case (its text
+or location) builds it again on the next open; the earlier project stays in Projects. The
+examples themselves can't be changed or deleted.
+
+API: `GET /real_cases` (each with `origin`: `example` or `saved`), `POST /real_cases`,
+`PUT /real_cases/{id}`, `DELETE /real_cases/{id}`, `POST /real_cases/{id}/open`.

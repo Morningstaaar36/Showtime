@@ -72,7 +72,8 @@ The core loop, in the order you meet it:
 - **Evidence panel**: what each attack is grounded in, with its origin (incident dataset or live
   web), and the agents' tool calls in AI at work. Web search switches on with a Tavily key.
 - **Real cases**: Love Parade, Hillsborough and Itaewon, rebuilt by the same designer from their
-  sourced descriptions, then simulated ([docs/REAL_CASES.md](docs/REAL_CASES.md)).
+  sourced descriptions, then simulated ([docs/REAL_CASES.md](docs/REAL_CASES.md)). Add your own
+  from published reports with **Add a real case** on Home: it is saved, and opens the same way.
 
 Around it:
 
@@ -161,7 +162,9 @@ simulated).
 | **JuPedSim, PedPy, Pynite, Open-Meteo** | Crowd simulation, crowd metrics, stage frame model, gust forecasts. |
 | **OpenStreetMap, OpenFreeMap, MapLibre** | Real sites: place search (Nominatim), buildings, water, paths and entrances (Overpass, with OpenFreeMap vector tiles as fallback), the 3D picking map and the street-map ground in the 3D view. |
 
-See [docs/NEBIUS_SWITCH.md](docs/NEBIUS_SWITCH.md) for what was verified and how to switch.
+See [docs/NEBIUS_SWITCH.md](docs/NEBIUS_SWITCH.md) for what was verified and how to switch, and
+[docs/HOSTING.md](docs/HOSTING.md) to host the app on a Nebius AI Cloud VM (`make deploy-nebius`;
+Token Factory hosts models, not apps).
 
 ## Quickstart
 
@@ -260,7 +263,7 @@ template (`make calibrate`) and the ratio is printed in reports.
 
 [Demo script](docs/DEMO.md) · [Testing guide](docs/TESTING_GUIDE.md) · [User guide](docs/USER_GUIDE.md) ·
 [Architecture](docs/ARCHITECTURE.md) · [Extending](docs/EXTENDING.md) ·
-[Assumptions](docs/ASSUMPTIONS.md) · [Nebius switch](docs/NEBIUS_SWITCH.md) ·
+[Assumptions](docs/ASSUMPTIONS.md) · [Nebius switch](docs/NEBIUS_SWITCH.md) · [Hosting](docs/HOSTING.md) ·
 [Progress log](docs/PROGRESS.md) · [Handoff](docs/HANDOFF.md) · [Security](SECURITY.md) ·
 [Licences](docs/LICENSES.md) · [Feedback on Nebius & NVIDIA tools](docs/FEEDBACK.md)
 
