@@ -3,7 +3,7 @@
 Copilot: understand → (place named?) locate → (real site?) layout | design → estimate →
 create → simulate → sweep → review.
 
-Autopilot (N13) runs the same nodes, then tests the plan: simulate → (thorough) sweep →
+Autopilot runs the same nodes, then tests the plan: simulate → (thorough) sweep →
 red_team (a Red Team Night session: baseline, attacks, fixes, confirmation) → deliver (report
 and cost record). An existing project enters at simulate. Fixes are tested, never applied: the
 organizer accepts them on Your plan.

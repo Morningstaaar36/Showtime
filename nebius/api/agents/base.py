@@ -338,7 +338,7 @@ def _finish(
         "repaired": res.repaired,
         "escalated": res.escalated,
         "cached": bool(u and u.cached),
-        # what the validators rejected (unknown ids, geometry), kept for the evaluation (S-01)
+        # what the validators rejected (unknown ids, geometry), kept for the evaluation
         "problems": len(res.problems),
         "problems_first": res.first_problems,
         "problem_texts": [p[:160] for p in res.problems[:3]],

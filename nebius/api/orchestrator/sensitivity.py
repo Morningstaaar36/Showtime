@@ -1,4 +1,4 @@
-"""Sensitivity (P2-04): Your plan's key run again with fewer or more people, slower or faster.
+"""Sensitivity: Your plan's key run again with fewer or more people, slower or faster.
 
 Headcounts and walking speeds are planning assumptions, not measurements. This repeats the run
 Your plan's numbers rest on (the chosen changes under the worst attack, or the baseline) four

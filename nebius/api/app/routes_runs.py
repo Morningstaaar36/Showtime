@@ -283,7 +283,7 @@ def list_scenarios(
     }
 
 
-# --- Stress test at scale (SANDBOX_SCOPE idea 4) -----------------------------------------------
+# --- Stress test at scale -----------------------------------------------
 
 
 class StressIn(BaseModel):
@@ -330,7 +330,7 @@ def latest_project_stress(project_id: str, st: AppState = Depends(get_state)) ->
     return latest_stress(st, project_id)
 
 
-# --- Ranges across seeds (N05) ----------------------------------------------------------------
+# --- Ranges across seeds ----------------------------------------------------------------
 
 
 class SeedCheckIn(BaseModel):
@@ -368,7 +368,7 @@ def get_seed_check(session_id: str, st: AppState = Depends(get_state)) -> dict[s
     return seeds.seed_check_status(st, _tested_session(st, session_id))
 
 
-# --- Sensitivity and chosen fixes together (P2-04) ---------------------------------------------
+# --- Sensitivity and chosen fixes together ---------------------------------------------
 
 
 @router.post("/sessions/{session_id}/sensitivity", status_code=202)

@@ -18,7 +18,6 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
@@ -921,9 +920,3 @@ class FakeLLM:
             except (ValueError, ValidationError) as exc:
                 raise LLMOutputError(f"{agent}: {exc}", text, usage) from exc
         return LLMReply(text=text, parsed=parsed, usage=usage)
-
-
-def recorded_count(cache_dir: Path) -> int:
-    """How many responses are recorded (for the health/status page)."""
-    root = cache_dir / "llm"
-    return sum(1 for _ in root.rglob("*.json")) if root.exists() else 0

@@ -1,4 +1,4 @@
-"""Sandbox: Nebius Sandboxes (contree-sdk), snapshot branches. Not run live yet (no access).
+"""Sandbox: Nebius Sandboxes (contree-sdk), snapshot branches. Live status: docs/LIVE_STATUS.md.
 
 Needs the Token Factory key and the project ID (docs: Sandboxes › Set up access)."""
 

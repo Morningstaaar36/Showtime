@@ -173,19 +173,3 @@ def load_plugins(root: Path, registry: Registry | None = None) -> PluginHost:
             continue
         _register_module(host, ep.name, module, config, status)
     return host
-
-
-def register_builtin(host: PluginHost, plugin_id: str, name: str, module: Any) -> None:
-    """Register an in-tree built-in pack (agents, providers) through the same path."""
-    status = PluginStatus(
-        id=plugin_id,
-        name=name,
-        version="0.1.0",
-        provides=[],
-        enabled=True,
-        healthy=True,
-        source=module.__name__,
-    )
-    host.statuses[plugin_id] = status
-    _register_module(host, plugin_id, module, {}, status)
-    status.provides = sorted({r.point for r in host.registry.owned_by(plugin_id)})

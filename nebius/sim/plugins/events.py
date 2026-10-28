@@ -16,7 +16,6 @@ from shapely.geometry import Point
 from sim_defaults import setting
 
 Step = Callable[[Any], bool]
-HELD_SPEED = 0.0
 
 
 def close_exit_now(ctx: Any, ex: Any) -> tuple[int, int]:

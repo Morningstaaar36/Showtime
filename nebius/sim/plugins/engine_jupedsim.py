@@ -36,7 +36,6 @@ from sim_defaults import setting
 
 from plugins.events import FLOOR_KEYS, HANDLERS, surge_step
 
-ENGINE_ID = "jupedsim"
 REWIND_SINGLE_FLOOR = "rewind needs a single-floor venue"
 COUNTERFLOW_STAIR_FACTOR = 0.5  # same as the instant estimate (plugins/events_core)
 

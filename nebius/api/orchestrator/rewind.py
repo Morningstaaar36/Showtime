@@ -1,4 +1,4 @@
-"""Rewind the worst moment (SANDBOX_SCOPE idea 3): branch many responses from one second.
+"""Rewind the worst moment: branch many responses from one second.
 
 A finished red-team session names its worst attack. Rewind reruns that attack on the tested
 plan with a checkpoint at the moment of peak danger, then starts every branch from that

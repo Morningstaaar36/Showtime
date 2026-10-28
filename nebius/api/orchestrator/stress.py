@@ -1,4 +1,4 @@
-"""Stress test at scale (SANDBOX_SCOPE idea 4): every attack × (plan as it is + each kept
+"""Stress test at scale: every attack × (plan as it is + each kept
 change) × several seeds, as quick simulations fanned out over parallel sandboxes.
 
 The runner bounds how many run at once (SANDBOX_MAX_PARALLEL). The record keeps a live

@@ -1,5 +1,5 @@
-"""Search: Tavily web search with a disk cache and a per-session call cap. Not run live yet:
-without TAVILY_API_KEY it is off and the red team uses the incident dataset."""
+"""Search: Tavily web search with a disk cache and a per-session call cap. Without
+TAVILY_API_KEY it is off and the red team uses the incident dataset."""
 
 from __future__ import annotations
 

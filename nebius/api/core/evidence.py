@@ -1,4 +1,4 @@
-"""Typed evidence (P2-03) and the cost record of a session (N16).
+"""Typed evidence and the cost record of a session.
 
 Execution status (did the session finish?) is separate from evaluation status (what do its
 results show?). Unknown, partial, preview and estimate results never satisfy a full-simulation

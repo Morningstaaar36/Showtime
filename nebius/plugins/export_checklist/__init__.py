@@ -1,4 +1,4 @@
-"""Handover checklist (P3-06): the selected plan in plain English, ready to print.
+"""Handover checklist: the selected plan in plain English, ready to print.
 
 The selected plan is the project's current version (what the organizer accepted), not the
 session's proposal. Core puts it in `extras["handover"]`, with how the session's evidence

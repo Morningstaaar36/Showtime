@@ -1,4 +1,4 @@
-"""Ranges across seeds (N05): the plan's key run again with a few more seeds.
+"""Ranges across seeds: the plan's key run again with a few more seeds.
 
 One simulation is one sample of a random process (who walks how fast, who starts where). This
 repeats the run Your plan's verdict rests on with more seeds: the confirmation run of the kept

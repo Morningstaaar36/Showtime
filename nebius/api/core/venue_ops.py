@@ -129,20 +129,3 @@ def apply_patch(
     return PatchResult(
         venue=current, inverse=VenuePatch(ops=inverse_ops), new_errors=new_errors, warnings=warnings
     )
-
-
-def describe_ops(registry: Registry) -> list[dict[str, object]]:
-    """JSON schemas of every registered op (given to the Venue agent)."""
-    out: list[dict[str, object]] = []
-    for op in registry.all("PatchOp"):
-        schema = op.params_model.model_json_schema()
-        props = {k: v for k, v in schema.get("properties", {}).items() if k != "op"}
-        out.append(
-            {
-                "op": op.name,
-                "description": op.description,
-                "params": props,
-                "required": [r for r in schema.get("required", []) if r != "op"],
-            }
-        )
-    return out

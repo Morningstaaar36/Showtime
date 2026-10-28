@@ -147,18 +147,6 @@ def free_space(floor: dict[str, Any]) -> Polygon | MultiPolygon:
     return floor_geometry(floor).free
 
 
-def main_component(geom: Polygon | MultiPolygon, near: Polygon | None = None) -> Polygon:
-    """The component touching `near`, else the largest one."""
-    if isinstance(geom, Polygon):
-        return geom
-    parts = list(geom.geoms)
-    if near is not None:
-        touching = [p for p in parts if p.intersects(near)]
-        if touching:
-            return max(touching, key=lambda g: g.intersection(near).area)
-    return max(parts, key=lambda g: g.area)
-
-
 def inside(geom: Polygon | MultiPolygon, poly: Polygon, nudge: float = 0.05) -> Polygon:
     """Clip a polygon to the free space, shrinking it slightly so it is strictly inside."""
     clipped = poly.intersection(geom.buffer(-nudge))

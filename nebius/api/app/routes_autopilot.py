@@ -1,4 +1,4 @@
-"""Autopilot (N13): one request to a tested plan. Start it, follow it (SSE), stop it, and find a
+"""Autopilot: one request to a tested plan. Start it, follow it (SSE), stop it, and find a
 project's latest run."""
 
 from __future__ import annotations

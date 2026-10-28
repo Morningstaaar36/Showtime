@@ -1,6 +1,6 @@
 """Organizer annotations stored in venue extensions: provenance, locks, existing/proposed.
 
-Provenance lives in `scene_metadata` (the P2-01 scene contract); locks and the
+Provenance lives in `scene_metadata`; locks and the
 existing/proposed status live in `plan_annotations`. The `set_annotation` PatchOp in the
 `ops_core` plugin writes both; plugins cannot import core helpers, so it keeps its own
 copy of these two key names. They are part of the saved-venue contract.

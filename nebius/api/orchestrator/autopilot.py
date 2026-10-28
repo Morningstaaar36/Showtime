@@ -1,4 +1,4 @@
-"""Autopilot (N13): one request taken to a tested plan, in eight plain-language steps.
+"""Autopilot: one request taken to a tested plan, in eight plain-language steps.
 
 A thin driver over the Copilot graph (orchestrator/copilot_graph.py), which does the work: from
 a sentence it reads the brief, builds the venue, estimates the plan and saves the project; from

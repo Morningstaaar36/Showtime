@@ -1,4 +1,4 @@
-"""Router agent for the one box "Ask or change anything" (N15).
+"""Router agent for the one box "Ask or change anything".
 
 The `fast` model sorts a message into edit / question / what_if / analyse / navigate / other
 and pulls out what-if parameters. "analyse" is a question answered by code the analyst writes

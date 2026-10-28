@@ -120,7 +120,7 @@ class UserSetting(SQLModel, table=True):
 
 
 class AutopilotRunRow(SQLModel, table=True):
-    """One Autopilot run (N13): a request taken to a tested plan, never applied on its own."""
+    """One Autopilot run: a request taken to a tested plan, never applied on its own."""
 
     __tablename__ = "autopilot_run"
 
@@ -151,7 +151,7 @@ class AutopilotEventRow(SQLModel, table=True):
 
 
 class LiveObservation(SQLModel, table=True):
-    """A manual day-of observation (N07): what the organizer saw, never a sensor reading.
+    """A manual day-of observation: what the organizer saw, never a sensor reading.
 
     Rows go when their project is deleted (ON DELETE CASCADE).
     """
@@ -173,7 +173,7 @@ class LiveObservation(SQLModel, table=True):
 
 
 class ShareLink(SQLModel, table=True):
-    """A read-only link to a plan for permit offices (N09). Only the token's SHA-256 is stored.
+    """A read-only link to a plan for permit offices. Only the token's SHA-256 is stored.
 
     Rows go when their project is deleted (ON DELETE CASCADE).
     """

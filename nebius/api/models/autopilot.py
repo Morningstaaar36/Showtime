@@ -1,4 +1,4 @@
-"""Autopilot (N13): one request taken to a tested plan. Contracts for the API and the UI.
+"""Autopilot: one request taken to a tested plan. Contracts for the API and the UI.
 
 Autopilot never applies fixes on its own: it stops at a tested plan and the organizer
 accepts (or not) on Your plan.

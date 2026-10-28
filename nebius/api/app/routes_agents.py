@@ -618,7 +618,7 @@ async def ask_venue(body: AskIn, st: AppState = Depends(get_state)) -> dict[str,
     }
 
 
-# --- Rewind the worst moment (SANDBOX_SCOPE idea 3) --------------------------------------------
+# --- Rewind the worst moment --------------------------------------------
 
 
 class RewindResponseIn(BaseModel):

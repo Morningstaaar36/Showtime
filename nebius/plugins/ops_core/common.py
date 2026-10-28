@@ -60,7 +60,7 @@ def _insert(items: list[Any], index: int | None, item: Any) -> None:
 
 
 # --- object annotations (provenance, locks, existing/proposed) ---------------------
-# Provenance goes to `scene_metadata` (the P2-01 scene contract); locks and the
+# Provenance goes to `scene_metadata`; locks and the
 # existing/proposed distinction go to `plan_annotations`, which the scene contract does
 # not validate. Removing an object drops its entries so no reference dangles.
 

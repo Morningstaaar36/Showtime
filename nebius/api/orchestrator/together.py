@@ -1,4 +1,4 @@
-"""Chosen fixes tested together (P2-04): a subset of the kept fixes is simulated as one plan.
+"""Chosen fixes tested together: a subset of the kept fixes is simulated as one plan.
 
 A session confirms the complete set of kept fixes under its worst attack. When the organizer
 accepts only some of them, that combination was never simulated, so it can't be called

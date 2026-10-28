@@ -1,4 +1,4 @@
-"""One box "Ask or change anything" (N15).
+"""One box "Ask or change anything".
 
 The router agent sorts the organizer's sentence; the existing agents and formulas answer it.
 An edit is only proposed (the organizer applies it with POST /projects/{id}/patch), a question
