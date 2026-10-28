@@ -88,6 +88,36 @@ def test_every_sandbox_run_is_started_without_a_network() -> None:
     assert network_off(object()) is False  # an SDK without this seam: the runner must not claim it
 
 
+def test_only_the_setup_run_installs_packages_with_a_network() -> None:
+    from api.adapters.nebius_sandbox import _setup_network, network_off
+
+    class Api:
+        _client = httpx.AsyncClient(base_url="https://sandboxes.example/")
+
+        def _build_request(self, endpoint_info: Any, data: dict[str, Any]) -> httpx.Request:
+            return self._client.build_request("POST", data["path"], json=data["body"])
+
+    api = Api()
+    network_off(api)
+    token = _setup_network.set(True)
+    try:
+        setup = api._build_request(None, {"path": "/v1/instances", "body": {"command": "pip"}})
+    finally:
+        _setup_network.reset(token)
+    assert json.loads(setup.content) == {"command": "pip"}  # pip can download packages
+    run = api._build_request(None, {"path": "/v1/instances", "body": {"command": "python x.py"}})
+    assert json.loads(run.content)["networking"] == {"enabled": False}
+
+
+def test_the_cloud_sandbox_uses_the_sim_images_own_base_and_pins(tmp_path: Path) -> None:
+    from api.adapters.nebius_sandbox import sim_build
+    from api.core.settings import ROOT_DIR
+
+    base, pin = sim_build(ROOT_DIR / "sim")
+    dockerfile = (ROOT_DIR / "sim" / "Dockerfile").read_text()
+    assert f"FROM {base}" in dockerfile and pin in dockerfile and pin.startswith("jupedsim==")
+
+
 def test_a_configured_runner_reports_its_network_off_at_once(tmp_path: Path) -> None:
     from api.adapters.nebius_sandbox import NebiusRunner
 

@@ -4,8 +4,9 @@ Verified against the installed SDK and the Sandboxes docs (docs/NEBIUS_SWITCH.md
 - `Contree(ContreeConfig(auth=IAMAuth(token, project_id, base_url)))`: the key and the project
   ID (`Project` header) from settings, never read from the process environment by the SDK
 - outbound network is on by default; every run is started with `networking.enabled = false`
-  (the REST spawn field; SDK 0.3.6 has no argument for it, see `network_off`)
-- `await client.images.oci("python:3.12-slim")`
+  (the REST spawn field; SDK 0.3.6 has no argument for it, see `network_off`), except the one
+  setup run that installs the simulator's packages into the base image (`setup_network`)
+- `await client.images.oci(<the sim image's base, read from sim/Dockerfile>)`
 - `image.run(shell=..., files={dest: bytes}, disposable=False, timeout=...)` returns a new
   child image (a snapshot we can branch from); awaiting it executes the command
 - `await image.read(path)` reads a file from an image; `image.stdout`, `image.exit_code`
@@ -23,10 +24,12 @@ Code jobs (`run_code`) run on the base image in a disposable sandbox.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import hashlib
 import inspect
 import json
 import logging
+import re
 import shlex
 import shutil
 import time
@@ -63,7 +66,25 @@ ARTIFACTS = (
     "agents.json",
     "checkpoint.json",
 )
-BASE_IMAGE = "python:3.12-slim"
+# the base image and the jupedsim pin come from the sim image's own build file, so the cloud
+# sandbox runs the same versions as the local one
+_FROM = re.compile(r"^FROM\s+(\S+)", re.M)
+_JUPEDSIM = re.compile(r"\bjupedsim==[\w.]+")
+
+
+def sim_build(sim_dir: Path) -> tuple[str, str]:
+    """(base image, jupedsim requirement) as sim/Dockerfile builds them."""
+    text = (sim_dir / "Dockerfile").read_text()
+    base, pin = _FROM.search(text), _JUPEDSIM.search(text)
+    if base is None or pin is None:
+        raise RuntimeError("sim/Dockerfile names no FROM image or no jupedsim== pin")
+    return base.group(1), pin.group(0)
+
+
+# the setup run needs the network to install packages; every other spawn goes without one
+_setup_network: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "setup_network", default=False
+)
 
 
 def _sim_files(sim_dir: Path) -> dict[str, bytes]:
@@ -95,6 +116,8 @@ def network_off(api: Any) -> bool:
 
     def with_network_off(endpoint_info: Any, data: dict[str, Any]) -> Any:
         req = build(endpoint_info, data)
+        if _setup_network.get():
+            return req
         if req.method == "POST" and req.url.path.rstrip("/").endswith(SPAWN_PATH):
             body = json.loads(req.content or b"{}")
             body["networking"] = {"enabled": False}
@@ -181,15 +204,20 @@ class NebiusRunner:
                     return self._base
                 except Exception:
                     log.info("cached base image unavailable; rebuilding")
-        img = await client.images.oci(BASE_IMAGE)
+        base, jupedsim = sim_build(self.sim_dir)
+        img = await client.images.oci(base)
         reqs = (self.sim_dir / "requirements.txt").read_bytes()
-        img = await img.run(
-            shell="pip install --no-cache-dir -r /tmp/requirements.txt && "
-            "pip install --no-cache-dir --no-deps jupedsim==1.4.2",
-            files={"/tmp/requirements.txt": reqs},
-            disposable=False,
-            timeout=900,
-        )
+        token = _setup_network.set(True)  # pip needs the network; the snapshot keeps none
+        try:
+            img = await img.run(
+                shell="pip install --no-cache-dir -r /tmp/requirements.txt && "
+                f"pip install --no-cache-dir --no-deps {jupedsim}",
+                files={"/tmp/requirements.txt": reqs},
+                disposable=False,
+                timeout=self.settings.nebius_setup_timeout_s,
+            )
+        finally:
+            _setup_network.reset(token)
         img = await img.apply_files(files=_sim_files(self.sim_dir))
         self._base = img
         self.cache_file.parent.mkdir(parents=True, exist_ok=True)

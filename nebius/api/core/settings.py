@@ -87,6 +87,8 @@ class Settings(BaseSettings):
     # Extra JSON fields for every hosted chat request, e.g. OpenRouter's
     # {"reasoning": {"enabled": false}} so reasoning models answer instead of thinking.
     llm_extra_body: str = ""
+    # model ids containing this word get "/think" or "/no_think" in the system prompt (empty: none)
+    llm_directive_models: str = "nemotron"
     # when the hosted model fails (quota, outage, timeout), answer with the local llama-server
     llm_fallback: Literal["local", "none"] = "local"
 
@@ -112,6 +114,8 @@ class Settings(BaseSettings):
     # the Token Factory project that runs the sandboxes (Project settings, under the project
     # name); sent with every request alongside NEBIUS_API_KEY
     nebius_project_id: str = ""
+    # the one-time setup run that installs the simulator into the base sandbox image (s)
+    nebius_setup_timeout_s: int = Field(default=900, ge=60)
     sandbox_max_parallel: int = Field(default=1, ge=1, le=16)
     # extra random crowds the seed check runs when the organizer doesn't choose: fewer when the
     # sandbox runs one at a time, more when it runs several at once (at most seeds_extra_max)
