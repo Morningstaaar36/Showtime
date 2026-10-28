@@ -8,7 +8,7 @@ import { Trajectory, type TrajIndex } from "./trajectory";
 export interface Replay {
   traj: Trajectory;
   density: DensityGrid | null;
-  /** who each person is (G2-04); null for older runs and runs of general adults only */
+  /** who each person is; null for older runs and runs of general adults only */
   kinds: AgentKinds | null;
 }
 

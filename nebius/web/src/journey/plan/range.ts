@@ -1,4 +1,4 @@
-/** How sure Your plan's numbers are (P2-04): the sensitivity check the API keeps (the key run
+/** How sure Your plan's numbers are: the sensitivity check the API keeps (the key run
  * with 20% fewer/more people and walking 15% slower/faster) and the check that simulates a
  * chosen subset of changes together. Numbers come from each run; failures stay listed. */
 import { t } from "@/i18n";
@@ -14,7 +14,7 @@ export interface Spread {
   n: number;
 }
 
-export interface SensitivityMetrics {
+interface SensitivityMetrics {
   evac_time_p95_s: number | null;
   peak_density_ppm2: number | null;
   agents_not_evacuated: number | null;

@@ -1,13 +1,22 @@
-import type * as THREE from "three";
+import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import type { Floor, Pt, Stair, Venue } from "@/api/types";
-import { triangleCount } from "./builder";
-import { buildVenueModel, disposeModel, modelTriangles } from "./building";
+import { buildVenueModel, disposeModel } from "./building";
 import { floorBelow, guardRailRuns, outerEdges, outerWallGeometry } from "./floor";
 import { subtractConvex } from "./poly";
 import { slabGeometry } from "./slab";
 import { stairGeometry, stairOpenings } from "./stairs";
 import { LIGHT_PALETTE } from "../palette";
+
+/** Triangle count of a geometry (indexed or not). */
+const triangleCount = (g: THREE.BufferGeometry): number => (g.index ? g.index.count : g.getAttribute("position")?.count ?? 0) / 3;
+
+/** Total triangles in a model. */
+function modelTriangles(root: THREE.Object3D): number {
+  let n = 0;
+  root.traverse((o) => { if (o instanceof THREE.Mesh) n += triangleCount(o.geometry as THREE.BufferGeometry); });
+  return n;
+}
 
 const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
 

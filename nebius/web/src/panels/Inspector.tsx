@@ -13,7 +13,7 @@ import { PanelTitle, Separator, Spinner } from "@/components/ui/misc";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { t } from "@/i18n";
-import { fmtInt, fmtNum, fmtSpeed } from "@/lib/format";
+import { fmtInt, fmtLength, fmtNum, fmtSpeed } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { polygonArea } from "@/scene/geom";
 import { useUi } from "@/state/ui";
@@ -80,9 +80,9 @@ function VenueFacts({ venue }: { venue: Venue }) {
       {[
         [t("inspector.people_total"), fmtInt(people)],
         [t("inspector.exits_open"), `${venue.floors.reduce((a, f) => a + f.exits.filter((e) => !e.blocked).length, 0)}`],
-        [t("inspector.exit_width_total"), units === "imperial" ? `${fmtNum(width * 3.281, 0)} ft` : `${fmtNum(width, 1)} m`],
+        [t("inspector.exit_width_total"), fmtLength(width, units)],
         [t("inspector.people_per_m_exit"), fmtNum(perM, 0)],
-        [t("inspector.floor_area"), `${fmtInt(area)} m²`],
+        [t("inspector.floor_area"), t("units.n_m2", { n: fmtInt(area) })],
         [t("inspector.floors"), String(venue.floors.length)],
       ].map(([k, val]) => (
         <div key={k} className="bg-surface px-3 py-2">
@@ -141,10 +141,10 @@ function StagePanel({ project }: { project: ProjectDetail }) {
         ) : <p className="mt-1 text-sm text-muted">{t("ui.inspector.unavailable")}</p>}
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <NumberField label={t("inspector.ballast")} unit="kg" value={stage.ballast_kg_per_leg} step={100} onCommit={(v) => set("ballast_kg_per_leg", v)} />
+        <NumberField label={t("inspector.ballast")} unit={t("units.kg")} value={stage.ballast_kg_per_leg} step={100} onCommit={(v) => set("ballast_kg_per_leg", v)} />
         <NumberField label={t("inspector.legs")} unit="" value={stage.legs} step={2} onCommit={(v) => set("legs", v)} />
-        <NumberField label={t("inspector.roof_area")} unit="m²" value={stage.roof_area_m2} step={10} onCommit={(v) => set("roof_area_m2", v)} />
-        <NumberField label={t("inspector.banner_area")} unit="m²" value={stage.banner_area_m2 ?? 0} step={5} onCommit={(v) => set("banner_area_m2", v)} />
+        <NumberField label={t("inspector.roof_area")} unit={t("units.m2")} value={stage.roof_area_m2} step={10} onCommit={(v) => set("roof_area_m2", v)} />
+        <NumberField label={t("inspector.banner_area")} unit={t("units.m2")} value={stage.banner_area_m2 ?? 0} step={5} onCommit={(v) => set("banner_area_m2", v)} />
       </div>
     </section>
   );
@@ -221,7 +221,7 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
     return (
       <section className="space-y-3">
         <PanelTitle action={<Badge tone={exit.blocked ? "danger" : "egress"}>{exit.blocked ? t("ui.inspector.blocked") : t("ui.inspector.exit")}</Badge>}>{exit.label ?? exit.id}</PanelTitle>
-        <NumberField label={t("inspector.width")} unit="m" value={exit.width_m} step={0.5}
+        <NumberField label={t("inspector.width")} unit={t("units.m")} value={exit.width_m} step={0.5}
                      onCommit={(v) => run([{ op: "resize", target: exit.id, width_m: v } as PatchOpIn])} />
         <div className="flex items-center justify-between text-sm">
           <label htmlFor="blk">{t("ui.inspector.blocked_in_the_plan")}</label>
@@ -236,9 +236,9 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
     return (
       <section className="space-y-3">
         <PanelTitle action={<Badge tone="signal">{t("ui.inspector.zone")}</Badge>}>{zone.label ?? zone.id}</PanelTitle>
-        <NumberField label={t("inspector.people")} unit="people" value={zone.people} step={50}
+        <NumberField label={t("inspector.people")} unit={t("common.people")} value={zone.people} step={50}
                      onCommit={(v) => run([{ op: "set_people", zone_id: zone.id, people: Math.round(v) } as PatchOpIn])} />
-        <p className="text-sm text-muted">{t("inspector.people_per_m2", { n: fmtNum(zone.people / Math.max(area, 1), 1) })} · {fmtInt(area)} m²</p>
+        <p className="text-sm text-muted">{t("inspector.people_per_m2", { n: fmtNum(zone.people / Math.max(area, 1), 1) })} · {t("units.n_m2", { n: fmtInt(area) })}</p>
         <ZoneProfileEditor project={project} zoneId={zone.id} />
         <Button variant="danger-ghost" size="sm" onClick={() => { run([{ op: "remove_zone", zone_id: zone.id } as PatchOpIn]); select(null); }}><Trash2 />{t("inspector.remove")}</Button>
       </section>
@@ -250,8 +250,8 @@ function SelectionFields({ project }: { project: ProjectDetail }) {
         <PanelTitle action={<Badge tone="outline">{obstacle.kind}</Badge>}>{obstacle.label ?? obstacle.id}</PanelTitle>
         <p className="text-sm text-muted">{t("ui.inspector.drag_the_arrows_in_3d")}</p>
         <div className="flex gap-2">
-          {([[0, 2, "North 2 m"], [0, -2, "South 2 m"], [-2, 0, "West 2 m"], [2, 0, "East 2 m"]] as const).map(([dx, dy, l]) => (
-            <Button key={l} size="sm" variant="subtle" onClick={() => run([{ op: "move", target: obstacle.id, dx, dy } as PatchOpIn])}>{l}</Button>
+          {([[0, 2, "move_n"], [0, -2, "move_s"], [-2, 0, "move_w"], [2, 0, "move_e"]] as const).map(([dx, dy, k]) => (
+            <Button key={k} size="sm" variant="subtle" onClick={() => run([{ op: "move", target: obstacle.id, dx, dy } as PatchOpIn])}>{t(`ui.inspector.${k}`)}</Button>
           ))}
         </div>
         {obstacle.kind !== "stage" && (

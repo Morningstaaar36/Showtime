@@ -1,4 +1,5 @@
 /** Number, time and unit formatting. Metric by default; imperial is a Settings toggle. */
+import { t } from "@/i18n";
 
 export type Units = "metric" | "imperial";
 
@@ -29,28 +30,28 @@ export function fmtClock(s: number | null | undefined): string {
 /** Seconds as "4 min 12 s" for prose. */
 export function fmtDuration(s: number | null | undefined): string {
   if (s == null || Number.isNaN(s)) return "–";
-  const t = Math.round(Math.abs(s));
-  if (t < 60) return `${t} s`;
-  const m = Math.floor(t / 60);
-  const r = t % 60;
-  return r ? `${m} min ${r} s` : `${m} min`;
+  const secs = Math.round(Math.abs(s));
+  if (secs < 60) return t("units.n_s", { n: secs });
+  const m = Math.floor(secs / 60);
+  const r = secs % 60;
+  return r ? t("units.n_min_s", { m, s: r }) : t("units.n_min", { n: m });
 }
 
 export function fmtLength(m: number | null | undefined, units: Units, digits = 1): string {
   if (m == null) return "–";
-  return units === "imperial" ? `${fmtNum(m * M_TO_FT, digits)} ft` : `${fmtNum(m, digits)} m`;
+  return units === "imperial" ? t("units.n_ft", { n: fmtNum(m * M_TO_FT, digits) }) : t("units.n_m", { n: fmtNum(m, digits) });
 }
 
 /** Density in people per m² (or per 10 ft² in imperial, the common US crowd unit). */
 export function fmtDensity(ppm2: number | null | undefined, units: Units): string {
   if (ppm2 == null) return "–";
-  if (units === "imperial") return `${fmtNum(ppm2 / (M_TO_FT * M_TO_FT) * 10, 1)} per 10 ft²`;
-  return `${fmtNum(ppm2, 1)} people per m²`;
+  if (units === "imperial") return t("units.density_imperial", { n: fmtNum(ppm2 / (M_TO_FT * M_TO_FT) * 10, 1) });
+  return t("units.density", { n: fmtNum(ppm2, 1) });
 }
 
 export function fmtSpeed(ms: number | null | undefined, units: Units): string {
   if (ms == null) return "–";
-  return units === "imperial" ? `${fmtNum(ms * 2.23694, 0)} mph` : `${fmtNum(ms, 1)} m/s (${fmtNum(ms * 3.6, 0)} km/h)`;
+  return units === "imperial" ? t("units.speed_imperial", { n: fmtNum(ms * 2.23694, 0) }) : t("units.speed", { n: fmtNum(ms, 1), kmh: fmtNum(ms * 3.6, 0) });
 }
 
 export function fmtMoney(usd: number | null | undefined): string {
@@ -77,9 +78,9 @@ export function fmtHM(iso: string | null | undefined): string {
 export function fmtRelative(iso: string): string {
   const d = new Date(iso);
   const diff = (Date.now() - d.getTime()) / 1000;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
+  if (diff < 60) return t("units.just_now");
+  if (diff < 3600) return t("units.min_ago", { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t("units.h_ago", { n: Math.floor(diff / 3600) });
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 

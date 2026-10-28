@@ -28,7 +28,7 @@ export function useApplyStep(projectId: string) {
   return { apply, pending };
 }
 
-function NumberOpt({ id, label, value, step, min, max, unit = "m", optional, onChange }: {
+function NumberOpt({ id, label, value, step, min, max, unit = t("units.m"), optional, onChange }: {
   id: string; label: string; value: number | null; step: number; min?: number; max?: number; unit?: string; optional?: boolean;
   onChange: (v: number | null) => void;
 }) {

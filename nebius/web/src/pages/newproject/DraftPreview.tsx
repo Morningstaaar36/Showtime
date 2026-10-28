@@ -7,7 +7,7 @@ import { t } from "@/i18n";
 import { fmtInt } from "@/lib/format";
 
 /** Metres of surroundings the server added around a building (extensions.building.surroundings_m). */
-export function surroundingsOf(v: NonNullable<VenueDraft["venue"]>): number {
+function surroundingsOf(v: NonNullable<VenueDraft["venue"]>): number {
   const b = (v.extensions as Record<string, unknown> | undefined)?.building as { surroundings_m?: unknown } | undefined;
   return typeof b?.surroundings_m === "number" && b.surroundings_m > 0 ? b.surroundings_m : 0;
 }
@@ -36,8 +36,8 @@ export function DraftPreview({ draft, surroundingsAsked = 0 }: { draft: VenueDra
         <div>
           <p className="font-semibold">{v.name}</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
-            <Badge tone="outline">{v.mode === "indoor" ? t("ui.draftpreview.indoor") : "Open-air"}</Badge>
-            <Badge tone="neutral" className="tabular">{fmtInt(x1 - x0)} × {fmtInt(y1 - y0)} m</Badge>
+            <Badge tone="outline">{v.mode === "indoor" ? t("ui.draftpreview.indoor") : t("ui.draftpreview.open_air")}</Badge>
+            <Badge tone="neutral" className="tabular">{t("units.size_m", { w: fmtInt(x1 - x0), d: fmtInt(y1 - y0) })}</Badge>
             <Badge tone="neutral"><Users />{fmtInt(people)}</Badge>
             <Badge tone="neutral">{t("ui.draftpreview.exits", { n: exits })}</Badge>
             {v.floors.length > 1 && <Badge tone="neutral"><Layers />{t("ui.draftpreview.floors", { n: v.floors.length })}</Badge>}

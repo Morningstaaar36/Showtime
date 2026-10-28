@@ -4,7 +4,7 @@
 import type { RunResult, Venue } from "@/api/types";
 import type { EventKindId } from "@/lib/venueOps";
 
-export interface CaseSource { label: string; url: string }
+interface CaseSource { label: string; url: string }
 
 /** What a project keeps about its case (api/core/real_cases.py RealCase.card). */
 export interface RealCaseCard {

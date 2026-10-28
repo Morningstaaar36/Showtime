@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { PatchOpIn, Venue } from "@/api/types";
 import { annotateOp, annotationOf, isProposed, lockConflicts, lockedIds } from "@/lib/annotations";
 import { diffVenues } from "@/lib/venueDiff";
-import { planFreshness, runOutcome } from "@/lib/evidence";
+import { runOutcome } from "@/lib/evidence";
 
 const sq = [[0, 0], [1, 0], [1, 1], [0, 1]];
 const venue = {
@@ -71,19 +71,6 @@ describe("diffVenues", () => {
 
   it("identical venues have no changes", () => {
     expect(diffVenues(venue, structuredClone(venue) as Venue)).toEqual([]);
-  });
-});
-
-describe("planFreshness", () => {
-  it("invalidates evidence when an operation changes without changing geometry", () => {
-    expect(planFreshness({ currentHash: "plan-with-new-action", testedHash: "original-plan" })).toBe("stale");
-  });
-  it("separates tested, accepted, edited and untested venues", () => {
-    expect(planFreshness({ currentHash: "a", testedHash: "a", fixedHash: "b" })).toBe("current_before");
-    expect(planFreshness({ currentHash: "b", testedHash: "a", fixedHash: "b" })).toBe("current_after");
-    expect(planFreshness({ currentHash: "c", testedHash: "a", fixedHash: "b" })).toBe("stale");
-    expect(planFreshness({ currentHash: "c", testedHash: "a" })).toBe("stale");
-    expect(planFreshness({ currentHash: "a", testedHash: null })).toBe("none");
   });
 });
 

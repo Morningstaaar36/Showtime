@@ -60,7 +60,7 @@ export function Agents({ traj, density, venue, exploded, palette, onlyFloor = nu
   kinds?: AgentKinds | null;
 }) {
   const max = Math.min(Math.max(traj.index.max_agents, 1), 9000);
-  // one instanced mesh per kind present (general adults only: a single mesh, as before)
+  // one instanced mesh per kind present (general adults only: a single mesh)
   const shown = useMemo<PeopleKindId[]>(() => (kinds ? kindsPresent(kinds) : ["general"]), [kinds]);
   const meshes = useRef<(THREE.InstancedMesh | null)[]>([]);
   const buf = useMemo(() => new Float32Array(max * 3), [max]);

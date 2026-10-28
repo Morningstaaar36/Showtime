@@ -10,12 +10,15 @@ export type NodeStatus = "idle" | "running" | "done" | "warn" | "failed";
 
 interface Shape { nodes: string[]; edges: { source: string; target: string; conditional: boolean }[] }
 
-const LABELS: Record<string, string> = {
-  __start__: "Your request", understand: "Brief agent", locate: "Map lookup", design: "Designer agent",
-  layout: "Layout solver", estimate: "Planning ratios", create: "Project", simulate: "Simulation sandbox",
-  sweep: "Scenario sandboxes", review: "Safety officer", red_team: "Red team session", deliver: "Your plan",
-  __end__: "Plan ready",
-};
+/** A node's name from en.json (copilot.node.*). A node the server adds later still reads well:
+ * its id in words ("fire_check" → "Fire check"). */
+function nodeLabel(id: string): string {
+  const key = `copilot.node.${id.replace(/^_+|_+$/g, "")}`;
+  const label = t(key);
+  if (label !== key) return label;
+  const words = id.replace(/^_+|_+$/g, "").replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 const POS: Record<string, [number, number]> = {
   __start__: [70, 0], understand: [70, 52], locate: [0, 104], design: [140, 156], layout: [0, 156],
   estimate: [70, 208], create: [70, 260], simulate: [70, 312], sweep: [0, 364], review: [0, 416], red_team: [140, 416],
@@ -53,7 +56,7 @@ export function AgentGraph({ status }: { status: Record<string, NodeStatus> }) {
     const nodes: Node[] = s.nodes.map((id) => {
       const st: NodeStatus = id === "__start__" ? (any ? "done" : "idle")
         : id === "__end__" ? (status.review === "done" || status.deliver === "done" ? "done" : "idle") : status[id] ?? "idle";
-      return { id, type: "agent", position: { x: POS[id]?.[0] ?? 70, y: POS[id]?.[1] ?? 0 }, data: { label: LABELS[id] ?? id, status: st }, draggable: false };
+      return { id, type: "agent", position: { x: POS[id]?.[0] ?? 70, y: POS[id]?.[1] ?? 0 }, data: { label: nodeLabel(id), status: st }, draggable: false };
     });
     const edges: Edge[] = s.edges.map((e) => {
       const live = status[e.target] === "running";

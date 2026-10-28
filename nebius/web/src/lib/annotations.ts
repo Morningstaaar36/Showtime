@@ -18,7 +18,7 @@ export interface ObjectAnnotation {
 type Entry = { locked?: boolean; change?: ChangeStatus };
 type Section<T> = { objects?: Record<string, T> } | undefined;
 
-/** Typed P2-02 policy is authoritative; annotations remain compatible with old exports. */
+/** The organizer plan's typed constraints win; annotations still read old exports. */
 function entries(venue: Venue): Record<string, Entry> {
   const ext = (venue.extensions ?? {}) as Record<string, unknown>;
   const plan = ext.organizer_plan as { constraints?: { objects?: Record<string, { locked?: boolean; origin?: ChangeStatus }> } } | undefined;
@@ -59,7 +59,7 @@ function stageId(venue: Venue): string | null {
 }
 
 /** Ids of existing objects an operation changes (an added object is not "changed"). */
-export function opTargets(op: PatchOpIn, venue: Venue): string[] {
+function opTargets(op: PatchOpIn, venue: Venue): string[] {
   const o = op as Record<string, unknown>;
   const ids = ["target", "exit_id", "obstacle_id", "zone_id"].map((k) => o[k]).filter((v): v is string => typeof v === "string");
   if (o.op === "set_stage_param") {
@@ -69,7 +69,7 @@ export function opTargets(op: PatchOpIn, venue: Venue): string[] {
   return ids;
 }
 
-export interface LockConflict { id: string; op: string }
+interface LockConflict { id: string; op: string }
 
 /** Operations in a proposal that would change something the organizer locked. */
 export function lockConflicts(venue: Venue, ops: PatchOpIn[]): LockConflict[] {

@@ -8,7 +8,7 @@ export type { FailureMap, FailureMapCell, FailureMapElite };
 export type Tone = "empty" | "holds" | "near" | "break";
 
 /** Severity at or above this is "close": 70% of the way to a break. */
-export const NEAR = 0.7;
+const NEAR = 0.7;
 
 /** Severity on the plan as it stands: after a kept fix, its re-measured value. */
 export function current(e: FailureMapElite): number {
@@ -30,7 +30,7 @@ export function tone(sev: number | null | undefined): Tone {
 
 export const toneLabel = (tone: Tone) => t(`failure_map.tone_${tone}`);
 
-export interface GridRow { id: string; label: string; cells: (FailureMapCell | null)[] }
+interface GridRow { id: string; label: string; cells: (FailureMapCell | null)[] }
 export interface Grid { cols: FailureMap["wheres"]; rows: GridRow[] }
 
 /** Rows = hazard kinds, columns = places; a null cell is not possible in this venue (e.g. a

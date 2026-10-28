@@ -27,7 +27,7 @@ export interface SessionMetrics {
   agents_total?: number | null;
 }
 
-export interface OverviewProps {
+interface OverviewProps {
   level: VerdictLevel;
   headline: string;
   evaluation: Evaluation | null | undefined;

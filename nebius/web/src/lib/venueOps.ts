@@ -2,6 +2,7 @@
  * profiles, event kind) and the geometry the editor needs to build them. Every builder returns a
  * `PatchOpIn` for POST /projects/{id}/patch, so undo, redo and versioning work as for other edits. */
 import type { PatchOpIn, Pt, Venue } from "@/api/types";
+import { t } from "@/i18n";
 import type { EventKind, PeopleGroup } from "@/types/generated";
 
 export type EventKindId = NonNullable<EventKind>;
@@ -20,27 +21,27 @@ export const DIRECTIONS: Direction[] = ["north", "east", "south", "west"];
 
 // --- op payloads (the cross-stream contract, implemented by plugins/ops_core) ------------------
 
-export interface AddFloorOp { op: "add_floor"; floor_id?: string; name?: string; height_m?: number; copy_walls?: boolean }
-export interface RemoveFloorOp { op: "remove_floor"; floor_id: string }
-export interface AddStairOp {
+interface AddFloorOp { op: "add_floor"; floor_id?: string; name?: string; height_m?: number; copy_walls?: boolean }
+interface RemoveFloorOp { op: "remove_floor"; floor_id: string }
+interface AddStairOp {
   op: "add_stair"; id?: string; from_floor: string; to_floor: string; x: number; y: number;
   width_m?: number; run_m?: number; direction?: Direction;
 }
-export interface RemoveStairOp { op: "remove_stair"; stair_id: string }
-export interface AddWallOp { op: "add_wall"; floor_id: string; id?: string; points: Pt[]; thickness_m?: number; height_m?: number }
-export interface AddDoorOp { op: "add_door"; floor_id: string; wall_id: string; x: number; y: number; width_m?: number }
-export interface AddRoomOp {
+interface RemoveStairOp { op: "remove_stair"; stair_id: string }
+interface AddWallOp { op: "add_wall"; floor_id: string; id?: string; points: Pt[]; thickness_m?: number; height_m?: number }
+interface AddDoorOp { op: "add_door"; floor_id: string; wall_id: string; x: number; y: number; width_m?: number }
+interface AddRoomOp {
   op: "add_room"; floor_id: string; id?: string; x: number; y: number; width_m: number; depth_m: number;
   door_wall?: Direction; door_width_m?: number; people?: number; label?: string; groups?: PeopleGroup[];
 }
-export interface SetZoneProfileOp {
+interface SetZoneProfileOp {
   op: "set_zone_profile"; zone_id: string; groups?: PeopleGroup[]; pre_movement_s?: number | null; route_id?: string | null;
 }
-export interface AddRouteOp { op: "add_route"; id?: string; floor_id: string; points: Pt[]; width_m?: number; label?: string }
-export interface RemoveRouteOp { op: "remove_route"; route_id: string }
-export interface SetEventKindOp { op: "set_event_kind"; event_kind: EventKindId | null }
+interface AddRouteOp { op: "add_route"; id?: string; floor_id: string; points: Pt[]; width_m?: number; label?: string }
+interface RemoveRouteOp { op: "remove_route"; route_id: string }
+interface SetEventKindOp { op: "set_event_kind"; event_kind: EventKindId | null }
 
-export type EditorOp = AddFloorOp | RemoveFloorOp | AddStairOp | RemoveStairOp | AddWallOp | AddDoorOp | AddRoomOp
+type EditorOp = AddFloorOp | RemoveFloorOp | AddStairOp | RemoveStairOp | AddWallOp | AddDoorOp | AddRoomOp
   | SetZoneProfileOp | AddRouteOp | RemoveRouteOp | SetEventKindOp;
 
 const asOp = (o: EditorOp): PatchOpIn => o as unknown as PatchOpIn;
@@ -54,19 +55,24 @@ export function floorsByElevation(venue: Venue): Floor[] {
   return [...venue.floors].sort((a, b) => (a.elevation_m ?? 0) - (b.elevation_m ?? 0));
 }
 
-/** 1 → "1st", 2 → "2nd", 11 → "11th", 23 → "23rd". */
-export function ordinal(n: number): string {
-  const tens = n % 100;
-  if (tens >= 11 && tens <= 13) return `${n}th`;
-  return `${n}${({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"}`;
-}
-
-/** Short storey labels: the floor nearest elevation 0 is "Ground", above it "1st", "2nd"…, below "B1"… */
-export function floorLabels(venue: Venue): Map<string, string> {
+/** Storey numbers: 0 for the floor nearest elevation 0, then 1, 2… above it and −1, −2… below. */
+export function floorLevels(venue: Venue): Map<string, number> {
   const sorted = floorsByElevation(venue);
   let ground = 0;
   sorted.forEach((f, i) => { if (Math.abs(f.elevation_m ?? 0) < Math.abs(sorted[ground].elevation_m ?? 0)) ground = i; });
-  return new Map(sorted.map((f, i) => [f.floor_id, i === ground ? "Ground" : i > ground ? ordinal(i - ground) : `B${ground - i}`]));
+  return new Map(sorted.map((f, i) => [f.floor_id, i - ground]));
+}
+
+/** A storey's name when it has none of its own: "Ground floor", "Floor 2", "Basement 1". */
+export function levelName(level: number): string {
+  if (level === 0) return t("editor.floor.ground");
+  return level > 0 ? t("editor.floor.level_n", { n: level }) : t("editor.floor.basement_n", { n: -level });
+}
+
+/** The short tag on the floor switcher, as on a lift panel: "G", "2", "B1". */
+export function levelTag(level: number): string {
+  if (level === 0) return t("editor.floor.tag_ground");
+  return level > 0 ? String(level) : t("editor.floor.tag_basement", { n: -level });
 }
 
 /** The floor tools act on: the chosen one when it still exists, else the ground (lowest) floor. */
@@ -83,12 +89,9 @@ export function nextFloorId(venue: Venue): string {
   return `F${n}`;
 }
 
-/** Default name of the next storey ("1st floor" on a one-storey building). */
+/** Default name of the next storey ("Floor 1" on a one-storey building). */
 export function nextFloorName(venue: Venue): string {
-  const sorted = floorsByElevation(venue);
-  const labels = floorLabels(venue);
-  const ground = sorted.findIndex((f) => labels.get(f.floor_id) === "Ground");
-  return `${ordinal(sorted.length - ground)} floor`;
+  return levelName(Math.max(...floorLevels(venue).values()) + 1);
 }
 
 /** A new storey above the current top one (the server places it `height_m` higher). */
@@ -114,16 +117,6 @@ export function stairEnds(venue: Venue, floorId: string): { from_floor: string; 
   if (i < 0 || sorted.length < 2) return null;
   if (i > 0) return { from_floor: sorted[i].floor_id, to_floor: sorted[i - 1].floor_id };
   return { from_floor: sorted[1].floor_id, to_floor: sorted[0].floor_id };
-}
-
-const DIR_VEC: Record<Direction, Pt> = { north: [0, 1], south: [0, -1], east: [1, 0], west: [-1, 0] };
-
-/** Outline of a stair flight: starts at (x, y), runs `run` metres in `direction`, `width` across. */
-export function stairFootprint(x: number, y: number, direction: Direction, width: number, run: number): Pt[] {
-  const [dx, dy] = DIR_VEC[direction];
-  const [nx, ny] = [-dy * width / 2, dx * width / 2];
-  const corners: Pt[] = [[x + nx, y + ny], [x + nx + dx * run, y + ny + dy * run], [x - nx + dx * run, y - ny + dy * run], [x - nx, y - ny]];
-  return corners.map(pt);
 }
 
 export function addStairOp(venue: Venue, floorId: string, x: number, y: number,
@@ -172,7 +165,7 @@ function polylineLength(line: Pt[]): number {
   return n;
 }
 
-export interface WallHit { wallId: string; point: Pt; dist: number; length: number; segment: [Pt, Pt] }
+interface WallHit { wallId: string; point: Pt; dist: number; length: number; segment: [Pt, Pt] }
 
 /** Nearest inner wall (an obstacle of kind "wall" drawn as a line) to a point on a floor. */
 export function nearestWall(floor: Floor, x: number, y: number): WallHit | null {
@@ -189,14 +182,14 @@ export function nearestWall(floor: Floor, x: number, y: number): WallHit | null 
 }
 
 /** Distance to the venue's outer boundary (the walkable outline). */
-export function distanceToOutline(floor: Floor, x: number, y: number): number {
+function distanceToOutline(floor: Floor, x: number, y: number): number {
   const ring = floor.walkable as Pt[];
   let d = Infinity;
   for (let i = 0; i < ring.length; i++) d = Math.min(d, closestOnSegment([x, y], ring[i], ring[(i + 1) % ring.length]).dist);
   return d;
 }
 
-export type DoorPlan = { op: PatchOpIn; at: Pt; wallId: string } | { error: "door_no_wall" | "door_outer_wall" | "door_wall_short" };
+type DoorPlan = { op: PatchOpIn; at: Pt; wallId: string } | { error: "door_no_wall" | "door_outer_wall" | "door_wall_short" };
 
 /** A door cut into the inner wall nearest the click (within `reach` metres). */
 export function planDoor(floor: Floor, x: number, y: number, width = 1.0, reach = 1.5): DoorPlan {
@@ -228,7 +221,7 @@ export function snapPoint(floor: Floor, x: number, y: number, tol = 0.6): Pt {
   return pt(best ?? [x, y]);
 }
 
-export interface RoomSpec { x: number; y: number; width_m: number; depth_m: number }
+interface RoomSpec { x: number; y: number; width_m: number; depth_m: number }
 
 /** A room from two opposite corners (any order): south-west corner plus size. */
 export function roomFromCorners(a: Pt, b: Pt): RoomSpec {
@@ -240,14 +233,7 @@ export function roomOutline(r: RoomSpec): Pt[] {
   return corners.map(pt);
 }
 
-/** Where the door gap of a room sits (the middle of `side`). */
-export function roomDoorAt(r: RoomSpec, side: Direction): Pt {
-  const mx = r.x + r.width_m / 2;
-  const my = r.y + r.depth_m / 2;
-  return pt(side === "south" ? [mx, r.y] : side === "north" ? [mx, r.y + r.depth_m] : side === "west" ? [r.x, my] : [r.x + r.width_m, my]);
-}
-
-export type RoomPlan = { op: PatchOpIn } | { error: "room_too_small" | "room_door_wide" };
+type RoomPlan = { op: PatchOpIn } | { error: "room_too_small" | "room_door_wide" };
 
 export function planRoom(floorId: string, r: RoomSpec, opts: {
   door_wall?: Direction; door_width_m?: number; people?: number | null; label?: string; groups?: PeopleGroup[]; id?: string;
@@ -279,9 +265,6 @@ export function normalizeGroups(groups: PeopleGroup[]): PeopleGroup[] | null {
   return total > 1.0001 ? null : out;
 }
 
-/** Share of the zone left as general adults (0–1). */
-export const generalShare = (groups: PeopleGroup[]): number => Math.max(0, 1 - groups.reduce((n, g) => n + g.share, 0));
-
 /** set_zone_profile with only the fields given; `null` clears pre-movement or the route. */
 export function zoneProfileOp(zoneId: string, change: { groups?: PeopleGroup[]; pre_movement_s?: number | null; route_id?: string | null }): PatchOpIn {
   const op: SetZoneProfileOp = { op: "set_zone_profile", zone_id: zoneId };
@@ -300,7 +283,6 @@ export function addRouteOp(floorId: string, points: Pt[], opts: { id?: string; w
   });
 }
 
-export const removeRouteOp = (routeId: string): PatchOpIn => asOp({ op: "remove_route", route_id: routeId });
 export const setEventKindOp = (kind: EventKindId | null): PatchOpIn => asOp({ op: "set_event_kind", event_kind: kind });
 
 // --- map import ------------------------------------------------------------------------------
@@ -309,34 +291,3 @@ export const setEventKindOp = (kind: EventKindId | null): PatchOpIn => asOp({ op
 const ROOMS_BY_DEFAULT = new Set<EventKindId>(["hospital", "school", "office", "residential"]);
 export const defaultInterior = (use: EventKindId | null | undefined): Interior => (use && ROOMS_BY_DEFAULT.has(use) ? "rooms" : "open");
 
-/** Body of POST /venues/from-map, with the building options of the generic-venues contract. */
-export interface FromMapRequest {
-  outline: [number, number][];
-  mode: "indoor" | "outdoor";
-  name: string;
-  people?: number | null;
-  selected_id?: string | null;
-  levels?: number;
-  use?: EventKindId;
-  interior?: Interior;
-  floor_height_m?: number;
-  surroundings_m?: number;
-  event_kind?: EventKindId;
-}
-
-export function fromMapBody(base: Pick<FromMapRequest, "outline" | "mode" | "name" | "people" | "selected_id">, opts: {
-  building: boolean; levels?: number; use?: EventKindId | null; interior?: Interior; floorHeight?: number;
-  surroundings?: number; eventKind?: EventKindId | null;
-}): FromMapRequest {
-  const body: FromMapRequest = { ...base };
-  if (opts.building && base.mode === "indoor") {
-    if (opts.levels != null) body.levels = Math.max(1, Math.min(40, Math.round(opts.levels)));
-    if (opts.use) body.use = opts.use;
-    if (opts.interior) body.interior = opts.interior;
-    if (opts.floorHeight) body.floor_height_m = r2(opts.floorHeight);
-    body.surroundings_m = Math.max(0, Math.min(200, Math.round(opts.surroundings ?? 0)));
-  } else if (opts.eventKind) {
-    body.event_kind = opts.eventKind;
-  }
-  return body;
-}

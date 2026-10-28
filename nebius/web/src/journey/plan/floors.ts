@@ -5,7 +5,7 @@
 import type { Pt, Stair, Venue } from "@/api/types";
 import { centroid } from "@/scene/geom";
 
-export interface FloorStat {
+interface FloorStat {
   floorId: string;
   start: number;
   /** people on the floor over time (about `points` samples) */
@@ -14,7 +14,7 @@ export interface FloorStat {
   clearS: number | null;
 }
 
-export interface FloorsSummary {
+interface FloorsSummary {
   floors: FloorStat[];
   /** people who walked each stair (either way) */
   stairs: Record<string, number>;

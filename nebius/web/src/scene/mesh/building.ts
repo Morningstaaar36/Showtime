@@ -2,7 +2,7 @@
  * per object (named by its label), stairs with rails. Metres, Y up. No people, labels or UI. */
 import * as THREE from "three";
 import type { Floor, Obstacle, Pt, StageParams, Venue } from "@/api/types";
-import { floorLabels } from "@/lib/venueOps";
+import { floorLevels, levelName } from "@/lib/venueOps";
 import { exitName } from "@/lib/venueText";
 import { bbox, doorwayOf, FENCE_M, shapeOf, wallThickness, WALL_INDOOR_M, WALL_T } from "../geom";
 import type { ScenePalette } from "../palette";
@@ -28,22 +28,20 @@ export function isStairVoid(o: Obstacle): boolean {
 const TOP_STOREY_M = 3.2;
 
 /** Floor-to-floor height: to the next floor up, or a default for the top floor. */
-export function storeyHeight(venue: Venue, floor: Floor): number {
+function storeyHeight(venue: Venue, floor: Floor): number {
   const e = floor.elevation_m ?? 0;
   const above = venue.floors.map((f) => f.elevation_m ?? 0).filter((x) => x > e + 0.01);
   return above.length ? Math.min(...above) - e : TOP_STOREY_M;
 }
 
-/** "1st floor", the floor's own name first. */
+/** "Floor 1", the floor's own name first. */
 export function floorName(venue: Venue, floor: Floor): string {
-  if (floor.name?.trim()) return floor.name.trim();
-  const l = floorLabels(venue).get(floor.floor_id) ?? floor.floor_id;
-  return l === "Ground" ? "Ground floor" : l.startsWith("B") ? `Basement ${l.slice(1)}` : `${l} floor`;
+  return floor.name?.trim() || levelName(floorLevels(venue).get(floor.floor_id) ?? 0);
 }
 
 /** An obstacle's body: its footprint extruded, or a wall drawn along its centreline as one box per
  * segment at the wall's thickness. Floor-relative, world axes. */
-export function obstacleGeometry(o: Obstacle, height: number): THREE.BufferGeometry {
+function obstacleGeometry(o: Obstacle, height: number): THREE.BufferGeometry {
   if (o.kind === "wall" && o.line && o.line.length >= 2) {
     const line = o.line as Pt[];
     const t = wallThickness(o.polygon as Pt[], line);
@@ -58,7 +56,7 @@ export function obstacleGeometry(o: Obstacle, height: number): THREE.BufferGeome
 }
 
 /** An exit's gate frame (two posts and a head), floor-relative; null if it is not on the outline. */
-export function exitFrameGeometry(floor: Floor, exit: Floor["exits"][number], head: number, post = 0.12): THREE.BufferGeometry | null {
+function exitFrameGeometry(floor: Floor, exit: Floor["exits"][number], head: number, post = 0.12): THREE.BufferGeometry | null {
   const d = doorwayOf(floor.walkable as Pt[], exit);
   if (!d) return null;
   const b = new MeshBuilder();
@@ -187,16 +185,4 @@ export function disposeModel(root: THREE.Object3D): void {
     }
   });
   mats.forEach((m) => m.dispose());
-}
-
-/** Total triangles in a model. */
-export function modelTriangles(root: THREE.Object3D): number {
-  let n = 0;
-  root.traverse((o) => {
-    if (o instanceof THREE.Mesh) {
-      const g = o.geometry as THREE.BufferGeometry;
-      n += (g.index ? g.index.count : g.getAttribute("position").count) / 3;
-    }
-  });
-  return n;
 }

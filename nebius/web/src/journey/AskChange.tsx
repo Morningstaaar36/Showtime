@@ -18,7 +18,7 @@ import { useVenueEdit } from "./useVenueEdit";
 export interface ProposalPreview { venue: Venue; changes: ObjectChange[] }
 
 /** The ops to save: the proposal, then every new exit or obstacle marked as proposed. */
-export function withProposedMarks(ops: PatchOpIn[], changes: ObjectChange[]): PatchOpIn[] {
+function withProposedMarks(ops: PatchOpIn[], changes: ObjectChange[]): PatchOpIn[] {
   const added = changes.filter((c) => c.kind === "added" && c.what !== "zone");
   return [...ops, ...added.map((c) => annotateOp(c.id, { change: "proposed" }))];
 }

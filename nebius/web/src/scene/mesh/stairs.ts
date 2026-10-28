@@ -6,11 +6,11 @@ import type { Pt, Stair, Venue } from "@/api/types";
 import { floorY, shapeOf, stairProfile, stairRun } from "../geom";
 import { dropSlivers, MeshBuilder, type V3 } from "./builder";
 
-export const HANDRAIL_M = 0.9;
+const HANDRAIL_M = 0.9;
 /** Clearance around a flight where the slab above is cut away. */
-export const OPENING_MARGIN_M = 0.08;
+const OPENING_MARGIN_M = 0.08;
 
-export interface StairPlacement {
+interface StairPlacement {
   /** foot of the flight (venue metres) and the heading of the climb (radians from east) */
   foot: Pt;
   angle: number;
@@ -68,7 +68,7 @@ export function flightFeet(venue: Venue, floorId: string): Pt[] {
   return (venue.stairs ?? []).map((s) => stairPlacement(venue, s)).filter((p) => p.lowerFloor === floorId).map((p) => p.foot);
 }
 
-export interface StairGeometry {
+interface StairGeometry {
   /** steps over a soffit, with a landing plate at each end */
   body: THREE.BufferGeometry;
   /** stringers, posts and handrails */

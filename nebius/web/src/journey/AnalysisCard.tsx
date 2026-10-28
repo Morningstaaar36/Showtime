@@ -8,7 +8,7 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { type Chart, analysisView } from "./analysis";
 
-export interface AnalysisCardProps {
+interface AnalysisCardProps {
   status: "ok" | "error" | "timeout" | "rejected";
   output: unknown;
   code?: string;

@@ -10,15 +10,9 @@
     "search_off": "Web search: off (add a Tavily key to switch on). Sources come from the incident dataset."
   },
   "app": {
-    "name": "Showtime",
-    "tagline": "Run the disaster before the gates open.",
-    "disclaimer": "Planning aid, not a safety certification.",
-    "provider_local": "LOCAL",
-    "provider_nebius": "NEBIUS",
-    "skip": "Skip to content"
+    "disclaimer": "Planning aid, not a safety certification."
   },
   "nav": {
-    "projects": "Projects",
     "settings": "Settings",
     "help": "Help",
     "plan": "Plan",
@@ -31,24 +25,11 @@
   "common": {
     "cancel": "Cancel",
     "close": "Close",
-    "save": "Save",
-    "delete": "Delete",
-    "retry": "Try again",
     "loading": "Loading…",
     "people": "people",
-    "version": "Version {n}",
     "undo": "Undo",
     "redo": "Redo",
-    "export": "Export",
-    "import": "Import",
-    "duplicate": "Duplicate",
-    "rename": "Rename",
-    "open": "Open",
-    "learn_more": "How is this computed?",
     "seconds": "s",
-    "apply": "Apply",
-    "discard": "Discard",
-    "more": "More",
     "home_label": "Showtime home",
     "main_nav": "Main",
     "plan_event": "Plan an event",
@@ -81,7 +62,8 @@
     "sandbox_proof": "What it stopped in tests",
     "cost_title": "AI use in this project",
     "cost_value": "{tokens} tokens · {usd}",
-    "cost_hint": "Counted across this project's red-team sessions."
+    "cost_hint": "Counted across this project's red-team sessions.",
+    "version_short": "v{n}"
   },
   "onboarding": {
     "title": "Welcome to Showtime",
@@ -99,8 +81,6 @@
     "hint_search": "Optional. Add TAVILY_API_KEY to .env for live sources; the built-in list of real incidents works without it.",
     "open_sample": "Open a sample plan",
     "go_projects": "Plan your own event",
-    "samples_title": "Three ready-made examples",
-    "samples_lead": "Each one opens with a finished red-team session you can replay instantly.",
     "checklist_lead": "Showtime runs on this computer. These parts need to be ready.",
     "hint_samples": "Install them with: make demo-precompute",
     "buildings_title": "Any building, any number of floors",
@@ -121,9 +101,6 @@
     "empty_title": "No plans yet.",
     "empty_body": "Start your first plan: pick your place on the map, describe it, or try a sample.",
     "people": "{n} people",
-    "floors": "{n} floors",
-    "floor": "1 floor",
-    "exits": "{n} exits",
     "updated": "Changed {when}",
     "open": "Open {name}",
     "actions": "More actions for {name}",
@@ -155,28 +132,23 @@
     "create_name_hint": "Leave it empty to use the venue's name.",
     "create_button": "Create project",
     "created": "Project created",
-    "load_error": "Your plans couldn't be loaded."
+    "load_error": "Your plans couldn't be loaded.",
+    "from_map": "Imported from OpenStreetMap",
+    "from_description": "Designed from a description"
   },
   "workspace": {
-    "venue_version": "{venue} · v{n}",
     "run_stress_test": "Run stress test",
     "confirm_with_simulation": "Confirm with simulation",
-    "start_red_team": "Start red team",
-    "export_report": "Export report",
     "stress_test_running": "Simulating {people} people… {elapsed} elapsed",
     "stress_test_queued": "Waiting for the simulation sandbox…",
     "stress_test_finished": "Stress test finished",
     "stress_test_failed": "The stress test didn't finish",
     "cancel_run": "Cancel",
-    "tier1_label": "Instant estimate (formula)",
-    "tier2_label": "Ranking run (first 3 minutes)",
-    "tier3_label": "Confirmed by simulation (run {id})",
     "no_run": "No simulation yet. Run a stress test to see the crowd move.",
     "invalid_venue": "Fix the highlighted problems before running a simulation.",
     "saved": "Saved as version {n}",
     "undone": "Undone",
     "redone": "Redone",
-    "offline_banner": "Some services are unavailable. Features that need them are paused.",
     "search_off": "Live search is off. Attack cards use the incident dataset.",
     "llm_down": "The AI isn't available: {detail} Text edits and AI tests need it; Offline tests still run in the sandbox.",
     "sandbox_down": "The simulation sandbox isn't ready. Instant estimates still work: make build-sim",
@@ -249,9 +221,7 @@
     "cancel": "Cancel",
     "on_floor": "On {name}",
     "floor": {
-      "label": "Floor",
       "switcher": "Floor to edit",
-      "more": "More floors",
       "add": "Add floor",
       "add_title": "Add a floor",
       "add_lead": "The new floor goes on top. Add stairs afterwards so people can reach it.",
@@ -266,10 +236,12 @@
       "msg_added": "Added {name}",
       "msg_removed": "Removed {name}",
       "ground": "Ground floor",
-      "count": "{n} floors",
-      "one": "1 floor",
       "summary": "{n} people · {w} walls",
-      "remove_named": "Remove {name}"
+      "remove_named": "Remove {name}",
+      "level_n": "Floor {n}",
+      "basement_n": "Basement {n}",
+      "tag_ground": "G",
+      "tag_basement": "B{n}"
     },
     "errors": {
       "door_no_wall": "Click on an inner wall to add a door. Draw a wall first if there is none.",
@@ -313,16 +285,10 @@
       "room_default": "Room",
       "stair": "Added stairs",
       "stair_removed": "Removed the stairs",
-      "route": "Added {name}",
-      "route_removed": "Removed {name}"
+      "route": "Added {name}"
     },
     "routes": {
-      "title": "Walking routes",
-      "empty": "No routes yet. Draw one with the route tool to plan a march or a procession.",
-      "default": "March route",
-      "remove": "Remove {name}",
-      "length": "{floor} · {m} m long",
-      "used_by": "Walked by {n} areas"
+      "default": "March route"
     },
     "stair": {
       "title": "Stairs",
@@ -333,7 +299,6 @@
     "profile": {
       "title": "Who is here",
       "lead": "Everyone not in a group below is a general adult.",
-      "general": "General adults",
       "add_group": "Add a group",
       "share": "Share of {name}",
       "remove_group": "Remove {name}",
@@ -447,7 +412,6 @@
       }
     },
     "map": {
-      "building": "Building options",
       "floors": "Floors",
       "floors_from_map": "From the map",
       "floors_not_on_map": "Not on the map. Check the number.",
@@ -462,9 +426,7 @@
       "surroundings_hint": "Also analyse the street and open ground around the building: a rally outside, people leaving onto the street.",
       "distance": "Distance around the building",
       "event": "Kind of event",
-      "rooms_badge": "Rooms inside",
       "surroundings_badge": "Surroundings {m} m",
-      "floor_tabs": "Floor plans",
       "surroundings_missing": "The surroundings were not added: this server builds the building alone. Draw the area around it instead to include the street."
     },
     "building": {
@@ -474,24 +436,18 @@
     }
   },
   "inspector": {
-    "title": "Inspector",
     "nothing": "Select something in the 3D view to see and edit it.",
     "venue": "Venue",
-    "mode": "Type",
     "people_total": "People",
     "exit_width_total": "Total exit width",
     "width": "Width",
     "people": "People",
-    "height": "Height",
-    "blocked": "Blocked",
-    "position": "Position",
     "remove": "Remove",
     "stage": "Stage structure",
     "ballast": "Ballast per leg",
     "legs": "Legs",
     "roof_area": "Roof area",
     "banner_area": "Banner area",
-    "roof_height": "Roof height",
     "wind_limit": "Wind limit",
     "people_per_m2": "{n} people per m² at start",
     "checks": "Checks",
@@ -505,33 +461,23 @@
   },
   "metrics": {
     "evac_p95": "Evacuation time (95%)",
-    "evac_max": "Last person out",
     "peak_density": "Peak density",
     "above_danger": "Time above danger",
     "not_evacuated": "Still inside",
     "per_exit": "Exit use",
     "people_inside": "People inside",
     "density_over_time": "Peak density over time",
-    "flow": "{n} people/s",
-    "warning": "Warning",
-    "danger": "Danger",
-    "ok": "Below warning",
     "hotspots": "Hotspots",
     "no_hotspots": "No area went above the warning level.",
-    "source_tier": "Source",
-    "formula": "Formula",
     "per_m2_unit": "per m²",
     "p95_out": "95% out",
     "near": "Near {name}",
-    "at_xy": "At {x}, {y} m"
+    "at_xy": "At {x}, {y} m",
+    "peak_density_m2": "Peak density (per m²)"
   },
   "timeline": {
     "play": "Play",
-    "pause": "Pause",
-    "speed": "Speed",
-    "time": "{t} / {total}",
-    "apply_fix_here": "Apply fix from here",
-    "events": "Events"
+    "pause": "Pause"
   },
   "layers": {
     "title": "View",
@@ -547,16 +493,12 @@
     "title": "Latest safe time to start evacuating",
     "start_by": "Start evacuating by {time}",
     "start_within": "Start evacuating within {d} of the alarm",
-    "too_late": "Too late: evacuation would need to start {d} before the hazard",
     "no_hazard": "No hazard in forecast window",
     "unknown": "Run a stress test to compute the countdown",
     "hazard": "Hazard",
     "rset": "Evacuation time (95%)",
     "pre": "Pre-movement",
     "sf": "Safety factor",
-    "manual_gust": "Expected gust (m/s)",
-    "manual_title": "Live weather is unavailable",
-    "manual_body": "Enter the expected gust speed to compute the countdown.",
     "latest_start": "Latest start"
   },
   "redteam": {
@@ -567,8 +509,6 @@
     "rounds": "Rounds",
     "attacks": "Attacks per round",
     "fixes": "Fixes per attack",
-    "attack_cards": "Attacks",
-    "fix_cards": "Fixes",
     "branch_tree": "Branch tree",
     "scoreboard": "Scoreboard",
     "activity": "Agent activity",
@@ -578,7 +518,6 @@
     "accepted": "Kept",
     "rejected": "Not kept",
     "round": "Round {n}",
-    "breaks": "{n} breaks",
     "apply_plan": "Apply fixed plan",
     "plan_applied": "Fixed plan saved as version {n}",
     "empty": "No red-team session yet. Start one to stress-test this plan.",
@@ -612,8 +551,6 @@
     "export_model": "3D model (.glb)",
     "print_hint": "PDF uses your browser's print dialog: choose “Save as PDF”.",
     "empty": "No report yet. Run a stress test or a red-team session first.",
-    "assumptions": "Assumptions",
-    "sources": "Sources",
     "empty_body": "The report uses confirmed simulation results only."
   },
   "settings": {
@@ -829,15 +766,15 @@
   },
   "copilot": {
     "label": "Describe your event",
-    "ph": "What, where, when and how many, e.g. “Concert at Ramna Park, Dhaka on 16 Dec, 6 pm, 6,000 people, 5 hours”",
+    "ph": "What, where, when and how many, e.g. “Concert in a riverside park on 16 Dec, 6 pm, 6,000 people, 5 hours”",
     "go": "Plan it",
     "enter_hint": "Press Enter to plan. Shift+Enter starts a new line.",
     "try": "Try:",
-    "ex_concert": "Victory Day concert at Ramna Park, Dhaka on 16 December at 6 pm for 6,000 people, 5 hours",
+    "ex_concert": "Evening concert in a riverside park on 16 December at 6 pm for 6,000 people, 5 hours",
     "ex_concert_chip": "Concert in a park",
-    "ex_convocation": "University convocation at BUET, Dhaka for 2,500 seated guests, 4 hours",
+    "ex_convocation": "Convocation in a large university hall for 2,500 seated guests, 4 hours",
     "ex_convocation_chip": "Convocation",
-    "ex_festival": "Food and music festival for 4,000 people at Hatirjheel, Dhaka, 8 hours with a bar",
+    "ex_festival": "Food and music festival for 4,000 people on a lakeside promenade, 8 hours with a bar",
     "ex_festival_chip": "Food festival",
     "ex_conference": "Tech conference for 900 people in a hall with a balcony, two days",
     "ex_conference_chip": "Conference with a balcony",
@@ -854,7 +791,22 @@
     "priority": "Priority {n}",
     "show_graph": "Show how the AI works",
     "open": "Open the plan",
-    "trust": "The AI reads your request but never makes up a measurement: the site comes from OpenStreetMap, the layout from a solver, the numbers from simulation and published planning ratios."
+    "trust": "The AI reads your request but never makes up a measurement: the site comes from OpenStreetMap, the layout from a solver, the numbers from simulation and published planning ratios.",
+    "node": {
+      "start": "Your request",
+      "understand": "Brief agent",
+      "locate": "Map lookup",
+      "design": "Designer agent",
+      "layout": "Layout solver",
+      "estimate": "Planning ratios",
+      "create": "Project",
+      "simulate": "Simulation sandbox",
+      "sweep": "Scenario sandboxes",
+      "review": "Safety officer",
+      "red_team": "Red team session",
+      "deliver": "Your plan",
+      "end": "Plan ready"
+    }
   },
   "notfound": {
     "code": "Error 404",
@@ -864,10 +816,6 @@
     "projects": "Open your projects"
   },
   "errors": {
-    "generic": "Something went wrong.",
-    "network": "The Showtime server isn't reachable. Start it with: make up",
-    "not_found": "This page doesn't exist.",
-    "back": "Back to projects",
     "unreachable": "The Showtime server isn't reachable.",
     "unreachable_starting": "It may still be starting; this retries automatically. Otherwise start it with: make up",
     "unreachable_hint": "Start it with: make up",
@@ -891,7 +839,6 @@
     "title": "Plan a safe event in minutes",
     "lead": "AI tries what could go wrong. A real crowd simulator checks every idea. You get a tested plan.",
     "how": "How it works",
-    "step_n": "Step {n}:",
     "how_1": "Show your venue",
     "how_2": "AI attacks the plan",
     "how_3": "Get a tested plan",
@@ -908,9 +855,6 @@
     "way_hide": "Hide",
     "trust": "Planning aid, not a safety certification. Every number comes from a simulation or a formula.",
     "templates": "Pick a sample venue",
-    "describe": "Describe your venue",
-    "describe_lead": "The AI drafts a venue from your words. You check and correct it next.",
-    "describe_ph": "A 40 by 25 m hall with a stage on the north wall, two doors on the south side, 1,200 people",
     "try": "Try:",
     "example_hall": "A 40 by 25 m conference hall with a stage on the north wall, two 2 m doors on the south wall, 900 people",
     "example_hall_chip": "Conference hall",
@@ -918,7 +862,6 @@
     "example_field_chip": "Festival field",
     "example_alley": "A narrow street 4 m wide and 50 m long with exits at both ends and 1,500 people",
     "example_alley_chip": "Narrow street",
-    "draft": "Draft my venue",
     "drafting": "Drafting…",
     "design_failed": "The AI couldn't draft this venue.",
     "try_template": "Start from a template instead, then adjust it.",
@@ -926,8 +869,6 @@
     "all_plans": "All plans",
     "no_plans": "No plans yet.",
     "no_plans_body": "Pick your place on the map above to start your first plan.",
-    "more_ways": "Need a real place on the map or a file import?",
-    "more_ways_link": "More ways to start",
     "how_1_sub": "Map, words or a sample",
     "how_2_sub": "Every attack simulated",
     "how_3_sub": "Fixes, report, checklist",
@@ -950,8 +891,8 @@
     "uc_stadium_lead": "Big bowl, many gates",
     "uc_stadium_text": "An open-air football stadium 200 by 150 m for 20,000 fans, a pitch in the middle, 8 exit gates around the edge, each 6 m wide.",
     "uc_pandal": "Festival pandal",
-    "uc_pandal_lead": "Puja crowd on a city street",
-    "uc_pandal_text": "A Durga Puja pandal on a city street, 50 by 30 m, one 4 m entry gate and one 4 m exit gate, 3,000 visitors at the evening aarti, food stalls along both sides.",
+    "uc_pandal_lead": "Festival crowd on a city street",
+    "uc_pandal_text": "A festival pandal on a city street, 50 by 30 m, one 4 m entry gate and one 4 m exit gate, 3,000 visitors at the evening ceremony, food stalls along both sides.",
     "uc_mall": "Shopping mall",
     "uc_mall_lead": "Four floors around an atrium",
     "uc_mall_text": "A four-storey shopping mall 120 by 80 m with 1,500 shoppers on each floor, a 3 m stair at each end, an atrium in the middle and four 4 m exits on the ground floor.",
@@ -1208,7 +1149,6 @@
     "sbx_why_retried": "The first sandbox stopped ({why}); the run started again in a new one and finished.",
     "step_of": "Step {n} of {total}",
     "all_done": "All done",
-    "leave_ok": "This takes a few minutes. You can leave this page; the test keeps running.",
     "title": "Testing your plan",
     "done_title": "Testing finished",
     "failed_title": "The test didn't finish",
@@ -1219,13 +1159,10 @@
     "step_fix": "Fixing the weak spots",
     "step_confirm": "Confirming the fixes",
     "step_write": "Writing your plan",
-    "skipped": "Not needed this time",
     "ready": "Your plan is ready.",
     "stopped_ready": "Stopped early. Your plan shows what was finished.",
     "open_plan": "Open your plan",
     "reconnecting": "Reconnecting…",
-    "sims": "{n} simulations finished",
-    "ai_usage": "AI: {tokens} tokens, {cost}",
     "stop": "Stop",
     "stop_title": "Stop now?",
     "stop_body": "You'll get a partial plan with what's done so far.",
@@ -1283,25 +1220,15 @@
     "partial": "Partial plan: stopped early ({reason}).",
     "verdict": "Verdict",
     "no_result": "No finished simulation to judge",
-    "under": "Under the worst case found: {attack}.",
-    "under_baseline": "With everyone leaving normally.",
-    "with_changes": "Includes the AI's changes.",
-    "under_subset": "These numbers are for all {n} changes; your plan has {k} of them.",
     "numbers_checked": "Numbers matched the supplied run data.",
-    "tests_show": "What the tests show",
     "report": "Download report",
     "n_evac": "Evacuation time (95%)",
-    "n_inside": "{n} still inside at the end",
     "n_peak": "Peak density",
     "n_danger": "Time above danger",
     "n_start": "Latest safe time to start evacuating",
     "per_m2": "people per m²",
     "about": "about {d} (estimated)",
     "not_reached": "Not reached",
-    "cd_by": "Start by {time}",
-    "cd_within": "Within {d} of the alarm",
-    "cd_too_late": "Too late to evacuate safely",
-    "cd_no_hazard": "No hazard in the forecast window",
     "cd_unknown": "Not known",
     "cd_source": "From the forecast and the test of the worst case",
     "cd_from": "Based on {source}",
@@ -1310,7 +1237,6 @@
     "before": "Before",
     "after": "After",
     "suggests": "What the AI suggests",
-    "suggests_body": "Each change was tested on its own against the problem it fixes. All are selected: untick any you don't want.",
     "no_changes": "The AI found no change worth making.",
     "src_ai": "AI suggestion",
     "src_rules": "Standard rule",
@@ -1334,7 +1260,6 @@
     "already_accepted_one": "In your plan",
     "not_in_plan": "Not in your plan",
     "subset_applied": "You accepted {k} of {n} changes (version {v}).",
-    "risks": "Top risks it found",
     "no_risks": "No risks were tested.",
     "saved_plan": "Saved staff and equipment actions",
     "saved_plan_body": "Version {n}. These actions are part of the plan; test this version before relying on its results.",
@@ -1349,7 +1274,6 @@
     "cost_calls": "Model calls",
     "cost_calls_value": "{n} ({tin} tokens in, {tout} out)",
     "cost_cache": "{n} answered from the cache",
-    "cost_models": "Models",
     "cost_sims": "Simulations",
     "cost_full": "{n} full simulations",
     "cost_full_one": "1 full simulation",
@@ -1366,7 +1290,6 @@
     "cost_tokens_only": "AI usage: {tokens} tokens ({cost}). Simulations were not counted for this test.",
     "calls": "{n} calls",
     "calls_one": "1 call",
-    "next": "Next steps",
     "scenarios": "Every scenario the AI tested",
     "scenarios_lead": "Click one to watch it. The timeline marks what happens and when.",
     "sc_baseline": "Your plan as drawn",
@@ -1396,13 +1319,12 @@
     "per_floor_summary": "{floor}: {start} at the start, {end} at the end."
   },
   "checklist": {
-    "download": "Download checklist",
-    "hint": "A printable handover list of this plan: open conditions, gates and doors, staff actions and key numbers."
+    "download": "Download checklist"
   },
   "autopilot": {
     "describe_title": "Describe your event",
     "describe_lead": "Say what it is, where, when and how many people. The AI builds the venue, tests what could go wrong and writes your plan.",
-    "describe_ph": "Victory Day concert at Ramna Park, Dhaka, 16 December 6 pm, 6,000 people, 5 hours",
+    "describe_ph": "Evening concert in a riverside park, 16 December 6 pm, 6,000 people, 5 hours",
     "plan_it": "Plan it for me",
     "starting": "Starting…",
     "just_draw": "Just draw my venue",
@@ -1513,7 +1435,10 @@
     "rejected": "No code was run: it did not pass the safety check",
     "ai_down": "The AI isn't answering, so I can't write an analysis right now. What-ifs still work.",
     "stdout": "Printed",
-    "stderr": "Messages"
+    "stderr": "Messages",
+    "result": "Result",
+    "yes": "yes",
+    "no": "no"
   },
   "userscripts": {
     "title": "Scripts",
@@ -1707,7 +1632,8 @@
     "col_sim": "Simulator (range)",
     "col_error": "Difference",
     "source": "Data: {dataset}, DOI {doi}, licence {licence}. Method, assumptions and how to rerun: docs/VALIDATION.md.",
-    "missing": "This check has not been generated on this install yet. Run: make get-data && make validate"
+    "missing": "This check has not been generated on this install yet. Run: make get-data && make validate",
+    "per_s": "{n} /s"
   },
   "floors": {
     "label": "Floors to show",
@@ -1863,7 +1789,6 @@
     "sweep_results": "Results",
     "sweep_stale": "Older version of the venue",
     "not_applicable": "Not for this venue",
-    "targets": "Affects {n} places",
     "score_attacks": "Attacks tried",
     "score_breaks": "Broke the plan",
     "score_fixes": "Fixes kept",
@@ -2069,14 +1994,29 @@
       "permission_ids": "Action permission IDs",
       "replace": "Replace {id}",
       "allocation": "{id} allocation",
-      "lock_obj": "Lock {id}"
+      "lock_obj": "Lock {id}",
+      "msg_remove": "Remove {id}",
+      "msg_save": "Save operational action {id}"
     },
     "workspace": {
       "before_fixes": "Before fixes",
       "after_fixes": "After fixes",
       "exit_comparison": "Exit comparison",
       "inspector": "Inspector",
-      "click_closer_to_an_outer": "Click closer to an outer wall to place an exit."
+      "click_closer_to_an_outer": "Click closer to an outer wall to place an exit.",
+      "event": {
+        "block_exit": "block exit",
+        "surge": "surge",
+        "counterflow": "counterflow",
+        "marshal_redirect": "marshal redirect",
+        "intervention": "intervention",
+        "slowdown": "slowdown"
+      },
+      "new_exit": "New exit",
+      "added_exit": "Added exit",
+      "added_barrier": "Added barrier",
+      "new_zone": "New zone",
+      "added_zone": "Added zone"
     },
     "describetab": {
       "describe_the_venue": "Describe the venue",
@@ -2096,7 +2036,7 @@
         },
         "concert": {
           "label": "Open-air concert",
-          "text": "Open-air concert on a 150 × 90 m field in Chattogram for 9,000 people, stage on the east with a crowd barrier, four gates on the west and one on the north, two bars and toilets at the back."
+          "text": "Open-air concert on a 150 × 90 m sports field for 9,000 people, stage on the east with a crowd barrier, four gates on the west and one on the north, two bars and toilets at the back."
         },
         "wedding": {
           "label": "Wedding hall",
@@ -2111,7 +2051,8 @@
       "exits": "{n} exits",
       "floors": "{n} floors",
       "indoor": "Indoor",
-      "layout_by": "Layout by {model}; geometry solved and checked in code."
+      "layout_by": "Layout by {model}; geometry solved and checked in code.",
+      "open_air": "Open-air"
     },
     "maptab": {
       "steps": "Steps",
@@ -2142,7 +2083,12 @@
       "step_click": "Click the building or park",
       "step_build": "Build your venue",
       "search_ph": "Search a place: a venue name, a landmark or an address…",
-      "draw_instead": "You can always use “Draw an area”."
+      "draw_instead": "You can always use “Draw an area”.",
+      "selected_area": "Selected area",
+      "fallback_building": "Building",
+      "fallback_area": "Open area",
+      "no_webgl": "WebGL is not available in this browser.",
+      "style_failed": "The map style could not load. Check the internet connection."
     },
     "agentgraph": {
       "agent_graph": "Agent graph"
@@ -2168,13 +2114,34 @@
       "branch_tree_of_simulated_scenarios": "Branch tree of simulated scenarios",
       "kept": "Kept",
       "not_kept": "Not kept",
-      "simulating": "Simulating…"
+      "simulating": "Simulating…",
+      "kind": {
+        "baseline": "Baseline",
+        "attack": "Attack",
+        "fix": "Fix",
+        "final": "Confirmed"
+      },
+      "danger_s": "{n} s danger"
     },
     "commandbar": {
       "apply": "Apply",
       "applied": "Change applied",
       "failed": "The change couldn't be made.",
-      "unavailable": "Text editing isn't available yet on this server."
+      "unavailable": "Text editing isn't available yet on this server.",
+      "examples": {
+        "stage": {
+          "text": "Move the stage 5 m back"
+        },
+        "exit": {
+          "text": "Add a 3 m exit on the east wall"
+        },
+        "people": {
+          "text": "Set the audience to 800 people"
+        },
+        "gate": {
+          "text": "Block the south-west gate"
+        }
+      }
     },
     "estimatespanel": {
       "open_for": "Open for",
@@ -2190,7 +2157,9 @@
       "limit_stairs": "stair width",
       "limit_space": "floor space",
       "example_unit_prices_replace_them": "Example unit prices: replace them with your quotes in Settings.",
-      "your_unit_prices_from_settings": "Your unit prices from Settings."
+      "your_unit_prices_from_settings": "Your unit prices from Settings.",
+      "event_open": "Event open {h} h",
+      "no_alcohol": "No alcohol"
     },
     "failuremap": {
       "the_failure_map_fills_in": "The failure map fills in as the red team’s attacks are simulated.",
@@ -2219,7 +2188,8 @@
       "per_m2": "per m²",
       "with_fix": "With the kept fix: severity {before} →",
       "severity_how": "Severity comes from each simulation’s numbers only: {fitness}. 1 or more means the run breaks the plan.",
-      "aim_note": "The red team was aimed at {targeted} gaps and landed in {hit}."
+      "aim_note": "The red team was aimed at {targeted} gaps and landed in {hit}.",
+      "gap": "gap"
     },
     "inspector": {
       "plan_verdict": "Plan verdict",
@@ -2233,13 +2203,21 @@
       "blocked": "Blocked",
       "exit": "Exit",
       "all_pass": "all pass",
-      "to_review": "{n} to review"
+      "to_review": "{n} to review",
+      "move_n": "North 2 m",
+      "move_s": "South 2 m",
+      "move_w": "West 2 m",
+      "move_e": "East 2 m"
     },
     "metrics": {
       "source": "Source",
       "engine_seed": "Engine · seed",
       "how_its_computed": "How it's computed",
-      "peak_over_time": "Peak density over time reaches {ppm2} people per m²."
+      "peak_over_time": "Peak density over time reaches {ppm2} people per m².",
+      "inside_fall": "People inside fall from {from} to {to} over {time}.",
+      "peak": "Peak",
+      "danger_line": "danger",
+      "inside": "Inside"
     },
     "officercard": {
       "safety_officer": "Safety officer",
@@ -2250,7 +2228,8 @@
     "overlays": {
       "people_per_m": "People per m²",
       "warning": "warning",
-      "danger_outlined_in_3d": "danger (outlined in 3D)"
+      "danger_outlined_in_3d": "danger (outlined in 3D)",
+      "north": "N"
     },
     "redteampanel": {
       "session_settings": "Session settings",
@@ -2310,7 +2289,8 @@
       "closes": "closes {exit}",
       "six_scenarios_queued_in_sandboxes": "Six scenarios queued in sandboxes",
       "run_again": "Run again",
-      "run_6_scenarios": "Run 6 scenarios"
+      "run_6_scenarios": "Run 6 scenarios",
+      "queued": "queued"
     },
     "scoregauge": {
       "how_is_this_computed": "How is this computed?",
@@ -2349,7 +2329,15 @@
       "score": "What-if score",
       "peak": "Peak per m²",
       "capacity": "Safe capacity",
-      "unit_s": " s"
+      "unit_s": " s",
+      "speed": {
+        "normal": "Normal",
+        "rain": "Rain",
+        "families": "Families, elderly",
+        "smoke": "Smoke or dark"
+      },
+      "crowd_message": "Crowd × {scale}",
+      "run_label": "What-if"
     },
     "windpanel": {
       "wind_on_the_day": "Wind on the day",
@@ -2357,7 +2345,11 @@
       "reach_limit": "Gusts reach the stage limit at {at}.",
       "below_limit": "Gusts stay below the stage limit.",
       "start_by": "Start evacuating by {at}.",
-      "source": "{source} · hourly gusts at 10 m."
+      "source": "{source} · hourly gusts at 10 m.",
+      "gust": "Gust",
+      "stage_limit": "stage limit {v}",
+      "gates_line": "gates",
+      "evacuate_line": "evacuate"
     },
     "replaylayers": {
       "marshal": "Marshal:",
@@ -2391,10 +2383,11 @@
       "stair": "Stair · {w} m",
       "stage": "Stage",
       "stairs_down": "Stairs down",
-      "stairs_up": "Stairs up"
-    },
-    "floormenu": {
-      "ground": "Ground"
+      "stairs_up": "Stairs up",
+      "exit_tag": "{name} · {w} m",
+      "tag_blocked": "blocked",
+      "tag_proposed": "proposed",
+      "tag_locked": "locked"
     }
   },
   "verdict": {
@@ -2460,5 +2453,48 @@
     "tone_break": "Breaks the plan",
     "round": "Round {n}: {pct}% · {qd}",
     "severity": "severity {s}"
+  },
+  "tour": {
+    "overview": "{name}. An {mode} plan for {people} people, with {exits}.",
+    "overview_floors": "{name}. An {mode} plan for {people} people, with {exits} on {floors} floors.",
+    "indoor": "indoor",
+    "open_air": "open-air",
+    "exits_one": "1 exit",
+    "exits": "{n} exits",
+    "stairs_one": "1 stair joins the floors; the narrowest is {w} metres wide. People per floor: {floors}.",
+    "stairs": "{n} stairs join the floors; the narrowest is {w} metres wide. People per floor: {floors}.",
+    "floor_people": "{name} {n}",
+    "group": "{n} {kind}",
+    "mix": "Among them: {who}. They move at their own pace in the simulation.",
+    "stage": "The stage, {w} metres wide, faces the crowd. Stewards keep the front-of-stage area clear.",
+    "exit": "{name}, {w} metres wide.",
+    "exit_closed": "{name}, {w} metres wide, closed in this plan.",
+    "hotspot": "The crowd is densest here: {d} people per square metre at {at}.",
+    "evac": "95 percent of people are out in {m} minutes {s} seconds.",
+    "score": "Safe capacity is {n}. Planning score {grade}, {score} out of 100.",
+    "end": "That is the plan."
+  },
+  "units": {
+    "m": "m",
+    "m2": "m²",
+    "kg": "kg",
+    "n_m": "{n} m",
+    "n_ft": "{n} ft",
+    "n_m2": "{n} m²",
+    "n_s": "{n} s",
+    "n_h": "{n} h",
+    "n_min": "{n} min",
+    "n_min_s": "{m} min {s} s",
+    "n_per_s": "{n}/s",
+    "size_m": "{w} × {d} m",
+    "density": "{n} people per m²",
+    "density_imperial": "{n} per 10 ft²",
+    "speed": "{n} m/s ({kmh} km/h)",
+    "speed_imperial": "{n} mph",
+    "just_now": "just now",
+    "min_ago": "{n} min ago",
+    "h_ago": "{n} h ago",
+    "n_per_m2": "{n} per m²",
+    "n_ms": "{n} m/s"
   }
 }

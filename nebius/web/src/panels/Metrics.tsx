@@ -45,7 +45,7 @@ const axis = { fontSize: 11, fill: "var(--muted)" };
 export function EvacuationCurve({ times, counts, p95 }: { times: number[]; counts: number[]; p95: number | null | undefined }) {
   const step = Math.max(1, Math.floor(times.length / 240));
   const data = times.filter((_, i) => i % step === 0).map((tt, i) => ({ t: tt, n: counts[i * step] }));
-  const text = `People inside fall from ${counts[0]?.toLocaleString() ?? 0} to ${counts[counts.length - 1]?.toLocaleString() ?? 0} over ${fmtClock(times[times.length - 1])}.`;
+  const text = t("ui.metrics.inside_fall", { from: counts[0]?.toLocaleString() ?? 0, to: counts[counts.length - 1]?.toLocaleString() ?? 0, time: fmtClock(times[times.length - 1]) });
   return (
     <figure>
       <figcaption className="sr-only">{text}</figcaption>
@@ -61,7 +61,7 @@ export function EvacuationCurve({ times, counts, p95 }: { times: number[]; count
             <CartesianGrid stroke="var(--border)" strokeDasharray="2 4" vertical={false} />
             <XAxis dataKey="t" tickFormatter={(v: number) => fmtClock(v)} tick={axis} stroke="var(--border)" minTickGap={30} />
             <YAxis tick={axis} stroke="var(--border)" width={40} />
-            <Tooltip formatter={(v) => [Number(v).toLocaleString(), "Inside"]} labelFormatter={(v) => fmtClock(Number(v))}
+            <Tooltip formatter={(v) => [Number(v).toLocaleString(), t("ui.metrics.inside")]} labelFormatter={(v) => fmtClock(Number(v))}
                      contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
             {p95 != null && <ReferenceLine x={p95} stroke="var(--egress)" strokeDasharray="4 3" label={{ value: t("metrics.p95_out"), fontSize: 10, fill: "var(--egress)", position: "insideTopRight" }} />}
             <Area type="monotone" dataKey="n" stroke="var(--signal)" strokeWidth={1.8} fill="url(#inside)" isAnimationActive={false} />
@@ -86,10 +86,10 @@ export function DensityCurve({ series, duration, warn, danger }: { series: numbe
             <CartesianGrid stroke="var(--border)" strokeDasharray="2 4" vertical={false} />
             <XAxis dataKey="t" tickFormatter={(v: number) => fmtClock(v)} tick={axis} stroke="var(--border)" minTickGap={30} />
             <YAxis tick={axis} stroke="var(--border)" width={40} domain={[0, Math.max(7, Math.ceil(peak))]} />
-            <Tooltip formatter={(v) => [`${fmtNum(Number(v), 1)} people per m²`, "Peak"]} labelFormatter={(v) => fmtClock(Number(v))}
+            <Tooltip formatter={(v) => [t("units.density", { n: fmtNum(Number(v), 1) }), t("ui.metrics.peak")]} labelFormatter={(v) => fmtClock(Number(v))}
                      contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
             <ReferenceLine y={warn} stroke="var(--caution)" strokeDasharray="4 3" />
-            <ReferenceLine y={danger} stroke="var(--danger)" strokeDasharray="4 3" label={{ value: "danger", fontSize: 10, fill: "var(--danger)", position: "insideTopLeft" }} />
+            <ReferenceLine y={danger} stroke="var(--danger)" strokeDasharray="4 3" label={{ value: t("ui.metrics.danger_line"), fontSize: 10, fill: "var(--danger)", position: "insideTopLeft" }} />
             <Line type="monotone" dataKey="d" stroke="var(--ink)" strokeWidth={1.6} dot={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -108,7 +108,7 @@ export function ExitUse({ run, label }: { run: RunResult; label: (id: string) =>
         <li key={r.exit_id} className="text-sm">
           <div className="flex justify-between gap-2">
             <span className="truncate">{label(r.exit_id)}</span>
-            <span className="shrink-0 tabular text-muted">{r.people.toLocaleString()} · {fmtNum(r.mean_flow_pps, 1)}/s</span>
+            <span className="shrink-0 tabular text-muted">{r.people.toLocaleString()} · {t("units.n_per_s", { n: fmtNum(r.mean_flow_pps, 1) })}</span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-3">
             <div className={cn("h-full rounded-full", r.people === 0 ? "bg-line" : "bg-egress")} style={{ width: `${(r.people / max) * 100}%` }} />

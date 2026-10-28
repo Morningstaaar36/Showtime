@@ -285,8 +285,8 @@ export function WorkspacePage() {
   const markers: TimelineMarker[] = [
     ...(((result?.extensions as Record<string, unknown> | undefined)?.event_log as { t_s: number; type: string }[] | undefined) ?? [])
       .filter((e) => ["block_exit", "surge", "counterflow", "marshal_redirect", "intervention", "slowdown"].includes(e.type))
-      .map((e) => ({ t: e.t_s, label: e.type.replace("_", " "), tone: (e.type === "block_exit" ? "danger" : e.type === "marshal_redirect" || e.type === "intervention" ? "egress" : "caution") as TimelineMarker["tone"] })),
-    ...(result?.hotspots ?? []).slice(0, 3).map((h) => ({ t: h.t_s, label: `${fmtNum(h.peak_density_ppm2, 1)} people per m²`, tone: (h.level === "danger" ? "danger" : "caution") as TimelineMarker["tone"] })),
+      .map((e) => ({ t: e.t_s, label: t(`ui.workspace.event.${e.type}`), tone: (e.type === "block_exit" ? "danger" : e.type === "marshal_redirect" || e.type === "intervention" ? "egress" : "caution") as TimelineMarker["tone"] })),
+    ...(result?.hotspots ?? []).slice(0, 3).map((h) => ({ t: h.t_s, label: t("units.density", { n: fmtNum(h.peak_density_ppm2, 1) }), tone: (h.level === "danger" ? "danger" : "caution") as TimelineMarker["tone"] })),
   ];
 
   const onExitClick = (exit: Exit, floor: Floor) => {
@@ -306,7 +306,7 @@ export function WorkspacePage() {
     if (tool === "exit") {
       const rect = exitRectAt(floor.walkable as Pt[], x, y, 2.0);
       if (!rect) { toast.error(t("ui.workspace.click_closer_to_an_outer")); return; }
-      submitOps([{ op: "add_exit", floor_id: floor.floor_id, id: shortId("exit"), width_m: 2.0, polygon: rect, label: "New exit" } as PatchOpIn], "Added exit");
+      submitOps([{ op: "add_exit", floor_id: floor.floor_id, id: shortId("exit"), width_m: 2.0, polygon: rect, label: t("ui.workspace.new_exit") } as PatchOpIn], t("ui.workspace.added_exit"));
       ui.setTool("select");
     } else if (tool === "barrier" || tool === "zone" || tool === "measure") {
       const d = useUi.getState().draft;
@@ -322,11 +322,11 @@ export function WorkspacePage() {
       return;
     }
     if (tool === "barrier" && d.length >= 2) {
-      submitOps([{ op: "add_barrier_line", floor_id: floor.floor_id, id: shortId("barrier"), points: d.slice(0, 20) } as PatchOpIn], "Added barrier");
+      submitOps([{ op: "add_barrier_line", floor_id: floor.floor_id, id: shortId("barrier"), points: d.slice(0, 20) } as PatchOpIn], t("ui.workspace.added_barrier"));
       ui.setDraft([]);
     } else if (tool === "zone" && d.length >= 3) {
       const people = Math.round(polygonArea(d) * 1.5);
-      submitOps([{ op: "add_zone", floor_id: floor.floor_id, id: shortId("zone"), polygon: d, people, label: "New zone" } as PatchOpIn], "Added zone");
+      submitOps([{ op: "add_zone", floor_id: floor.floor_id, id: shortId("zone"), polygon: d, people, label: t("ui.workspace.new_zone") } as PatchOpIn], t("ui.workspace.added_zone"));
       ui.setDraft([]);
     }
   };

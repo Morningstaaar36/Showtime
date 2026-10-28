@@ -19,7 +19,7 @@ import { osmSite, SiteContext } from "./SiteContext";
 import { VenueModel } from "./VenueModel";
 import { t } from "@/i18n";
 
-export interface SceneProps {
+interface SceneProps {
   venue: Venue;
   replay: Replay | null;
   hotspots: Hotspot[];

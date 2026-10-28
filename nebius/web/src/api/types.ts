@@ -85,7 +85,7 @@ export interface Validation {
   rules?: RuleRow[];
 }
 
-export interface RuleRow {
+interface RuleRow {
   rule_id: string;
   status: "pass" | "fail" | "unknown";
   message: string;
@@ -123,7 +123,7 @@ export interface EditResult {
   warnings?: Check[];
 }
 
-export interface RunProgress {
+interface RunProgress {
   floor_id?: string;
   sim_time_s: number;
   agents_remaining: number;
@@ -199,7 +199,7 @@ export interface ProviderStatus {
   fallback?: string | null;
 }
 
-export interface PluginRow {
+interface PluginRow {
   id: string;
   name: string;
   version: string;
@@ -225,7 +225,7 @@ export interface Health {
   version: string;
 }
 
-export interface EventSpec {
+interface EventSpec {
   type: string;
   label: string;
   description: string;
@@ -282,7 +282,7 @@ export interface SessionOut {
   error: string | null;
 }
 
-export interface SessionSummary {
+interface SessionSummary {
   baseline_run_id?: string;
   final_run_id?: string | null;
   scoreboard?: { round: number; breaks: number; attacks: number }[];
@@ -375,8 +375,8 @@ export interface OsmFeature {
 }
 
 /** Organizer estimates (GET /projects/{id}/estimates): planning ratios + instant egress model. */
-export interface EstimateLine { key: string; label: string; value: number; unit: string; detail: string; source: string; url: string; status: "ok" | "warn" | "info" }
-export interface BudgetLine { item: string; quantity: number; unit: string; unit_cost: number; total: number }
+interface EstimateLine { key: string; label: string; value: number; unit: string; detail: string; source: string; url: string; status: "ok" | "warn" | "info" }
+interface BudgetLine { item: string; quantity: number; unit: string; unit_cost: number; total: number }
 export interface Estimates {
   event: { duration_h: number; alcohol: boolean; audience: "standing" | "seated" | "mixed"; kind?: string };
   capacity: { safe_people: number; by_space: number; by_egress: number | null; limited_by: "space" | "exits" | "stairs"; usable_area_m2: number; density_ppm2: number; target_evac_s: number; current_people: number; note: string };
@@ -389,7 +389,7 @@ export interface Estimates {
 }
 
 /** Planning score (POST /projects/{id}/whatif): five weighted parts, each explained. */
-export interface ScorePart { key: string; label: string; score: number; weight: number; detail: string }
+interface ScorePart { key: string; label: string; score: number; weight: number; detail: string }
 export interface PlanScore { score: number; grade: "A" | "B" | "C" | "D" | "F"; parts: ScorePart[]; capped: string; basis: string }
 export interface WhatIfOut {
   metrics: RunResult["metrics"];
@@ -404,7 +404,7 @@ export interface WhatIfOut {
 }
 
 /** GET /validation: simulator vs a real bottleneck experiment (api/models/validation.py). */
-export interface ValidationSeedRun {
+interface ValidationSeedRun {
   seed: number;
   run_id: string;
   flow_ps: number;
@@ -412,7 +412,7 @@ export interface ValidationSeedRun {
   window_s: number[];
 }
 
-export interface ValidationWidth {
+interface ValidationWidth {
   run_name: string;
   b_m: number;
   l_m: number;
@@ -455,9 +455,9 @@ export interface SimulatorValidation {
   mean_error_pct: number;
 }
 
-/** GET/POST /sessions/{id}/seeds: the plan's key run repeated with more seeds (N05). */
+/** GET/POST /sessions/{id}/seeds: the plan's key run repeated with more seeds. */
 export interface SeedSpread { min: number; max: number; median: number; n: number }
-export interface SeedItem {
+interface SeedItem {
   seed: number;
   run_id: string | null;
   original: boolean;

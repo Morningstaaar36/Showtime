@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Venue } from "@/api/types";
 import {
-  addFloorOp, addRouteOp, addStairOp, addWallOp, defaultInterior, floorLabels, fromMapBody, generalShare,
-  nearestWall, nextFloorId, normalizeGroups, ordinal, planDoor, planRoom, removeFloorOp, removeRouteOp,
-  removeStairOp, resolveEditFloor, roomDoorAt, roomFromCorners, setEventKindOp, snapPoint, stairEnds,
-  stairFootprint, zoneProfileOp,
+  addFloorOp, addRouteOp, addStairOp, addWallOp, defaultInterior, floorLevels, levelName, levelTag, nearestWall,
+  nextFloorId, normalizeGroups, planDoor, planRoom, removeFloorOp, removeStairOp, resolveEditFloor, roomFromCorners,
+  setEventKindOp, snapPoint, stairEnds, zoneProfileOp,
 } from "./venueOps";
 
 const square = (s: number): [number, number][] => [[0, 0], [s, 0], [s, s], [0, s]];
@@ -20,15 +19,12 @@ const wall = { id: "w1", kind: "wall" as const, polygon: [[9.9, 2], [10.1, 2], [
   height_m: null, label: null, line: [[10, 2], [10, 18]] as [number, number][] };
 
 describe("floor labels and ids", () => {
-  it("names storeys Ground, 1st, 2nd and basements B1", () => {
-    expect(ordinal(1)).toBe("1st");
-    expect(ordinal(2)).toBe("2nd");
-    expect(ordinal(3)).toBe("3rd");
-    expect(ordinal(11)).toBe("11th");
-    expect(ordinal(22)).toBe("22nd");
+  it("numbers storeys from the ground floor and names them", () => {
     const v = venue([floor("F2", 7), floor("F0", 0), floor("B", -3.5), floor("F1", 3.5)]);
-    const l = floorLabels(v);
-    expect([l.get("B"), l.get("F0"), l.get("F1"), l.get("F2")]).toEqual(["B1", "Ground", "1st", "2nd"]);
+    const l = floorLevels(v);
+    expect([l.get("B"), l.get("F0"), l.get("F1"), l.get("F2")]).toEqual([-1, 0, 1, 2]);
+    expect([-1, 0, 2].map(levelName)).toEqual(["Basement 1", "Ground floor", "Floor 2"]);
+    expect([-1, 0, 2].map(levelTag)).toEqual(["B1", "G", "2"]);
   });
   it("falls back to the lowest floor when the edit floor is gone", () => {
     const v = venue([floor("F1", 3.5), floor("F0", 0)]);
@@ -39,7 +35,7 @@ describe("floor labels and ids", () => {
   it("adds a floor with a free id and a default name", () => {
     const v = venue([floor("F0", 0), floor("F1", 3.5)]);
     expect(nextFloorId(v)).toBe("F2");
-    expect(addFloorOp(v)).toEqual({ op: "add_floor", floor_id: "F2", name: "2nd floor", height_m: 3.5, copy_walls: true });
+    expect(addFloorOp(v)).toEqual({ op: "add_floor", floor_id: "F2", name: "Floor 2", height_m: 3.5, copy_walls: true });
     expect(addFloorOp(v, { name: " Roof ", height_m: 4.25, copy_walls: false }))
       .toEqual({ op: "add_floor", floor_id: "F2", name: "Roof", height_m: 4.25, copy_walls: false });
     expect(removeFloorOp("F1")).toEqual({ op: "remove_floor", floor_id: "F1" });
@@ -60,9 +56,6 @@ describe("stairs", () => {
     });
     expect(addStairOp(venue([floor("F0", 0)]), "F0", 1, 1)).toBeNull();
     expect(removeStairOp("s1")).toEqual({ op: "remove_stair", stair_id: "s1" });
-  });
-  it("draws the flight from the start point in its direction", () => {
-    expect(stairFootprint(0, 0, "north", 2, 6)).toEqual([[-1, 0], [-1, 6], [1, 6], [1, 0]]);
   });
 });
 
@@ -94,7 +87,6 @@ describe("walls and doors", () => {
 describe("rooms", () => {
   it("turns two corners into the south-west corner and a size", () => {
     expect(roomFromCorners([8, 9], [2, 3])).toEqual({ x: 2, y: 3, width_m: 6, depth_m: 6 });
-    expect(roomDoorAt({ x: 2, y: 3, width_m: 6, depth_m: 4 }, "east")).toEqual([8, 5]);
   });
   it("builds add_room and adds people only when given", () => {
     const r = { x: 2, y: 3, width_m: 6, depth_m: 4 };
@@ -114,7 +106,6 @@ describe("people profile, routes and event kind", () => {
     expect(normalizeGroups([{ kind: "elderly", share: 0.304 }, { kind: "child", share: 0 }])).toEqual([{ kind: "elderly", share: 0.3 }]);
     expect(normalizeGroups([{ kind: "elderly", share: 0.7 }, { kind: "child", share: 0.4 }])).toBeNull();
     expect(normalizeGroups([{ kind: "bed", share: -0.1 }])).toBeNull();
-    expect(generalShare([{ kind: "bed", share: 0.25 }, { kind: "staff", share: 0.1 }])).toBeCloseTo(0.65);
   });
   it("sends only the changed profile fields, and null to clear", () => {
     expect(zoneProfileOp("z1", { groups: [] })).toEqual({ op: "set_zone_profile", zone_id: "z1", groups: [] });
@@ -125,24 +116,12 @@ describe("people profile, routes and event kind", () => {
     expect(addRouteOp("F0", [[0, 0], [10, 0], [10, 0], [10, 10]], { label: "March", width_m: 6 }))
       .toEqual({ op: "add_route", floor_id: "F0", points: [[0, 0], [10, 0], [10, 10]], width_m: 6, label: "March" });
     expect(addRouteOp("F0", [[0, 0]])).toBeNull();
-    expect(removeRouteOp("r1")).toEqual({ op: "remove_route", route_id: "r1" });
     expect(setEventKindOp("march")).toEqual({ op: "set_event_kind", event_kind: "march" });
     expect(setEventKindOp(null)).toEqual({ op: "set_event_kind", event_kind: null });
   });
 });
 
-describe("map import body", () => {
-  const base = { outline: [[23.7, 90.3], [23.71, 90.3], [23.71, 90.31]] as [number, number][], mode: "indoor" as const, name: "Ward", people: null, selected_id: "way/1" };
-  it("sends the building options for an indoor building", () => {
-    expect(fromMapBody(base, { building: true, levels: 4.6, use: "hospital", interior: "rooms", floorHeight: 3.5, surroundings: 60 }))
-      .toEqual({ ...base, levels: 5, use: "hospital", interior: "rooms", floor_height_m: 3.5, surroundings_m: 60 });
-    expect(fromMapBody(base, { building: true, levels: 99, use: null, surroundings: 500 }))
-      .toEqual({ ...base, levels: 40, surroundings_m: 200 });
-  });
-  it("sends the event kind for an open area", () => {
-    expect(fromMapBody({ ...base, mode: "outdoor" }, { building: false, eventKind: "rally" })).toEqual({ ...base, mode: "outdoor", event_kind: "rally" });
-    expect(fromMapBody({ ...base, mode: "outdoor" }, { building: true, levels: 3, eventKind: null })).toEqual({ ...base, mode: "outdoor" });
-  });
+describe("map import", () => {
   it("defaults to rooms for care, school, office and housing", () => {
     expect(defaultInterior("hospital")).toBe("rooms");
     expect(defaultInterior("mall")).toBe("open");

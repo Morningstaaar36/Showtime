@@ -4,7 +4,7 @@ import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Scatter,
 import type { SimulatorValidation } from "@/api/types";
 import { t } from "@/i18n";
 
-export interface ValidationRow {
+interface ValidationRow {
   b: number;
   measured: number;
   median: number;
@@ -90,10 +90,10 @@ export function ValidationTable({ data }: { data: SimulatorValidation }) {
       <tbody>
         {[...data.widths].sort((a, b) => a.b_m - b.b_m).map((w) => (
           <tr key={w.run_name} className="border-b border-border last:border-0">
-            <td className="py-1.5 pr-3">{w.b_m.toFixed(1)} m</td>
+            <td className="py-1.5 pr-3">{t("units.n_m", { n: w.b_m.toFixed(1) })}</td>
             <td className="py-1.5 pr-3">{w.n_people}</td>
-            <td className="py-1.5 pr-3">{f2(w.measured_flow_ps)} /s</td>
-            <td className="py-1.5 pr-3">{f2(w.simulated_flow_ps.median)} /s <span className="text-muted">({f2(w.simulated_flow_ps.min)}–{f2(w.simulated_flow_ps.max)})</span></td>
+            <td className="py-1.5 pr-3">{t("validation.per_s", { n: f2(w.measured_flow_ps) })}</td>
+            <td className="py-1.5 pr-3">{t("validation.per_s", { n: f2(w.simulated_flow_ps.median) })} <span className="text-muted">({f2(w.simulated_flow_ps.min)}–{f2(w.simulated_flow_ps.max)})</span></td>
             <td className="py-1.5">{w.error_pct > 0 ? "+" : ""}{w.error_pct.toFixed(0)}%</td>
           </tr>
         ))}

@@ -236,7 +236,7 @@ function NewPlanBody({ initial, templates, onClose }: { initial: Template | null
     if (!ready || create.isPending) return;
     const body = way === "sample"
       ? { name, template_id: picked ?? undefined }
-      : { name: name || draft?.venue?.name || "", venue: draft!.venue!, description: "Designed from a description" };
+      : { name: name || draft?.venue?.name || "", venue: draft!.venue!, description: t("projects.from_description") };
     create.mutate(body, {
       onSuccess: (p) => { toast.success(t("projects.created")); onClose(); navigate(`/p/${p.id}/describe`); },
       onError: (e) => toast.error(e.message),

@@ -65,7 +65,7 @@ export function ScenarioMatrix({ projectId, version, danger, warn }: { projectId
                   : !m ? (
                     <div className="mt-2">
                       <div className="h-1 overflow-hidden rounded-full bg-border"><div className="h-full animate-pulse rounded-full bg-signal" style={{ width: `${Math.max(8, (it.progress ?? 0) * 100)}%` }} /></div>
-                      <p className="mt-1 text-2xs capitalize text-muted">{it.status ?? "queued"}</p>
+                      <p className="mt-1 text-2xs capitalize text-muted">{it.status ?? t("ui.scenariomatrix.queued")}</p>
                     </div>
                   ) : (
                     <div className="mt-1.5 grid grid-cols-2 gap-x-2 text-2xs">

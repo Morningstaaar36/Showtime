@@ -16,7 +16,7 @@ const SNAP = 0.5;
 export interface Hit { floorId: string; x: number; y: number; inside: boolean }
 
 /** Preview geometry of a palette item dropped at (x, y): a polygon, or two points for a fence. */
-export interface ItemShape { item: PaletteItem; points: Pt[] }
+interface ItemShape { item: PaletteItem; points: Pt[] }
 
 type Edge = ReturnType<typeof edgesOf>[number];
 

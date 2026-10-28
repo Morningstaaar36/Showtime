@@ -16,7 +16,7 @@ const PLAN_TOOLS: { id: Tool; icon: React.ReactNode; key: string; kbd: string }[
   { id: "measure", icon: <Ruler />, key: "tools.measure", kbd: "M" },
 ];
 /** Building tools: they act on the floor chosen with the floor button below them. */
-export const BUILD_RAIL: typeof PLAN_TOOLS = [
+const BUILD_RAIL: typeof PLAN_TOOLS = [
   { id: "wall", icon: <BrickWall />, key: "editor.tools.wall", kbd: "W" },
   { id: "door", icon: <DoorClosed />, key: "editor.tools.door", kbd: "D" },
   { id: "room", icon: <LayoutPanelTop />, key: "editor.tools.room", kbd: "O" },

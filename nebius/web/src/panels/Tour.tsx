@@ -10,8 +10,6 @@ import { useUi } from "@/state/ui";
 
 interface Shot { pos: [number, number, number]; target: [number, number, number]; caption: string; ms?: number }
 
-const mmss = (s: number) => `${Math.floor(s / 60)} minutes ${Math.round(s % 60)} seconds`;
-
 export function buildShots(venue: Venue, run: RunResult | null | undefined, what: WhatIfOut | null): Shot[] {
   const [x0, y0, x1, y1] = venueBounds(venue);
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, span = Math.max(x1 - x0, y1 - y0, 20);
@@ -19,8 +17,10 @@ export function buildShots(venue: Venue, run: RunResult | null | undefined, what
   const exits = venue.floors.flatMap((f) => f.exits.map((e) => ({ f, e })));
   const shots: Shot[] = [{
     pos: [cx - span * 0.35, span * 0.95, -cy + span * 0.95], target: [cx, 0, -cy],
-    caption: `${venue.name}. An ${venue.mode === "indoor" ? "indoor" : "open-air"} plan for ${fmtInt(people)} people, with ${exits.length} ${exits.length === 1 ? "exit" : "exits"}${
-      venue.floors.length > 1 ? ` on ${venue.floors.length} floors` : ""}.`,
+    caption: t(venue.floors.length > 1 ? "tour.overview_floors" : "tour.overview", {
+      name: venue.name, mode: t(venue.mode === "indoor" ? "tour.indoor" : "tour.open_air"), people: fmtInt(people),
+      exits: exits.length === 1 ? t("tour.exits_one") : t("tour.exits", { n: exits.length }), floors: venue.floors.length,
+    }),
   }];
   // a building: how the floors are joined, and how many people are on each
   const stairs = venue.stairs ?? [];
@@ -28,10 +28,10 @@ export function buildShots(venue: Venue, run: RunResult | null | undefined, what
     const narrow = [...stairs].sort((a, b) => a.width_m - b.width_m)[0];
     const [sx, sy] = centroid(narrow.top_polygon as Pt[]);
     const y = floorY(venue, narrow.to_floor, false);
-    const perFloor = floorsBottomUp(venue).map((f) => `${f.name || f.floor_id} ${fmtInt(f.zones.reduce((n, z) => n + z.people, 0))}`).join(", ");
+    const perFloor = floorsBottomUp(venue).map((f) => t("tour.floor_people", { name: f.name || f.floor_id, n: fmtInt(f.zones.reduce((n, z) => n + z.people, 0)) })).join(", ");
     shots.push({
       pos: [sx + 16, y + 16, -sy + 16], target: [sx, y + 2, -sy],
-      caption: `${stairs.length} ${stairs.length === 1 ? "stair joins" : "stairs join"} the floors; the narrowest is ${narrow.width_m.toFixed(1)} metres wide. People per floor: ${perFloor}.`,
+      caption: t(stairs.length === 1 ? "tour.stairs_one" : "tour.stairs", { n: stairs.length, w: narrow.width_m.toFixed(1), floors: perFloor }),
       ms: 5200,
     });
   }
@@ -41,8 +41,8 @@ export function buildShots(venue: Venue, run: RunResult | null | undefined, what
     if (g.kind !== "general" && g.share > 0) mix.set(g.kind, (mix.get(g.kind) ?? 0) + Math.round(g.share * z.people));
   }
   if (mix.size) {
-    const who = [...mix.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => `${fmtInt(n)} ${t(`editor.people.${k}`).toLowerCase()}`).join(", ");
-    shots.push({ pos: [cx - span * 0.5, span * 0.7, -cy + span * 0.5], target: [cx, 0, -cy], caption: `Among them: ${who}. They move at their own pace in the simulation.` });
+    const who = [...mix.entries()].sort((a, b) => b[1] - a[1]).map(([k, n]) => t("tour.group", { n: fmtInt(n), kind: t(`editor.people.${k}`).toLowerCase() })).join(", ");
+    shots.push({ pos: [cx - span * 0.5, span * 0.7, -cy + span * 0.5], target: [cx, 0, -cy], caption: t("tour.mix", { who }) });
   }
   for (const f of venue.floors) {
     const stage = f.obstacles.find((o) => o.kind === "stage");
@@ -54,7 +54,7 @@ export function buildShots(venue: Venue, run: RunResult | null | undefined, what
     const y = floorY(venue, f.floor_id, false);
     shots.push({
       pos: [sx + (dx / L) * 28, y + 14, -(sy + (dy / L) * 28)], target: [sx, y + 2, -sy],
-      caption: `The stage, ${Math.round(Math.max(c - a, d - b))} metres wide, faces the crowd. Stewards keep the front-of-stage area clear.`,
+      caption: t("tour.stage", { w: Math.round(Math.max(c - a, d - b)) }),
     });
     break;
   }
@@ -64,7 +64,7 @@ export function buildShots(venue: Venue, run: RunResult | null | undefined, what
     const dx = ex - cx, dy = ey - cy, L = Math.hypot(dx, dy) || 1;
     shots.push({
       pos: [ex - (dx / L) * 22, y + 11, -(ey - (dy / L) * 22)], target: [ex, y + 1, -ey],
-      caption: `${exitName(f, e)}, ${e.width_m.toFixed(1)} metres wide${e.blocked ? ", closed in this plan" : ""}.`, ms: 3800,
+      caption: t(e.blocked ? "tour.exit_closed" : "tour.exit", { name: exitName(f, e), w: e.width_m.toFixed(1) }), ms: 3800,
     });
   }
   const hot = (run?.hotspots ?? [])[0];
@@ -72,14 +72,14 @@ export function buildShots(venue: Venue, run: RunResult | null | undefined, what
     const y = floorY(venue, hot.floor_id, false);
     shots.push({
       pos: [hot.x + 12, y + 14, -hot.y + 14], target: [hot.x, y, -hot.y],
-      caption: `The crowd is densest here: ${hot.peak_density_ppm2.toFixed(1)} people per square metre at ${Math.floor(hot.t_s / 60)}:${String(Math.round(hot.t_s % 60)).padStart(2, "0")}.`,
+      caption: t("tour.hotspot", { d: hot.peak_density_ppm2.toFixed(1), at: `${Math.floor(hot.t_s / 60)}:${String(Math.round(hot.t_s % 60)).padStart(2, "0")}` }),
     });
   }
   const m = what?.metrics ?? run?.metrics;
   const end: string[] = [];
-  if (m?.evac_time_p95_s) end.push(`95 percent of people are out in ${mmss(m.evac_time_p95_s)}.`);
-  if (what) end.push(`Safe capacity is ${fmtInt(what.capacity.safe_people)}. Planning score ${what.score.grade}, ${what.score.score} out of 100.`);
-  shots.push({ pos: [cx + span * 0.6, span * 0.75, -cy + span * 0.6], target: [cx, 0, -cy], caption: end.join(" ") || "That is the plan.", ms: 5200 });
+  if (m?.evac_time_p95_s) end.push(t("tour.evac", { m: Math.floor(m.evac_time_p95_s / 60), s: Math.round(m.evac_time_p95_s % 60) }));
+  if (what) end.push(t("tour.score", { n: fmtInt(what.capacity.safe_people), grade: what.score.grade, score: what.score.score }));
+  shots.push({ pos: [cx + span * 0.6, span * 0.75, -cy + span * 0.6], target: [cx, 0, -cy], caption: end.join(" ") || t("tour.end"), ms: 5200 });
   return shots;
 }
 

@@ -353,9 +353,9 @@ function FinalCard({ view, summary, onApply, applying, onShow, human }: {
         <table className="mt-3 w-full text-sm">
           <thead><tr className="text-xs text-muted"><th className="text-left font-normal">{t("ui.redteampanel.worst_attack")}</th><th className="text-right font-normal">{t("ui.redteampanel.before")}</th><th className="text-right font-normal">{t("ui.redteampanel.after_fixes")}</th></tr></thead>
           <tbody>
-            {row("evac_time_p95_s", "Evacuation time (95%)", evac)}
-            {row("peak_density_ppm2", "Peak density (per m²)", (v) => fmtNum(v ?? null, 1))}
-            {row("time_above_danger_s", "Time above danger", (v) => fmtDuration(v ?? 0))}
+            {row("evac_time_p95_s", t("metrics.evac_p95"), evac)}
+            {row("peak_density_ppm2", t("metrics.peak_density_m2"), (v) => fmtNum(v ?? null, 1))}
+            {row("time_above_danger_s", t("metrics.above_danger"), (v) => fmtDuration(v ?? 0))}
           </tbody>
         </table>
       )}

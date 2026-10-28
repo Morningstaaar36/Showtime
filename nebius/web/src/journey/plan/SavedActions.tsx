@@ -5,7 +5,7 @@ import { fmtClock } from "@/lib/format";
 import { describeEvent } from "@/panels/describe";
 import type { PlanAction } from "@/types/generated";
 
-export interface ActionText {
+interface ActionText {
   what: string;
   when: string;
   staff: string;
@@ -20,7 +20,7 @@ export function actionText(a: PlanAction, name: (id: string) => string): ActionT
   };
 }
 
-export function ActionLine({ action, name }: { action: PlanAction; name: (id: string) => string }) {
+function ActionLine({ action, name }: { action: PlanAction; name: (id: string) => string }) {
   const a = actionText(action, name);
   return (
     <li className="rounded-[8px] border border-border p-2.5 text-sm">

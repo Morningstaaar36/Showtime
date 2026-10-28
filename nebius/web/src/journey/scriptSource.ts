@@ -1,5 +1,5 @@
 /** The scenario script inside an attack (a `script` event), if it has one. */
-export interface ScenarioScript {
+interface ScenarioScript {
   title: string;
   code: string;
   everyS: number;

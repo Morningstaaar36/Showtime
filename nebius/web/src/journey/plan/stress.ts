@@ -1,4 +1,4 @@
-/** Stress test at scale (SANDBOX_SCOPE idea 4): the record the API keeps, the live counter
+/** Stress test at scale: the record the API keeps, the live counter
  * and the per-plan summary. Numbers come from each run; failures stay listed. */
 import { t } from "@/i18n";
 import { basisLabel } from "@/lib/evidence";

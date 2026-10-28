@@ -2,7 +2,7 @@
 import type { SandboxIsolation } from "@/api/types";
 import { t } from "@/i18n";
 
-export interface SandboxFact { key: string; text: string; ok: boolean }
+interface SandboxFact { key: string; text: string; ok: boolean }
 
 export function sandboxFacts(iso: SandboxIsolation | undefined, timeLimitS?: number): SandboxFact[] {
   if (!iso || iso.kind === "none") return [];

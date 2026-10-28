@@ -16,7 +16,7 @@ export interface EventKindInfo {
   icon?: string;
 }
 
-export function fallbackEventKinds(): EventKindInfo[] {
+function fallbackEventKinds(): EventKindInfo[] {
   return EVENT_KINDS.map((id) => ({
     id,
     label: t(`editor.event.${id}.label`),
@@ -28,7 +28,7 @@ export function fallbackEventKinds(): EventKindInfo[] {
 }
 
 /** Keeps the server's entries that name a known kind; anything malformed falls back. */
-export function parseEventKinds(raw: unknown): EventKindInfo[] | null {
+function parseEventKinds(raw: unknown): EventKindInfo[] | null {
   if (!Array.isArray(raw)) return null;
   const known = new Set<string>(EVENT_KINDS);
   const out: EventKindInfo[] = [];

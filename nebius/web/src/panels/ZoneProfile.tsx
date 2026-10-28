@@ -96,7 +96,7 @@ function StartDelay({ zone, usual, disabled, onSave }: {
           <Input id={`pre-${zone.id}`} type="number" inputMode="numeric" min={0} max={3600} step={10} value={text}
                  onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => e.key === "Enter" && commit()}
                  className="h-10 w-24 text-right text-base tabular" />
-          <span className="text-sm text-muted">s</span>
+          <span className="text-sm text-muted">{t("common.seconds")}</span>
         </div>
       )}
       {usual != null && <p className="text-xs text-muted">{t("editor.profile.start_usual", { s: usual })}</p>}

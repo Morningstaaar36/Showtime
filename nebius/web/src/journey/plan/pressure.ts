@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { DensityGrid, type DensityIndex } from "@/replay/density";
 
-export interface PressureLayer {
+interface PressureLayer {
   grid: DensityGrid;
   /** highest value in the run and when (from the index's peak series) */
   peak: number | null;

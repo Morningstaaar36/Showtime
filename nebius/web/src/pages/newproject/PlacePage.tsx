@@ -17,7 +17,7 @@ export function PlacePage() {
   const navigate = useNavigate();
   const use = () => {
     if (!draft?.venue) return;
-    create.mutate({ name: draft.venue.name, venue: draft.venue, description: "Imported from OpenStreetMap" }, {
+    create.mutate({ name: draft.venue.name, venue: draft.venue, description: t("projects.from_map") }, {
       onSuccess: (p) => navigate(`/p/${p.id}/describe`),
       onError: (e) => toast.error(e.message),
     });

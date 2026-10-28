@@ -1,7 +1,7 @@
 /** What changed between two venues, by object id: used to highlight a proposal in 3D. */
 import type { Pt, Venue } from "@/api/types";
 
-export type ChangeKind = "added" | "changed" | "removed";
+type ChangeKind = "added" | "changed" | "removed";
 
 export interface ObjectChange {
   id: string;

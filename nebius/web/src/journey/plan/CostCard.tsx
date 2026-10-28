@@ -1,4 +1,4 @@
-/** "How this plan was made" (N16): measured model cost, models, simulations by kind, compute
+/** "How this plan was made": measured model cost, models, simulations by kind, compute
  * and wall time of the test behind this plan, as tiles. Free and local models cost "$0.00". */
 import { Bot, Clock3, Cpu, Sparkles, Timer } from "lucide-react";
 import type * as React from "react";

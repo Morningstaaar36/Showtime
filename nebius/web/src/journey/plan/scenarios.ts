@@ -75,10 +75,6 @@ export function scenarioRows(nodes: Record<string, TreeNode>, runs: Record<strin
   return out;
 }
 
-/** The row to show first: the worst attack that broke the plan, else the first row. */
-export const firstRow = (rows: ScenarioRow[], worstAttackId: string | null | undefined): ScenarioRow | undefined =>
-  rows.find((r) => r.kind === "attack" && r.attackId === worstAttackId) ?? rows[0];
-
 type Ev = { type: string; at_s?: number; [k: string]: unknown };
 
 /** One sentence per scenario event, with the time it happens. Unknown types still get a caption. */
@@ -119,7 +115,7 @@ export function captionAt(markers: TimelineMarker[], now: number, holdS = 8): Ti
   return hit;
 }
 
-export interface FloorSeries { times: number[]; floors: string[]; counts: number[][] }
+interface FloorSeries { times: number[]; floors: string[]; counts: number[][] }
 
 /** People on each floor over time, sampled about `points` times across the replay. */
 export function peoplePerFloor(traj: Trajectory, points = 120): FloorSeries {

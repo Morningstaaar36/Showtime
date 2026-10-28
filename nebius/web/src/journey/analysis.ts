@@ -1,10 +1,12 @@
 /** Pure helpers that turn the JSON an analysis script printed into facts, a table and a bar chart.
  * Every value shown comes from the executed code; nothing is computed or rounded beyond display. */
-export interface Fact { label: string; value: string }
-export interface Table { columns: string[]; rows: string[][] }
-export interface Bar { label: string; value: number; text: string }
+import { t } from "@/i18n";
+
+interface Fact { label: string; value: string }
+interface Table { columns: string[]; rows: string[][] }
+interface Bar { label: string; value: number; text: string }
 export interface Chart { title: string; x: string; y: string; bars: Bar[]; max: number }
-export interface AnalysisView { facts: Fact[]; table: Table | null; chart: Chart | null; raw: string }
+interface AnalysisView { facts: Fact[]; table: Table | null; chart: Chart | null; raw: string }
 
 const MAX_FACTS = 12;
 const MAX_ROWS = 30;
@@ -19,13 +21,13 @@ const isPrimitive = (v: unknown) => v === null || ["string", "number", "boolean"
 export function showValue(v: unknown): string {
   if (v === null || v === undefined) return "–";
   if (typeof v === "number") return Number.isFinite(v) ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : "–";
-  if (typeof v === "boolean") return v ? "yes" : "no";
+  if (typeof v === "boolean") return t(v ? "analyst.yes" : "analyst.no");
   if (typeof v === "string") return v;
   return JSON.stringify(v);
 }
 
 function factsOf(output: unknown): Fact[] {
-  if (isPrimitive(output) && output !== null) return [{ label: "Result", value: showValue(output) }];
+  if (isPrimitive(output) && output !== null) return [{ label: t("analyst.result"), value: showValue(output) }];
   if (!isObj(output)) return [];
   const source = isObj(output.facts) ? output.facts : output;
   return Object.entries(source)

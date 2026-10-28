@@ -138,7 +138,7 @@ export function SettingsPage() {
                   <li key={p.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 py-2">
                     <span aria-hidden className={cn("size-2 rounded-full", p.enabled && p.healthy ? "bg-egress" : p.enabled ? "bg-danger" : "bg-line")} />
                     <span className="font-medium">{p.name}</span>
-                    <span className="text-muted">v{p.version}</span>
+                    <span className="text-muted">{t("common.version_short", { n: p.version })}</span>
                     <span className="ml-auto text-xs text-muted">{p.provides.join(", ")}</span>
                   </li>
                 ))}

@@ -20,7 +20,7 @@ function render(node: React.ReactNode): HTMLElement {
   return el;
 }
 
-describe("validation chart (T-N10-2)", () => {
+describe("validation chart", () => {
   it("rows are sorted by width with the min-max band", () => {
     const rows = validationRows(data);
     expect(rows.map((r) => r.b)).toEqual([0.9, 1.2, 2.5]);

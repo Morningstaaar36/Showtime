@@ -20,7 +20,7 @@ export function sandboxRows(view: Pick<SessionView, "sandboxes" | "runs" | "node
   return { rows, recorded: false };
 }
 
-export interface ScriptOutcome { attack: Attack; run: SandboxRun | null }
+interface ScriptOutcome { attack: Attack; run: SandboxRun | null }
 
 /** Every AI-written scenario of the test, with its sandbox run (null when it has none yet). */
 export function scriptOutcomes(view: Pick<SessionView, "sandboxes" | "nodes">, attacks: Attack[]): ScriptOutcome[] {

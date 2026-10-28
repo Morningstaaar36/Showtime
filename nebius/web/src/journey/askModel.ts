@@ -6,7 +6,7 @@ import type { WhatIfOut } from "@/api/types";
 import { t } from "@/i18n";
 import { fmtDuration, fmtInt, fmtNum } from "@/lib/format";
 
-export interface IntentMeta { label: string; icon: LucideIcon; tone: string }
+interface IntentMeta { label: string; icon: LucideIcon; tone: string }
 
 const META: Record<AskIntent, { key: string; icon: LucideIcon; tone: string }> = {
   edit: { key: "ask.intent_edit", icon: PencilRuler, tone: "bg-signal-soft text-signal" },
@@ -23,7 +23,7 @@ export function intentMeta(intent: AskIntent): IntentMeta {
   return { label: t(m.key), icon: m.icon, tone: m.tone };
 }
 
-export type NavAction = { kind: "route"; to: string } | { kind: "open"; href: string };
+type NavAction = { kind: "route"; to: string } | { kind: "open"; href: string };
 
 /** Where a navigation request goes: a screen of this project, or the report in a new tab. */
 export function navAction(target: AskTarget, projectId: string, sessionId?: string | null): NavAction {
@@ -38,7 +38,7 @@ export function navAction(target: AskTarget, projectId: string, sessionId?: stri
   }
 }
 
-export interface WhatIfRow { key: string; label: string; before: string; after: string; worse: boolean }
+interface WhatIfRow { key: string; label: string; before: string; after: string; worse: boolean }
 
 function evacText(w: WhatIfOut): string {
   const s = w.metrics.evac_time_p95_s;

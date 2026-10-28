@@ -1,4 +1,4 @@
-/** Who each simulated person is (GET /runs/{id}/agents, G2-04): `{"schema": 1, "kinds": {"<agent
+/** Who each simulated person is (GET /runs/{id}/agents): `{"schema": 1, "kinds": {"<agent
  * id>": "<kind>"}}`, listing only people who are not general adults. Agent ids are the uint16 ids
  * of traj.bin, so a flat lookup table answers "what kind is agent i" in the frame loop. */
 

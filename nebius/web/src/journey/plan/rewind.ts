@@ -1,4 +1,4 @@
-/** Rewind the worst moment (SANDBOX_SCOPE idea 3): the record the API keeps and the rows of
+/** Rewind the worst moment: the record the API keeps and the rows of
  * the small comparison table. Every number comes from a branch's own run; lower is better in
  * every column. */
 import { t } from "@/i18n";
@@ -16,7 +16,7 @@ export interface RewindNumbers {
 export type MetricKey = "evac_time_95_s" | "people_inside" | "peak_density_ppm2" | "time_above_danger_s";
 export const METRICS: MetricKey[] = ["evac_time_95_s", "people_inside", "peak_density_ppm2", "time_above_danger_s"];
 
-export interface RewindBranch {
+interface RewindBranch {
   key: string;
   label: string;
   kind: "nothing" | "kept_fix" | "quick_action" | "custom";
@@ -87,7 +87,7 @@ export function deltaTone(key: MetricKey, d: number | null | undefined): "better
   return d < 0 ? "better" : "worse";
 }
 
-export interface RewindRow {
+interface RewindRow {
   key: string;
   label: string;
   kind: RewindBranch["kind"];

@@ -1,4 +1,4 @@
-/** Backoff for the SSE hooks: a dropped stream retries after 2 s as before, then waits longer each
+/** Backoff for the SSE hooks: a dropped stream retries after 2 s, then waits longer each
  *  consecutive failure (capped at 30 s) and gives up after MAX_RECONNECTS (e.g. a 404 session).
  *  Callers reset their failure count whenever the stream opens or delivers an event. */
 export const MAX_RECONNECTS = 8;

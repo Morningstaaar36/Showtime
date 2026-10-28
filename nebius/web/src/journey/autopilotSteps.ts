@@ -27,7 +27,7 @@ export const EMPTY_STREAM: AutopilotStream = {
   connected: false, ended: false,
 };
 
-export type StreamAction = { kind: "event"; ev: AutopilotEvent } | { kind: "reset" } | { kind: "conn"; v: boolean } | { kind: "end" };
+type StreamAction = { kind: "event"; ev: AutopilotEvent } | { kind: "reset" } | { kind: "conn"; v: boolean } | { kind: "end" };
 
 /** Fold one stream action into the view; events at or before the last seen one are ignored. */
 export function foldAutopilot(s: AutopilotStream, a: StreamAction): AutopilotStream {
@@ -72,7 +72,7 @@ export function foldAutopilot(s: AutopilotStream, a: StreamAction): AutopilotStr
 
 export const isEnded = (status: RunStatus | undefined | null) => status === "finished" || status === "stopped" || status === "failed";
 
-export interface AutopilotView {
+interface AutopilotView {
   status: RunStatus | null;
   steps: AutopilotStep[];
   projectId: string | null;

@@ -16,10 +16,10 @@ import { ScoreGauge, useCountTo } from "./ScoreGauge";
 import { useThresholds } from "./useThresholds";
 
 const SPEEDS = [
-  { key: "normal", label: "Normal", factor: 1.0, icon: Footprints },
-  { key: "rain", label: "Rain", factor: 0.85, icon: CloudRain },
-  { key: "families", label: "Families, elderly", factor: 0.75, icon: Users },
-  { key: "smoke", label: "Smoke or dark", factor: 0.6, icon: Zap },
+  { key: "normal", factor: 1.0, icon: Footprints },
+  { key: "rain", factor: 0.85, icon: CloudRain },
+  { key: "families", factor: 0.75, icon: Users },
+  { key: "smoke", factor: 0.6, icon: Zap },
 ] as const;
 
 interface Params { people_scale: number; speed_factor: number; blocked_exits: string[] }
@@ -82,7 +82,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
   const reset = () => { setScale(1); setSpeed("normal"); setClosed([]); clearBlocked(); };
   const applyCrowd = () => {
     const ops = venue.floors.flatMap((f) => f.zones.map((z) => ({ op: "set_people", zone_id: z.id, people: Math.round(z.people * scale) }))) as unknown as PatchOpIn[];
-    patch.mutate({ patch: { ops }, message: `Crowd × ${scale.toFixed(2)}` }, {
+    patch.mutate({ patch: { ops }, message: t("ui.whatiflab.crowd_message", { scale: scale.toFixed(2) }) }, {
       onSuccess: () => { toast.success(t("ui.whatiflab.crowd_size_applied_to_the")); setScale(1); },
       onError: (e) => toast.error(e.message),
     });
@@ -91,7 +91,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
     start.mutate({
       project_id: project.id, tier: 3, seed: 42, blocked_exits: closed,
       events: factor < 1 ? [{ type: "slowdown", factor, at_s: 0 }] : [],
-      label: "What-if",
+      label: t("ui.whatiflab.run_label"),
     }, {
       onSuccess: () => toast.success(t("ui.whatiflab.what_if_simulation_started_open")),
       onError: (e) => toast.error(e.message),
@@ -114,7 +114,7 @@ export function WhatIfLab({ project }: { project: ProjectDetail }) {
             <button key={s.key} type="button" onClick={() => setSpeed(s.key)}
                     className={cn("flex items-center gap-1.5 rounded-[var(--radius-control)] border px-2 py-1 text-xs",
                       speed === s.key ? "border-signal bg-signal-soft text-ink" : "border-border text-muted hover:text-ink")}>
-              <s.icon className="size-3.5" />{s.label}<span className="ml-auto tabular text-2xs">{Math.round(s.factor * 100)}%</span>
+              <s.icon className="size-3.5" />{t(`ui.whatiflab.speed.${s.key}`)}<span className="ml-auto tabular text-2xs">{Math.round(s.factor * 100)}%</span>
             </button>
           ))}
         </div>

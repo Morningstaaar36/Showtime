@@ -13,10 +13,10 @@ export function PlanCompass({ span }: { span: number }) {
   const nice = [5, 10, 20, 25, 50, 100].find((n) => n >= span / 8) ?? 100;
   return (
     <div className="pointer-events-none flex items-end gap-3 rounded-[var(--radius-control)] border border-border bg-surface/90 px-3 py-2 text-2xs text-muted shadow-sm backdrop-blur">
-      <div className="flex flex-col items-center"><Navigation className="size-4 rotate-0 text-ink" fill="currentColor" /><span className="font-semibold text-ink">N</span></div>
+      <div className="flex flex-col items-center"><Navigation className="size-4 rotate-0 text-ink" fill="currentColor" /><span className="font-semibold text-ink">{t("ui.overlays.north")}</span></div>
       <div>
         <div className="flex h-1.5 w-20 overflow-hidden rounded-[1px] border border-ink"><span className="w-1/2 bg-ink" /><span className="w-1/2" /></div>
-        <div className="mt-0.5 flex w-20 justify-between tabular"><span>0</span><span>{nice} m</span></div>
+        <div className="mt-0.5 flex w-20 justify-between tabular"><span>0</span><span>{t("units.n_m", { n: nice })}</span></div>
       </div>
     </div>
   );

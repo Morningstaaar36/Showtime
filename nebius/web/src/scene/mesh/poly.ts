@@ -3,7 +3,7 @@ import type { Pt } from "@/api/types";
 
 const EPS = 1e-7;
 
-export function signedArea(poly: readonly Pt[]): number {
+function signedArea(poly: readonly Pt[]): number {
   let a = 0;
   for (let i = 0; i < poly.length; i++) {
     const p = poly[i], q = poly[(i + 1) % poly.length];
@@ -26,7 +26,7 @@ export function ccw(poly: readonly Pt[]): Pt[] {
 const cross = (a: Pt, b: Pt, p: Pt) => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
 
 /** Sutherland-Hodgman: the part of a convex polygon on the left of a->b (keepLeft) or the right. */
-export function clipHalfPlane(poly: readonly Pt[], a: Pt, b: Pt, keepLeft: boolean): Pt[] {
+function clipHalfPlane(poly: readonly Pt[], a: Pt, b: Pt, keepLeft: boolean): Pt[] {
   const out: Pt[] = [];
   const side = (p: Pt) => (keepLeft ? cross(a, b, p) : -cross(a, b, p));
   for (let i = 0; i < poly.length; i++) {

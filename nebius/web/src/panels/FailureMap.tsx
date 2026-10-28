@@ -85,7 +85,7 @@ export function FailureMap({ map, onSelectRun, activeRunId, className }: {
                                 className={cn("flex h-12 w-full min-w-14 flex-col items-center justify-center gap-0.5 rounded-[var(--radius-control)] border px-1 tabular transition-colors hover:brightness-95",
                                   TONE_CLASS[tn], picked === key && "ring-2 ring-signal", b && activeRunId === b.run_id && "outline outline-2 outline-offset-1 outline-signal")}>
                           {TIcon ? <TIcon className="size-3.5" aria-hidden /> : <span aria-hidden>—</span>}
-                          <span className="font-semibold">{sev != null ? fmtSeverity(sev) : "gap"}</span>
+                          <span className="font-semibold">{sev != null ? fmtSeverity(sev) : t("ui.failuremap.gap")}</span>
                           {b?.fixed_by && <Wrench className="size-3" aria-label={t("ui.failuremap.a_kept_fix_was_tested")} />}
                         </button>
                       </td>

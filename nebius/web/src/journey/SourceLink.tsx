@@ -4,7 +4,7 @@ import { t } from "@/i18n";
 import { withYear } from "@/journey/plan/evidence";
 import { cn } from "@/lib/utils";
 
-export function OriginBadge({ origin, className }: { origin?: string | null; className?: string }) {
+function OriginBadge({ origin, className }: { origin?: string | null; className?: string }) {
   const web = origin === "tavily";
   return (
     <span className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-2xs font-medium",

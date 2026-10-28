@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { useMapConfig } from "@/state/mapConfig";
 import { DraftPreview } from "./DraftPreview";
 
-/** "Include the surroundings": how far around the building (G2-06 accepts 0–200 m). */
+/** "Include the surroundings": how far around the building (the server accepts 0–200 m). */
 const SURROUND_DEFAULT_M = 50;
 const SURROUND_MAX_M = 200;
 
@@ -113,11 +113,11 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
         attributionControl: { compact: true },
       });
     } catch (e) {
-      setMapError((e as Error).message || "WebGL is not available in this browser.");
+      setMapError((e as Error).message || t("ui.maptab.no_webgl"));
       return;
     }
     m.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
-    m.on("error", (ev) => { if (String(ev.error?.message ?? "").includes("style")) setMapError("The map style could not load. Check the internet connection."); });
+    m.on("error", (ev) => { if (String(ev.error?.message ?? "").includes("style")) setMapError(t("ui.maptab.style_failed")); });
     m.on("load", () => {
       m.addSource("selection", { type: "geojson", data: emptyFC });
       m.addSource("draft-box", { type: "geojson", data: emptyFC });
@@ -143,7 +143,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
         setDrawing(false);
         (m.getSource("draft-box") as maplibregl.GeoJSONSource | undefined)?.setData(emptyFC);
         const s = Math.min(a.lat, b.lat), n = Math.max(a.lat, b.lat), w = Math.min(a.lng, b.lng), ea = Math.max(a.lng, b.lng);
-        select({ id: null, name: "Selected area", kind: "box", outline: [[s, w], [s, ea], [n, ea], [n, w], [s, w]] });
+        select({ id: null, name: t("ui.maptab.selected_area"), kind: "box", outline: [[s, w], [s, ea], [n, ea], [n, w], [s, w]] });
         return;
       }
       void lookAt(e.lngLat.lat, e.lngLat.lng);
@@ -165,7 +165,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
         toast.message(t("ui.maptab.nothing_is_mapped_exactly_here"));
         return;
       }
-      const fallback = f.kind === "building" ? "Building" : f.tags.leisure ?? f.tags.amenity ?? f.tags.landuse ?? "Open area";
+      const fallback = f.kind === "building" ? t("ui.maptab.fallback_building") : f.tags.leisure ?? f.tags.amenity ?? f.tags.landuse ?? t("ui.maptab.fallback_area");
       select({ id: f.id, name: f.name || fallback.charAt(0).toUpperCase() + fallback.slice(1), kind: f.kind as "building" | "area",
                outline: f.coords, levels: f.levels ?? null, use: f.use ?? null });
     } catch (e) {
@@ -330,7 +330,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
                     <span id="msurround-d" className="shrink-0 text-xs text-muted">{t("editor.map.distance")}</span>
                     <Slider min={10} max={SURROUND_MAX_M} step={10} value={[surroundM]} onValueChange={([v]) => setSurroundM(v)}
                             thumbLabel={t("editor.map.distance")} aria-labelledby="msurround-d" />
-                    <span className="w-14 shrink-0 text-right text-sm tabular-nums" aria-live="polite">{surroundM} m</span>
+                    <span className="w-14 shrink-0 text-right text-sm tabular-nums" aria-live="polite">{t("units.n_m", { n: surroundM })}</span>
                   </div>
                 )}
               </div>

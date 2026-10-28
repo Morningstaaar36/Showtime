@@ -4,7 +4,7 @@
 
 export type TestMode = "quick" | "standard" | "deep" | "offline";
 
-export interface TestModeInfo {
+interface TestModeInfo {
   id: TestMode;
   /** about how long a local run takes, for the hint */
   minutes: number;

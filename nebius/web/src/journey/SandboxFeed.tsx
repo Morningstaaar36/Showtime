@@ -53,7 +53,7 @@ export function SandboxFeed({ runs, className }: { runs: SandboxRun[]; className
                   <span className={cn("shrink-0 [&_svg]:size-4", s.tone)} aria-hidden>{s.icon}</span>
                   <span className="min-w-0 flex-1 truncate" title={`${r.label} · ${r.run_id}`}>{r.label}</span>
                   <span className={cn("shrink-0 text-2xs font-medium", s.text)}>{t(`work.sbx_state_${r.state}`)}</span>
-                  <span className="w-10 shrink-0 text-right text-2xs text-muted tabular">{r.state === "queued" || r.state === "reused" ? "" : `${Math.round(r.elapsed_s)} s`}</span>
+                  <span className="w-10 shrink-0 text-right text-2xs text-muted tabular">{r.state === "queued" || r.state === "reused" ? "" : t("units.n_s", { n: Math.round(r.elapsed_s) })}</span>
                 </div>
                 {why && <p className={cn("ml-6 mt-0.5 text-2xs", why.tone === "danger" ? "text-danger-strong" : "text-caution-strong")}>{why.text}</p>}
               </li>

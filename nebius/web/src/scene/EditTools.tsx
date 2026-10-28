@@ -7,6 +7,7 @@ import { lockedIds } from "@/lib/annotations";
 import { stairWell } from "@/lib/buildTools";
 import { nearestWall, roomFromCorners, roomOutline } from "@/lib/venueOps";
 import { useBuild } from "@/state/build";
+import { t } from "@/i18n";
 import { fmtNum } from "@/lib/format";
 import type { ObjectChange } from "@/lib/venueDiff";
 import { useUi } from "@/state/ui";
@@ -14,7 +15,7 @@ import { bbox, centroid, exitRectAt, floorY } from "./geom";
 import type { ScenePalette } from "./palette";
 import { SceneHtml } from "./SceneHtml";
 
-export interface EditCallbacks {
+interface EditCallbacks {
   onMove: (id: string, dx: number, dy: number) => void;
 }
 
@@ -133,7 +134,7 @@ export function DraftPreview({ venue, exploded, palette, cursor }: {
         ))}
         {tool === "measure" && pts.length >= 2 && (
           <SceneHtml position={[last.x, last.y + 0.8, last.z]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
-            <div className="rounded-[3px] bg-ink px-1.5 py-0.5 text-2xs font-semibold text-plan tabular">{fmtNum(length, 1)} m</div>
+            <div className="rounded-[3px] bg-ink px-1.5 py-0.5 text-2xs font-semibold text-plan tabular">{t("units.n_m", { n: fmtNum(length, 1) })}</div>
           </SceneHtml>
         )}
       </group>

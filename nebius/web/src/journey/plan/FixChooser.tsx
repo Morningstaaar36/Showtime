@@ -1,4 +1,4 @@
-/** "What the AI suggests" (P3-03): every kept fix as a card with its own before/after test and
+/** "What the AI suggests": every kept fix as a card with its own before/after test and
  * where it came from. All are chosen by default; "Accept these changes" saves only the chosen
  * ones. A choice that is not every kept fix was never tested as a whole: accepting it simulates
  * the chosen ones together under the worst attack, and the card says where that stands. */
@@ -22,7 +22,7 @@ import type { PlanState } from "./state";
 
 const CONSTRUCTION = new Set(["add_exit", "add_obstacle", "add_barrier_line"]);
 
-export interface FixChooserProps {
+interface FixChooserProps {
   /** kept fixes, in the order the session kept them */
   kept: Fix[];
   selected: ReadonlySet<string>;
@@ -65,7 +65,7 @@ function TogetherStatus({ check, onRetry, busy }: { check: TogetherCheck | null 
 }
 
 /** What one fix changes, in plain words. */
-export function fixSummary(f: Fix, name: (id: string) => string): string {
+function fixSummary(f: Fix, name: (id: string) => string): string {
   const ops = (f.patch?.ops ?? []) as PatchOpIn[];
   return [
     ...ops.map((o) => describeOp(o as Record<string, unknown>, name)),
@@ -86,7 +86,7 @@ function clockOf(m: Record<string, number | null | undefined>): string {
 }
 
 /** One icon per kind of change: new door, fence, wider door, one-way, held back, stewards, staff. */
-export function fixIcon(f: Fix): React.ReactNode {
+function fixIcon(f: Fix): React.ReactNode {
   const ops = ((f.patch?.ops ?? []) as PatchOpIn[]).map((o) => o.op as string);
   const evs = ((f.operational ?? []) as { type?: string }[]).map((e) => e.type ?? "");
   if (ops.includes("add_exit") || ops.includes("add_door")) return <DoorOpen />;

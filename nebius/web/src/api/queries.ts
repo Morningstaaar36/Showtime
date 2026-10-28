@@ -63,8 +63,8 @@ export const useHealth = () =>
     retry: 1,
   });
 /** One attack from `make sandbox-proof`, as the sandbox reported it. */
-export interface SandboxProofRow { kind: "scenario" | "code"; name: string; label: string; static: string | null; inside: string | null; status: string; runtime_s: number; injected?: boolean }
-export interface SandboxProof { recorded_at: string; docker: string; image: string; command: string; rows: SandboxProofRow[] }
+interface SandboxProofRow { kind: "scenario" | "code"; name: string; label: string; static: string | null; inside: string | null; status: string; runtime_s: number; injected?: boolean }
+interface SandboxProof { recorded_at: string; docker: string; image: string; command: string; rows: SandboxProofRow[] }
 export const useImporters = () =>
   useQuery({ queryKey: ["importers"], queryFn: () => api.get<{ importers: ImportKind[] }>("/importers"), staleTime: Infinity });
 
@@ -136,7 +136,7 @@ export const useStageCheck = (projectId: string | undefined, key: string, enable
   useQuery({ queryKey: ["stage", projectId, key], enabled: !!projectId && enabled, staleTime: Infinity,
              queryFn: () => api.post<StageCheckResult>("/stage-check", { project_id: projectId }) });
 
-export interface CountdownInput {
+interface CountdownInput {
   run_id?: string | null;
   attack?: Attack | null;
   gust_ms?: number | null;
@@ -253,7 +253,7 @@ export function useTextEdit(id: string) {
   });
 }
 
-export interface RunInput {
+interface RunInput {
   project_id: string;
   tier: 2 | 3;
   seed?: number;
@@ -367,7 +367,7 @@ export function useDesignVenue() {
 
 /** A selected building or area on the map → venue preview (not saved yet). */
 /** POST /venues/from-map: a building becomes every storey it has; an area records its event. */
-export interface FromMapBody {
+interface FromMapBody {
   outline: [number, number][];
   mode: "indoor" | "outdoor";
   name: string;
@@ -376,7 +376,7 @@ export interface FromMapBody {
   levels?: number | null;
   use?: string | null;
   interior?: "open" | "rooms" | null;
-  /** the street and open ground around a building, in metres (G2-06) */
+  /** the street and open ground around a building, in metres */
   surroundings_m?: number | null;
   event_kind?: string | null;
 }
@@ -387,7 +387,7 @@ export function useVenueFromMap() {
   });
 }
 
-// --- Ask or change anything (N15) -----------------------------------------------------------
+// --- Ask or change anything -----------------------------------------------------------
 
 export type AskIntent = "edit" | "question" | "what_if" | "analyse" | "navigate" | "other";
 export type AskTarget = "report" | "expert" | "plan" | "check" | "work";
@@ -425,11 +425,11 @@ export function useAskAnything(projectId: string) {
   });
 }
 
-// --- Autopilot (N13): one request to a tested plan ----------------------------------------
+// --- Autopilot: one request to a tested plan ----------------------------------------
 
 import type { AutopilotRun } from "@/types/generated";
 
-export const autopilotKey = (id: string) => ["autopilot", id] as const;
+const autopilotKey = (id: string) => ["autopilot", id] as const;
 
 /** An Autopilot run, polled while it works (its event stream is the fast path). */
 export const useAutopilot = (id: string | null | undefined) =>
@@ -463,7 +463,7 @@ export function useStopAutopilot() {
   });
 }
 
-// --- Your plan: accept the chosen kept fixes (P3-03) ----------------------------------------
+// --- Your plan: accept the chosen kept fixes ----------------------------------------
 
 import type { ApplyOut } from "./types";
 
@@ -494,7 +494,7 @@ export function useApplyFixes(projectId: string) {
 // --- Crowd analyst and user scripts: code that runs in a sandbox ---------------------------
 
 /** What a code job printed and how it ended (CodeResult on the server). */
-export interface CodeRunOut {
+interface CodeRunOut {
   status: "ok" | "error" | "timeout";
   output: unknown;
   stdout_tail: string;
@@ -503,7 +503,7 @@ export interface CodeRunOut {
 }
 
 /** The analyst's answer: the code it wrote, what it computed, and a number-checked summary. */
-export interface AnalyseOut {
+interface AnalyseOut {
   answer: string;
   numbers_checked: boolean;
   status: "ok" | "error" | "timeout" | "rejected";
@@ -540,7 +540,7 @@ export interface UserScript {
 
 export interface UserScriptIn { name: string; kind: UserScriptKind; code: string; every_s: number }
 
-export type RunScriptOut =
+type RunScriptOut =
   | ({ kind: "analysis" } & CodeRunOut & { run_id: string; sandbox: string; at: string })
   | { kind: "scenario"; status: "started"; run_id: string; at: string; run: RunOut };
 
@@ -585,7 +585,7 @@ export function useRunScript(projectId: string) {
   });
 }
 
-// --- Rewind the worst moment and stress test at scale (SANDBOX_SCOPE ideas 3 and 4) ----------
+// --- Rewind the worst moment and stress test at scale ----------------------------------------
 
 import type { RewindRecord } from "@/journey/plan/rewind";
 import type { StressRecord } from "@/journey/plan/stress";
@@ -625,7 +625,7 @@ export function useStartStress(projectId: string) {
   });
 }
 
-// --- Seed check (S-09): the plan's key run with more seeds ------------------------------------
+// --- Seed check: the plan's key run with more seeds ------------------------------------
 
 import type { SeedCheck } from "./types";
 
@@ -647,7 +647,7 @@ export function useStartSeedCheck(sessionId: string | null) {
   });
 }
 
-// --- How sure the plan's numbers are (P2-04) -----------------------------------------------------
+// --- How sure the plan's numbers are -----------------------------------------------------
 import type { SensitivityRecord, TogetherCheck } from "@/journey/plan/range";
 import type { AppliedRecord } from "./types";
 
@@ -664,7 +664,7 @@ export function useStartSensitivity(sessionId: string | null | undefined) {
   });
 }
 
-export interface TogetherOut {
+interface TogetherOut {
   session_id: string;
   status: "none" | "not_started" | TogetherCheck["status"];
   record: AppliedRecord | null;
@@ -706,7 +706,7 @@ export interface AgentInfo {
   tools: string[];
 }
 
-export interface AgentsOut {
+interface AgentsOut {
   provider: string;
   agents: AgentInfo[];
   tools: Record<string, string>;

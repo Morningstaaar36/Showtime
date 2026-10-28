@@ -25,7 +25,7 @@ type Found =
   | { what: "obstacle"; item: Obstacle; floorId: string }
   | { what: "zone"; item: Zone; floorId: string };
 
-export function findObject(venue: Venue, id: string): Found | null {
+function findObject(venue: Venue, id: string): Found | null {
   for (const f of venue.floors) {
     const e = f.exits.find((x) => x.id === id);
     if (e) return { what: "exit", item: e, floorId: f.floor_id };
@@ -38,7 +38,7 @@ export function findObject(venue: Venue, id: string): Found | null {
 }
 
 /** Provenance from the scene contract when it describes this version, else from the venue. */
-export function annotationWithScene(venue: Venue, scene: SceneSnapshot | undefined, version: number, id: string): ObjectAnnotation {
+function annotationWithScene(venue: Venue, scene: SceneSnapshot | undefined, version: number, id: string): ObjectAnnotation {
   const a = annotationOf(venue, id);
   const fromScene = scene?.identity.venue_version === version ? scene.objects.find((o) => o.id === id)?.provenance : undefined;
   return fromScene ? { ...a, provenance: { ...fromScene, basis: fromScene.basis as Basis } } : a;
@@ -159,7 +159,7 @@ export function ObjectCard({ project, scene, selection }: { project: ProjectDeta
 
       {found.what === "exit" && (
         <>
-          <NumberInput id={`w-${id}`} label={t("check.width")} unit="m" step={0.5} min={0.6} value={found.item.width_m} disabled={off}
+          <NumberInput id={`w-${id}`} label={t("check.width")} unit={t("units.m")} step={0.5} min={0.6} value={found.item.width_m} disabled={off}
                        onCommit={(v) => submit([{ op: "resize", target: id, width_m: v } as never], t("check.msg_width", { name, w: fmtNum(v, 1) }))} />
           <div className="flex items-center justify-between gap-3 text-sm">
             <label htmlFor={`blk-${id}`}>{t("check.closed_in_plan")}</label>
@@ -334,7 +334,7 @@ export function VenueChecklist({ project, scene }: { project: ProjectDetail; sce
       </li>
     );
   };
-  const exits = floors.flatMap((f) => f.exits.map((e) => ({ kind: "exit" as const, id: e.id, floorId: f.floor_id, poly: e.polygon as number[][], detail: `${fmtNum(e.width_m, 1)} m`, blocked: !!e.blocked, dot: e.blocked ? "bg-danger" : "bg-egress" })));
+  const exits = floors.flatMap((f) => f.exits.map((e) => ({ kind: "exit" as const, id: e.id, floorId: f.floor_id, poly: e.polygon as number[][], detail: t("units.n_m", { n: fmtNum(e.width_m, 1) }), blocked: !!e.blocked, dot: e.blocked ? "bg-danger" : "bg-egress" })));
   const features = floors.flatMap((f) => f.obstacles.filter((o) => o.kind !== "wall").map((o) => ({
     kind: (o.kind === "stage" ? "stage" : "obstacle") as Selection["kind"], id: o.id, floorId: f.floor_id, poly: o.polygon as number[][],
     detail: kindName(o.kind), dot: o.kind === "stage" ? "bg-signal" : "bg-orange",

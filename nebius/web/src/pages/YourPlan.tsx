@@ -63,8 +63,8 @@ import { usePlayback } from "@/state/playback";
 import { useUi } from "@/state/ui";
 import { savedTestMode } from "@/journey/testModes";
 
-export const PLAN_TABS = ["overview", "replay", "scenarios", "sandboxes", "fixes", "floors", "handover"] as const;
-export type PlanTab = (typeof PLAN_TABS)[number];
+const PLAN_TABS = ["overview", "replay", "scenarios", "sandboxes", "fixes", "floors", "handover"] as const;
+type PlanTab = (typeof PLAN_TABS)[number];
 
 /** Showtime's planning targets for "everyone out" when no hazard time is known (api settings
  * `target_evac_indoor_s` / `target_evac_outdoor_s`); shown as targets, never as results. */

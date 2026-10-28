@@ -1,10 +1,10 @@
-/** Choosing among the tested fixes on Your plan (P3-03): where each one came from, which
+/** Choosing among the tested fixes on Your plan: where each one came from, which
  * earlier fixes it builds on, what its own test showed, and what "Accept these changes" sends. */
 import type { Fix, PatchOpIn } from "@/api/types";
 import { t } from "@/i18n";
 import { fmtDuration } from "@/lib/format";
 
-export type FixSource = "ai" | "rules";
+type FixSource = "ai" | "rules";
 
 /** Standard engineering responses are tagged by the rules; everything else is the AI's idea. */
 export function fixSource(fix: Fix): FixSource {
@@ -15,7 +15,7 @@ const CREATES = new Set(["add_exit", "add_obstacle", "add_barrier_line", "add_zo
 const REFS = ["target", "exit_id", "zone_id", "obstacle_id", "from_exit_id", "to_exit_id", "target_zone_id"] as const;
 
 /** Ids a fix brings into the plan: new exits, barriers and zones, and new staffed actions. */
-export function createdIds(fix: Fix): Set<string> {
+function createdIds(fix: Fix): Set<string> {
   const out = new Set<string>();
   for (const o of (fix.patch?.ops ?? []) as PatchOpIn[]) if (CREATES.has(o.op) && typeof o.id === "string") out.add(o.id);
   for (const id of Object.keys(fix.new_objects ?? {})) out.add(id);
@@ -24,7 +24,7 @@ export function createdIds(fix: Fix): Set<string> {
 }
 
 /** Ids a fix refers to, in its edits, measures and staffed actions. */
-export function referencedIds(fix: Fix): Set<string> {
+function referencedIds(fix: Fix): Set<string> {
   const out = new Set<string>();
   const add = (rec: Record<string, unknown> | null | undefined) => {
     for (const k of REFS) {

@@ -3,7 +3,7 @@ import { create } from "zustand";
 import type { GrabKind, Hit, PaletteItem } from "./dragDrop";
 
 /** Screen point to venue coordinates on a floor (the top floor under the pointer wins). */
-export type Picker = (clientX: number, clientY: number, floorId?: string) => Hit | null;
+type Picker = (clientX: number, clientY: number, floorId?: string) => Hit | null;
 
 export interface Grab {
   kind: GrabKind;

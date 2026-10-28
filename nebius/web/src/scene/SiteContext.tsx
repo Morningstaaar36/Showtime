@@ -8,7 +8,7 @@ import type { Pt, Venue } from "@/api/types";
 import { centroid, pointInPolygon, shapeOf, venueBounds } from "./geom";
 import type { ScenePalette } from "./palette";
 
-export interface OsmSite {
+interface OsmSite {
   origin: [number, number]; // lat0, lon0
   scale: [number, number]; // metres per degree lon, lat
   context?: { polygon: Pt[]; height_m: number; name?: string }[];

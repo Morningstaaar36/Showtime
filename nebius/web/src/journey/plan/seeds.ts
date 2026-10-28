@@ -1,4 +1,4 @@
-/** Words for the seed check (S-09): "95% out in 4 min 29 s – 4 min 42 s over 4 seeds". */
+/** Words for the seed check: "95% out in 4 min 29 s – 4 min 42 s over 4 seeds". */
 import type { SeedCheck, SeedSpread } from "@/api/types";
 import { t } from "@/i18n";
 import { fmtDuration, fmtInt, fmtNum } from "@/lib/format";

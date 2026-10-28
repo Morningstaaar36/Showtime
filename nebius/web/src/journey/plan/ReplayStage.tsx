@@ -23,7 +23,7 @@ function Scene({ venue, replay, clock, highlights }: { venue: Venue; replay: Rep
   );
 }
 
-export interface StageSide { venue: Venue; replay: Replay | null }
+interface StageSide { venue: Venue; replay: Replay | null }
 
 export function ReplayStage({ label, main, compare, markers, basis, chip, top, corner, legend, highlights, className }: {
   label: string;

@@ -4,13 +4,13 @@
 import type { Floor, Venue } from "@/api/types";
 import { floorsBottomUp, polygonArea } from "./geom";
 
-export interface LabelBudget { exits: number; zones: number; features: number }
+interface LabelBudget { exits: number; zones: number; features: number }
 
-export const LABEL_BUDGET: LabelBudget = { exits: 30, zones: 16, features: 10 };
+const LABEL_BUDGET: LabelBudget = { exits: 30, zones: 16, features: 10 };
 /** Below this many labelled objects nothing is dropped. */
-export const LABEL_DECLUTTER_FROM = 40;
+const LABEL_DECLUTTER_FROM = 40;
 /** Stacked views with this many floors label one floor at a time. */
-export const STACKED_FROM = 3;
+const STACKED_FROM = 3;
 
 const generic = (label: string | null | undefined) => /^building \d+$/i.test(label ?? "");
 

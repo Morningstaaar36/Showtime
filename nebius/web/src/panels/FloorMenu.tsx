@@ -14,24 +14,24 @@ import { Tip } from "@/components/ui/tooltip";
 import { t } from "@/i18n";
 import { fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { addFloorOp, floorLabels, floorsByElevation, nextFloorName, removeFloorOp, resolveEditFloor } from "@/lib/venueOps";
+import { addFloorOp, floorLevels, floorsByElevation, levelName, levelTag, nextFloorName, removeFloorOp, resolveEditFloor } from "@/lib/venueOps";
 import { useVenueEdit } from "@/journey/useVenueEdit";
 import { useUi } from "@/state/ui";
 
-/** "Mezzanine", else "Ground floor", "1st floor", "B1". */
+/** "Mezzanine", else "Ground floor", "Floor 1", "Basement 1". */
 export function floorNamer(venue: Venue): (floorId: string) => string {
-  const labels = floorLabels(venue);
+  const levels = floorLevels(venue);
   const names = new Map(venue.floors.map((f) => [f.floor_id, f.name?.trim() || ""]));
   return (id) => {
     const name = names.get(id);
     if (name) return name;
-    const l = labels.get(id) ?? id;
-    return l === "Ground" ? t("editor.floor.ground") : l.startsWith("B") ? l : `${l} floor`;
+    const level = levels.get(id);
+    return level === undefined ? id : levelName(level);
   };
 }
 
 /** Make `floorId` the floor the tools act on, and show it alone when there are several. */
-export function editOnFloor(venue: Venue, floorId: string): void {
+function editOnFloor(venue: Venue, floorId: string): void {
   const ui = useUi.getState();
   ui.setEditFloor(floorId);
   if (venue.floors.length > 1) ui.setFloorView(floorId);
@@ -61,7 +61,7 @@ function useFloorActions(project: ProjectDetail) {
   };
 }
 
-export function AddFloorDialog({ venue, open, onOpenChange, pending, onAdd }: {
+function AddFloorDialog({ venue, open, onOpenChange, pending, onAdd }: {
   venue: Venue; open: boolean; onOpenChange: (v: boolean) => void; pending: boolean;
   onAdd: (opts: { name: string; height_m: number; copy_walls: boolean }) => void;
 }) {
@@ -88,7 +88,7 @@ export function AddFloorDialog({ venue, open, onOpenChange, pending, onAdd }: {
             <div className="flex items-center gap-2">
               <Input id="floor-height" type="number" inputMode="decimal" min={2} max={20} step={0.5} value={height}
                      onChange={(e) => setHeight(e.target.value)} className="h-11 w-28 text-base" aria-invalid={!ok} />
-              <span className="text-sm text-muted">m</span>
+              <span className="text-sm text-muted">{t("units.m")}</span>
             </div>
           </div>
           <div className="flex items-center justify-between gap-3 rounded-[10px] bg-surface-2 p-3">
@@ -114,7 +114,8 @@ export function FloorPicker({ project }: { project: ProjectDetail }) {
   const editFloor = useUi((s) => s.editFloor);
   const current = resolveEditFloor(venue, editFloor);
   const name = useMemo(() => floorNamer(venue), [venue]);
-  const short = floorLabels(venue).get(current) ?? "";
+  const level = floorLevels(venue).get(current);
+  const short = level === undefined ? "" : levelTag(level);
   const actions = useFloorActions(project);
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -130,7 +131,7 @@ export function FloorPicker({ project }: { project: ProjectDetail }) {
                     className="grid size-10 place-items-center rounded-[var(--radius-control)] text-muted hover:bg-surface-2 hover:text-ink">
               <span className="flex flex-col items-center leading-none">
                 <Layers3 className="size-[16px]" aria-hidden />
-                <span className="mt-0.5 max-w-9 truncate text-[10px] font-semibold tabular">{short === t("ui.floormenu.ground") ? "G" : short}</span>
+                <span className="mt-0.5 max-w-9 truncate text-[10px] font-semibold tabular">{short}</span>
               </span>
             </button>
           </PopoverTrigger>

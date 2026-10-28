@@ -1,4 +1,4 @@
-/** "Ask or change anything" (N15): one box for the whole journey. The server sorts the sentence
+/** "Ask or change anything": one box for the whole journey. The server sorts the sentence
  * (the AI, else keywords): an edit is previewed in 3D and saved only with Apply, a question is
  * answered from the run's numbers, a what-if shows instant estimates computed in code, an
  * analysis shows what code run in a sandbox computed (and the code), and a request for a screen
@@ -16,7 +16,7 @@ import { AnalysisCard } from "./AnalysisCard";
 import { AskInput, EditProposal, type ProposalPreview, useEditPreview } from "./AskChange";
 import { type AskError, askError, cappedNote, intentMeta, navAction, retryWithExit, whatIfChips, whatIfRows } from "./askModel";
 
-export interface AskAnythingProps {
+interface AskAnythingProps {
   project: ProjectDetail;
   /** The screen the box is on: the venue check or Your plan. */
   context: AskScreen;

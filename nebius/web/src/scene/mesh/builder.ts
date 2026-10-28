@@ -116,11 +116,6 @@ export class MeshBuilder {
   }
 }
 
-/** Triangle count of a geometry (indexed or not). */
-export function triangleCount(g: THREE.BufferGeometry): number {
-  return (g.index ? g.index.count : g.getAttribute("position")?.count ?? 0) / 3;
-}
-
 /** Drop zero-area triangles (a triangulator's slivers between collinear points) from a
  * non-indexed geometry, so every normal is a unit vector. Returns the same geometry. */
 export function dropSlivers(g: THREE.BufferGeometry): THREE.BufferGeometry {

@@ -28,7 +28,7 @@ export const DEFAULT_BUILD_OPTIONS: BuildOptions = {
   stairDirection: "north", stairWidth: 1.5, stairRun: 6, routeWidth: null, routeLabel: "",
 };
 
-export type ErrorKey =
+type ErrorKey =
   | "door_no_wall" | "door_outer_wall" | "door_wall_short" | "room_too_small" | "room_door_wide"
   | "stair_needs_floor" | "route_short" | "wall_short";
 

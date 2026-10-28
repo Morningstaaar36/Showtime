@@ -7,9 +7,9 @@ export type Mode = "plan" | "simulate" | "redteam" | "report";
 export type Tool = "select" | "exit" | "barrier" | "zone" | "block" | "measure" | BuildTool;
 /** Building-editor tools (feat/editor): they act on `editFloor`. */
 export type BuildTool = "wall" | "door" | "room" | "stair" | "route";
-export const BUILD_TOOLS: readonly BuildTool[] = ["wall", "door", "room", "stair", "route"];
+const BUILD_TOOLS: readonly BuildTool[] = ["wall", "door", "room", "stair", "route"];
 export const isBuildTool = (t: Tool): t is BuildTool => (BUILD_TOOLS as readonly Tool[]).includes(t);
-export type Theme = "light" | "dark" | "system";
+type Theme = "light" | "dark" | "system";
 
 export interface Selection {
   kind: "obstacle" | "exit" | "zone" | "stair" | "hotspot" | "stage";
@@ -21,14 +21,14 @@ export interface Selection {
 
 /** Which floors the 3D view shows: all stacked, spread apart, or one floor in focus (its id) with
  * the others ghosted. "auto" focuses the lowest floor of a tall building, else shows all. */
-export type FloorView = "auto" | "all" | "exploded" | (string & {});
+type FloorView = "auto" | "all" | "exploded" | (string & {});
 
 export interface Layers {
   people: boolean;
   heatmap: boolean;
   terrain: boolean;
   labels: boolean;
-  /** kept in step with `floorView === "exploded"` for older readers; set the floor view instead */
+  /** mirrors `floorView === "exploded"` for the scene parts that read it; set the floor view instead */
   exploded: boolean;
   zones: boolean;
   grid: boolean;

@@ -10,12 +10,12 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-export type JourneyStep = "describe" | "work" | "plan";
+type JourneyStep = "describe" | "work" | "plan";
 const STEPS: JourneyStep[] = ["describe", "work", "plan"];
 /** Each step has its own colour so the journey reads at a glance. */
 const STEP_TONE: Record<JourneyStep, string> = { describe: "bg-sky-strong text-on-strong", work: "bg-signal text-signal-ink", plan: "bg-egress-strong text-on-strong" };
 
-export function StepIndicator({ step, projectId }: { step: JourneyStep; projectId?: string }) {
+function StepIndicator({ step, projectId }: { step: JourneyStep; projectId?: string }) {
   const at = STEPS.indexOf(step);
   const href = (s: JourneyStep) => !projectId ? "/" : s === "describe" ? `/p/${projectId}/describe` : s === "work" ? `/p/${projectId}/work` : `/p/${projectId}`;
   return (

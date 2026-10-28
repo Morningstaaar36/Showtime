@@ -39,12 +39,12 @@ export function EstimatesPanel({ project }: { project: ProjectDetail }) {
           <span className="text-muted">{t("ui.estimatespanel.open_for")}</span>
           <select className="h-7 rounded-[var(--radius-control)] border border-border bg-surface px-1.5 tabular"
                   value={est.event.duration_h}
-                  onChange={(e) => setEvent({ duration_h: Number(e.target.value) }, `Event open ${e.target.value} h`)}>
-            {[...new Set([...HOURS, est.event.duration_h])].sort((a, b) => a - b).map((h) => <option key={h} value={h}>{h} h</option>)}
+                  onChange={(e) => setEvent({ duration_h: Number(e.target.value) }, t("ui.estimatespanel.event_open", { h: e.target.value }))}>
+            {[...new Set([...HOURS, est.event.duration_h])].sort((a, b) => a - b).map((h) => <option key={h} value={h}>{t("units.n_h", { n: h })}</option>)}
           </select>
         </label>
         <label className="inline-flex items-center gap-1.5">
-          <Switch checked={!!est.event.alcohol} onCheckedChange={(v) => setEvent({ alcohol: v }, v ? "Alcohol served" : "No alcohol")} aria-label={t("ui.estimatespanel.alcohol_served")} />
+          <Switch checked={!!est.event.alcohol} onCheckedChange={(v) => setEvent({ alcohol: v }, t(v ? "ui.estimatespanel.alcohol_served" : "ui.estimatespanel.no_alcohol"))} aria-label={t("ui.estimatespanel.alcohol_served")} />
           <span>{t("ui.estimatespanel.alcohol")}</span>
         </label>
         <div className="inline-flex rounded-[var(--radius-control)] border border-border p-0.5">

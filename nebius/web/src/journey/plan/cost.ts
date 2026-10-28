@@ -1,9 +1,9 @@
-/** "How this plan was made" (N16): the session's measured cost record in organizer words. */
+/** "How this plan was made": the session's measured cost record in organizer words. */
 import { t } from "@/i18n";
 import type { CostRecord } from "@/lib/evidence";
 import { fmtDuration, fmtInt, fmtMoney, fmtTokens } from "@/lib/format";
 
-export interface CostView {
+interface CostView {
   /** AI model cost; free and local models are "$0.00" */
   total: string;
   free: boolean;

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { CROWD_PEOPLE, DOOR_WIDTH, type Hit, type PaletteItem } from "./dragDrop";
 import { type Grab, useDrag } from "./dragStore";
 
-export const PALETTE: { item: PaletteItem; icon: React.ReactNode; tone: string }[] = [
+const PALETTE: { item: PaletteItem; icon: React.ReactNode; tone: string }[] = [
   { item: "door", icon: <DoorOpen />, tone: "bg-emerald-500" },
   { item: "fence", icon: <Fence />, tone: "bg-amber-500" },
   { item: "crowd", icon: <Users />, tone: "bg-sky-500" },

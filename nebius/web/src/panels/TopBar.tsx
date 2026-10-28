@@ -89,7 +89,7 @@ function VersionMenu({ project }: { project: ProjectDetail }) {
       <PopoverTrigger asChild>
         <button type="button" className="inline-flex items-center gap-1 rounded-[var(--radius-control)] px-1.5 py-0.5 text-muted hover:bg-surface-2 hover:text-ink">
           <span className="truncate">{project.venue_name}</span>
-          <span className="tabular">v{project.current_version}</span>
+          <span className="tabular">{t("common.version_short", { n: project.current_version })}</span>
           <ChevronDown className="size-3.5" />
         </button>
       </PopoverTrigger>
@@ -99,7 +99,7 @@ function VersionMenu({ project }: { project: ProjectDetail }) {
           <ul className="py-1">
             {(versions.data ?? []).map((v) => (
               <li key={v.version} className="group flex items-start gap-2 px-4 py-2 hover:bg-surface-2">
-                <span className="mt-0.5 w-8 shrink-0 text-xs font-semibold text-muted tabular">v{v.version}</span>
+                <span className="mt-0.5 w-8 shrink-0 text-xs font-semibold text-muted tabular">{t("common.version_short", { n: v.version })}</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">{v.message || t("ui.topbar.edited")}</p>
                   <p className="text-xs text-muted">{v.author === "agent" ? t("ui.topbar.ai_edit") : v.author === "system" ? t("ui.topbar.system") : t("ui.topbar.you")} · {fmtRelative(v.created_at)}</p>

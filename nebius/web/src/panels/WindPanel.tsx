@@ -50,16 +50,16 @@ export function WindPanel({ data, eventStart }: { data: CountdownOut | undefined
               <XAxis dataKey="t" tick={{ fontSize: 10, fill: "var(--muted)" }} stroke="var(--border)"
                      interval={rows.length > 30 ? 11 : 2} tickFormatter={(v: string) => v.slice(11, 16)} />
               <YAxis tick={{ fontSize: 10, fill: "var(--muted)" }} width={30} stroke="var(--border)" domain={[0, Math.ceil(Math.max(peak, limit) + 3)]} />
-              <Tooltip formatter={(v) => [`${fmtNum(Number(v), 1)} m/s`, "Gust"]} labelFormatter={(v) => String(v).replace("T", " ")}
+              <Tooltip formatter={(v) => [t("units.n_ms", { n: fmtNum(Number(v), 1) }), t("ui.windpanel.gust")]} labelFormatter={(v) => String(v).replace("T", " ")}
                        contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
               <Area dataKey="g" type="monotone" stroke="none" fill="url(#gust)" isAnimationActive={false} />
               <Line dataKey="g" type="monotone" stroke="var(--signal)" strokeWidth={1.8} dot={false} isAnimationActive={false} />
               {limit > 0 && <ReferenceLine y={limit} stroke="var(--danger)" strokeDasharray="5 3"
-                                           label={{ value: `stage limit ${fmtNum(limit, 1)}`, fontSize: 10, fill: "var(--danger)", position: "insideTopLeft" }} />}
+                                           label={{ value: t("ui.windpanel.stage_limit", { v: fmtNum(limit, 1) }), fontSize: 10, fill: "var(--danger)", position: "insideTopLeft" }} />}
               {start && <ReferenceLine x={start} stroke="var(--ink)" strokeDasharray="2 2"
-                                       label={{ value: "gates", fontSize: 10, fill: "var(--muted)", position: "insideTop" }} />}
+                                       label={{ value: t("ui.windpanel.gates_line"), fontSize: 10, fill: "var(--muted)", position: "insideTop" }} />}
               {latest && <ReferenceLine x={hourKey(cd?.t_latest_iso) ?? undefined} stroke="var(--egress)" strokeWidth={2}
-                                        label={{ value: "evacuate", fontSize: 10, fill: "var(--egress)", position: "insideBottom" }} />}
+                                        label={{ value: t("ui.windpanel.evacuate_line"), fontSize: 10, fill: "var(--egress)", position: "insideBottom" }} />}
             </ComposedChart>
           </ResponsiveContainer>
         </div>

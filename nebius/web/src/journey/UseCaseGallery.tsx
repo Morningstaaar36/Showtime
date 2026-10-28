@@ -7,31 +7,41 @@ import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { RealCaseRow } from "./RealCases";
 
-export interface UseCase {
+interface UseCase {
   id: string;
   icon: React.ReactNode;
   /** tile background: soft decorative tokens only (safety colours carry meaning elsewhere) */
   tone: string;
-  /** a sample project to open, matched by name */
-  sample?: RegExp;
   floors?: number;
 }
 
-export const USE_CASES: UseCase[] = [
-  { id: "concert", icon: <Music />, tone: "from-pink-soft to-orange-soft text-pink", sample: /festival|wellington/i },
-  { id: "hospital", icon: <Hospital />, tone: "from-sky-soft to-signal-soft text-sky-strong", sample: /riverside|ward block/i, floors: 4 },
+const USE_CASES: UseCase[] = [
+  { id: "concert", icon: <Music />, tone: "from-pink-soft to-orange-soft text-pink" },
+  { id: "hospital", icon: <Hospital />, tone: "from-sky-soft to-signal-soft text-sky-strong", floors: 4 },
   { id: "school", icon: <School />, tone: "from-orange-soft to-pink-soft text-orange", floors: 3 },
   { id: "stadium", icon: <Trophy />, tone: "from-teal-soft to-sky-soft text-teal" },
   { id: "pandal", icon: <Landmark />, tone: "from-orange-soft to-signal-soft text-orange" },
   { id: "mall", icon: <ShoppingBag />, tone: "from-signal-soft to-pink-soft text-signal", floors: 4 },
   { id: "nightclub", icon: <Disc3 />, tone: "from-signal-soft to-sky-soft text-signal" },
-  { id: "parade", icon: <Flag />, tone: "from-pink-soft to-signal-soft text-pink", sample: /halloween|alley/i },
-  { id: "conference", icon: <Presentation />, tone: "from-sky-soft to-teal-soft text-sky-strong", sample: /summit|two-floor/i, floors: 2 },
+  { id: "parade", icon: <Flag />, tone: "from-pink-soft to-signal-soft text-pink" },
+  { id: "conference", icon: <Presentation />, tone: "from-sky-soft to-teal-soft text-sky-strong", floors: 2 },
 ];
 
-export function sampleFor(uc: UseCase, projects: ProjectSummary[] | undefined): ProjectSummary | undefined {
-  if (!uc.sample) return undefined;
-  return (projects ?? []).find((p) => p.sample && uc.sample!.test(p.name));
+/** The sample project each tile opens. A sample built from a template carries the template's id
+ * (ProjectSummary.template_id), so that is what we match. The hospital sample was not built from
+ * a template and the server tags samples with nothing else, so it is still found by its name
+ * (the packs in cache/demos); rename that sample and this pattern must follow. */
+const SAMPLE_OF: Record<string, { template: string } | { name: RegExp }> = {
+  concert: { template: "festival_field" },
+  hospital: { name: /riverside|ward block/i },
+  parade: { template: "t_alley" },
+  conference: { template: "conference_hall_2f" },
+};
+
+function sampleFor(uc: UseCase, projects: ProjectSummary[] | undefined): ProjectSummary | undefined {
+  const match = SAMPLE_OF[uc.id];
+  if (!match) return undefined;
+  return (projects ?? []).find((p) => p.sample && ("template" in match ? p.template_id === match.template : match.name.test(p.name)));
 }
 
 export function UseCaseGallery({ projects, onSample, onDescribe }: {

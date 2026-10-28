@@ -99,7 +99,7 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay, danger = 5 
 let catalogueMissing = false;
 
 /** One entry of the catalogue (novelty API): `icon` is a lucide icon name. */
-export interface CatalogueItem {
+interface CatalogueItem {
   id: string;
   title: string;
   description?: string;
@@ -110,7 +110,7 @@ export interface CatalogueItem {
   applicable?: boolean;
 }
 
-export interface SweepItem {
+interface SweepItem {
   key: string; label: string; run_id: string | null; status?: string; progress?: number | null; skipped?: string;
   title?: string; icon?: string; category?: string; targets?: unknown[];
   metrics?: { evac_time_p95_s: number | null; peak_density_ppm2: number; time_above_danger_s: number; agents_not_evacuated: number; agents_total: number };
@@ -130,7 +130,7 @@ const NAMED: Record<string, React.ReactNode> = {
   arrowupdown: <ArrowUpDown />, cloudfog: <CloudFog />, layers: <Layers />, circlecheck: <CircleCheck />, userplus: <UserPlus />, doorclosedlocked: <DoorClosedLocked />, cloudrainwind: <CloudRainWind />,
   swords: <Swords />, baby: <Baby />, car: <Car />, bomb: <Bomb />, music: <Music />, partypopper: <PartyPopper />,
 };
-export const namedIcon = (name: string | null | undefined): React.ReactNode =>
+const namedIcon = (name: string | null | undefined): React.ReactNode =>
   NAMED[(name ?? "").toLowerCase().replace(/[^a-z0-9]/g, "")] ?? <TriangleAlert />;
 
 const busy = (it: SweepItem) => it.status === "running" || it.status === "queued";
@@ -272,7 +272,7 @@ export function ScenarioCatalogue({ projectId, version, onPlay, danger = 5 }: {
 
 // --- deeper checks ----------------------------------------------------------------------------
 
-export type CheckKey = "seeds" | "range" | "rewind" | "stress";
+type CheckKey = "seeds" | "range" | "rewind" | "stress";
 
 const CHECK_ICON: Record<CheckKey, React.ReactNode> = { seeds: <Dices />, range: <Gauge />, rewind: <History />, stress: <Layers /> };
 

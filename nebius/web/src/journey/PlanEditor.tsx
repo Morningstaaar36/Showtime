@@ -125,7 +125,7 @@ function ActionEditor({ snapshot, onApplied }: { snapshot: PlanSnapshot; onAppli
   const exits = snapshot.venue.floors.flatMap((f) => f.exits);
   const zones = snapshot.venue.floors.flatMap((f) => f.zones);
   const targets = type === "staggered_release" ? zones : exits;
-  const bundle = (action?: PlanAction, remove?: string): PlanBundle => ({ expected_version: snapshot.version, patch: { schema_version: 1, ops: [] }, actions: action && !editing ? [action] : [], replace_actions: action && editing ? [action] : [], remove_action_ids: remove ? [remove] : [], new_objects: {}, message: remove ? `Remove ${remove}` : `Save operational action ${id}`, source: "user" } as PlanBundle);
+  const bundle = (action?: PlanAction, remove?: string): PlanBundle => ({ expected_version: snapshot.version, patch: { schema_version: 1, ops: [] }, actions: action && !editing ? [action] : [], replace_actions: action && editing ? [action] : [], remove_action_ids: remove ? [remove] : [], new_objects: {}, message: remove ? t("ui.planeditor.msg_remove", { id: remove }) : t("ui.planeditor.msg_save", { id }), source: "user" } as PlanBundle);
   const load = (action: PlanAction) => {
     const ev = action.event as Record<string, unknown> | null;
     setEditing(action.action_id); setId(action.action_id); setLabel(action.label);
@@ -177,8 +177,8 @@ function ActionEditor({ snapshot, onApplied }: { snapshot: PlanSnapshot; onAppli
   </section>;
 }
 
-export function ActionDetails({ action }: { action: PlanAction }) {
-  return <div className="space-y-1 text-sm"><p className="font-medium">{action.label || action.action_id}</p><p>{action.action_id} · {action.event?.type ?? t("ui.planeditor.checklist_only")} · {action.start_s}–{action.end_s} s</p>
+function ActionDetails({ action }: { action: PlanAction }) {
+  return <div className="space-y-1 text-sm"><p className="font-medium">{action.label || action.action_id}</p><p>{action.action_id} · {action.event?.type ?? t("ui.planeditor.checklist_only")} · {action.start_s}–{t("units.n_s", { n: action.end_s })}</p>
     <p>{t("ui.planeditor.resources_line", { list: action.resources.map((r) => `${r.quantity} ${r.resource_id}`).join(", ") || t("ui.planeditor.none_allocated") })}</p>
     {action.depends_on.length > 0 && <p>{t("ui.planeditor.after_line", { list: action.depends_on.join(", ") })}</p>}
     {action.required_approvals.length > 0 && <p>{t("ui.planeditor.permissions_line", { list: action.required_approvals.join(", ") })}</p>}

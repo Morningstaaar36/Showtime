@@ -11,7 +11,7 @@ import { SceneHtml } from "./SceneHtml";
 type Route = NonNullable<Venue["routes"]>[number];
 
 /** Chevron spacing: about 40 along the route, never closer than 2 m. */
-export const chevronSpacing = (length: number): number => Math.max(2, length / 40);
+const chevronSpacing = (length: number): number => Math.max(2, length / 40);
 
 const CHEVRON = (() => {
   const s = new THREE.Shape();

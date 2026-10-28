@@ -1,4 +1,4 @@
-/** "Check with more seeds" on Your plan (S-09): repeats the run the verdict rests on with other
+/** "Check with more seeds" on Your plan: repeats the run the verdict rests on with other
  * random crowds and shows the range, with each run's basis. */
 import { Dices } from "lucide-react";
 import { useState } from "react";

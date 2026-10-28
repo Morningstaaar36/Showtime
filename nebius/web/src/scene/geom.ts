@@ -105,7 +105,7 @@ export function edgesOf(poly: Pt[] | number[][]): Edge[] {
   return out;
 }
 
-export interface Doorway {
+interface Doorway {
   edge: Edge;
   /** centre of the opening on the wall line */
   cx: number;
@@ -191,7 +191,7 @@ export function floorBounds(v: Venue, floorId: string): [number, number, number,
 
 // --- stairs ----------------------------------------------------------------------------------
 
-export interface StairRun {
+interface StairRun {
   /** foot of the stair (lower floor) and head (upper floor), venue metres */
   bx: number;
   by: number;

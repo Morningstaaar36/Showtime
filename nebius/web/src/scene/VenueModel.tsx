@@ -6,7 +6,7 @@ import * as THREE from "three";
 import type { Exit, Floor, Obstacle, Pt, StageParams, Stair, Venue, Zone } from "@/api/types";
 import { isProposed, lockedIds } from "@/lib/annotations";
 import { fmtInt, fmtNum } from "@/lib/format";
-import { floorLabels } from "@/lib/venueOps";
+import { floorLevels, levelName } from "@/lib/venueOps";
 import { exitName } from "@/lib/venueText";
 import {
   bbox,
@@ -37,7 +37,7 @@ import { RouteLayer } from "./RouteLayer";
 import { SceneHtml } from "./SceneHtml";
 import { t } from "@/i18n";
 
-export interface ModelHandlers {
+interface ModelHandlers {
   onExitClick?: (exit: Exit, floor: Floor, e: ThreeEvent<MouseEvent>) => void;
   onObjectClick?: (kind: "obstacle" | "zone" | "stair" | "stage", id: string, floor: Floor, e: ThreeEvent<MouseEvent>) => void;
   onFloorClick?: (floor: Floor, x: number, y: number, e: ThreeEvent<MouseEvent>) => void;
@@ -311,7 +311,7 @@ function ObstacleMesh({ obstacle, palette, selected, labels, proposed, locked, l
       {showLabel && (
         <SceneHtml position={[cx, h + 0.4, -cy]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs font-medium text-muted shadow-sm">
-            {obstacle.label ?? obstacle.id}{proposed ? " · proposed" : ""}{locked ? " · locked" : ""}
+            {[obstacle.label ?? obstacle.id, proposed && t("ui.venuemodel.tag_proposed"), locked && t("ui.venuemodel.tag_locked")].filter(Boolean).join(" · ")}
           </div>
         </SceneHtml>
       )}
@@ -502,7 +502,8 @@ function ExitGate({ exit, floor, palette, outdoor, blocked, selected, proposed, 
       {labels && (
         <SceneHtml position={[0, h + 0.7, 0]} center zIndexRange={[30, 0]} style={{ pointerEvents: "none" }}>
           <div className={`whitespace-nowrap rounded-[3px] px-1.5 py-0.5 text-2xs font-semibold shadow-sm tabular ${blocked ? "bg-danger-strong text-on-strong" : "bg-egress-strong text-on-strong"}`}>
-            {exitName(floor, exit)} · {fmtNum(exit.width_m, 1)} m{blocked ? " · blocked" : ""}{proposed ? " · proposed" : ""}{locked ? " · locked" : ""}
+            {[t("ui.venuemodel.exit_tag", { name: exitName(floor, exit), w: fmtNum(exit.width_m, 1) }), blocked && t("ui.venuemodel.tag_blocked"),
+              proposed && t("ui.venuemodel.tag_proposed"), locked && t("ui.venuemodel.tag_locked")].filter(Boolean).join(" · ")}
           </div>
         </SceneHtml>
       )}
@@ -632,7 +633,7 @@ function StairStub({ stair, floor, y, palette, selected, labels, goesDown, onCli
       {labels && (
         <SceneHtml position={[cx, 1.0, -cy]} center zIndexRange={[15, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-[3px] bg-surface/90 px-1.5 py-0.5 text-2xs text-muted shadow-sm">
-            {goesDown ? t("ui.venuemodel.stairs_down") : t("ui.venuemodel.stairs_up")} · {fmtNum(stair.width_m, 1)} m
+            {goesDown ? t("ui.venuemodel.stairs_down") : t("ui.venuemodel.stairs_up")} · {t("units.n_m", { n: fmtNum(stair.width_m, 1) })}
           </div>
         </SceneHtml>
       )}
@@ -640,12 +641,11 @@ function StairStub({ stair, floor, y, palette, selected, labels, goesDown, onCli
   );
 }
 
-/** "2nd floor · 120" (the floor's name, else Ground / 1st / B1), for tags next to each storey. */
+/** "Floor 2 · 120" (the floor's own name first), for tags next to each storey. */
 function floorTags(venue: Venue): Map<string, string> {
-  const labels = floorLabels(venue);
+  const levels = floorLevels(venue);
   return new Map(venue.floors.map((f) => {
-    const l = labels.get(f.floor_id) ?? f.floor_id;
-    const name = f.name?.trim() || (l === "Ground" ? "Ground floor" : l.startsWith("B") ? l : `${l} floor`);
+    const name = f.name?.trim() || levelName(levels.get(f.floor_id) ?? 0);
     return [f.floor_id, `${name} · ${fmtInt(f.zones.reduce((n, z) => n + z.people, 0))}`];
   }));
 }

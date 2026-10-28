@@ -1,23 +1,10 @@
-/** Does a result still describe the current complete plan? Use the backend plan_hash,
- * covering geometry, saved actions, constraints, and environmental inputs. */
-
 import { t } from "@/i18n";
-
-export type Freshness =
-  /** results are for the venue as it is now, before the AI's changes */
-  | "current_before"
-  /** results are for the venue as it is now, with the AI's changes accepted */
-  | "current_after"
-  /** the venue changed since: results describe an earlier version */
-  | "stale"
-  /** nothing tested yet */
-  | "none";
 
 /** What kind of evidence a run result is (backend `RunResult.basis`, from `result_basis`). */
 export type ResultBasis = "instant_estimate" | "partial_simulation" | "completed_simulation" | "preview" | "unknown";
 
 /** What a session's results show, separate from whether the session finished. */
-export type EvaluationStatus = "confirmed" | "partially_confirmed" | "unconfirmed" | "failed";
+type EvaluationStatus = "confirmed" | "partially_confirmed" | "unconfirmed" | "failed";
 
 /** `summary.evaluation` of a red-team session. `*_basis` and `*_run_id` describe the
  * confirmation runs attempted; `fallback_run_ids` names the instant estimates shown in place
@@ -33,7 +20,7 @@ export interface Evaluation {
   fallback_run_ids?: Partial<Record<"baseline" | "before" | "after", string>>;
 }
 
-export interface CostBucket {
+interface CostBucket {
   calls: number;
   tokens_in: number;
   tokens_out: number;
@@ -115,14 +102,6 @@ export function evaluationLabel(evaluation: { status?: string | null; before_bas
   }
   if (status === "confirmed" || status === "partially_confirmed" || status === "failed") return t(`evidence.evaluation.${status}`);
   return t("evidence.evaluation.unconfirmed");
-}
-
-export function planFreshness(input: { currentHash: string | null | undefined; testedHash: string | null | undefined; fixedHash?: string | null }): Freshness {
-  const { currentHash, testedHash, fixedHash } = input;
-  if (!testedHash || !currentHash) return "none";
-  if (currentHash === testedHash) return "current_before";
-  if (fixedHash && currentHash === fixedHash) return "current_after";
-  return "stale";
 }
 
 /** One line that says why the verdict badge reads as it does ("Not confirmed" because…), from the

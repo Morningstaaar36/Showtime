@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Attack, Fix } from "@/api/types";
 import type { RunInfo, TreeNode } from "@/api/useSessionStream";
 import { Trajectory, type TrajIndex } from "@/replay/trajectory";
-import { captionAt, eventCaption, firstRow, peoplePerFloor, scenarioMarkers, scenarioRows } from "./scenarios";
+import { captionAt, eventCaption, peoplePerFloor, scenarioMarkers, scenarioRows } from "./scenarios";
 
 const node = (node_id: string, kind: TreeNode["kind"], extra: Partial<TreeNode> = {}): TreeNode =>
   ({ node_id, kind, parent_id: null, label: node_id, run_id: `r_${node_id}`, status: "ok", ...extra });
@@ -39,10 +39,6 @@ describe("tested scenarios", () => {
     expect(rows[1]).toMatchObject({ outcome: "break", evacS: 400, runId: "r_atk:A1" });
     expect(rows[3].outcome).toBe("unknown");
     expect(rows[5].outcome).toBe("running");
-  });
-  it("opens on the worst attack", () => {
-    expect(firstRow(rows, "A1")?.key).toBe("atk:A1");
-    expect(firstRow(rows, null)?.key).toBe("baseline");
   });
 });
 

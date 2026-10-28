@@ -5,16 +5,9 @@ import { ApiError } from "@/api/client";
 import { useTextEdit } from "@/api/queries";
 import type { EditOut } from "@/api/types";
 import { Kbd, Spinner } from "@/components/ui/misc";
-import { t } from "@/i18n";
+import { t, tItems } from "@/i18n";
 import { isTypingTarget } from "@/lib/keyboard";
 import { UNDO_TOAST_ID } from "@/lib/utils";
-
-const EXAMPLES = [
-  "Move the stage 5 m back",
-  "Add a 3 m exit on the east wall",
-  "Set the audience to 800 people",
-  "Block the south-west gate",
-];
 
 /** "Edit by text": the Venue agent turns a sentence into an edit; Undo is one click away. */
 export function CommandBar({ projectId, onUndo }: { projectId: string; onUndo: () => void }) {
@@ -76,7 +69,7 @@ export function CommandBar({ projectId, onUndo }: { projectId: string; onUndo: (
       </form>
       {focused && !text && !edit.isPending && (
         <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-          {EXAMPLES.map((x) => (
+          {tItems("ui.commandbar.examples").map(({ text: x }) => (
             <button key={x} type="button" onClick={() => setText(x)}
                     className="rounded-full border border-border bg-surface/90 px-2.5 py-1 text-xs text-muted shadow-sm backdrop-blur hover:border-border-strong hover:text-ink">
               {x}

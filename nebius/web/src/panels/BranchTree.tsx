@@ -8,8 +8,6 @@ import { t } from "@/i18n";
 
 type FlowData = { node: TreeNode; active: boolean; human: (text: string) => string };
 
-const KIND_LABEL: Record<TreeNode["kind"], string> = { baseline: "Baseline", attack: "Attack", fix: "Fix", final: "Confirmed" };
-
 function BranchCard({ data }: NodeProps<Node<FlowData>>) {
   const n = data.node;
   const tone = n.status === "break" ? "border-l-danger" : n.status === "ok" ? (n.kind === "fix" && n.accepted ? "border-l-egress" : "border-l-egress")
@@ -20,7 +18,7 @@ function BranchCard({ data }: NodeProps<Node<FlowData>>) {
       tone, data.active && "ring-2 ring-signal", n.status === "running" && "animate-pulse")}>
       <Handle type="target" position={Position.Left} className="!size-1.5 !border-0 !bg-line" />
       <div className="flex items-center justify-between text-[10px] font-medium uppercase-none text-muted">
-        <span>{KIND_LABEL[n.kind]}{n.fix_id ? ` ${n.fix_id}` : n.attack_id && n.kind === "attack" ? ` ${n.attack_id}` : ""}</span>
+        <span>{t(`ui.branchtree.kind.${n.kind}`)}{n.fix_id ? ` ${n.fix_id}` : n.attack_id && n.kind === "attack" ? ` ${n.attack_id}` : ""}</span>
         {n.kind === "fix" && n.accepted != null && (
           <span className={n.accepted ? "text-egress" : "text-muted"}>{n.accepted ? t("ui.branchtree.kept") : t("ui.branchtree.not_kept")}</span>
         )}
@@ -29,8 +27,8 @@ function BranchCard({ data }: NodeProps<Node<FlowData>>) {
       </div>
       <p className="truncate text-xs font-medium text-ink" title={data.human(n.label)}>{data.human(n.label)}</p>
       <p className="text-[10px] tabular text-muted">
-        {n.status === "running" ? t("ui.branchtree.simulating") : peak != null ? `${fmtNum(peak, 1)} per m²` : "–"}
-        {n.metrics?.time_above_danger_s ? ` · ${Math.round(n.metrics.time_above_danger_s)} s danger` : ""}
+        {n.status === "running" ? t("ui.branchtree.simulating") : peak != null ? t("units.n_per_m2", { n: fmtNum(peak, 1) }) : "–"}
+        {n.metrics?.time_above_danger_s ? ` · ${t("ui.branchtree.danger_s", { n: Math.round(n.metrics.time_above_danger_s) })}` : ""}
       </p>
       <Handle type="source" position={Position.Bottom} style={{ left: 12 }} className="!size-1.5 !border-0 !bg-line" />
     </div>

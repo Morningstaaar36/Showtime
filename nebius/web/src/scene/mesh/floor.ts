@@ -9,7 +9,7 @@ import { flightFeet, flightFootprint, stairOpenings, stairPlacement } from "./st
 
 /** Top of a door opening; the gate frame fits under it. */
 export const DOOR_HEAD_M = 2.1;
-export const GUARD_RAIL_M = 1.1;
+const GUARD_RAIL_M = 1.1;
 /** An upper floor's edge within this of the outline below sits over an outer wall. */
 const OVER_WALL_M = 0.5;
 
@@ -19,7 +19,7 @@ export interface Run {
   edge: Edge;
 }
 
-export interface OuterEdges {
+interface OuterEdges {
   /** solid outer wall */
   walls: Run[];
   /** door openings in the outer wall (a lintel goes over each) */
@@ -78,7 +78,7 @@ export function outerEdges(floor: Floor, below: Floor | null): OuterEdges {
   return out;
 }
 
-export interface WallStyle {
+interface WallStyle {
   height: number;
   thickness: number;
   /** a dark section-cut strip on top of the walls (the plan-drawing cut) */
