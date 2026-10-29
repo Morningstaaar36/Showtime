@@ -1,19 +1,22 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
-// The test mode is one choice above "Test this plan": it is remembered, and it decides the
-// session settings that are sent.
+// The test mode is one choice under "More options" (Standard unless chosen): it is remembered,
+// and it decides the session settings that are sent.
 
 test("the chosen test mode is remembered and sent with the test", async ({ page, request }) => {
   const created = await (await request.post("/api/v1/projects", { data: { name: "E2E test mode", template_id: "school_wing" } })).json();
   try {
     await page.goto(`/p/${created.id}/describe`);
-    const modes = page.getByRole("radiogroup");
+    await page.getByText("More options", { exact: true }).click();
+    const modes = page.getByRole("radiogroup", { name: "How deep to test" });
+    await expect(modes.getByRole("radio", { name: /Standard/ })).toHaveAttribute("aria-checked", "true");
     for (const name of ["Quick", "Deep", "Offline", "Standard"]) {
       await modes.getByRole("radio", { name: new RegExp(name) }).click();
       await expect(modes.getByRole("radio", { name: new RegExp(name) })).toHaveAttribute("aria-checked", "true");
     }
     await modes.getByRole("radio", { name: /Quick/ }).click();
     await page.reload();
+    await page.getByText("More options", { exact: true }).click();
     await expect(page.getByRole("radio", { name: /Quick/ })).toHaveAttribute("aria-checked", "true");
 
     // the session request carries the quick settings; the server's answer is an error here, so

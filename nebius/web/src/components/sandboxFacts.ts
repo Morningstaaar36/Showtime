@@ -1,4 +1,4 @@
-/** The sandbox's guarantees as short rows for the header badge (from GET /health). */
+/** The sandbox's guarantees as short rows for the sandbox badge (from GET /health). */
 import type { SandboxIsolation } from "@/api/types";
 import { t } from "@/i18n";
 

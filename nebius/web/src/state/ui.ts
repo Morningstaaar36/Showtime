@@ -3,7 +3,7 @@ import { create } from "zustand";
 import type { RunResult, VenuePatch } from "@/api/types";
 import type { Units } from "@/lib/format";
 
-export type Mode = "plan" | "simulate" | "redteam" | "report";
+export type Mode = "plan" | "simulate" | "redteam" | "report" | "analysis";
 export type Tool = "select" | "exit" | "barrier" | "zone" | "block" | "measure" | BuildTool;
 /** Building-editor tools (feat/editor): they act on `editFloor`. */
 export type BuildTool = "wall" | "door" | "room" | "stair" | "route";

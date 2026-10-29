@@ -70,7 +70,7 @@ describe("a fix's own test", () => {
 
   it("labels an extrapolated evacuation time as estimated", () => {
     expect(evacValue({ evac_time_p95_s: 245 })).toBe("4 min 5 s");
-    expect(evacValue({ evac_time_p95_s: null, evac_time_estimate_s: 180 })).toBe("about 3 min (estimated)");
+    expect(evacValue({ evac_time_p95_s: null, evac_time_estimate_s: 180 })).toBe("about 3 min");
     expect(evacValue({ evac_time_p95_s: null })).toBe("Not reached");
     expect(evacValue(null)).toBe("–");
   });

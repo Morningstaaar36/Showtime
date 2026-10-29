@@ -14,6 +14,7 @@ from api.adapters.sandbox import FakeRunner
 from api.app.main import create_app
 from api.app.state import build_state
 from api.core.settings import Settings, get_settings
+from api.tests.http import api_client
 
 
 @pytest.fixture
@@ -38,7 +39,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     monkeypatch.setattr("api.orchestrator.demos.DEMO_DIR", tmp_path / "no-demos")
     state = build_state(settings, llm=FakeLLM({}, settings), runner=FakeRunner(settings.runs_dir))
     app = create_app(state=state, settings=settings)
-    with TestClient(app) as c:
+    with api_client(app) as c:
         yield c
     get_settings.cache_clear()
     dbs.get_engine.cache_clear()

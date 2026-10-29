@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api.adapters.llm import FakeLLM
 from api.adapters.nebius_sandbox import NebiusRunner
@@ -13,6 +12,7 @@ from api.adapters.sandbox import DockerRunner, FakeRunner
 from api.app.main import create_app
 from api.app.state import build_state
 from api.tests.evidence_fakes import reset_engine, use_test_settings
+from api.tests.http import api_client
 
 
 def test_docker_isolation_matches_the_flags_it_runs_with(tmp_path: Path) -> None:
@@ -45,7 +45,7 @@ def test_health_and_the_team_page_report_the_isolation(
     settings = use_test_settings(tmp_path, monkeypatch)
     state = build_state(settings, llm=FakeLLM({}, settings), runner=FakeRunner(settings.runs_dir))
     try:
-        with TestClient(create_app(state=state, settings=settings)) as c:
+        with api_client(create_app(state=state, settings=settings)) as c:
             sb = c.get("/api/v1/health").json()["providers"]["sandbox"]
             team = c.get("/api/v1/agents").json()["sandbox"]
         assert sb["isolation"]["kind"] == "none" and sb["isolation"]["summary"]
@@ -65,7 +65,7 @@ def test_the_sandbox_proof_is_served_from_the_recorded_file(
     settings = settings.model_copy(update={"sandbox_proof_file": proof})
     state = build_state(settings, llm=FakeLLM({}, settings), runner=FakeRunner(settings.runs_dir))
     try:
-        with TestClient(create_app(state=state, settings=settings)) as c:
+        with api_client(create_app(state=state, settings=settings)) as c:
             missing = c.get("/api/v1/sandbox/proof")
             assert missing.status_code == 404 and "make sandbox-proof" in missing.json()["hint"]
             rows = [

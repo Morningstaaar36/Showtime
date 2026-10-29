@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./fixtures";
 
 // G3-01: the building tools in Expert view. Every step is a saved version, so the journey checks
 // the saved venue through the API as well as what the screen says.

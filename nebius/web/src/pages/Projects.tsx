@@ -1,6 +1,7 @@
 /** "Your plans" (route `/projects`): every plan as a bright card, a search box and one clear way
- * to start a new plan. Samples and the one-sentence copilot sit below as more ways to start. */
-import { ArrowUpRight, Building2, Check, Clock, Copy, Download, FolderOpen, Loader2, Map as MapIcon, MoreHorizontal, PencilLine, Plus, Search, Sparkles, Trash2, Trees, Upload, Users, Wand2 } from "lucide-react";
+ * to start a new plan. Samples sit below as one more way to start; typing a plan in one sentence
+ * is Home's "Plan it". */
+import { ArrowUpRight, Building2, Check, Clock, Copy, Download, FolderOpen, Loader2, Map as MapIcon, MoreHorizontal, PencilLine, Plus, Search, Sparkles, Trash2, Trees, Upload, Users } from "lucide-react";
 import type * as React from "react";
 import { useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -20,7 +21,6 @@ import { ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
 import { fmtInt, fmtRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { CopilotBox } from "./Copilot";
 import { DescribeTab } from "./newproject/DescribeTab";
 import { acceptFor, typesText } from "@/lib/importTypes";
 
@@ -112,10 +112,10 @@ export function ProjectsPage() {
 
         <section aria-labelledby="more-h" className="space-y-4 pt-4">
           <h2 id="more-h" className="text-2xl font-bold tracking-tight">{t("projects.more_ways")}</h2>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4">
             <section aria-labelledby="samples-h" className="rounded-[var(--radius-panel)] border border-border bg-surface p-5 shadow-sm">
               <div className="flex items-start gap-3">
-                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-orange-soft text-orange [&_svg]:size-5"><Sparkles aria-hidden /></span>
+                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-surface-2 text-ink [&_svg]:size-5"><Sparkles aria-hidden /></span>
                 <div>
                   <h3 id="samples-h" className="text-lg font-semibold">{t("projects.samples_title")}</h3>
                   <p className="text-sm text-muted">{t("projects.samples_lead")}</p>
@@ -126,8 +126,8 @@ export function ProjectsPage() {
                   <li key={tpl?.id ?? i}>
                     {tpl ? (
                       <button type="button" onClick={() => setCreating(tpl)}
-                              className="group flex h-full w-full flex-col overflow-hidden rounded-[var(--radius-control)] border-2 border-transparent bg-surface-2 text-left transition hover:-translate-y-0.5 hover:border-orange focus-visible:outline-2 focus-visible:outline-signal">
-                        <span className="block h-20 w-full bg-orange-soft/60 p-2"><VenueThumb venue={tpl.venue} className="size-full" /></span>
+                              className="group flex h-full w-full flex-col overflow-hidden rounded-[var(--radius-control)] border-2 border-transparent bg-surface-2 text-left transition hover:-translate-y-0.5 hover:border-signal focus-visible:outline-2 focus-visible:outline-signal">
+                        <span className="block h-20 w-full bg-surface-3/60 p-2"><VenueThumb venue={tpl.venue} className="size-full" /></span>
                         <span className="flex flex-1 flex-col p-2.5">
                           <span className="text-sm font-semibold leading-snug">{tpl.name}</span>
                           <span className="mt-auto flex items-center gap-1 pt-1 text-xs text-muted tabular"><Users className="size-3.5" aria-hidden />{t("projects.people", { n: fmtInt(tpl.people) })}</span>
@@ -137,16 +137,6 @@ export function ProjectsPage() {
                   </li>
                 ))}
               </ul>
-            </section>
-            <section aria-labelledby="copilot-h" className="rounded-[var(--radius-panel)] border border-border bg-surface p-5 shadow-sm">
-              <div className="flex items-start gap-3">
-                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-pink-soft text-pink [&_svg]:size-5"><Wand2 aria-hidden /></span>
-                <div>
-                  <h3 id="copilot-h" className="text-lg font-semibold">{t("projects.copilot_title")}</h3>
-                  <p className="text-sm text-muted">{t("projects.copilot_lead")}</p>
-                </div>
-              </div>
-              <div className="mt-4"><CopilotBox /></div>
             </section>
           </div>
         </section>
@@ -210,7 +200,7 @@ function ProjectCard({ p, template }: { p: ProjectSummary; template?: Template }
 
 type Way = "describe" | "sample";
 
-/** "New plan": the same three ways to start as Home. The map opens the full-page map; describe
+/** "New plan": the map, describe it, or a sample. The map opens the full-page map; describe
  * and sample happen here, then the plan gets a name. */
 function NewProjectDialog({ state, onClose, templates }: { state: Template | null | "pick"; onClose: () => void; templates: Template[] }) {
   return (
@@ -250,22 +240,22 @@ function NewPlanBody({ initial, templates, onClose }: { initial: Template | null
       </DialogHeader>
       <div role="group" aria-label={t("projects.ways")} className="grid gap-3 sm:grid-cols-3">
         <Link to="/new/place"
-              className="group relative flex min-h-36 flex-col justify-between gap-3 overflow-hidden rounded-[var(--radius-panel)] bg-[linear-gradient(135deg,var(--sky),var(--signal))] p-4 text-white shadow-[var(--shadow-float)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal dark:bg-[linear-gradient(135deg,color-mix(in_srgb,var(--sky)_60%,black),color-mix(in_srgb,var(--signal)_70%,black))]">
-          <span className="grid size-10 place-items-center rounded-full bg-white/20 [&_svg]:size-5"><MapIcon aria-hidden /></span>
+              className="group relative flex min-h-36 flex-col justify-between gap-3 rounded-[var(--radius-panel)] border-2 border-signal bg-surface p-4 shadow-sm transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal">
+          <span className="grid size-10 place-items-center rounded-full bg-signal-soft text-signal [&_svg]:size-5"><MapIcon aria-hidden /></span>
           <span>
             <span className="block text-lg font-bold">{t("home.way_map")}</span>
-            <span className="mt-0.5 block text-sm text-white/90">{t("home.way_map_lead")}</span>
+            <span className="mt-0.5 block text-sm text-muted">{t("home.way_map_lead")}</span>
           </span>
-          <span className="absolute right-3 top-3 rounded-full bg-white/25 px-2.5 py-0.5 text-xs font-semibold">{t("home.recommended")}</span>
+          <span className="absolute right-3 top-3 rounded-full bg-signal-soft px-2.5 py-0.5 text-xs font-semibold text-signal">{t("home.recommended")}</span>
         </Link>
-        <WayTile active={way === "describe"} onClick={() => choose("describe")} icon={<PencilLine aria-hidden />} tone="bg-pink-soft text-pink"
+        <WayTile active={way === "describe"} onClick={() => choose("describe")} icon={<PencilLine aria-hidden />} tone="bg-surface-2 text-ink"
                  title={t("home.way_describe")} lead={t("home.way_describe_lead")} />
-        <WayTile active={way === "sample"} onClick={() => choose("sample")} icon={<Sparkles aria-hidden />} tone="bg-orange-soft text-orange"
+        <WayTile active={way === "sample"} onClick={() => choose("sample")} icon={<Sparkles aria-hidden />} tone="bg-surface-2 text-ink"
                  title={t("home.way_sample")} lead={t("home.way_sample_lead")} />
       </div>
 
       {way === "describe" && (
-        <div className="animate-deal-in rounded-[var(--radius-panel)] border-2 border-pink/30 p-4"><DescribeTab onDraft={setDraft} /></div>
+        <div className="animate-deal-in rounded-[var(--radius-panel)] border border-border p-4"><DescribeTab onDraft={setDraft} /></div>
       )}
       {way === "sample" && (
         <fieldset className="animate-deal-in">
@@ -274,10 +264,10 @@ function NewPlanBody({ initial, templates, onClose }: { initial: Template | null
             {templates.map((tpl) => (
               <button key={tpl.id} type="button" aria-pressed={picked === tpl.id} onClick={() => setPicked(tpl.id)}
                       className={cn("flex min-h-11 gap-3 rounded-[var(--radius-panel)] border-2 p-3 text-left transition focus-visible:outline-2 focus-visible:outline-signal",
-                        picked === tpl.id ? "border-orange bg-orange-soft/40" : "border-border hover:border-border-strong")}>
-                <span className="block h-20 w-28 shrink-0 rounded-[var(--radius-control)] bg-orange-soft/60 p-1.5"><VenueThumb venue={tpl.venue} className="size-full" /></span>
+                        picked === tpl.id ? "border-signal bg-signal-soft/40" : "border-border hover:border-border-strong")}>
+                <span className="block h-20 w-28 shrink-0 rounded-[var(--radius-control)] bg-surface-2 p-1.5"><VenueThumb venue={tpl.venue} className="size-full" /></span>
                 <span className="min-w-0">
-                  <span className="flex items-center gap-1.5 font-semibold">{tpl.name}{picked === tpl.id && <Check className="size-4 shrink-0 text-orange" aria-hidden />}</span>
+                  <span className="flex items-center gap-1.5 font-semibold">{tpl.name}{picked === tpl.id && <Check className="size-4 shrink-0 text-signal" aria-hidden />}</span>
                   <span className="mt-0.5 line-clamp-2 text-sm text-muted">{tpl.description}</span>
                   <span className="mt-1 flex items-center gap-1 text-xs text-muted tabular"><Users className="size-3.5" aria-hidden />{t("projects.people", { n: fmtInt(tpl.people) })}</span>
                 </span>

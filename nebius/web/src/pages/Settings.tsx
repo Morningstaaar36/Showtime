@@ -8,6 +8,7 @@ import { useHealth, useSaveSettings, useSettings } from "@/api/queries";
 import type { ProviderStatus, SettingValue } from "@/api/types";
 import { AppShell } from "@/app/AppHeader";
 import { ProviderBadge, providerWhere } from "@/components/ProviderBadge";
+import { SandboxBadge } from "@/components/SandboxBadge";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/misc";
@@ -78,7 +79,8 @@ export function SettingsPage() {
 
         <Card id="ai" icon={<Bot />} tone="bg-signal-soft text-signal" title={t("settings.ai")} lead={t("settings.ai_lead")}>
           <div className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-surface-2 p-4 sm:flex-row sm:items-start">
-            <span className="shrink-0"><ProviderBadge /></span>
+            {/* the provider and sandbox badges live here and in Expert view, not in every header */}
+            <span className="flex shrink-0 flex-wrap gap-1.5"><ProviderBadge /><SandboxBadge /></span>
             <div className="min-w-0 space-y-1">
               <p className="font-semibold">{providerWhere(providers?.llm)}<Status ok={providers?.llm.ok} loading={health.isLoading} /></p>
               <p className="text-sm text-muted">{t("settings.badge_body")}</p>

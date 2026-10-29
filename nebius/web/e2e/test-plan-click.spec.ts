@@ -1,12 +1,12 @@
-import { expect, test } from "@playwright/test";
+import { expect, SHOWTIME_HEADERS, test } from "./fixtures";
 
 // G3-06: "Test this plan" sometimes started nothing. The "saved as version N" toasts of the edits
 // just made sat on top of the button (bottom-right), so the click landed on a toast. Toasts now open
 // bottom-left; this repeats the guided journey's edits and checks no toast covers the button.
 test("Test this plan is not covered by the toasts of the edits just saved", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: /Try a sample/ }).click();
-  await page.getByRole("button", { name: /Conference hall, 2 floors/ }).click();
+  await page.goto("/projects");
+  await page.getByRole("button", { name: /^Conference hall, 2 floors/ }).first().click();
+  await page.getByRole("button", { name: "Create project" }).click();
   await expect(page).toHaveURL(/\/describe$/);
   const id = page.url().split("/p/")[1].split("/")[0];
   try {
@@ -42,6 +42,6 @@ test("Test this plan is not covered by the toasts of the edits just saved", asyn
       [b.x + b.width / 2, b.y + b.height / 2]);
     expect(hit).toContain("Test this plan");
   } finally {
-    await page.request.delete(`/api/v1/projects/${id}`);
+    await page.request.delete(`/api/v1/projects/${id}`, { headers: SHOWTIME_HEADERS });
   }
 });

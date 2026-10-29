@@ -1,11 +1,10 @@
 /** Header and page frame for the screens outside the guided journey: Projects, Settings, Help,
- * the first-run checklist and "page not found". Same look as the journey header. */
+ * the first-run checklist and "page not found". The journey header uses the same links
+ * (`AppNav`). The provider and sandbox badges are on Settings and in Expert view's top bar. */
 import { CircleHelp, FolderOpen, type LucideIcon, Settings, Sparkles } from "lucide-react";
 import type * as React from "react";
 import { Link, NavLink } from "react-router";
 import { Logo } from "@/components/Logo";
-import { ProviderBadge } from "@/components/ProviderBadge";
-import { SandboxBadge } from "@/components/SandboxBadge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -17,6 +16,23 @@ const NAV: { to: string; key: string; icon: LucideIcon; end?: boolean }[] = [
   { to: "/help", key: "nav.help", icon: CircleHelp },
 ];
 
+/** The app's main links, in both headers; `from` leaves out the first ones (the journey header's
+ * logo already goes home). Labels show from `md` up, icons always. */
+export function AppNav({ from = 0, labelsFrom = "md" }: { from?: number; labelsFrom?: "md" | "xl" }) {
+  return (
+    <nav aria-label={t("common.main_nav")} className="flex items-center gap-0.5 sm:gap-1">
+      {NAV.slice(from).map(({ to, key, icon: Icon, end }) => (
+        <NavLink key={to} to={to} end={end} title={t(key)}
+                 className={({ isActive }) => cn(
+                   "flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-[var(--radius-control)] px-2.5 text-sm font-medium transition-colors lg:px-3",
+                   isActive ? "bg-signal-soft text-signal" : "text-muted hover:bg-surface-2 hover:text-ink")}>
+          <Icon className="size-4 shrink-0" aria-hidden /><span className={labelsFrom === "xl" ? "sr-only xl:not-sr-only" : "sr-only md:not-sr-only"}>{t(key)}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
 export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-surface/85 backdrop-blur-md">
@@ -24,20 +40,8 @@ export function AppHeader() {
         <Link to="/" aria-label={t("common.home_label")} className="mr-1 flex min-h-11 items-center rounded-[var(--radius-control)] sm:mr-4">
           <Logo compact className="sm:hidden" /><Logo className="hidden sm:inline-flex" />
         </Link>
-        <nav aria-label={t("common.main_nav")} className="flex items-center gap-0.5 sm:gap-1">
-          {NAV.map(({ to, key, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end} title={t(key)}
-                     className={({ isActive }) => cn(
-                       "flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-[var(--radius-control)] px-2.5 text-sm font-medium transition-colors lg:px-3",
-                       isActive ? "bg-signal-soft text-signal" : "text-muted hover:bg-surface-2 hover:text-ink")}>
-              <Icon className="size-4 shrink-0" aria-hidden /><span className="sr-only md:not-sr-only">{t(key)}</span>
-            </NavLink>
-          ))}
-        </nav>
-        <div className="ml-auto flex items-center gap-1 sm:gap-2">
-          <span className="hidden items-center gap-1.5 sm:flex"><ProviderBadge /><SandboxBadge /></span>
-          <ThemeToggle />
-        </div>
+        <AppNav />
+        <div className="ml-auto flex items-center gap-1 sm:gap-2"><ThemeToggle /></div>
       </div>
     </header>
   );

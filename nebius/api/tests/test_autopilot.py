@@ -31,6 +31,7 @@ from api.orchestrator import sweep
 from api.orchestrator.copilot_graph import OUTAGE_NOTE
 from api.orchestrator.reports import build_bundle
 from api.orchestrator.session import SessionManager
+from api.tests.http import api_client
 from api.tests.test_redteam import BLUE, red_reply
 
 SENTENCE = "A concert in a 30 by 20 m gym for 400 people, 3 hours, stage on the north wall"
@@ -282,7 +283,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     st = build_state(
         settings, llm=FakeLLM(_script(), settings), runner=FakeRunner(settings.runs_dir)
     )
-    with TestClient(create_app(state=st, settings=settings)) as c:
+    with api_client(create_app(state=st, settings=settings)) as c:
         yield c
     get_settings.cache_clear()
     dbs.get_engine.cache_clear()

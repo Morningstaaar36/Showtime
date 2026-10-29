@@ -27,7 +27,10 @@ for (let i = 0; i < pairs.length; i += 2) {
   const floors = v.floors.map((f) => `${f.name ?? f.floor_id}: ${f.zones.reduce((n, z) => n + z.people, 0)} people, exits [${f.exits.map((e) => `${e.label ?? e.id} ${e.width_m} m`).join(", ")}]`);
   console.log(`${name} (${((Date.now() - t0) / 1000).toFixed(0)} s) ${pid} "${v.name}" · ${v.mode} · ${v.floors.length} level(s), ${(v.stairs ?? []).length} stairs`);
   for (const f of floors) console.log("   ", f);
+  // the provider badge is on Settings, no longer in this header
+  await page.goto(`${BASE}/settings`);
   console.log("    badge:", (await page.getByRole("button", { name: /^AI:/ }).first().textContent())?.trim());
+  await page.goto(`${BASE}/p/${pid}/describe`);
   await page.screenshot({ path: `${out}/describe-${name}.png` });
   await page.close();
 }

@@ -103,6 +103,53 @@ class Budget:
         self.by_role[usage.role] = self.by_role.get(usage.role, 0) + n
 
 
+class DailyLimitReached(BudgetExceeded):
+    """The server's model use for today (DAILY_MAX_TOKENS, DAILY_MAX_USD) is used up."""
+
+
+@dataclass
+class DailyBudget:
+    """Model use of the whole process per UTC day, across sessions and questions (a limit of
+    0 is no limit). A reply served from the cache costs nothing and is not counted."""
+
+    max_tokens: int = 0
+    max_usd: float = 0.0
+    day: str = ""
+    used: int = 0
+    cost_usd: float = 0.0
+
+    @classmethod
+    def of(cls, settings: Settings) -> DailyBudget:
+        return cls(max_tokens=settings.daily_max_tokens, max_usd=settings.daily_max_usd)
+
+    def _roll(self) -> None:
+        today = datetime.now(UTC).date().isoformat()
+        if today != self.day:
+            self.day, self.used, self.cost_usd = today, 0, 0.0
+
+    def reached(self) -> str | None:
+        """Why no more model calls are allowed today, or None."""
+        self._roll()
+        if self.max_tokens and self.used >= self.max_tokens:
+            return f"Today's model budget of {self.max_tokens:,} tokens is used."
+        if self.max_usd and self.cost_usd >= self.max_usd:
+            return f"Today's model budget of ${self.max_usd:,.2f} is used."
+        return None
+
+    def check(self) -> None:
+        """Raise DailyLimitReached once today's budget is used."""
+        why = self.reached()
+        if why is not None:
+            raise DailyLimitReached(why)
+
+    def add(self, usage: Usage) -> None:
+        if usage.cached:
+            return
+        self._roll()
+        self.used += usage.prompt_tokens + usage.completion_tokens
+        self.cost_usd += usage.cost_usd
+
+
 @dataclass
 class LLMReply:
     """Parsed object (when a schema was given) or text, plus usage."""
@@ -183,6 +230,7 @@ class LLMClient:
         self._on_spare_key = False  # switched to OPENAI_COMPAT_API_KEY_FALLBACK
         self._health_cache: tuple[float, dict[str, Any]] | None = None
         self.model_warnings: list[str] = []  # model ids the provider does not serve (startup)
+        self.daily = DailyBudget.of(settings)
 
     @property
     def base_url(self) -> str:
@@ -450,6 +498,7 @@ class LLMClient:
         budget: Budget | None = None,
     ) -> LLMReply:
         """One chat call with validation, one repair retry, caching and accounting."""
+        self.daily.check()
         if budget is not None:
             budget.check()
         model = self.model_for(role)
@@ -795,6 +844,7 @@ class LLMClient:
         return self._local_client
 
     def _account(self, usage: Usage, budget: Budget | None) -> None:
+        self.daily.add(usage)
         if budget is not None:
             budget.add(usage)
         if self.on_usage is not None:
@@ -876,6 +926,7 @@ class FakeLLM:
         # agents read limits from the settings: a fake without any uses the documented defaults
         self.settings = settings if settings is not None else Settings(_env_file=None)
         self.calls: list[tuple[str, list[dict[str, str]]]] = []
+        self.daily = DailyBudget.of(self.settings)
 
     async def health(self) -> dict[str, Any]:
         return {"ok": True, "detail": "Fake LLM"}
@@ -899,6 +950,7 @@ class FakeLLM:
         reasoning: bool = False,
         budget: Budget | None = None,
     ) -> LLMReply:
+        self.daily.check()
         if budget is not None:
             budget.check()
         self.calls.append((agent, messages))
@@ -917,6 +969,7 @@ class FakeLLM:
             completion_tokens=50,
             provider="fake",
         )
+        self.daily.add(usage)
         if budget is not None:
             budget.add(usage)
         parsed = None

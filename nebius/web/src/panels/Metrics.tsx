@@ -78,6 +78,10 @@ export function DensityCurve({ series, duration, warn, danger }: { series: numbe
   const dt = series.length > 1 ? duration / (series.length - 1) : 1;
   const data = series.map((d, i) => ({ t: i * dt, d }));
   const peak = Math.max(0, ...series);
+  // even steps up to the top of the scale (Recharts' own ticks for 0..7 read 0, 2, 4, 7)
+  const top = Math.max(DENSITY_MAX, Math.ceil(peak));
+  const step = top <= 8 ? 1 : Math.ceil(top / 8);
+  const yTicks = Array.from({ length: Math.floor(top / step) + 1 }, (_, i) => i * step);
   return (
     <figure>
       <figcaption className="sr-only">{t("ui.metrics.peak_over_time", { ppm2: fmtNum(peak, 1) })}</figcaption>
@@ -86,7 +90,7 @@ export function DensityCurve({ series, duration, warn, danger }: { series: numbe
           <LineChart data={data} margin={{ top: 6, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid stroke="var(--border)" strokeDasharray="2 4" vertical={false} />
             <XAxis dataKey="t" tickFormatter={(v: number) => fmtClock(v)} tick={axis} stroke="var(--border)" minTickGap={30} />
-            <YAxis tick={axis} stroke="var(--border)" width={40} domain={[0, Math.max(DENSITY_MAX, Math.ceil(peak))]} />
+            <YAxis tick={axis} stroke="var(--border)" width={40} domain={[0, top]} ticks={yTicks} />
             <Tooltip formatter={(v) => [t("units.density", { n: fmtNum(Number(v), 1) }), t("ui.metrics.peak")]} labelFormatter={(v) => fmtClock(Number(v))}
                      contentStyle={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
             <ReferenceLine y={warn} stroke="var(--caution)" strokeDasharray="4 3" />

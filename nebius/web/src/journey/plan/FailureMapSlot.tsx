@@ -1,8 +1,8 @@
-/** The red team's failure map in Your plan › Scenarios: every way the plan broke, one cell per
+/** The red team’s failure map in Expert view › Analysis › Scenarios: every way the plan broke, one cell per
  * kind of hazard and place (a quality-diversity archive, docs/RAINBOW.md). Hidden for sessions
  * from before the map existed (a finished session whose summary has no archive is not asked;
  * the archive endpoint answers 404 for them). Picking an attack plays its
- * simulation in the Replay tab. */
+ * simulation in Simulate (Expert view). */
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/api/client";
 import { FailureMap } from "@/panels/FailureMap";

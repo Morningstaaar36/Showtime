@@ -7,8 +7,9 @@ const BASE = process.env.BASE ?? "http://127.0.0.1:5173";
 const [out] = process.argv.slice(2);
 const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
-const pid = (await (await fetch(`${BASE}/api/v1/projects`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ template_id: "school_wing", name: "Explore killed sandbox" }) })).json()).id;
+const pid = (await (await fetch(`${BASE}/api/v1/projects`, { method: "POST", headers: { "content-type": "application/json", "X-Showtime": "1" }, body: JSON.stringify({ template_id: "school_wing", name: "Explore killed sandbox" }) })).json()).id;
 await page.goto(`${BASE}/p/${pid}/describe`);
+await page.getByText("More options", { exact: true }).click(); // the test depth is under More options
 await page.getByRole("radio", { name: /Offline/ }).click();
 await page.getByRole("button", { name: "Test this plan" }).click();
 await page.waitForURL(/\/work\?session=/, { timeout: 60_000 });
@@ -29,5 +30,5 @@ await page.waitForURL(/\/p\/p_[^/]+\?session=/, { timeout: 600_000 }).catch(() =
 await page.waitForTimeout(3000);
 await page.screenshot({ path: `${out}/flow8-killed-plan.png` });
 console.log("plan:", (await page.locator("main").innerText()).replace(/\n+/g, " | ").slice(0, 500));
-await fetch(`${BASE}/api/v1/projects/${pid}`, { method: "DELETE" });
+await fetch(`${BASE}/api/v1/projects/${pid}`, { method: "DELETE", headers: { "X-Showtime": "1" } });
 await browser.close();

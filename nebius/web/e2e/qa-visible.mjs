@@ -21,7 +21,7 @@ const T = (key, vars = {}) => {
 const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const starts = (x) => new RegExp(`^${esc(x)}`);
 const api = async (path, init) => { const r = await fetch(`${BASE}/api/v1${path}`, init); return r.status === 204 ? null : r.json(); };
-const post = (path, body) => api(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+const post = (path, body) => api(path, { method: "POST", headers: { "content-type": "application/json", "X-Showtime": "1" }, body: JSON.stringify(body) });
 const venueOf = async (id) => (await api(`/projects/${id}`)).version.venue;
 const TEMPLATES = await (async () => { const t = await api("/templates"); return Array.isArray(t) ? t : t.templates; })();
 const template = (want) => (TEMPLATES.find(want) ?? TEMPLATES[0]).id;
@@ -389,12 +389,12 @@ await check("Scripts: the example analysis script runs and shows its result", as
   await page.getByRole("button", { name: T("userscripts.new") }).first().click();
   await page.getByRole("button", { name: T("userscripts.run") }).click();
   await expect(page.getByRole("table").or(page.locator("svg.recharts-surface")).first()).toBeVisible({ timeout: 120_000 });
-  for (const s of (await api(`/projects/${plan.pid}/scripts`)).scripts) await fetch(`${BASE}/api/v1/projects/${plan.pid}/scripts/${s.id}`, { method: "DELETE" });
+  for (const s of (await api(`/projects/${plan.pid}/scripts`)).scripts) await fetch(`${BASE}/api/v1/projects/${plan.pid}/scripts/${s.id}`, { method: "DELETE", headers: { "X-Showtime": "1" } });
   return "ran in the sandbox; table or chart shown (script removed afterwards)";
 });
 
 // --- Your plan --------------------------------------------------------------------------------
-await check("Your plan: replay plays and pauses", async () => {
+await check("Your plan: the Overview's replay plays and pauses", async () => {
   const plan = await testedPlan();
   await go(`/p/${plan.pid}?session=${plan.sid}&tab=replay`);
   // the replay may already be playing when the tab opens: pause, play, pause
@@ -422,7 +422,7 @@ await check("Your plan: choose fixes and accept them", async () => {
   return `${kept} kept fixes accepted: v${v0} → v${(await api(`/projects/${p.id}`)).current_version}`;
 });
 
-await check("Your plan: floors tab", async () => {
+await check("Expert view: floors tab (an old Your plan link)", async () => {
   const plan = await testedPlan(({ v }) => v.floors.length >= 2);
   if (!plan) return "no finished test on a venue with several floors";
   await go(`/p/${plan.pid}?session=${plan.sid}&tab=floors`);
@@ -504,7 +504,7 @@ await check("Welcome checklist", async () => {
   return /not ready/i.test(text) ? `some rows not ready: ${text.replace(/\n+/g, " | ").slice(0, 160)}` : "every row ready";
 });
 
-for (const id of created) await fetch(`${BASE}/api/v1/projects/${id}`, { method: "DELETE" }).catch(() => {});
+for (const id of created) await fetch(`${BASE}/api/v1/projects/${id}`, { method: "DELETE", headers: { "X-Showtime": "1" } }).catch(() => {});
 writeFileSync(`${out}/results.json`, JSON.stringify(results, null, 1));
 await caption(`Done: ${results.filter((r) => r.status === "PASS").length} passed, ${results.filter((r) => r.status !== "PASS").length} to look at`, results.some((r) => r.status === "FAIL") ? "fail" : "pass");
 await page.waitForTimeout(4000);

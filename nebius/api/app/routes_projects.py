@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
@@ -29,6 +31,7 @@ from api.models.scene import SceneFacts, SceneSnapshot
 from api.orchestrator.projects import validation_for
 
 router = APIRouter(prefix="/api/v1")
+log = logging.getLogger("showtime.api")
 
 
 def project_out(st: AppState, p: Project) -> dict[str, Any]:
@@ -84,8 +87,14 @@ class ProjectIn(BaseModel):
 
 @router.get("/projects")
 def list_projects(q: str | None = None, st: AppState = Depends(get_state)) -> list[dict[str, Any]]:
-    """All projects, newest first (optional name search)."""
-    items = [project_out(st, p) for p in st.projects.list_projects()]
+    """All projects, newest first (optional name search). A project whose stored venue can't
+    be read is left out (and logged) instead of failing the list for every other project."""
+    items = []
+    for p in st.projects.list_projects():
+        try:
+            items.append(project_out(st, p))
+        except Exception:
+            log.warning("project %s left out of the list: it can't be read", p.id, exc_info=True)
     if q:
         ql = q.lower()
         items = [i for i in items if ql in i["name"].lower() or ql in i["description"].lower()]
@@ -181,9 +190,12 @@ def update_project(
 
 
 @router.delete("/projects/{project_id}", status_code=204)
-def delete_project(project_id: str, st: AppState = Depends(get_state)) -> Response:
-    """Delete a project."""
-    st.projects.delete(project_id)
+async def delete_project(project_id: str, st: AppState = Depends(get_state)) -> Response:
+    """Delete a project: a test still running on it stops first, and its run files go too."""
+    await asyncio.to_thread(st.projects.get, project_id)  # unknown: 404 before anything stops
+    if st.sessions is not None:
+        await st.sessions.cancel_project(project_id)
+    await asyncio.to_thread(st.projects.delete, project_id, st.settings.runs_dir)
     return Response(status_code=204)
 
 
@@ -321,21 +333,31 @@ async def import_project(
             "UPLOAD_MAX_BYTES in .env.",
         )
     name = (file.filename or "").lower()
+    # unpacking and parsing (a zip, a DXF drawing) take a while: off the event loop
     if name.endswith(".zip"):
+        s = st.settings
         try:
-            return project_out(st, st.projects.import_zip(data))
+            p = await asyncio.to_thread(
+                st.projects.import_zip,
+                data,
+                max_unpacked_bytes=s.import_max_unpacked_bytes,
+                max_entries=s.import_max_entries,
+            )
         except ValueError as exc:
-            raise ApiException(422, "bad_import", str(exc)) from exc
+            raise ApiException(
+                422, "bad_import", str(exc), "Check the file and try again."
+            ) from exc
+        return await asyncio.to_thread(project_out, st, p)
     for imp in st.registry.all("VenueImporter"):
         if any(name.endswith(ext) for ext in imp.file_extensions):
             try:
-                venue = imp.import_bytes(data, file.filename or "venue")
+                venue = await asyncio.to_thread(imp.import_bytes, data, file.filename or "venue")
             except ValueError as exc:
                 raise ApiException(
                     422, "bad_import", str(exc), "Check the file and try again."
                 ) from exc
-            p = st.projects.create(venue.name, venue=venue)
-            return project_out(st, p)
+            p = await asyncio.to_thread(st.projects.create, venue.name, venue=venue)
+            return await asyncio.to_thread(project_out, st, p)
     exts = [e for k in import_kinds(st) for e in k["extensions"]]
     raise ApiException(
         415,

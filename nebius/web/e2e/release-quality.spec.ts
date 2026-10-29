@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./fixtures";
 
 // S-02: no console errors on any page; WCAG 2.2 AA (axe) on the three simple screens in light and
 // dark; keyboard focus visible on their primary actions; no sideways scroll at phone width.

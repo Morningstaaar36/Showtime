@@ -52,7 +52,7 @@ export function PlanScore({ project, runId }: { project: ProjectDetail; runId?: 
   const base = useWhatIf(project.id, project.version.version, BASE, runId);
   if (!base.data) return null;
   return (
-    <div className="rounded-[var(--radius-panel)] bg-gradient-to-br from-signal-soft to-pink-soft/60 p-3">
+    <div className="rounded-[var(--radius-panel)] bg-signal-soft p-3">
       <ScoreGauge score={base.data.score} />
     </div>
   );

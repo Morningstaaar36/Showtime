@@ -21,6 +21,7 @@ const MODES: { id: Mode; key: string; n: number }[] = [
   { id: "simulate", key: "nav.simulate", n: 2 },
   { id: "redteam", key: "nav.redteam", n: 3 },
   { id: "report", key: "nav.report", n: 4 },
+  { id: "analysis", key: "nav.analysis", n: 5 },
 ];
 
 export function TopBar({ project, mode, countdown, cost }: {

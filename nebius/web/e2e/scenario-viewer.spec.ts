@@ -1,7 +1,8 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
-// G3-06: Your plan lists every tested scenario with its verdict; clicking one plays it, and the
-// timeline marks and captions what happens ("… blocked at 1:00"). Replays need a real sandbox.
+// G3-06: Your plan's replay lists every tested scenario with its verdict; clicking one plays it,
+// and the timeline marks and captions what happens ("… blocked at 1:00"). The scenario cards are
+// in Expert view › Analysis. Replays need a real sandbox.
 test("scenario viewer: list, play a scenario, timeline caption", async ({ page, request }) => {
   test.setTimeout(600_000);
   const health = await (await request.get("/api/v1/health")).json();
@@ -13,21 +14,20 @@ test("scenario viewer: list, play a scenario, timeline caption", async ({ page, 
     await expect.poll(async () => (await (await request.get(`/api/v1/sessions/${sid}`)).json()).status, { timeout: 540_000, intervals: [3000] })
       .toMatch(/finished|stopped/);
 
-    await page.goto(`/p/${id}?session=${sid}`);
-    // the Scenarios tab shows them as cards; the Replay tab lists them next to the 3D replay
-    await page.getByRole("tab", { name: /^Scenarios/ }).click();
+    // Expert view's analysis shows them as cards; the Overview lists them next to the 3D replay
+    await page.goto(`/p/${id}/expert/analysis?session=${sid}`);
     await expect(page.getByTestId("scenario-gallery").getByRole("listitem").first()).toBeVisible({ timeout: 30_000 });
-    await page.getByRole("tab", { name: "Replay" }).click();
+    await page.goto(`/p/${id}?session=${sid}`);
     const list = page.getByTestId("scenarios");
     await expect(list.getByRole("heading", { name: "Every scenario the AI tested" })).toBeVisible({ timeout: 30_000 });
     await expect(list.getByRole("button", { name: /Your plan as drawn/ })).toBeVisible();
     // the plan as drawn plus each attack (at least one) carry a verdict
     expect(await list.getByRole("button").count()).toBeGreaterThanOrEqual(2);
-    await expect(list.getByText(/^(Holds|Breaks|Preview only|Not confirmed)$/).first()).toBeVisible();
+    await expect(list.getByText(/^(Holds|Breaks|Preview only|Not confirmed by simulation)$/).first()).toBeVisible();
 
     if (health.providers.sandbox.provider === "fake") return; // no trajectories to replay
     // play the first attack
-    const attack = list.getByRole("button").filter({ hasNotText: "Your plan as drawn" }).filter({ hasText: /95% out in/ }).first();
+    const attack = list.getByRole("button").filter({ hasNotText: "Your plan as drawn" }).filter({ hasText: /Evacuation time \(95%\)/ }).first();
     const title = (await attack.locator("span.font-medium").first().textContent()) ?? "";
     await attack.click();
     await expect(attack).toHaveAttribute("aria-pressed", "true");

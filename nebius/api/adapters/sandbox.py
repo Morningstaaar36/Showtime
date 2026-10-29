@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import json
 import logging
 import os
@@ -58,6 +59,10 @@ INPUT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
 TAIL_CHARS = 2000
 CODE_START_GRACE_S = 15.0  # container start and imports, on top of the script's own budget
 TIMEOUT_EXIT = 124  # run_code.py exits with this when the script ran out of time
+# this API's containers: names start with these, and they carry OWNER_LABEL=<runs folder>
+CONTAINER_PREFIXES = ("showtime-sim-", "showtime-code-")
+OWNER_LABEL = "com.showtime.runs"
+LEFTOVER_TIMEOUT_S = 30.0  # listing and removing leftovers at startup (Docker may be slow)
 
 
 def _default(name: str) -> Any:
@@ -216,6 +221,33 @@ class SandboxRunner(Protocol):
 
     async def close(self) -> None:
         """Release resources."""
+
+
+def sim_files(sim_dir: Path) -> dict[str, bytes]:
+    """The simulation code as files for /app inside the sandbox."""
+    out: dict[str, bytes] = {}
+    for p in sorted(sim_dir.rglob("*")):
+        if (
+            p.is_file()
+            and "tests" not in p.parts
+            and "__pycache__" not in p.parts
+            and p.suffix in (".py", ".json", ".txt")
+        ):
+            out[f"/app/{p.relative_to(sim_dir).as_posix()}"] = p.read_bytes()
+    return out
+
+
+def sim_version(sim_dir: Path) -> str:
+    """A hash of the simulation code: it keys cached runs (a changed simulator computes new
+    ones) and the Nebius base image. Empty when there is no sim/ folder to read."""
+    files = sim_files(sim_dir) if sim_dir.is_dir() else {}
+    if not files:
+        return ""
+    h = hashlib.sha256()
+    for k, v in sorted(files.items()):
+        h.update(k.encode())
+        h.update(v)
+    return h.hexdigest()[:16]
 
 
 def write_job_files(work: Path, job: SimJob) -> None:
@@ -389,9 +421,56 @@ class DockerRunner:
         # sims never run as root, even when the API itself runs as root in a container
         self.sim_user = sim_user or (f"{uid}:{gid}" if uid != 0 else "10001:10001")
         self._docker = shutil.which("docker") or "docker"
+        self.running: set[str] = set()  # names of this runner's containers that are running
 
     async def prepare_base(self, venue: Venue) -> str:
         return f"local:{self.image}"
+
+    @property
+    def owner_label(self) -> str:
+        """Marks this API's containers (by its runs folder): another Showtime on the same
+        Docker keeps its own."""
+        return f"{OWNER_LABEL}={self._host_path(self.runs_dir)}"
+
+    async def remove_leftovers(self) -> int:
+        """Remove the simulation and code containers a previous process of this API left
+        running (a crash or a kill skips its clean-up); returns how many. Never fails: without
+        Docker there is nothing to remove."""
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                self._docker,
+                "ps",
+                "--all",
+                "--filter",
+                "label=com.showtime.project=true",
+                "--filter",
+                f"label={self.owner_label}",
+                "--format",
+                "{{.Names}}",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=LEFTOVER_TIMEOUT_S)
+        except (OSError, TimeoutError):
+            return 0
+        names = [n for n in out.decode().split() if n.startswith(CONTAINER_PREFIXES)]
+        names = [n for n in names if n not in self.running]
+        if not names:
+            return 0
+        try:
+            rm = await asyncio.create_subprocess_exec(
+                self._docker,
+                "rm",
+                "--force",
+                *names,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.wait_for(rm.wait(), timeout=LEFTOVER_TIMEOUT_S)
+        except (OSError, TimeoutError):
+            return 0
+        log.warning("removed %d containers left by an earlier run of the API", len(names))
+        return len(names)
 
     def _host_path(self, work: Path) -> str:
         if self.host_runs_dir:
@@ -481,6 +560,8 @@ class DockerRunner:
             f"/tmp:rw,noexec,nosuid,size={self.sim_tmp_mb}m",
             "--label",
             "com.showtime.project=true",
+            "--label",
+            self.owner_label,
             "--user",
             self.sim_user,
             "-e",
@@ -493,6 +574,21 @@ class DockerRunner:
         if self.sim_code_dir is not None:
             cmd += ["-v", f"{self.sim_code_dir.resolve()}:/app:ro"]
         cmd += [self.image, "python", "/app/run_sim.py", "/work"]
+        self.running.add(name)
+        try:
+            return await self._watch_sim(cmd, name, job, work, on_progress)
+        finally:
+            self.running.discard(name)
+
+    async def _watch_sim(
+        self,
+        cmd: list[str],
+        name: str,
+        job: SimJob,
+        work: Path,
+        on_progress: ProgressFn | None,
+    ) -> RunResult:
+        req = job.request
         t0 = time.monotonic()
         try:
             # stdout is not used; stderr is drained as it comes so a chatty sim can never
@@ -600,6 +696,8 @@ class DockerRunner:
             f"/tmp:rw,noexec,nosuid,size={self.code_tmp_mb}m",
             "--label",
             "com.showtime.project=true",
+            "--label",
+            self.owner_label,
             "--user",
             self.sim_user,
             "-e",
@@ -615,9 +713,11 @@ class DockerRunner:
             cmd += ["-v", f"{self.sim_code_dir.resolve()}:/app:ro"]
         cmd += [self.image, "python", "/app/run_code.py", f"/work/{job.job_id}"]
         t0 = time.monotonic()
+        self.running.add(name)
         try:
             return await self._exec_code(cmd, name, job, t0)
         finally:
+            self.running.discard(name)
             shutil.rmtree(work, ignore_errors=True)
 
     async def _exec_code(self, cmd: list[str], name: str, job: CodeJob, t0: float) -> CodeResult:
@@ -662,7 +762,12 @@ class DockerRunner:
         await proc.wait()
 
     async def close(self) -> None:
-        return None
+        """Stop the containers still running: the API is shutting down and nobody waits."""
+        names = sorted(self.running)
+        results = await asyncio.gather(*(self._kill(n) for n in names), return_exceptions=True)
+        for name, res in zip(names, results, strict=True):
+            if isinstance(res, BaseException):
+                log.warning("could not stop container %s: %s", name, res)
 
 
 class FakeRunner:

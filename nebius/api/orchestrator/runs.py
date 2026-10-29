@@ -1,7 +1,8 @@
 """Runs: instant estimates and sandboxed simulations, idempotent and cached.
 
 The run id is a hash of everything that determines the result (venue hash, events,
-tier, seed, caps, engine, sim settings), so the same request returns the same run.
+tier, seed, caps, engine, simulator code, sim settings), so the same request returns the same
+run.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from typing import Any
 
 from sqlmodel import col, select
 
-from api.adapters.sandbox import SandboxRunner, SimJob, failed_result
+from api.adapters.sandbox import SandboxRunner, SimJob, failed_result, sim_version
 from api.core.evidence import fallback_estimate
 from api.core.extensions import Registry
 from api.core.plan import (
@@ -116,6 +117,8 @@ class RunService:
         self.detached: set[str] = set()
         self.progress: dict[str, dict[str, Any]] = {}
         self.listeners: list[Listener] = []
+        # part of every simulation's run id: after a change to sim/ no cached run is reused
+        self.sim_version = sim_version(settings.root_dir / "sim")
 
     # -- instant estimate ------------------------------------------------------------
     def estimate(
@@ -249,6 +252,7 @@ class RunService:
             "max_sim_s": max_sim,
             "iv": intervention_at_s,
             "engine": "jupedsim",
+            "sim_version": self.sim_version,
             # Mock and real providers must never reuse each other's cached runs.
             "sandbox_provider": self.runner.provider,
             "sim": settings_payload,
@@ -295,16 +299,15 @@ class RunService:
         )
 
     def cached(self, run_id: str) -> RunResult | None:
-        """A finished, successful run with this id (artifacts still on disk)."""
+        """A finished, successful run with this id whose artifacts are all still on disk (a
+        hit serves them: a missing trajectory or density grid means running it again)."""
         with db_session(self.db_url) as s:
             row = s.get(Run, run_id)
         if row is None or row.result is None or row.status not in ("ok", "partial"):
             return None
         res = RunResult.model_validate(row.result)
-        if (
-            res.artifacts.trajectory
-            and not (self.settings.root_dir / res.artifacts.trajectory).exists()
-        ):
+        paths = [p for p in res.artifacts.model_dump().values() if p]
+        if not all((self.settings.root_dir / p).is_file() for p in paths):
             return None
         return res
 

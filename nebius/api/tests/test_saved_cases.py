@@ -21,6 +21,7 @@ from api.core.settings import ROOT_DIR
 from api.orchestrator.real_cases import open_case
 from api.orchestrator.session import SessionManager
 from api.tests.evidence_fakes import reset_engine, use_test_settings
+from api.tests.http import api_client
 
 SPEC = json.loads(
     (ROOT_DIR / "api" / "tests" / "fixtures" / "real_cases" / "love_parade_2010.json").read_text()
@@ -62,7 +63,7 @@ def _facts(**change: Any) -> dict[str, Any]:
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     settings = use_test_settings(tmp_path, monkeypatch)
     state = build_state(settings, llm=FakeLLM({}, settings), runner=FakeRunner(settings.runs_dir))
-    with TestClient(create_app(state=state, settings=settings)) as c:
+    with api_client(create_app(state=state, settings=settings)) as c:
         yield c
     reset_engine()
 

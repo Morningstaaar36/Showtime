@@ -21,6 +21,7 @@ import { DensityLegend, PeopleLegend, PlanCompass, TierChip } from "@/panels/Ove
 import { useTour } from "@/panels/Tour";
 import { RedTeamPanel, useRedTeamSession } from "@/panels/RedTeamPanel";
 import { ReportView } from "@/panels/ReportView";
+import { MoreAnalysis } from "@/journey/plan/MoreAnalysis";
 import { SimulatePanel } from "@/panels/SimulatePanel";
 import { Timeline, type TimelineMarker } from "@/panels/Timeline";
 import { ToolRail } from "@/panels/ToolRail";
@@ -40,7 +41,7 @@ import { useEditorDefaults } from "@/lib/useEditorDefaults";
 import { resolveEditFloor } from "@/lib/venueOps";
 import { useBuild } from "@/state/build";
 
-const MODES: Mode[] = ["plan", "simulate", "redteam", "report"];
+const MODES: Mode[] = ["plan", "simulate", "redteam", "report", "analysis"];
 
 /** Expert view needs a desktop-sized screen; below it a notice points back to the simple view. */
 const WIDE = "(min-width: 1024px)";
@@ -118,7 +119,7 @@ export function WorkspacePage() {
   const run = useRun(runId);
   const finished = run.data && (run.data.status === "ok" || run.data.status === "partial");
   // an instant estimate (tier 1, e.g. standing in for a simulation that failed) has no replay
-  const replay = useReplay(finished && run.data?.tier !== 1 ? runId : null, mode !== "plan" && mode !== "report");
+  const replay = useReplay(finished && run.data?.tier !== 1 ? runId : null, mode !== "plan" && mode !== "report" && mode !== "analysis");
   // "Stress test finished" when a run the user is watching completes (not for runs opened later)
   const watched = useRef<{ id: string | null; status: string | undefined }>({ id: null, status: undefined });
   useEffect(() => {
@@ -221,7 +222,7 @@ export function WorkspacePage() {
         else build.apply(finishStep(ui.tool, resolveEditFloor(p.version.venue, ui.editFloor), ui.draft, buildOptionsOf(ed, useBuild.getState().chosen)));
       }
       else if (k === "r") runStress();
-      else if (["1", "2", "3", "4"].includes(k)) navigate(`/p/${projectId}/expert/${MODES[Number(k) - 1]}`);
+      else if (["1", "2", "3", "4", "5"].includes(k)) navigate(`/p/${projectId}/expert/${MODES[Number(k) - 1]}`);
       else if (tools[k] && (mode === "plan" || ["select", "block", "measure"].includes(tools[k]))) useUi.getState().setTool(tools[k]);
     };
     window.addEventListener("keydown", onKey);
@@ -351,6 +352,8 @@ export function WorkspacePage() {
       {banners.map((b) => <Banner key={b.key} tone={b.tone} icon={b.icon}>{b.text}</Banner>)}
       {mode === "report" ? (
         <main id="main" className="min-h-0 flex-1"><ReportView project={p} /></main>
+      ) : mode === "analysis" ? (
+        <main id="main" className="min-h-0 flex-1"><MoreAnalysis project={p} /></main>
       ) : (
         <div className="relative flex min-h-0 flex-1">
           <main id="main" className="relative min-w-0 flex-1">

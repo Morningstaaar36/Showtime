@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, test } from "@playwright/test";
+import { expect, type APIRequestContext, test } from "./fixtures";
 
 // Rewind the worst moment and stress test at scale on Your plan. Works with the fake
 // providers (every branch is a preview run) and with a real model and simulator.
@@ -21,9 +21,9 @@ async function testedProject(request: APIRequestContext): Promise<{ pid: string;
 test("rewind the worst moment and stress test at scale on Your plan", async ({ page, request }) => {
   test.setTimeout(900_000);
   const { pid, sid } = await testedProject(request);
-  await page.goto(`/p/${pid}?session=${sid}`);
-  // both checks run in sandboxes, so they sit on the Sandboxes tab, open
-  await page.getByRole("tab", { name: /^Sandboxes/ }).click();
+  // both checks run in sandboxes, so they sit on Expert view's Sandboxes tab, open
+  await page.goto(`/p/${pid}/expert/analysis?session=${sid}&tab=sandboxes`);
+  await expect(page.getByTestId("sandboxes-tab")).toBeVisible({ timeout: 30_000 });
 
   const rewind = page.getByRole("region", { name: "Rewind the worst moment" });
   await expect(rewind).toBeVisible({ timeout: 30_000 });

@@ -82,7 +82,7 @@ if (await tools.count()) {
 await page.goto(`${BASE}/p/${pid}?session=${sid}&tab=sandboxes`);
 const tab = page.getByTestId("sandboxes-tab");
 await tab.waitFor();
-await say("The plan's Sandboxes tab: the scenario the AI wrote as code, and what happened when it ran.");
+await say("Expert view's Sandboxes tab: the scenario the AI wrote as code, and what happened when it ran.");
 const code = tab.getByText("Show the code").first();
 await smoothTo(code);
 await code.click();
@@ -90,7 +90,7 @@ await say("This attack is a Python script the red team wrote. It only ever ran i
 await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
 await pause(800);
 await page.getByTestId("sandbox-badge").first().click();
-await say("The sandbox badge in the header says what every sandbox guarantees.", 6000);
+await say("The sandbox badge in Expert view's top bar says what every sandbox guarantees.", 6000);
 await page.keyboard.press("Escape");
 
 await page.goto(`${BASE}/p/${pid}/scripts`);

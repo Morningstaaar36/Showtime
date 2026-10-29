@@ -11,6 +11,7 @@ import pytest
 from api.adapters.osm import OsmUnavailable
 from api.app.state import build_osm
 from api.core.settings import Settings
+from api.tests.http import api_client
 
 
 def _osm(tmp_path: Path, **kw: object):
@@ -36,7 +37,6 @@ def test_the_overpass_servers_come_from_settings(tmp_path: Path) -> None:
 
 
 def test_the_app_gets_its_map_config_from_the_server(tmp_path: Path, monkeypatch: object) -> None:
-    from fastapi.testclient import TestClient
 
     from api.adapters.llm import FakeLLM
     from api.adapters.sandbox import FakeRunner
@@ -50,7 +50,7 @@ def test_the_app_gets_its_map_config_from_the_server(tmp_path: Path, monkeypatch
     )
     st = build_state(s, llm=FakeLLM({}, s), runner=FakeRunner(s.runs_dir))
     try:
-        with TestClient(create_app(state=st, settings=s)) as c:
+        with api_client(create_app(state=st, settings=s)) as c:
             m = c.get("/api/v1/health").json()["client"]["map"]
         assert m["style_url"] == "https://style.example/s.json"
         assert m["raster_tiles_url"] == s.map_raster_tiles_url

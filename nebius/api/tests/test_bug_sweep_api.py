@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -18,6 +19,7 @@ from api.db.models import RedTeamSession, Run
 from api.db.session import db_session
 from api.orchestrator.reports import build_bundle
 from api.orchestrator.session import SessionConfigError, session_config
+from api.tests.http import api_client
 from api.tests.test_api import client  # noqa: F401 - shared fixture
 from api.tests.test_redteam import state  # noqa: F401 - shared fixture
 
@@ -173,7 +175,9 @@ async def test_report_of_an_imported_project_has_baseline_and_final(
     sid = state.sessions.list_sessions(copy.id)[0].id
     imported = build_bundle(state, copy.id, sid)
     assert imported.baseline is not None
-    assert imported.baseline.run_id == original.baseline.run_id
+    # the copy has runs of its own (an imported result is never served under a request's id)
+    assert imported.baseline.run_id != original.baseline.run_id
+    assert imported.baseline.metrics == original.baseline.metrics
     assert (imported.final is None) == (original.final is None)
 
 
@@ -189,7 +193,7 @@ def test_startup_fails_stale_runs_and_stops_stale_sessions(state: Any) -> None: 
         db.add(RedTeamSession(id="s_stale", project_id=p.id, status="running"))
         db.commit()
     app = create_app(state=state, settings=state.base_settings)
-    with TestClient(app) as c:
+    with api_client(app) as c:
         for rid in ("r_stale_queue", "r_stale_run"):
             run = c.get(f"/api/v1/runs/{rid}").json()
             assert run["status"] == "failed" and "restarted" in run["error"]
@@ -216,11 +220,23 @@ def _slow_job(st: Any) -> Any:
     return st.runs.build_job(st.projects.venue(p.id), tier=2)
 
 
-async def _started(st: Any, rid: str) -> None:
-    for _ in range(100):
-        if rid in st.runs.tasks and st.runs.waiters.get(rid, 0) + (rid in st.runs.detached):
-            return
+async def _until(ok: Callable[[], bool], timeout_s: float = 5.0) -> None:
+    """Wait until `ok()` holds (polled), instead of sleeping a fixed time and hoping."""
+    deadline = time.monotonic() + timeout_s
+    while not ok():
+        assert time.monotonic() < deadline, "the condition never held"
         await asyncio.sleep(0.01)
+
+
+async def _started(st: Any, rid: str) -> None:
+    """The run is executing in the sandbox and someone waits for it or follows it."""
+    await _until(
+        lambda: (
+            rid in st.runs.tasks
+            and bool(st.runs.waiters.get(rid, 0) + (rid in st.runs.detached))
+            and st.runs.get(rid).status == "running"
+        )
+    )
 
 
 async def test_cancelled_waiter_keeps_a_shared_run(state: Any) -> None:  # noqa: F811
@@ -229,16 +245,14 @@ async def test_cancelled_waiter_keeps_a_shared_run(state: Any) -> None:  # noqa:
     a = asyncio.create_task(state.runs.run(job))
     b = asyncio.create_task(state.runs.run(job))
     await _started(state, rid)
-    await asyncio.sleep(0.05)
-    assert state.runs.waiters[rid] == 2
+    await _until(lambda: state.runs.waiters.get(rid) == 2)
     a.cancel()
     res = await asyncio.wait_for(b, timeout=5)
     assert a.cancelled()
     assert res.status in ("ok", "partial")
     assert state.runs.get(rid).status in ("ok", "partial")
     # finished runs leave the in-flight maps; the result stays readable from the database
-    await asyncio.sleep(0)
-    assert rid not in state.runs.tasks and rid not in state.runs.waiters
+    await _until(lambda: rid not in state.runs.tasks and rid not in state.runs.waiters)
 
 
 async def test_last_waiter_cancelled_stops_the_run(state: Any) -> None:  # noqa: F811
@@ -246,7 +260,6 @@ async def test_last_waiter_cancelled_stops_the_run(state: Any) -> None:  # noqa:
     rid = job.request.run_id
     a = asyncio.create_task(state.runs.run(job))
     await _started(state, rid)
-    await asyncio.sleep(0.05)
     a.cancel()
     with pytest.raises(asyncio.CancelledError):
         await a
@@ -262,7 +275,7 @@ async def test_cancelled_waiter_keeps_a_run_followed_over_the_api(
     state.runs.submit(job)  # e.g. POST /runs: the UI polls it
     a = asyncio.create_task(state.runs.run(job))
     await _started(state, rid)
-    await asyncio.sleep(0.05)
+    await _until(lambda: state.runs.waiters.get(rid) == 1)
     a.cancel()
     await asyncio.gather(a, return_exceptions=True)
     task = state.runs.tasks[rid]
@@ -273,7 +286,7 @@ async def test_cancelled_waiter_keeps_a_run_followed_over_the_api(
     rid2 = state.runs.submit(job2)
     waiter = asyncio.create_task(state.runs.run(job2))
     await _started(state, rid2)
-    await asyncio.sleep(0.05)
+    await _until(lambda: state.runs.waiters.get(rid2) == 1)
     assert await state.runs.cancel(rid2)
     assert (await asyncio.wait_for(waiter, timeout=5)).status == "cancelled"
 

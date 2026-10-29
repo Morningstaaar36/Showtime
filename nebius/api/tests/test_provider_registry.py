@@ -17,6 +17,7 @@ from api.adapters.sandbox import NO_SANDBOX
 from api.app.state import build_runner, build_state
 from api.core.settings import Settings
 from api.tests.evidence_fakes import reset_engine, use_test_settings
+from api.tests.http import api_client
 
 
 @pytest.fixture
@@ -138,7 +139,6 @@ def test_nebius_and_tavily_are_selected_by_env_alone(
 def test_health_states_what_each_provider_is_and_can_do(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from fastapi.testclient import TestClient
 
     from api.adapters.llm import FakeLLM
     from api.adapters.sandbox import FakeRunner
@@ -147,7 +147,7 @@ def test_health_states_what_each_provider_is_and_can_do(
     s = use_test_settings(tmp_path, monkeypatch)
     st = build_state(s, llm=FakeLLM({}, s), runner=FakeRunner(s.runs_dir, max_parallel=3))
     try:
-        with TestClient(create_app(state=st, settings=s)) as c:
+        with api_client(create_app(state=st, settings=s)) as c:
             p = c.get("/api/v1/health").json()["providers"]
         assert p["llm"]["title"] and p["llm"]["is_cloud"] is False
         assert set(p["llm"]["capabilities"]) == {"json_schema", "spare_key", "fallback_to_local"}

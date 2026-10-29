@@ -67,12 +67,19 @@ def install_demos(st: Any) -> int:
             continue  # up to date (or deliberately deleted by the user)
         old = projects.get(prev["project_id"]) if prev else None
         try:
-            p = st.projects.import_zip(data, sample=True, runs_dir=st.settings.runs_dir, name=name)
+            p = st.projects.import_zip(
+                data,
+                sample=True,
+                runs_dir=st.settings.runs_dir,
+                name=name,
+                max_unpacked_bytes=st.settings.import_max_unpacked_bytes,
+                max_entries=st.settings.import_max_entries,
+            )
         except Exception:
             log.exception("could not install demo %s", pack.name)
             continue
         if old is not None and prev is not None and old.current_version == prev.get("version", 1):
-            st.projects.delete(old.id)  # unedited older copy of this sample
+            st.projects.delete(old.id, st.settings.runs_dir)  # unedited older copy of the sample
         state[pack.name] = {
             "sha": sha,
             "project_id": p.id,

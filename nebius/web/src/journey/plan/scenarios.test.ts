@@ -29,8 +29,8 @@ describe("tested scenarios", () => {
 
   it("lists the plan, each attack with its fixes, then the final check", () => {
     expect(rows.map((r) => r.title)).toEqual([
-      "Your plan as drawn", "South door blocked", "South door blocked · with the changes kept so far", "Surge",
-      "Final check before the changes · South door blocked", "Final check with the changes · South door blocked",
+      "Your plan as drawn", "South door blocked", "South door blocked · with the fixes kept so far", "Surge",
+      "Final check before the fixes · South door blocked", "Final check with the fixes · South door blocked",
     ]);
     expect(rows[1].children.map((c) => [c.title, c.accepted, c.outcome])).toEqual([["Open the east door", true, "holds"]]);
   });

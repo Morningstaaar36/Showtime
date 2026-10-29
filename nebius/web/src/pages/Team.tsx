@@ -12,8 +12,9 @@ const STAGES = ["build", "attack", "defend", "judge", "explain"] as const;
 
 const STAGE_TONE: Record<(typeof STAGES)[number], string> = {
   build: "bg-sky-soft text-sky",
-  attack: "bg-danger-soft text-danger-strong",
-  defend: "bg-egress-soft text-egress-strong",
+  // neutral: red and green here would say "danger" and "safe" about a stage name
+  attack: "bg-surface-3 text-ink",
+  defend: "bg-surface-3 text-ink",
   judge: "bg-signal-soft text-signal",
   explain: "bg-surface-3 text-ink",
 };

@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
+
+from api.tests.http import api_client
 
 
 @pytest.fixture
@@ -23,7 +24,7 @@ def client(tmp_path: Path, monkeypatch: Any) -> Any:
 
     s = use_test_settings(tmp_path, monkeypatch)
     st = build_state(s, llm=FakeLLM({}, s), runner=FakeRunner(s.runs_dir))
-    with TestClient(create_app(state=st, settings=s)) as c:
+    with api_client(create_app(state=st, settings=s)) as c:
         yield c
     reset_engine()
 

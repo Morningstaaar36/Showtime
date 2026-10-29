@@ -78,11 +78,11 @@ function fixSummary(f: Fix, name: (id: string) => string): string {
   ].join(" · ");
 }
 
-/** "2:26", "~5:57" (estimated: not everyone was out), "–" (not reached). */
+/** "2:26", "~5:57" (estimated: not everyone was out), "not everyone got out" (not reached). */
 function clockOf(m: Record<string, number | null | undefined>): string {
   if (m.evac_time_p95_s != null) return fmtClock(m.evac_time_p95_s);
   if (m.evac_time_estimate_s != null) return `~${fmtClock(m.evac_time_estimate_s)}`;
-  return "–";
+  return t("plan.not_everyone_out");
 }
 
 /** One icon per kind of change: new door, fence, wider door, one-way, held back, stewards, staff. */

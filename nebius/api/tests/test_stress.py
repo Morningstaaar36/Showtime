@@ -7,13 +7,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api.adapters.llm import LLMError
 from api.adapters.sandbox import FakeRunner
 from api.app.main import create_app
 from api.orchestrator import stress
 from api.tests.evidence_fakes import app_state, reset_engine, use_test_settings
+from api.tests.http import api_client
 
 
 def _down(_: Any) -> Any:
@@ -72,7 +72,7 @@ async def test_stress_with_rule_attacks_and_no_test_yet(st: Any) -> None:
 def test_stress_routes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     settings = use_test_settings(tmp_path, monkeypatch)
     state = app_state(settings, fake=True)
-    with TestClient(create_app(state=state, settings=settings)) as c:
+    with api_client(create_app(state=state, settings=settings)) as c:
         pid = c.post("/api/v1/projects", json={"name": "A", "template_id": "t_alley"}).json()["id"]
         assert c.get(f"/api/v1/projects/{pid}/stress").json() is None
         assert c.post(f"/api/v1/projects/{pid}/stress", json={"seeds": 6}).status_code == 422

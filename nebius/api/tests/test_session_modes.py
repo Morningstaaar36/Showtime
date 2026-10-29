@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from api.core.session_modes import SessionModes, session_modes
+from api.tests.http import api_client
 
 
 def test_the_modes_load_and_include_the_default() -> None:
@@ -26,8 +27,6 @@ def test_a_default_that_is_not_a_mode_is_refused() -> None:
 def test_the_page_gets_the_editor_defaults_targets_and_speeds(tmp_path: object) -> None:
     from pathlib import Path
 
-    from fastapi.testclient import TestClient
-
     from api.adapters.llm import FakeLLM
     from api.adapters.sandbox import FakeRunner
     from api.app.main import create_app
@@ -37,7 +36,7 @@ def test_the_page_gets_the_editor_defaults_targets_and_speeds(tmp_path: object) 
 
     s = Settings(_env_file=None, cache_dir=Path(str(tmp_path)), runs_dir=Path(str(tmp_path)) / "r")
     st = build_state(s, llm=FakeLLM({}, s), runner=FakeRunner(s.runs_dir))
-    with TestClient(create_app(state=st, settings=s)) as c:
+    with api_client(create_app(state=st, settings=s)) as c:
         eff = c.get("/api/v1/settings").json()["effective"]
         modes = c.get("/api/v1/test_modes").json()
     assert eff["editor"]["exit_width_m"] == s.new_exit_width_m

@@ -14,7 +14,7 @@
   --border: #e0e3f3;
   --border-strong: #c3c9e8;
   --ink: #1d1b3a;
-  --muted: #5d6185;
+  --muted: #53577a;
   --line: #9aa0c3;
   --signal: #5b4ff5;
   --signal-ink: #ffffff;
@@ -42,9 +42,8 @@
   --scene-bg: #eef0ff;
   --scene-grid: #d4d8f5;
   --shadow-float: 0 12px 30px -14px rgb(57 47 160 / 0.28), 0 1px 3px rgb(29 27 58 / 0.08);
-  --hero: radial-gradient(1200px 400px at 10% -10%, #e4e0ff 0%, transparent 60%),
-    radial-gradient(900px 380px at 95% 0%, #ffe1f0 0%, transparent 55%),
-    radial-gradient(800px 360px at 60% 110%, #d9f4ff 0%, transparent 60%);
+  /* no gradient wash behind pages: the page background is the plan colour */
+  --hero: none;
   color-scheme: light;
 }
 
@@ -83,8 +82,7 @@
   --scene-bg: #17163a;
   --scene-grid: #2b2a55;
   --shadow-float: 0 10px 28px -12px rgb(0 0 0 / 0.6), 0 1px 2px rgb(0 0 0 / 0.4);
-  --hero: radial-gradient(1200px 400px at 10% -10%, #2e2a6e 0%, transparent 60%),
-    radial-gradient(900px 380px at 95% 0%, #4a1f45 0%, transparent 55%);
+  --hero: none;
   color-scheme: dark;
 }
 
@@ -256,8 +254,18 @@
   *::after {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
+  }
+  /* the decorative motions stop outright: cards are simply there, the flow and the halo are still */
+  .animate-deal-in,
+  .animate-tab-in,
+  .animate-ring-in,
+  .animate-flow,
+  .animate-halo,
+  .animate-pulse {
+    animation: none !important;
   }
 }
 

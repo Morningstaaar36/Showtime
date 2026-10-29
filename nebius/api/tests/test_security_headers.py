@@ -7,7 +7,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from fastapi.testclient import TestClient
+from api.tests.http import api_client
 
 EXPECTED = {
     "x-content-type-options": "nosniff",
@@ -27,7 +27,7 @@ def test_responses_carry_the_security_headers(tmp_path: Path, monkeypatch: Any) 
     s = use_test_settings(tmp_path, monkeypatch)
     st = build_state(s, llm=FakeLLM({}, s), runner=FakeRunner(s.runs_dir))
     try:
-        with TestClient(create_app(state=st, settings=s)) as c:
+        with api_client(create_app(state=st, settings=s)) as c:
             for path in ("/api/v1/health", "/api/v1/projects", "/api/v1/nope"):
                 r = c.get(path)
                 for name, value in EXPECTED.items():

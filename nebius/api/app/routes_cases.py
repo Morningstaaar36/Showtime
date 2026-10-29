@@ -27,6 +27,8 @@ from api.orchestrator.real_cases import (
 )
 
 router = APIRouter(prefix="/api/v1")
+# The routes that read every case and project (or write case files) are plain functions:
+# FastAPI runs them in its thread pool, so they never hold up the event loop.
 
 
 def _out(st: AppState, case: RealCase, origin: str, built: dict[str, str]) -> dict[str, Any]:
@@ -50,7 +52,7 @@ def _read_only(case_id: str) -> ApiException:
 
 
 @router.get("/real_cases")
-async def real_cases(st: AppState = Depends(get_state)) -> list[dict[str, Any]]:
+def real_cases(st: AppState = Depends(get_state)) -> list[dict[str, Any]]:
     """Every case (the shipped examples, then the saved ones) with its facts and sources, and
     the project built from it (if any)."""
     built = case_projects(st)  # one pass over the projects for every case
@@ -58,13 +60,13 @@ async def real_cases(st: AppState = Depends(get_state)) -> list[dict[str, Any]]:
 
 
 @router.post("/real_cases", status_code=201)
-async def create_real_case(body: CaseFacts, st: AppState = Depends(get_state)) -> dict[str, Any]:
+def create_real_case(body: CaseFacts, st: AppState = Depends(get_state)) -> dict[str, Any]:
     """Save a new real case; it opens like the examples (the designer builds it from its text)."""
     return _out(st, save_case(st, body), "saved", {})
 
 
 @router.put("/real_cases/{case_id}")
-async def update_real_case(
+def update_real_case(
     case_id: str, body: CaseFacts, st: AppState = Depends(get_state)
 ) -> dict[str, Any]:
     """Change a saved case; the next open builds it from the new text."""
@@ -78,7 +80,7 @@ async def update_real_case(
 
 
 @router.delete("/real_cases/{case_id}", status_code=204)
-async def delete_real_case(case_id: str, st: AppState = Depends(get_state)) -> None:
+def delete_real_case(case_id: str, st: AppState = Depends(get_state)) -> None:
     """Delete a saved case; projects built from it stay, with their copy of its facts."""
     try:
         delete_case(st, case_id)

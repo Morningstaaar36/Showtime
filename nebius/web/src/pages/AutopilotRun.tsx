@@ -159,7 +159,7 @@ function AutopilotRunView({ runId }: { runId: string }) {
                     <span className="text-muted tabular">{progress.percent}%</span>
                   </div>
                   <div className="h-3 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100} aria-label={t("autopilot.progress")}>
-                    <div className={cn("h-full rounded-full transition-all duration-700 motion-reduce:transition-none", failed ? "bg-danger" : "bg-[linear-gradient(90deg,var(--sky),var(--signal),var(--pink))]")}
+                    <div className={cn("h-full rounded-full transition-all duration-700 motion-reduce:transition-none", failed ? "bg-danger" : "bg-signal")}
                          style={{ width: `${progress.percent}%` }} />
                   </div>
                   {!ended && <p className="text-sm text-muted">{t("autopilot.leave_ok")}</p>}

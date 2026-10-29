@@ -183,6 +183,11 @@ export function CheckVenuePage() {
               </summary>
               <div className="space-y-4 border-t border-border p-3">
                 <p className="text-sm text-muted">{t("check.more_options_hint")}</p>
+                {/* how deep the test goes: Standard unless chosen here (the choice is remembered) */}
+                <fieldset className="space-y-1.5">
+                  <legend className="mb-1 text-sm">{t("check.mode_label")}</legend>
+                  <TestModePicker modes={modes.modes} value={mode.id} disabled={start.isPending} onChange={(m) => { setPicked(m); saveTestMode(m); }} />
+                </fieldset>
                 <fieldset className="space-y-1.5">
                   <legend className="mb-1 text-sm">{t("check.new_items_are")}</legend>
                   <div className="flex gap-1">
@@ -201,7 +206,6 @@ export function CheckVenuePage() {
           </div>
           <div className="space-y-2 border-t border-border p-4">
             {errors.length > 0 && <p className="flex gap-2 text-sm text-danger"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{t("check.fix_errors_first")}</p>}
-            <TestModePicker modes={modes.modes} value={mode.id} disabled={start.isPending} onChange={(m) => { setPicked(m); saveTestMode(m); }} />
             <Button variant="primary" size="lg" className="w-full" disabled={errors.length > 0 || start.isPending || previewing} onClick={test}>
               {start.isPending ? <Spinner /> : <Swords />}{t("check.test")}
             </Button>

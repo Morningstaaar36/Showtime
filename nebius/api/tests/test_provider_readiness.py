@@ -6,13 +6,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api.adapters.llm import FakeLLM
 from api.app.main import create_app
 from api.app.state import build_runner, build_state
 from api.core.settings import Settings
 from api.tests.evidence_fakes import reset_engine, use_test_settings
+from api.tests.http import api_client
 
 
 def test_an_unconfigured_sandbox_falls_back_and_says_why(tmp_path: Path) -> None:
@@ -44,7 +44,7 @@ def test_health_names_what_is_not_configured(
     )
     st = build_state(s, llm=FakeLLM({}, s))
     try:
-        with TestClient(create_app(state=st, settings=s)) as c:
+        with api_client(create_app(state=st, settings=s)) as c:
             p = c.get("/api/v1/health").json()["providers"]
         assert p["sandbox"]["fallback"].startswith("Nebius Sandboxes is not configured")
         assert p["sandbox"]["provider"] == "docker"  # what runs, not what was asked for

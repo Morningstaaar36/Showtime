@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from api.adapters.llm import LLMClient
+from api.tests.http import api_client
 from api.tests.test_llm_provider import _settings
 
 
@@ -66,7 +67,6 @@ def test_the_hint_names_the_pause_and_offline_mode(tmp_path: Path) -> None:
 
 
 def test_the_edit_endpoint_gives_that_hint(tmp_path: Path, monkeypatch: Any) -> None:
-    from fastapi.testclient import TestClient
 
     from api.adapters.sandbox import FakeRunner
     from api.app.main import create_app
@@ -77,7 +77,7 @@ def test_the_edit_endpoint_gives_that_hint(tmp_path: Path, monkeypatch: Any) -> 
     llm = _paused(tmp_path, local_up=False)
     st = build_state(s, llm=llm, runner=FakeRunner(s.runs_dir))
     try:
-        with TestClient(create_app(state=st, settings=s)) as c:
+        with api_client(create_app(state=st, settings=s)) as c:
             pid = st.projects.create("Hall", template_id="school_wing").id
             r = c.post(
                 f"/api/v1/projects/{pid}/edit", json={"text": "add a 2 m exit on the east wall"}

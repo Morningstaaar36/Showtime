@@ -11,7 +11,7 @@ import { CameraRig } from "./CameraRig";
 import { ChangeHighlights, DraftPreview, MoveGizmo } from "./EditTools";
 import { FOCUS_FROM, resolveFloorView, venueBounds } from "./geom";
 import { useScenePalette } from "./palette";
-import { labelledIds } from "./labels";
+import { labelledIds, PHONE_LABELS } from "./labels";
 import { LabelLayer } from "./SceneHtml";
 import { Agents, DensityLayer, Hotspots, Marshals, PlaybackClock, type MarshalNote } from "./ReplayLayers";
 import { ShowLights } from "./ShowLights";
@@ -77,7 +77,10 @@ export function SceneRoot(p: SceneProps) {
   // a tall building seen whole: room walls drawn low, so the storeys read as clean floor plates
   const stacked = view === "all" && p.venue.floors.length >= FOCUS_FROM;
   const editFloor = useUi((s) => s.editFloor);
-  const labelled = useMemo(() => labelledIds(p.venue, view, editFloor), [p.venue, view, editFloor]);
+  // read once: a phone keeps its width, and a resize only changes how many names fit
+  const [narrow] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 639px)").matches);
+  const labelled = useMemo(() => (narrow ? labelledIds(p.venue, view, editFloor, PHONE_LABELS.budget, PHONE_LABELS.from)
+    : labelledIds(p.venue, view, editFloor)), [p.venue, view, editFloor, narrow]);
   const hotspots = onlyFloor ? p.hotspots.filter((h) => h.floor_id === onlyFloor) : p.hotspots;
 
   return (

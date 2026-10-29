@@ -10,6 +10,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -165,7 +166,8 @@ class Settings(BaseSettings):
 
     # --- Search and weather ---
     tavily_api_key: str = ""
-    tavily_max_calls: int = 20  # live search calls per session (a cached search is free)
+    # live search calls per session (a cached search is free)
+    tavily_max_calls: int = Field(default=20, ge=0, le=200)
     # the red team's web search for real incidents like this venue's (when search is live)
     search_queries_per_session: int = Field(default=2, ge=0, le=3)
     search_results_per_query: int = Field(default=3, ge=1, le=10)
@@ -214,12 +216,12 @@ class Settings(BaseSettings):
     llm_cache_mode: Literal["off", "record", "replay", "record_replay"] = "record_replay"
 
     # --- Simulation defaults ---
-    max_people: int = 8000
+    max_people: int = Field(default=8000, ge=1, le=50_000)
     max_sim_s: float = 900.0
     max_wall_s: float = 600.0
     tier2_max_sim_s: float = 180.0
     tier2_frame_hz: float = Field(default=2.0, gt=0)  # replay frames per second of a quick run
-    walk_speed_mean: float = 1.34
+    walk_speed_mean: float = Field(default=1.34, gt=0, le=3.0)
     walk_speed_sd: float = 0.26
     slow_walker_fraction: float = 0.05
     agent_radius: float = 0.22
@@ -249,21 +251,22 @@ class Settings(BaseSettings):
     min_passage_width_m: float = Field(default=0.6, gt=0)  # narrower is not a way through
     target_evac_indoor_s: float = 300.0
     target_evac_outdoor_s: float = 480.0
-    specific_flow: float = 1.3
+    specific_flow: float = Field(default=1.3, gt=0, le=5.0)
     stair_speed: float = 0.6
     stair_flow: float = 1.0
-    density_warn_ppm2: float = 3.5
-    density_danger_ppm2: float = 5.0
-    safety_factor: float = 1.5
-    pre_movement_s: float = 60.0
+    density_warn_ppm2: float = Field(default=3.5, gt=0, le=10.0)
+    density_danger_ppm2: float = Field(default=5.0, le=10.0)
+    safety_factor: float = Field(default=1.5, ge=1.0, le=5.0)
+    pre_movement_s: float = Field(default=60.0, ge=0, le=3600.0)
     default_seed: int = 42
 
-    # --- Session budgets ---
-    max_rounds: int = 3
-    attacks_per_round: int = 5
-    fixes_per_attack: int = 2
-    fix_targets: int = 2
-    fix_min_gain: float = 0.10
+    # --- Session budgets (the Settings page may change some: each has an upper bound, so a
+    # request to the API can't lift them past what this server is willing to spend) ---
+    max_rounds: int = Field(default=3, ge=1, le=10)
+    attacks_per_round: int = Field(default=5, ge=1, le=10)
+    fixes_per_attack: int = Field(default=2, ge=1, le=10)
+    fix_targets: int = Field(default=2, ge=1, le=10)
+    fix_min_gain: float = Field(default=0.10, ge=0, le=1)
     # a scenario the AI proposes: events start within this many seconds after the alarm, and a
     # surge or counterflow is at most this share of the crowd (or attack_min_people, if more)
     attack_max_start_s: float = Field(default=600.0, gt=0)
@@ -275,9 +278,15 @@ class Settings(BaseSettings):
     fix_baseline_tolerance: float = Field(default=0.05, ge=0)
     fix_baseline_margin: float = Field(default=1.0, ge=0)
     marshals: int = 5
-    session_max_tokens: int = 400_000
-    session_max_runs: int = 40
-    session_max_wall_s: float = 1800.0
+    session_max_tokens: int = Field(default=400_000, ge=1000, le=5_000_000)
+    session_max_runs: int = Field(default=40, ge=1, le=500)
+    session_max_wall_s: float = Field(default=1800.0, gt=0, le=86_400.0)
+    # red-team sessions running at once on this server; one more is refused (429)
+    max_concurrent_sessions: int = Field(default=2, ge=1, le=16)
+    # model use of the whole server per UTC day, every session and question together: at
+    # either limit sessions stop with what they have and model calls are refused (0: no limit)
+    daily_max_tokens: int = Field(default=5_000_000, ge=0)
+    daily_max_usd: float = Field(default=10.0, ge=0)
 
     # --- Server ---
     api_host: str = "127.0.0.1"
@@ -291,6 +300,16 @@ class Settings(BaseSettings):
     # 127.0.0.1 and the Vite preview server by default
     cors_origins: str = "http://127.0.0.1:5173,http://localhost:4173"
     upload_max_bytes: int = 5_000_000
+    # what a project import may unpack (the upload limit is on the compressed file): bytes of
+    # the files it reads, and entries in the zip
+    import_max_unpacked_bytes: int = Field(default=200_000_000, ge=1_000_000)
+    import_max_entries: int = Field(default=1000, ge=10)
+    # host names the API answers to (comma-separated, "*" for any): a page on another site can
+    # reach a local API through a DNS name it controls, but it can't send this server's name.
+    # Empty: localhost, 127.0.0.1, the compose service "api", and the hosts of WEB_ORIGIN and
+    # SITE_ADDRESS
+    allowed_hosts: str = ""
+    site_address: str = ""  # the public address Caddy serves on a server (docs/HOSTING.md)
     log_level: str = "INFO"
 
     @field_validator("llm_provider", "sandbox_provider", "search_provider", "sandbox_fallback")
@@ -364,6 +383,21 @@ class Settings(BaseSettings):
         """WEB_ORIGIN plus CORS_ORIGINS, without blanks or repeats."""
         extra = [o.strip() for o in self.cors_origins.split(",")]
         return list(dict.fromkeys(o for o in [self.web_origin, *extra] if o))
+
+    @property
+    def trusted_hosts(self) -> list[str]:
+        """ALLOWED_HOSTS as a list, or the local names plus the hosts the app is served from."""
+        given = [h.strip() for h in self.allowed_hosts.split(",") if h.strip()]
+        if given:
+            return given
+        hosts = ["localhost", "127.0.0.1", "api"]
+        for address in (self.web_origin, self.site_address):
+            # "https://example.org:8443", "example.org", or ":80" (no host name: nothing to add)
+            address = address.strip()
+            host = urlsplit(address if "://" in address else f"//{address}").hostname
+            if host:
+                hosts.append(host)
+        return list(dict.fromkeys(hosts))
 
     @property
     def database_url(self) -> str:

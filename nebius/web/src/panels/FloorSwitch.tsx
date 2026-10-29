@@ -36,7 +36,8 @@ export function FloorSwitch({ venue, className }: { venue: Venue; className?: st
       {item("exploded", t("floors.exploded"), <Layers3 className="size-3.5 shrink-0" aria-hidden />)}
       <span aria-hidden className="mx-1 my-0.5 h-px bg-border" />
       {/* bottom-up in the DOM (keyboard order), top floor first on screen like a lift panel */}
-      <div className="flex flex-col-reverse gap-0.5">
+      {/* a tall building scrolls inside the panel instead of running off a phone screen */}
+      <div className="scrollbar-thin flex max-h-[40vh] flex-col-reverse gap-0.5 overflow-y-auto">
         {floorsBottomUp(venue).map((f) => (
           <div key={f.floor_id} className="flex items-center gap-1">
             <span className="min-w-0 flex-1">{item(f.floor_id, name(f.floor_id), undefined, t("floors.people_on", { n: fmtInt(people(f.floor_id)) }))}</span>

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from api.tests.http import api_client
 from api.tests.test_redteam import _run_session, state  # noqa: F401
 
 
@@ -35,14 +36,13 @@ async def test_a_built_in_script_is_never_called_ai_written(state: Any) -> None:
 
 
 async def test_the_report_says_when_rules_stood_in(state: Any) -> None:  # noqa: F811
-    from fastapi.testclient import TestClient
 
     from api.app.main import create_app
 
     state.llm.script.clear()
     p = state.projects.create("Hall", template_id="school_wing")
     row = await _run_session(state, p.id, max_rounds=1, attacks_per_round=2)
-    with TestClient(create_app(state=state, settings=state.settings)) as c:
+    with api_client(create_app(state=state, settings=state.settings)) as c:
         html = c.get(f"/api/v1/sessions/{row.id}/report").text
     assert "The AI didn&#x27;t answer, so built-in rules wrote the attacks" in html or (
         "The AI didn't answer, so built-in rules wrote the attacks" in html

@@ -16,7 +16,8 @@ interface Item {
 }
 interface Sweep { version: number | null; tier?: number; items: Item[] }
 
-const mmss = (s: number | null | undefined) => (s == null ? "—" : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`);
+// no 95% time means the crowd never got 95% out: say so, a dash reads like "no data"
+const mmss = (s: number | null | undefined) => (s == null ? t("plan.not_everyone_out") : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`);
 
 /** Six what-ifs simulated in parallel sandboxes; each card fills in as its sandbox finishes. */
 export function ScenarioMatrix({ projectId, version, danger, warn }: { projectId: string; version: number; danger: number; warn: number }) {

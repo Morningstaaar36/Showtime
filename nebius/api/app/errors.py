@@ -10,9 +10,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from api.adapters.llm import BudgetExceeded
 from api.core.plan import PlanConflict, PlanError
 from api.core.venue_ops import PatchError
 from api.orchestrator.projects import NotFound
+from api.orchestrator.session import TooManySessions
 
 log = logging.getLogger("showtime.api")
 _HTTP_CODES = {404: "not_found", 405: "method_not_allowed", 413: "too_large"}
@@ -41,6 +43,11 @@ def _body(
     code: str, message: str, hint: str | None = None, details: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     return {"code": code, "message": message, "hint": hint, "details": details or {}}
+
+
+def response(status: int, code: str, message: str, hint: str | None = None) -> JSONResponse:
+    """A designed error response, for code that answers before a route runs (middleware)."""
+    return JSONResponse(_body(code, message, hint), status)
 
 
 def install(app: FastAPI) -> None:
@@ -81,6 +88,15 @@ def install(app: FastAPI) -> None:
     @app.exception_handler(PlanConflict)
     async def _conflict(_: Request, exc: PlanConflict) -> JSONResponse:
         return JSONResponse(_body("plan_version_conflict", str(exc)), 409)
+
+    @app.exception_handler(TooManySessions)
+    async def _busy(_: Request, exc: TooManySessions) -> JSONResponse:
+        return JSONResponse(_body("too_many_sessions", str(exc), exc.hint), 429)
+
+    @app.exception_handler(BudgetExceeded)
+    async def _budget(_: Request, exc: BudgetExceeded) -> JSONResponse:
+        # a model call refused by a budget that no route turned into its own message
+        return JSONResponse(_body("budget", str(exc), "Try again when the budget allows."), 429)
 
     @app.exception_handler(StarletteHTTPException)
     async def _http(_: Request, exc: StarletteHTTPException) -> JSONResponse:

@@ -8,12 +8,13 @@ const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_C
 const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
 const t0 = Date.now();
 const at = () => `${((Date.now() - t0) / 1000).toFixed(0)} s`;
-await page.goto(`${BASE}/`);
-await page.getByRole("button", { name: /Try a sample/ }).click();
-await page.getByRole("button", { name: new RegExp(template) }).first().click();
+await page.goto(`${BASE}/projects`);
+await page.getByRole("button", { name: new RegExp(`^${template}`) }).first().click();
+await page.getByRole("button", { name: "Create project" }).click();
 await page.waitForURL(/\/describe$/);
 const pid = page.url().split("/p/")[1].split("/")[0];
 console.log("project", pid);
+await page.getByText("More options", { exact: true }).click(); // the test depth lives there
 await page.getByRole("radio", { name: new RegExp(mode) }).click();
 await page.getByRole("button", { name: "Test this plan" }).click();
 await page.waitForURL(/\/work\?session=/, { timeout: 60_000 });
@@ -34,6 +35,7 @@ await page.waitForTimeout(3000);
 console.log(at(), "Your plan");
 await page.screenshot({ path: `${out}/plan-overview.png` });
 console.log("verdict:", (await page.getByRole("region", { name: "Verdict" }).innerText()).replace(/\n+/g, " | ").slice(0, 300));
+await page.getByRole("link", { name: "More analysis in Expert view" }).click(); // scenarios and sandboxes live there
 await page.getByRole("tab", { name: /^Scenarios/ }).click();
 await page.waitForTimeout(1500);
 const ev = page.getByTestId("evidence-panel");

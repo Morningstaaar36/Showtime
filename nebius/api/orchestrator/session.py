@@ -20,7 +20,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlmodel import col, select
 
-from api.adapters.llm import Budget, BudgetExceeded, LLMError
+from api.adapters.llm import Budget, BudgetExceeded, DailyLimitReached, LLMError
 from api.adapters.search import SearchBudget
 from api.agents.base import AgentEnv, AgentUnavailable, audit_decision
 from api.agents.blue_team import blue_team
@@ -91,6 +91,15 @@ log = logging.getLogger("showtime.session")
 
 class StopSession(Exception):
     """A budget or the user ended the session."""
+
+
+class TooManySessions(Exception):
+    """As many sessions as MAX_CONCURRENT_SESSIONS (or the daily model budget) allow are
+    already running: a new one waits until one ends."""
+
+    def __init__(self, message: str, hint: str) -> None:
+        super().__init__(message)
+        self.hint = hint
 
 
 class SessionConfigError(ValueError):
@@ -399,7 +408,9 @@ class SessionManager:
 
     def __init__(self, state: Any) -> None:
         self.st = state
+        # sessions running in this process: each leaves when it ends (replays read the database)
         self.live: dict[str, LiveSession] = {}
+        self._notifiers: set[asyncio.Task[None]] = set()  # held until done (else collectable)
         # the sandbox feed: lifecycle events of this session's runs, as they happen
         runs = getattr(state, "runs", None)
         if runs is not None:
@@ -417,8 +428,20 @@ class SessionManager:
     def start(self, project_id: str, config: dict[str, Any] | None = None) -> RedTeamSession:
         """Create a session row and launch the loop in the background.
 
-        Raises SessionConfigError for a setting of the wrong type or out of range."""
+        Raises SessionConfigError for a setting of the wrong type or out of range, and
+        TooManySessions when the server runs as many as it allows or today's model budget is
+        used."""
         cfg = session_config(self.st.settings, config)
+        limit = self.st.settings.max_concurrent_sessions
+        if sum(not live.finished for live in self.live.values()) >= limit:
+            raise TooManySessions(
+                f"{limit} tests are already running on this server.",
+                "Wait for one to finish, or stop one, and start again.",
+            )
+        daily = getattr(self.st.llm, "daily", None)
+        why = daily.reached() if daily is not None else None
+        if why is not None:
+            raise TooManySessions(why, "Tests can start again tomorrow (UTC).")
         p = self.st.projects.get(project_id)
         sid = f"s_{uuid.uuid4().hex[:10]}"
         row = RedTeamSession(
@@ -474,6 +497,19 @@ class SessionManager:
             log.warning("marked %d interrupted sessions as stopped", len(rows))
         return len(rows)
 
+    async def cancel_project(self, project_id: str) -> int:
+        """End the project's running sessions now, without a summary (the project is being
+        deleted); returns how many. Their simulations stop unless another caller waits."""
+        tasks = [
+            live.task
+            for live in list(self.live.values())
+            if live.project_id == project_id and live.task is not None and not live.task.done()
+        ]
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        return len(tasks)
+
     def stop(self, sid: str) -> bool:
         live = self.live.get(sid)
         if live is None or live.finished:
@@ -495,19 +531,25 @@ class SessionManager:
 
     async def stream(self, sid: str, after: int = 0) -> AsyncIterator[SessionEvent]:
         """Replay stored events after `after`, then follow live events until finished."""
+        live = self.live.get(sid)  # taken first: a session ending meanwhile keeps its events here
         last = after
         for ev in self.stored_events(sid, after):
             last = ev.seq
             yield ev
-        live = self.live.get(sid)
-        while live is not None and not live.finished:
+        while live is not None:
+            # events of the last moments (after the replay was read) come before the end
+            fresh = [e for e in live.events if e.seq > last]
+            for ev in fresh:
+                last = ev.seq
+                yield ev
+            if fresh:
+                continue
+            if live.finished:
+                return
             async with live.cond:
                 await live.cond.wait_for(
                     lambda: live.finished or (live.events and live.events[-1].seq > last)  # noqa: B023
                 )
-            for ev in [e for e in live.events if e.seq > last]:
-                last = ev.seq
-                yield ev
 
     # -------------------------------------------------------------- internals
     def emit(self, live: LiveSession, type_: str, payload: dict[str, Any]) -> None:
@@ -527,7 +569,9 @@ class SessionManager:
             self.st.host.pm.hook.on_session_event(session_id=live.id, event=ev)
         except Exception:
             log.exception("plugin hook on_session_event failed")
-        asyncio.get_event_loop().create_task(self._notify(live))
+        task = asyncio.get_event_loop().create_task(self._notify(live))
+        self._notifiers.add(task)
+        task.add_done_callback(self._notifiers.discard)
 
     async def _notify(self, live: LiveSession) -> None:
         async with live.cond:
@@ -675,6 +719,16 @@ class SessionManager:
         return fb
 
     async def _run(self, live: LiveSession) -> None:
+        try:
+            await self._session(live)
+        finally:
+            # finished, failed or cancelled (its project was deleted): the events and summary
+            # are stored, so the session leaves memory; replays read the database
+            live.finished = True
+            self.live.pop(live.id, None)
+            await self._notify(live)
+
+    async def _session(self, live: LiveSession) -> None:
         st = self.st
         cfg = live.config
         s = st.settings
@@ -1123,6 +1177,8 @@ class SessionManager:
                 reason = "all rounds done"
         except StopSession as exc:
             reason = str(exc)
+        except DailyLimitReached:
+            reason = "budget: daily model limit"
         except BudgetExceeded:
             reason = "budget: tokens"
         except Exception as exc:  # the session must always finish with what exists
@@ -1148,9 +1204,6 @@ class SessionManager:
         except Exception as exc:  # the row must never stay "running"
             log.exception("session %s could not finish", live.id)
             self._fail(live, exc)
-        finally:
-            live.finished = True
-            await self._notify(live)
 
     def _archive_event(
         self,

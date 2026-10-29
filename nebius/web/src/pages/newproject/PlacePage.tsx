@@ -1,6 +1,6 @@
 /** "Pick it on the map" (route `/new/place`): a full-width map where the organizer finds their real
  * place, clicks the building or park, builds the venue and continues to step 1b (check it). */
-import { ArrowRight, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -35,7 +35,7 @@ export function PlacePage() {
             <p className="text-base"><span className="font-semibold">{t("place.ready", { name: draft.venue.name })}</span>
               <span className="block text-sm text-muted">{t("place.ready_lead")}</span></p>
             <Button variant="primary" size="lg" disabled={create.isPending} onClick={use}>
-              {create.isPending ? <Loader2 className="animate-spin" /> : null}{t("place.use")}<ArrowRight />
+              {create.isPending ? <Loader2 className="animate-spin" /> : null}{t("place.use")}
             </Button>
           </div>
         )}

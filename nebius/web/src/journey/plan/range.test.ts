@@ -55,9 +55,9 @@ describe("chosen changes together", () => {
     expect(togetherText(check({}))?.tone).toBe("neutral");
     const done = togetherText(check({ status: "done", evaluation: { status: "partially_confirmed", before_basis: "completed_simulation", after_basis: "partial_simulation", reasons: [] } }));
     expect(done?.tone).toBe("egress");
-    expect(done?.text).not.toContain("confirmed by full simulations");
+    expect(done?.text).not.toContain("confirmed by simulation");
     const confirmed = togetherText(check({ status: "done", evaluation: { status: "confirmed", before_basis: "completed_simulation", after_basis: "completed_simulation", reasons: [] } }));
-    expect(confirmed?.text).toContain("confirmed by full simulations");
+    expect(confirmed?.text).toContain("confirmed by simulation");
     expect(togetherText(check({ status: "preview" }))?.text).toContain("not simulated");
     expect(togetherText(check({ status: "failed", error: "Injected" }))?.text).toContain("Injected");
   });

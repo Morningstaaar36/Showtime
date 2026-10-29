@@ -108,9 +108,10 @@ export function AskInput({ id, label, placeholder, sendLabel, value, busy, onCha
       {busy ? <Spinner /> : <Sparkles className="size-4 shrink-0 text-signal" />}
       <label htmlFor={id} className="sr-only">{label}</label>
       <input id={id} value={value} onChange={(e) => onChange(e.target.value)} maxLength={500} placeholder={placeholder}
-             className="min-h-11 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted/80" />
+             className="min-h-11 min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted" />
+      {/* solid signal when it will send, plain grey when it can't: a faded signal read as "off" both ways */}
       <button type="submit" disabled={!value.trim() || busy} aria-label={sendLabel}
-              className="grid size-11 place-items-center rounded-[8px] bg-signal text-signal-ink disabled:opacity-40">
+              className="grid size-11 place-items-center rounded-[8px] bg-signal text-signal-ink shadow-sm transition-colors hover:brightness-110 disabled:bg-surface-3 disabled:text-muted disabled:shadow-none">
         <CornerDownLeft className="size-4" />
       </button>
     </form>

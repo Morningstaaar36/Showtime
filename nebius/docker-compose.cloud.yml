@@ -5,6 +5,9 @@ services:
     ports: !reset []
   api:
     ports: !reset []
+    environment:
+      # behind Caddy's password the API answers to any host name (a server reached by its IP too)
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-*}
   caddy:
     image: caddy:2.8.4
     depends_on: [web]

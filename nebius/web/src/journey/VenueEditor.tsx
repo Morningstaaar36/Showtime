@@ -1,6 +1,6 @@
 /** Collaborative editing on the "Check your venue" screen: one card for the selected door,
  * barrier or area (numbers, existing/proposed, provenance, lock) and lists to find them. */
-import { DoorOpen, Fence, Info, Lock, LockOpen, MapPin, Minus, Move, Plus, Trash2, Users } from "lucide-react";
+import { ChevronRight, DoorOpen, Fence, Info, Lock, LockOpen, MapPin, Minus, Move, Plus, Trash2, Users } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Exit, Obstacle, ProjectDetail, SceneSnapshot, Venue, Zone } from "@/api/types";
@@ -304,8 +304,10 @@ const kindName = (kind: string) => {
   return name.startsWith("check.") ? kind.replace(/_/g, " ") : name;
 };
 
-/** The venue as three glances: the doors as chips, the people per area with steppers (grouped
- * per floor), and what is in the way. Several floors: tabs pick the floor, in the list and in 3D. */
+/** The venue as three glances: the exits as chips, the people per area with steppers (grouped
+ * per floor), and what is in the way. Several floors: the 3D view's floor switch picks the floor
+ * (one switch, not two); with all floors shown each floor is one line with its total, its areas
+ * folded inside, so a tall building stays short. */
 export function VenueChecklist({ project, scene }: { project: ProjectDetail; scene: SceneSnapshot | undefined }) {
   const venue = project.version.venue;
   const names = useMemo(() => displayNames(venue), [venue]);
@@ -342,7 +344,7 @@ export function VenueChecklist({ project, scene }: { project: ProjectDetail; sce
   const exits = floors.flatMap((f) => f.exits.map((e) => ({ kind: "exit" as const, id: e.id, floorId: f.floor_id, poly: e.polygon as number[][], detail: t("units.n_m", { n: fmtNum(e.width_m, 1) }), blocked: !!e.blocked, dot: e.blocked ? "bg-danger" : "bg-egress" })));
   const features = floors.flatMap((f) => f.obstacles.filter((o) => o.kind !== "wall").map((o) => ({
     kind: (o.kind === "stage" ? "stage" : "obstacle") as Selection["kind"], id: o.id, floorId: f.floor_id, poly: o.polygon as number[][],
-    detail: kindName(o.kind), dot: o.kind === "stage" ? "bg-signal" : "bg-orange",
+    detail: kindName(o.kind), dot: o.kind === "stage" ? "bg-signal" : "bg-line",
   })));
   const peopleOn = (fl: typeof venue.floors[number]) => fl.zones.reduce((n, z) => n + z.people, 0);
   const total = venue.floors.reduce((n, f) => n + peopleOn(f), 0);
@@ -350,22 +352,6 @@ export function VenueChecklist({ project, scene }: { project: ProjectDetail; sce
 
   return (
     <div className="space-y-5">
-      {multi && (
-        <div role="group" aria-label={t("check.floor_tabs")} className="flex flex-wrap gap-1">
-          {[{ id: "all", label: t("check.all_floors"), n: total }, ...floorsBottomUp(venue).map((f) => ({ id: f.floor_id, label: floorName(f.floor_id), n: peopleOn(f) }))].map((o) => {
-            const on = o.id === "all" ? !onFloor : onFloor === o.id;
-            return (
-              <button key={o.id} type="button" aria-pressed={on} onClick={() => useUi.getState().setFloorView(o.id)}
-                      className={cn("flex min-h-11 shrink-0 flex-col items-start justify-center rounded-[10px] border px-3 py-1 text-left transition",
-                                    on ? "border-signal bg-signal text-signal-ink" : "border-border bg-surface hover:border-border-strong")}>
-                <span className="text-sm font-semibold leading-tight">{o.label}</span>
-                <span className={cn("flex items-center gap-1 text-2xs tabular", on ? "text-signal-ink/85" : "text-muted")}><Users className="size-3" aria-hidden />{fmtInt(o.n)}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       <Step icon={<DoorOpen />} tone="bg-egress-strong" title={t("check.step_doors")} hint={t("check.step_doors_hint")}
             aside={<Badge tone="neutral" className="tabular">{onFloor ? `${exits.length} / ${allExits}` : exits.length}</Badge>}>
         {exits.length ? <ul className="flex flex-wrap gap-1.5">{exits.map(chip)}</ul>
@@ -375,13 +361,8 @@ export function VenueChecklist({ project, scene }: { project: ProjectDetail; sce
       <Step icon={<Users />} tone="bg-sky-strong" title={t("check.step_people")}
             aside={<span className="text-right"><span className="block text-xl font-bold leading-none tabular">{fmtInt(onFloor ? peopleOn(floors[0]) : total)}</span><span className="text-2xs text-muted">{t(onFloor ? "check.on_floor" : "check.in_total")}</span></span>}>
         <div className="space-y-3">
-          {floors.map((fl) => (
-            <div key={fl.floor_id} className="space-y-1">
-              {multi && !onFloor && (
-                <p className="flex items-center justify-between text-xs font-semibold text-muted">
-                  <span>{floorName(fl.floor_id)}</span><span className="tabular">{fmtInt(peopleOn(fl))}</span>
-                </p>
-              )}
+          {floors.map((fl) => {
+            const zones = (
               <ul className="space-y-1">
                 {fl.zones.map((z) => {
                   const name = names.get(z.id) ?? z.id;
@@ -400,13 +381,24 @@ export function VenueChecklist({ project, scene }: { project: ProjectDetail; sce
                   );
                 })}
               </ul>
-            </div>
-          ))}
+            );
+            return multi && !onFloor ? (
+              <details key={fl.floor_id} className="group rounded-[10px] border border-border">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-2.5 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+                  <ChevronRight className="size-4 shrink-0 text-muted transition group-open:rotate-90" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">{floorName(fl.floor_id)}</span>
+                  <span className="text-xs font-normal text-muted">{t("check.floor_areas", { n: fl.zones.length })}</span>
+                  <span className="tabular">{fmtInt(peopleOn(fl))}</span>
+                </summary>
+                <div className="border-t border-border p-1.5">{zones}</div>
+              </details>
+            ) : <div key={fl.floor_id}>{zones}</div>;
+          })}
         </div>
       </Step>
 
       {features.length > 0 && (
-        <Step icon={<Fence />} tone="bg-orange" title={t("check.step_things")} hint={t("check.step_things_hint")}
+        <Step icon={<Fence />} tone="bg-ink" title={t("check.step_things")} hint={t("check.step_things_hint")}
               aside={<Badge tone="neutral" className="tabular">{features.length}</Badge>}>
           <ul className="flex flex-wrap gap-1.5">{features.map(chip)}</ul>
         </Step>

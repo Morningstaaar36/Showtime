@@ -1,10 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // The sandbox is the core: a person watching the screen can see where the AI's code runs,
 // with what limits, and what it stopped.
 
-test("the header shows the sandbox and what it guarantees", async ({ page }) => {
-  await page.goto("/");
+// the badge is on Settings and in Expert view's top bar (organizer headers stay calm)
+test("Settings shows the sandbox and what it guarantees", async ({ page }) => {
+  await page.goto("/settings");
   const badge = page.getByTestId("sandbox-badge").first();
   await expect(badge).toBeVisible();
   await badge.click();
@@ -43,6 +44,7 @@ test("AI at work shows every run's sandbox live, including the scenario script",
   expect((await request.post(`/api/v1/projects/${created.id}/patch`, { data: { patch: { ops: [{ op: "set_people", zone_id: zone.id, people }] } } })).ok()).toBeTruthy();
   try {
     await page.goto(`/p/${created.id}/describe`);
+    await page.getByText("More options", { exact: true }).click();
     await page.getByRole("radio", { name: /Offline/ }).click();
     await page.getByRole("button", { name: "Test this plan" }).click();
     await expect(page).toHaveURL(/\/work\?session=/, { timeout: 30_000 });
@@ -53,7 +55,7 @@ test("AI at work shows every run's sandbox live, including the scenario script",
     await expect(feed).toContainText(/\d+ of \d+ done/);
     // every run ends in a final state with its time; the script run says what happened to it
     await expect(feed.locator('[data-testid="sandbox-row"][data-state="finished"]').first()).toBeVisible({ timeout: 300_000 });
-    // the finished test moves on to the plan; the sandboxes are one click from the verdict
+    // the finished test moves on to the plan; the sandboxes are one click away, in Expert view
     await expect(page).toHaveURL(/\/p\/p_[^/]+\?session=/, { timeout: 300_000 });
     await page.getByTestId("watch-sandboxes").click();
     await expect(page).toHaveURL(/tab=sandboxes/);

@@ -15,6 +15,7 @@ from typing import Any
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from api.app import errors
 from api.app.routes_agents import router as agents_router
@@ -81,6 +82,13 @@ SECURITY_HEADERS = {
 }
 
 
+# every change (POST, PUT, PATCH, DELETE under /api/v1) carries this header with the value "1".
+# The API has no login: a page on another site may send a "simple" POST without asking first
+# (no CORS preflight), but a custom header always needs the preflight, which CORS refuses.
+WRITE_HEADER = "x-showtime"
+WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
 def create_app(state: AppState | None = None, settings: Settings | None = None) -> FastAPI:
     """Build the app. Tests pass a prepared state."""
     settings = settings or get_settings()
@@ -98,7 +106,11 @@ def create_app(state: AppState | None = None, settings: Settings | None = None) 
             from api.orchestrator.session import SessionManager
 
             st.sessions = SessionManager(st)
-        # work of a previous process ended with it: never show it as queued or running
+        # work of a previous process ended with it: never show it as queued or running, and
+        # stop the containers it left behind (a crash skips the runner's own clean-up)
+        leftovers = getattr(st.runner, "remove_leftovers", None)
+        if leftovers is not None:
+            await leftovers()
         st.runs.recover_interrupted()
         st.sessions.recover_interrupted()
         log.info("Showtime API ready", extra={"path": str(settings.root_dir)})
@@ -119,6 +131,8 @@ def create_app(state: AppState | None = None, settings: Settings | None = None) 
         openapi_url="/api/openapi.json",
         redoc_url=None,
     )
+    # a DNS name an attacker controls can point at 127.0.0.1, but its requests carry that name
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
     app.add_middleware(GZipMiddleware, minimum_size=2048, compresslevel=5)
     app.add_middleware(
         CORSMiddleware,
@@ -127,6 +141,23 @@ def create_app(state: AppState | None = None, settings: Settings | None = None) 
         allow_headers=["*"],
         allow_credentials=False,
     )
+
+    @app.middleware("http")
+    async def write_header(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        if (
+            request.method in WRITE_METHODS
+            and request.url.path.startswith("/api/v1/")
+            and request.headers.get(WRITE_HEADER) != "1"
+        ):
+            return errors.response(
+                403,
+                "missing_header",
+                "This change was refused: it did not come from the Showtime app.",
+                f"Send the header {WRITE_HEADER}: 1 with every change.",
+            )
+        return await call_next(request)
 
     @app.middleware("http")
     async def request_id(

@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, SHOWTIME_HEADERS, test } from "./fixtures";
 
 // G3-07: a multi-storey building from the map, end to end: draw an area → 4 floors, hospital,
 // rooms → check → floor switcher → test → one-floor replay. Screenshots go to docs/screenshots/
@@ -15,6 +15,12 @@ test("multi-storey journey: 4-floor hospital from the map to a one-floor replay"
   await expect(page).toHaveURL(/\/new\/place$/);
   const map = page.locator(".maplibregl-canvas").first();
   await expect(map).toBeVisible({ timeout: 30_000 });
+  // the map opens on the whole world (MAP_START): zoom to street level, where the box below is
+  // about one hectare
+  for (let i = 0; i < 16; i++) {
+    await page.getByRole("button", { name: "Zoom in" }).click();
+    await page.waitForTimeout(400);
+  }
 
   // draw the building's outline with two corners
   await page.getByRole("button", { name: "Draw an area" }).click();
@@ -44,8 +50,12 @@ test("multi-storey journey: 4-floor hospital from the map to a one-floor replay"
   try {
     const switcher = page.getByRole("radiogroup", { name: "Floors to show" });
     await expect(switcher.getByRole("radio")).toHaveCount(6); // all, spread apart, 4 floors
-    // adding and removing storeys lives under "More options"; floor tabs pick the floor in the list
-    await expect(page.getByRole("group", { name: "Floor shown in the list" }).getByRole("button")).toHaveCount(5);
+    // one floor switch (the 3D view's); a tall building opens on its ground floor, and with all
+    // floors shown the list has one folded line per floor
+    await expect(switcher.getByRole("radio", { name: "Ground" })).toHaveAttribute("aria-checked", "true");
+    await switcher.getByRole("radio", { name: "All floors" }).click();
+    await expect(page.locator("details > summary").filter({ hasText: /\d+ areas/ })).toHaveCount(4);
+    // adding and removing storeys lives under "More options"
     await page.getByText("More options").click();
     await expect(page.getByRole("heading", { name: "Floors and rooms" })).toBeAttached();
     await page.getByText("More options").click();
@@ -66,8 +76,7 @@ test("multi-storey journey: 4-floor hospital from the map to a one-floor replay"
     await expect(page).toHaveURL(/\/p\/p_[^/]+\?session=/, { timeout: 840_000 });
     await expect(page.getByRole("region", { name: "Verdict" })).toBeVisible({ timeout: 30_000 });
 
-    // one-floor replay: the replay's floor switcher puts that floor in focus
-    await page.getByRole("tab", { name: "Replay" }).click();
+    // one-floor replay (on the Overview): the replay's floor switcher puts that floor in focus
     const replay = page.getByRole("region", { name: "Replay" });
     const replaySwitch = replay.getByRole("radiogroup", { name: "Floors to show" });
     await expect(replaySwitch).toBeVisible({ timeout: 30_000 });
@@ -76,11 +85,11 @@ test("multi-storey journey: 4-floor hospital from the map to a one-floor replay"
     await page.waitForTimeout(3000);
     await replay.scrollIntoViewIfNeeded();
     await shot(page, "plan-hospital-one-floor");
-    // multi-storey plans have a Floors tab: one small plan per storey and people per floor over time
-    await page.getByRole("tab", { name: /^Floors/ }).click();
+    // multi-storey plans have a Floors tab in Expert view: one small plan per storey and people per floor over time
+    await page.goto(`/p/${id}/expert/analysis?tab=floors`);
     await expect(page.getByTestId("floor-cards").getByRole("listitem")).toHaveCount(4);
     await expect(page.getByRole("heading", { name: "People on each floor" })).toBeVisible({ timeout: 30_000 });
   } finally {
-    await page.request.delete(`/api/v1/projects/${id}`);
+    await page.request.delete(`/api/v1/projects/${id}`, { headers: SHOWTIME_HEADERS });
   }
 });

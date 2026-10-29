@@ -25,6 +25,11 @@ export function errorText(e: Error): string {
 
 const BASE = "/api/v1";
 
+/** Sent with every request: the API refuses a change (POST, PUT, PATCH, DELETE) without it, so a
+ * page on another site can't make one (a custom header needs a CORS preflight, which fails).
+ * Any other code that calls `fetch` for a change must send it too. */
+export const SHOWTIME_HEADERS: Readonly<Record<string, string>> = { "X-Showtime": "1" };
+
 async function parse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -80,7 +85,7 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
   try {
     res = await fetch(`${BASE}${path}`, {
       method,
-      headers: body instanceof FormData ? undefined : { "Content-Type": "application/json" },
+      headers: body instanceof FormData ? SHOWTIME_HEADERS : { ...SHOWTIME_HEADERS, "Content-Type": "application/json" },
       body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body),
       signal: t.signal,
     });
@@ -109,7 +114,7 @@ export const api = {
   async binary(path: string, signal?: AbortSignal): Promise<ArrayBuffer> {
     const t = withTimeout(REQUEST_TIMEOUT_MS.read * 2, signal); // trajectories can be large
     try {
-      const res = await fetch(`${BASE}${path}`, { signal: t.signal });
+      const res = await fetch(`${BASE}${path}`, { headers: SHOWTIME_HEADERS, signal: t.signal });
       if (!res.ok) await parse<never>(res);
       return await res.arrayBuffer();
     } catch (e) {

@@ -10,7 +10,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "bg-signal bg-[linear-gradient(135deg,var(--signal),color-mix(in_srgb,var(--signal)_70%,var(--pink)))] text-signal-ink shadow-[0_6px_16px_-6px_color-mix(in_srgb,var(--signal)_60%,transparent)] hover:brightness-110 active:brightness-95",
+        // one flat signal colour: a gradient is decoration
+        primary: "bg-signal text-signal-ink shadow-sm hover:brightness-110 active:brightness-95",
         secondary: "bg-surface text-ink border border-border hover:bg-surface-2 hover:border-border-strong",
         ghost: "text-ink hover:bg-surface-3/70",
         subtle: "bg-surface-2 text-ink hover:bg-surface-3",

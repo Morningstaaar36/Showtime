@@ -16,7 +16,7 @@ const api = async (path, init) => {
   const r = await fetch(`${BASE}/api/v1${path}`, init);
   return r.status === 204 ? null : r.json();
 };
-const post = (path, body) => api(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+const post = (path, body) => api(path, { method: "POST", headers: { "content-type": "application/json", "X-Showtime": "1" }, body: JSON.stringify(body) });
 const created = [];
 const TEMPLATES = await (async () => { const t = await api("/templates"); return Array.isArray(t) ? t : t.templates; })();
 // a template by what it is (indoor, outdoor, several floors), never by its id
@@ -163,6 +163,7 @@ await flow("plan untested: empty state", async (page) => {
 await flow("stop a running test", async (page) => {
   const p = await newProject("QA stop");
   await page.goto(`${BASE}/p/${p.id}/describe`);
+  await page.getByText(T("check.more_options"), { exact: true }).click(); // the test depth is under More options
   await page.getByRole("radio", { name: /Offline/ }).click();
   await page.getByRole("button", { name: "Test this plan" }).click();
   await expect(page).toHaveURL(/\/work\?session=/, { timeout: 30_000 });
@@ -229,6 +230,6 @@ await flow("welcome checklist", async (page) => {
   return "every row ready";
 });
 
-for (const id of created) await fetch(`${BASE}/api/v1/projects/${id}`, { method: "DELETE" }).catch(() => {});
+for (const id of created) await fetch(`${BASE}/api/v1/projects/${id}`, { method: "DELETE", headers: { "X-Showtime": "1" } }).catch(() => {});
 writeFileSync(`${out}/flows.json`, JSON.stringify(results, null, 1));
 await browser.close();

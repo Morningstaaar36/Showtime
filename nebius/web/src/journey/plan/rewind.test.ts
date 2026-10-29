@@ -54,6 +54,6 @@ describe("rewind comparison", () => {
   it("formats values in plain units", () => {
     expect(metricText("peak_density_ppm2", { peak_density_ppm2: 4.74 })).toBe("4.7 people per m²");
     expect(metricText("evac_time_95_s", { evac_time_95_s: 90, evac_is_estimate: true })).toBe("about 1 min 30 s");
-    expect(metricText("evac_time_95_s", { evac_time_95_s: null })).toBe("not everyone out");
+    expect(metricText("evac_time_95_s", { evac_time_95_s: null })).toBe("not everyone got out");
   });
 });

@@ -13,6 +13,7 @@ from api.adapters.sandbox import FakeRunner
 from api.app.main import create_app
 from api.app.state import build_state
 from api.tests.evidence_fakes import reset_engine, use_test_settings
+from api.tests.http import api_client
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     settings = use_test_settings(tmp_path, monkeypatch)
     settings = settings.model_copy(update={"cors_origins": "https://showtime.example"})
     state = build_state(settings, llm=FakeLLM({}, settings), runner=FakeRunner(settings.runs_dir))
-    with TestClient(create_app(state=state, settings=settings)) as c:
+    with api_client(create_app(state=state, settings=settings)) as c:
         yield c
     reset_engine()
 

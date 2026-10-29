@@ -20,7 +20,7 @@ def call(method: str, path: str, body: object | None = None, raw: bool = False) 
         BASE + path,
         method=method,
         data=json.dumps(body).encode() if body is not None else None,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-Showtime": "1"},
     )
     with urllib.request.urlopen(req, timeout=900) as r:
         data = r.read()

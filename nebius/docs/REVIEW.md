@@ -131,30 +131,30 @@ Conditional on passing the gate, which today it would not:
 No blockers. The sandbox hardening (no network, read-only, dropped capabilities, limits,
 non-root), zip-slip and path guards, escaped exports and the designed error shape hold up.
 
-- [ ] **A malformed `.showtime.zip` breaks the project list**: `import_zip` trusts
+- [x] **A malformed `.showtime.zip` breaks the project list**: `import_zip` trusts
   `current_version` and version numbers; one bad import makes `GET /projects` fail for everyone.
   Validate the versions and parse inside the try (422), and let the list skip a broken row.
-- [ ] **Zip bomb**: entries are read without checking their uncompressed size (the 5 MB limit is on
+- [x] **Zip bomb**: entries are read without checking their uncompressed size (the 5 MB limit is on
   the compressed file). Cap the total uncompressed size before reading.
-- [ ] **The red-team stream can lose its last events** when a reload replays history while the
+- [x] **The red-team stream can lose its last events** when a reload replays history while the
   session finishes. Drain the live events after the replay, as Autopilot does.
-- [ ] **The run cache ignores the simulator version**, and imported runs keep their ids: a sim fix
+- [x] **The run cache ignores the simulator version**, and imported runs keep their ids: a sim fix
   never reaches cached runs, and an import can plant a result. Key runs by a simulator version;
   re-key imported runs; require artifacts for a cache hit.
-- [ ] **Sim containers survive an API crash**: remove leftover `showtime-sim-*` and
+- [x] **Sim containers survive an API crash**: remove leftover `showtime-sim-*` and
   `showtime-code-*` containers at startup.
-- [ ] **Anyone who can reach the API can lift the token budget** (`PUT /settings` has no upper
+- [x] **Anyone who can reach the API can lift the token budget** (`PUT /settings` has no upper
   bounds) and nothing caps total spend: bound the fields, add a daily spend cap and a limit on
   concurrent sessions.
-- [ ] **Cross-site requests** to the unauthenticated local API (simple POSTs skip the CORS
+- [x] **Cross-site requests** to the unauthenticated local API (simple POSTs skip the CORS
   preflight; DNS rebinding): trusted hosts, and a custom header on every write.
-- [ ] **Finished sessions are never freed** from memory: drop them when they end.
-- [ ] Blocking work in async routes (`GET /real_cases` reads every venue; DXF import parses on the
+- [x] **Finished sessions are never freed** from memory: drop them when they end.
+- [x] Blocking work in async routes (`GET /real_cases` reads every venue; DXF import parses on the
   event loop): run it in a thread.
-- [ ] Low: an unreferenced background task; SECURITY.md says agents never execute code (AI-written
+- [x] Low: an unreferenced background task; SECURITY.md says agents never execute code (AI-written
   scripts do run, in the sandbox); unused share-link and observation tables; deleting a project
   does not stop its session or remove its run files; timing-based tests; no tests for the
-  three bugs above.
+  three bugs above. (All fixed except the unused tables: removing them needs a migration.)
 
 ## 6. Tests found failing
 

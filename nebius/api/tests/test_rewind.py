@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api.adapters.llm import LLMError
 from api.adapters.sandbox import FakeRunner, SimJob
@@ -17,6 +16,7 @@ from api.db.session import db_session
 from api.models import Hotspot, RunResult
 from api.orchestrator import rewind
 from api.tests.evidence_fakes import app_state, reset_engine, use_test_settings
+from api.tests.http import api_client
 
 
 def _down(_: Any) -> Any:
@@ -149,7 +149,7 @@ async def test_rewind_refuses_a_multi_floor_venue(st: Any) -> None:
 def test_rewind_routes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     settings = use_test_settings(tmp_path, monkeypatch)
     state = app_state(settings, fake=True)
-    with TestClient(create_app(state=state, settings=settings)) as c:
+    with api_client(create_app(state=state, settings=settings)) as c:
         assert c.post("/api/v1/sessions/s_missing/rewind", json={}).status_code == 404
         assert c.get("/api/v1/rewind/rw_missing").status_code == 404
         assert c.get("/api/v1/sessions/s_missing/rewind").json() is None

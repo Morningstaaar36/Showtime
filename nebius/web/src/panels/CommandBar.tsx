@@ -60,10 +60,10 @@ export function CommandBar({ projectId, onUndo }: { projectId: string; onUndo: (
         <input ref={ref} value={text} onChange={(e) => setText(e.target.value)} aria-label={t("tools.text")}
                onFocus={() => setFocused(true)} onBlur={() => window.setTimeout(() => setFocused(false), 150)}
                placeholder={edit.isPending ? t("tools.thinking") : t("tools.command_ph")}
-               className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-muted/80" />
+               className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none placeholder:text-muted" />
         {!text && <span className="hidden items-center gap-1 text-2xs text-muted sm:flex"><Kbd>/</Kbd></span>}
         <button type="submit" disabled={!text.trim() || edit.isPending} aria-label={t("ui.commandbar.apply")}
-                className="grid size-8 place-items-center rounded-[var(--radius-control)] bg-signal text-signal-ink disabled:opacity-40">
+                className="grid size-8 place-items-center rounded-[var(--radius-control)] bg-signal text-signal-ink disabled:bg-surface-3 disabled:text-muted">
           <CornerDownLeft className="size-4" />
         </button>
       </form>

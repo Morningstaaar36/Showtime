@@ -40,7 +40,7 @@ def call(base: str, method: str, path: str, body: Any = None, timeout: float = 1
         f"{base}/api/v1{path}",
         data=data,
         method=method,
-        headers={"content-type": "application/json"},
+        headers={"content-type": "application/json", "X-Showtime": "1"},
     )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         raw = r.read()

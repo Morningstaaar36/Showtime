@@ -48,14 +48,13 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay, danger = 5 
         const playable = r.outcome !== "running" && r.outcome !== "failed";
         const kept = r.children.filter((c) => c.accepted).length;
         const st = r.attackId ? stress.get(r.attackId) : undefined;
+        // the numbers are red only when the verdict is: a "Holds" badge never sits next to a red value
         const bad = r.outcome === "break";
         return (
           <li key={r.key} className="animate-deal-in" style={{ animationDelay: `${Math.min(i, 8) * 50}ms` }}>
-            <div className={cn("flex h-full flex-col gap-3 rounded-[var(--radius-panel)] border-2 bg-surface p-4 shadow-sm transition",
-                               bad ? "border-danger/35" : r.outcome === "holds" ? "border-egress/30" : "border-border")}>
+            <div className="flex h-full flex-col gap-3 rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm transition">
               <div className="flex items-start gap-3">
-                <span className={cn("grid size-11 shrink-0 place-items-center rounded-[12px] [&_svg]:size-5",
-                                    bad ? "bg-danger-soft text-danger-strong" : r.outcome === "holds" ? "bg-egress-soft text-egress-strong" : "bg-surface-3 text-muted")}>{ICON[kind]}</span>
+                <span className="grid size-11 shrink-0 place-items-center rounded-[12px] bg-surface-3 text-muted [&_svg]:size-5">{ICON[kind]}</span>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold leading-snug">{r.kind === "baseline" ? r.title : scenarioHeadline(a, name)}</p>
                   {a && <p className="line-clamp-1 text-xs text-muted" title={r.title}>{r.title}</p>}
@@ -67,12 +66,14 @@ export function ScenarioCards({ rows, attacks, name, stress, onPlay, danger = 5 
                   <dt className="text-2xs text-muted">{t("plan.sc_out")}</dt>
                   {r.evacS == null && r.inside ? (
                     // the simulation stopped with people inside: say so instead of a blank
-                    <dd className="text-sm font-bold leading-7 text-danger tabular">{t("plan.sc_left", { n: fmtInt(r.inside) })}</dd>
+                    <dd className={cn("text-sm font-bold leading-7 tabular", bad && "text-danger")}>{t("plan.sc_left", { n: fmtInt(r.inside) })}</dd>
+                  ) : r.evacS == null && playable && r.outcome !== "unknown" && r.outcome !== "preview" ? (
+                    <dd className={cn("text-sm font-bold leading-7", bad && "text-danger")}>{t("plan.not_everyone_out")}</dd>
                   ) : <dd className="text-lg font-bold tabular">{r.evacS != null ? fmtClock(r.evacS) : "–"}</dd>}
                 </div>
                 <div className="rounded-[8px] bg-surface-2 px-2 py-1.5">
                   <dt className="text-2xs text-muted">{t("plan.sc_peak")}</dt>
-                  <dd className={cn("text-lg font-bold tabular", r.peak != null && r.peak >= danger && "text-danger")}>{r.peak != null ? fmtNum(r.peak, 1) : "–"}</dd>
+                  <dd className={cn("text-lg font-bold tabular", bad && r.peak != null && r.peak >= danger && "text-danger")}>{r.peak != null ? fmtNum(r.peak, 1) : "–"}</dd>
                 </div>
               </dl>
               <div className="flex flex-wrap gap-1.5 text-xs">
@@ -239,9 +240,8 @@ export function ScenarioCatalogue({ projectId, version, onPlay, danger = 5 }: {
               const bad = !!m && (m.peak_density_ppm2 >= danger || m.agents_not_evacuated > 0);
               const title = it.title ?? it.label;
               return (
-                <li key={it.key} className={cn("flex items-center gap-3 rounded-[var(--radius-panel)] border-2 bg-surface p-3 shadow-sm",
-                                               !m ? "border-border" : bad ? "border-danger/35" : "border-egress/30")}>
-                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-[10px] [&_svg]:size-5", !m ? "bg-surface-3 text-muted" : bad ? "bg-danger-soft text-danger-strong" : "bg-egress-soft text-egress-strong")} aria-hidden>
+                <li key={it.key} className="flex items-center gap-3 rounded-[var(--radius-panel)] border border-border bg-surface p-3 shadow-sm">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-surface-3 text-muted [&_svg]:size-5" aria-hidden>
                     {it.icon ? namedIcon(it.icon) : <Boxes />}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -252,7 +252,7 @@ export function ScenarioCatalogue({ projectId, version, onPlay, danger = 5 }: {
                     {it.skipped ? <span className="block text-2xs text-muted">{it.skipped}</span> : !m ? (
                       <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-surface-3"><span className="block h-full animate-pulse rounded-full bg-signal" style={{ width: `${Math.max(8, (it.progress ?? 0) * 100)}%` }} /></span>
                     ) : (
-                      <span className="block text-xs text-muted tabular">{t("yourplan.sc_metrics", { evac: m.evac_time_p95_s != null ? fmtClock(m.evac_time_p95_s) : "–", peak: fmtNum(m.peak_density_ppm2, 1) })}</span>
+                      <span className="block text-xs text-muted tabular">{t("yourplan.sc_metrics", { evac: m.evac_time_p95_s != null ? fmtClock(m.evac_time_p95_s) : t("rewind.not_out"), peak: fmtNum(m.peak_density_ppm2, 1) })}</span>
                     )}
                   </span>
                   {m && it.run_id && (

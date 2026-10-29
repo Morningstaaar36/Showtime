@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from api.tests.http import api_client
 from api.tests.test_api import client  # noqa: F401 - shared fixture
 
 
@@ -29,7 +30,7 @@ def test_unhandled_exception_is_a_designed_500(client: TestClient) -> None:  # n
     def boom() -> None:
         raise RuntimeError("secret internals /home/x")
 
-    r = TestClient(app, raise_server_exceptions=False).get("/api/v1/_boom")
+    r = api_client(app, raise_server_exceptions=False).get("/api/v1/_boom")
     assert r.status_code == 500
     _shape(r.json())
     assert r.json()["code"] == "internal_error" and "internals" not in r.text

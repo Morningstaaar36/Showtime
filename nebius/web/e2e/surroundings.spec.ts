@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // G3-05: "Include the surroundings" on the map screen sends surroundings_m with a building.
 test("map screen: a drawn building asks for its surroundings", async ({ page }) => {

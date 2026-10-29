@@ -11,7 +11,7 @@ import { type Grab, useDrag } from "./dragStore";
 
 const PALETTE: { item: PaletteItem; icon: React.ReactNode; tone: string }[] = [
   { item: "door", icon: <DoorOpen />, tone: "bg-emerald-500" },
-  { item: "fence", icon: <Fence />, tone: "bg-amber-500" },
+  { item: "fence", icon: <Fence />, tone: "bg-zinc-600" }, // amber would read as a caution
   { item: "crowd", icon: <Users />, tone: "bg-sky-500" },
   { item: "stall", icon: <Store />, tone: "bg-fuchsia-500" },
 ];

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from api.adapters.search import TavilySearch
+from api.tests.http import api_client
 from api.tests.test_redteam import _run_session, state  # noqa: F401
 from api.tests.test_search_adapter import FakeTavily
 
@@ -82,7 +83,6 @@ def test_web_rows_are_labelled_and_never_claim_a_death_count() -> None:
 def test_the_ai_team_lists_search_with_its_state_and_the_real_dataset_size(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
-    from fastapi.testclient import TestClient
 
     from api.adapters.llm import FakeLLM
     from api.adapters.sandbox import FakeRunner
@@ -93,7 +93,7 @@ def test_the_ai_team_lists_search_with_its_state_and_the_real_dataset_size(
     s = use_test_settings(tmp_path, monkeypatch)
     st = build_state(s, llm=FakeLLM({}, s), runner=FakeRunner(s.runs_dir))
     try:
-        with TestClient(create_app(state=st, settings=s)) as c:
+        with api_client(create_app(state=st, settings=s)) as c:
             team = c.get("/api/v1/agents").json()
         red = next(a for a in team["agents"] if a["name"] == "red_team")
         assert "search" in red["tools"]
@@ -109,13 +109,12 @@ async def test_the_report_and_ask_label_where_each_source_came_from(
     state: Any,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    from fastapi.testclient import TestClient
 
     from api.app.main import create_app
 
     state.search = TavilySearch("tv", tmp_path / "tavily", client=FakeTavily())
     row = await _run_session(state, _project(state), max_rounds=1)
-    with TestClient(create_app(state=state, settings=state.settings)) as c:
+    with api_client(create_app(state=state, settings=state.settings)) as c:
         html = c.get(f"/api/v1/sessions/{row.id}/report").text
     assert "Crowd crush at a stadium gate (2023) · live web search" in html
     assert "Web search results: Tavily" in html

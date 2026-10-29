@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // Evidence: every attack is grounded in a real, cited incident, and its origin is labelled.
 // Offline mode (rules for the AI) needs no model calls; web search is off without a key.
@@ -12,6 +12,7 @@ test("a test shows its evidence: tool calls, origin badges and the Evidence pane
   await request.post(`/api/v1/projects/${created.id}/patch`, { data: { patch: { ops: [{ op: "set_people", zone_id: zone.id, people }] } } });
   try {
     await page.goto(`/p/${created.id}/describe`);
+    await page.getByText("More options", { exact: true }).click();
     await page.getByRole("radio", { name: /Offline/ }).click();
     await page.getByRole("button", { name: "Test this plan" }).click();
     await expect(page).toHaveURL(/\/work\?session=/, { timeout: 30_000 });
@@ -21,6 +22,9 @@ test("a test shows its evidence: tool calls, origin badges and the Evidence pane
     await expect(page.getByTestId("origin-badge").first()).toContainText("Incident dataset", { timeout: 120_000 });
 
     await expect(page).toHaveURL(/\/p\/p_[^/]+\?session=/, { timeout: 300_000 });
+    // the evidence is in Expert view's analysis, on its Scenarios tab
+    await page.getByRole("link", { name: "More analysis in Expert view" }).click();
+    await expect(page).toHaveURL(/\/expert\/analysis\?/);
     await page.getByRole("tab", { name: /Scenarios/ }).click();
     const panel = page.getByTestId("evidence-panel");
     await expect(panel).toBeVisible();

@@ -68,10 +68,10 @@ export function HandOver({ sessionId, projectId, venue, projectName, onTestAgain
         <Tile href={url("/report")} icon={<FileText />} title={t("plan.ho_report")} body={t("plan.ho_report_body")} label={t("plan.ho_report_label")}
               tone="bg-signal-soft text-signal" />
         <Tile href={url("/map.svg")} icon={<MapIcon />} title={t("plan.ho_map")} body={t("plan.ho_map_body")} label={t("report.export_map")} download
-              tone="bg-egress-soft text-egress-strong"
+              tone="bg-surface-2 text-ink"
               preview={<img src={url("/map.svg")} alt="" className="size-full bg-white object-contain p-2" loading="lazy" />} />
         <Tile href={url("/checklist")} icon={<ClipboardCheck />} title={t("plan.ho_checklist")} body={t("plan.ho_checklist_body")} label={t("checklist.download")}
-              tone="bg-sky-soft text-sky-strong" />
+              tone="bg-surface-2 text-ink" />
         <Tile onClick={model.run} busy={model.busy} icon={<Box />} title={t("plan.ho_model")} body={t("plan.ho_model_body")} label={t("plan.ho_model_label")}
               tone="bg-surface-2 text-ink" />
         <Tile href={url("/bundle.json")} icon={<Braces />} title={t("plan.ho_data")} body={t("plan.ho_data_body")} label={t("report.export_json")} download

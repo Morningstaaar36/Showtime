@@ -15,6 +15,7 @@ from api.app.state import build_runner, build_state
 from api.core.settings import Settings
 from api.core.templates import get_template
 from api.tests.evidence_fakes import reset_engine, use_test_settings
+from api.tests.http import api_client
 from api.tests.test_redteam import _incidents
 
 
@@ -69,7 +70,6 @@ async def test_the_pause_length_comes_from_settings(tmp_path: Path) -> None:
 def test_web_timeouts_are_sent_to_the_app_and_checked(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from fastapi.testclient import TestClient
 
     from api.app.main import create_app
 
@@ -78,7 +78,7 @@ def test_web_timeouts_are_sent_to_the_app_and_checked(
     )
     st = build_state(settings, llm=FakeLLM({}, settings), runner=FakeRunner(settings.runs_dir))
     try:
-        with TestClient(create_app(state=st, settings=settings)) as c:
+        with api_client(create_app(state=st, settings=settings)) as c:
             assert c.get("/api/v1/health").json()["client"]["read_timeout_s"] == 15.0
     finally:
         reset_engine()

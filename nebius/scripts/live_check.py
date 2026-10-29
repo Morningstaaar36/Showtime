@@ -25,7 +25,10 @@ API = "http://127.0.0.1:8000/api/v1"
 def call(method: str, path: str, body: Any = None, timeout: float = 600) -> Any:
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(
-        API + path, method=method, data=data, headers={"content-type": "application/json"}
+        API + path,
+        method=method,
+        data=data,
+        headers={"content-type": "application/json", "X-Showtime": "1"},
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:

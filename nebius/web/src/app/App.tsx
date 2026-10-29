@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useParams } from "react-router";
 import { Toaster } from "sonner";
+import { useHealth } from "@/api/queries";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AiAtWorkPage } from "@/pages/AiAtWork";
 import { AutopilotRunPage } from "@/pages/AutopilotRun";
@@ -29,6 +30,9 @@ function LegacyMode() {
 
 export function App() {
   useApplyTheme();
+  // every page needs what /health sends: the map settings (the place picker, the tiles under the
+  // 3D view) and the request timeouts; no header badge asks for it any more
+  useHealth();
   return (
     <TooltipProvider>
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-surface focus:px-3 focus:py-2">

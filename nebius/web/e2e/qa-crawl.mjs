@@ -40,7 +40,7 @@ for (const want of wants) {
 }
 const templates = await api("/templates");
 const tpl = (Array.isArray(templates) ? templates : templates.templates)[0];
-const fresh = await api("/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "QA untested", template_id: tpl.id }) });
+const fresh = await api("/projects", { method: "POST", headers: { "content-type": "application/json", "X-Showtime": "1" }, body: JSON.stringify({ name: "QA untested", template_id: tpl.id }) });
 chosen.push(fresh);
 
 const routes = ["/", "/projects", "/new/place", "/welcome", "/settings", "/help", "/team", "/nope-404"];
@@ -48,10 +48,10 @@ for (const p of chosen) {
   const sid = await sessionOf(p.id);
   const q = sid ? `?session=${sid}` : "";
   routes.push(`/p/${p.id}${q}`);
-  if (sid) for (const tab of ["replay", "scenarios", "sandboxes", "fixes", "floors", "handover"]) routes.push(`/p/${p.id}${q}&tab=${tab}`);
+  if (sid) for (const tab of ["fixes", "handover"]) routes.push(`/p/${p.id}${q}&tab=${tab}`);
   routes.push(`/p/${p.id}/describe`);
   if (sid) routes.push(`/p/${p.id}/work${q}`);
-  for (const m of ["plan", "simulate", "redteam", "report"]) routes.push(`/p/${p.id}/expert/${m}`);
+  for (const m of ["plan", "simulate", "redteam", "report", "analysis"]) routes.push(`/p/${p.id}/expert/${m}`);
   routes.push(`/p/${p.id}/scripts`);
 }
 
@@ -116,6 +116,6 @@ for (const route of mine) {
   console.log(`${row.issues.length ? "ISSUES" : "ok    "} ${route} (${(row.ms / 1000).toFixed(0)} s, ${row.clicked} clicks)${row.issues.length ? "\n        " + row.issues.slice(0, 6).join("\n        ") : ""}`);
   await page.close();
 }
-await fetch(`${BASE}/api/v1/projects/${fresh.id}`, { method: "DELETE" });
+await fetch(`${BASE}/api/v1/projects/${fresh.id}`, { method: "DELETE", headers: { "X-Showtime": "1" } });
 writeFileSync(`${out}/report-${k}of${nChunks}.json`, JSON.stringify(report, null, 1));
 await browser.close();

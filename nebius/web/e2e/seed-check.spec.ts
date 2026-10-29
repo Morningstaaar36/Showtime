@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
-// S-09: "Check with more seeds" on Your plan repeats the key run and shows the range with each
+// S-09: "Check with more seeds" (Expert view › Analysis; an old Your plan link still leads there) repeats the key run and shows the range with each
 // run's basis. Needs a real sandbox (the fake one has no simulation to repeat).
 test("seed range on Your plan", async ({ page, request }) => {
   test.setTimeout(600_000);
@@ -14,8 +14,8 @@ test("seed range on Your plan", async ({ page, request }) => {
     await expect.poll(async () => (await (await request.get(`/api/v1/sessions/${sid}`)).json()).status, { timeout: 420_000, intervals: [3000] })
       .toMatch(/finished|stopped/);
 
-    await page.goto(`/p/${id}?session=${sid}`);
-    await page.getByRole("tab", { name: /^Scenarios/ }).click();
+    await page.goto(`/p/${id}?session=${sid}&tab=scenarios`);
+    await expect(page).toHaveURL(/\/expert\/analysis\?.*tab=scenarios/);
     await page.getByRole("button", { name: /^Check with more seeds/ }).first().click();
     const panel = page.getByTestId("seed-check");
     await expect(panel.getByRole("heading", { name: "Check with more seeds" })).toBeVisible({ timeout: 30_000 });
@@ -23,7 +23,7 @@ test("seed range on Your plan", async ({ page, request }) => {
     await panel.getByLabel("More seeds").selectOption("2");
     await panel.getByRole("button", { name: "Check with more seeds" }).click();
     // the original run plus two seeds: 3 runs in the range
-    await expect(panel.getByText(/^95% out in .+ over 3 seeds$/)).toBeVisible({ timeout: 300_000 });
+    await expect(panel.getByText(/^Evacuation time \(95%\): .+ over 3 seeds$/)).toBeVisible({ timeout: 300_000 });
     await expect(panel.getByText(/^Based on 3 × /)).toBeVisible();
     await panel.getByText("Each run").click();
     await expect(panel.getByText(/^Seed \d+ · the plan's own run$/)).toBeVisible();

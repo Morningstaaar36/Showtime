@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import io
 import json
+import re
+import shutil
 import uuid
 import zipfile
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -29,6 +32,7 @@ from api.core.plan import (
     validate_plan,
     with_plan,
 )
+from api.core.settings import Settings
 from api.core.templates import get_template
 from api.core.venue_ops import PatchError, PatchResult, apply_patch, venue_hash
 from api.db.models import (
@@ -56,6 +60,17 @@ ARTIFACT_FILES = (
     "venue.json",
     "result.json",
 )
+RUN_FOLDER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+# what an import reads: the export's own files, and the replay files of its runs
+EXPORT_FILES = (
+    "manifest.json",
+    "project.json",
+    "versions.json",
+    "runs.json",
+    "sessions.json",
+    "session_events.json",
+)
+IMPORT_ARTIFACTS = frozenset({*ARTIFACT_FILES, trajpack.DELTA_NAME})
 
 
 def _dates(row: dict[str, Any]) -> dict[str, Any]:
@@ -65,6 +80,68 @@ def _dates(row: dict[str, Any]) -> dict[str, Any]:
         if isinstance(out.get(k), str):
             out[k] = datetime.fromisoformat(out[k])
     return out
+
+
+def _setting_default(name: str) -> Any:
+    """A setting's declared default (callers that have the settings pass their values)."""
+    return Settings.model_fields[name].default
+
+
+def _optional(z: zipfile.ZipFile, names: set[str], name: str) -> Any:
+    return json.loads(z.read(name)) if name in names else []
+
+
+def _rows(data: Any, name: str) -> list[dict[str, Any]]:
+    """A list of JSON objects, else ValueError naming the file."""
+    if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):
+        raise ValueError(f"{name} is not a list of objects.")
+    return data
+
+
+def _need(row: dict[str, Any], key: str, kind: type, name: str) -> None:
+    value = row.get(key)
+    # bool is an int in Python, never a version number or an event seq
+    if not isinstance(value, kind) or isinstance(value, bool):
+        raise ValueError(f"{name}: an entry has no valid '{key}'.")
+
+
+def _check_versions(proj: dict[str, Any], versions: list[dict[str, Any]]) -> int:
+    """The current version number, after checking every version's number and venue."""
+    if not versions:
+        raise ValueError("The export has no venue versions.")
+    numbers: set[int] = set()
+    for v in versions:
+        _need(v, "version", int, "versions.json")
+        _need(v, "venue", dict, "versions.json")
+        if v["version"] < 1 or v["version"] in numbers:
+            raise ValueError(f"versions.json: version {v['version']} is repeated or below 1.")
+        numbers.add(v["version"])
+        base = v.get("base_version")
+        if base is not None and (not isinstance(base, int) or isinstance(base, bool)):
+            raise ValueError("versions.json: a base_version is not a version number.")
+    current = proj.get("current_version") or max(numbers)
+    if not isinstance(current, int) or isinstance(current, bool) or current not in numbers:
+        raise ValueError(f"current_version {current!r} is not one of the versions.")
+    return current
+
+
+def _rekeyer(ids: dict[str, str]) -> Callable[[Any], Any]:
+    """Replace every old run id in JSON data (values, keys and paths like runs/<id>/...)."""
+    if not ids:
+        return lambda data: data
+    alternatives = "|".join(re.escape(k) for k in sorted(ids, key=len, reverse=True))
+    pattern = re.compile(rf"(?<!\w)({alternatives})(?!\w)")
+
+    def walk(data: Any) -> Any:
+        if isinstance(data, str):
+            return pattern.sub(lambda m: ids[m.group(1)], data)
+        if isinstance(data, list):
+            return [walk(x) for x in data]
+        if isinstance(data, dict):
+            return {walk(k): walk(v) for k, v in data.items()}
+        return data
+
+    return walk
 
 
 class NotFound(Exception):
@@ -194,8 +271,11 @@ class ProjectService:
             s.refresh(p)
             return p
 
-    def delete(self, project_id: str) -> None:
-        """Delete a project and its versions, runs and sessions (artifacts stay on disk)."""
+    def delete(self, project_id: str, runs_dir: Path | None = None) -> list[str]:
+        """Delete a project and its versions, runs and sessions; returns the deleted run ids.
+
+        With `runs_dir`, the files of those runs go too. A run another project's session
+        still uses is kept (detached from this project), and so are its files."""
         with db_session(self.db_url) as s:
             p = s.get(Project, project_id)
             if p is None:
@@ -217,6 +297,7 @@ class ProjectService:
                     )
                 )
             }
+            deleted: list[str] = []
             for run in s.exec(select(Run).where(Run.project_id == project_id)):
                 if run.id in shared:
                     run.project_id = None
@@ -224,11 +305,15 @@ class ProjectService:
                     s.add(run)
                 else:
                     s.delete(run)
+                    deleted.append(run.id)
             for model in (VenueVersion, RedTeamSession, AuditEntry):
                 for row in s.exec(select(model).where(model.project_id == project_id)):
                     s.delete(row)
             s.delete(p)
             s.commit()
+        if runs_dir is not None:
+            remove_run_files(runs_dir, deleted)
+        return deleted
 
     def duplicate(self, project_id: str, name: str | None = None) -> Project:
         """Copy the current venue into a new project."""
@@ -643,69 +728,91 @@ class ProjectService:
         sample: bool = False,
         runs_dir: Path | None = None,
         name: str | None = None,
+        max_unpacked_bytes: int = _setting_default("import_max_unpacked_bytes"),
+        max_entries: int = _setting_default("import_max_entries"),
     ) -> Project:
-        """Import a `.showtime.zip` as a new project (new id; history kept)."""
+        """Import a `.showtime.zip` as a new project (new id; history kept).
+
+        Anything malformed raises ValueError before a row is written. Imported runs get new
+        ids: a run id is the hash of what the run computes, so a result kept under it would be
+        served as the cached answer to anyone's identical request."""
+        pid = new_id("p")
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as z:
+                infos = z.infolist()
+                # a few kB of zip can unpack to gigabytes: check the sizes it declares first
+                read = [
+                    i
+                    for i in infos
+                    if i.filename in EXPORT_FILES
+                    or (runs_dir is not None and i.filename.startswith("runs/"))
+                ]
+                if len(infos) > max_entries:
+                    raise ValueError(f"The file holds more than {max_entries} entries.")
+                if sum(i.file_size for i in read) > max_unpacked_bytes:
+                    raise ValueError(
+                        f"The file unpacks to more than {max_unpacked_bytes // 1_000_000} MB."
+                    )
+                names = {i.filename for i in infos}
                 manifest = json.loads(z.read("manifest.json"))
-                if manifest.get("format") != EXPORT_FORMAT:
+                if not isinstance(manifest, dict) or manifest.get("format") != EXPORT_FORMAT:
                     raise ValueError("This file is not a Showtime project export.")
                 proj = json.loads(z.read("project.json"))
-                versions = json.loads(z.read("versions.json"))
-                names = set(z.namelist())
-                runs = json.loads(z.read("runs.json")) if "runs.json" in names else []
-                sessions = json.loads(z.read("sessions.json")) if "sessions.json" in names else []
-                events = (
-                    json.loads(z.read("session_events.json"))
-                    if "session_events.json" in names
-                    else []
-                )
+                if not isinstance(proj, dict):
+                    raise ValueError("project.json is not an object.")
+                versions = _rows(json.loads(z.read("versions.json")), "versions.json")
+                runs = _rows(_optional(z, names, "runs.json"), "runs.json")
+                sessions = _rows(_optional(z, names, "sessions.json"), "sessions.json")
+                events = _rows(_optional(z, names, "session_events.json"), "session_events.json")
+                current = _check_versions(proj, versions)
+                for r in runs:
+                    _need(r, "id", str, "runs.json")
+                for rs in sessions:
+                    _need(rs, "id", str, "sessions.json")
+                for ev in events:
+                    _need(ev, "seq", int, "session_events.json")
+                    _need(ev, "type", str, "session_events.json")
+                rekey = _rekeyer({r["id"]: new_id("r") for r in runs})
+                versions, runs, sessions, events = rekey([versions, runs, sessions, events])
+                venues = []
+                for v in versions:
+                    venue = Venue.model_validate(v["venue"]).model_copy(update={"venue_id": pid})
+                    validate_plan(venue, self.registry)
+                    venues.append(venue)
                 if runs_dir is not None:
-                    for n in names:
-                        if n.startswith("runs/") and not n.endswith("/"):
-                            target = (runs_dir / n.removeprefix("runs/")).resolve()
-                            if runs_dir.resolve() not in target.parents:
-                                continue
-                            target.parent.mkdir(parents=True, exist_ok=True)
-                            blob = z.read(n)
-                            if target.name == trajpack.DELTA_NAME:  # delta-coded trajectory
-                                ix_name = n.rsplit("/", 1)[0] + "/traj_index.json"
-                                blob = trajpack.decode(blob, json.loads(z.read(ix_name)))
-                                target = target.with_name("traj.bin")
-                            target.write_bytes(blob)
-        except (KeyError, zipfile.BadZipFile, json.JSONDecodeError) as exc:
-            raise ValueError("This file is not a valid .showtime.zip export.") from exc
-        if not versions:
-            raise ValueError("The export has no venue versions.")
-        pid = new_id("p")
+                    self._unpack_artifacts(z, runs_dir, rekey, {r["id"] for r in runs})
+        except PlanError as exc:
+            raise ValueError(f"A venue in the file is not valid: {exc}") from exc
+        except (KeyError, TypeError, ValueError, zipfile.BadZipFile) as exc:
+            # json and pydantic errors are ValueErrors; a missing file is a KeyError
+            detail = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
+            raise ValueError(f"This file is not a valid .showtime.zip export ({detail}).") from exc
         now = _now()
         with db_session(self.db_url) as s:
             p = Project(
                 id=pid,
-                name=name or f"{proj.get('name', 'Imported')} (imported)",
+                name=name or f"{proj.get('name') or 'Imported'} (imported)",
                 sample=sample,
-                description=proj.get("description", ""),
+                description=str(proj.get("description") or ""),
                 template_id=proj.get("template_id"),
-                current_version=int(proj.get("current_version") or versions[-1]["version"]),
+                current_version=current,
                 created_at=now,
                 updated_at=now,
             )
             s.add(p)
             s.flush()
-            for v in versions:
-                venue = Venue.model_validate(v["venue"]).model_copy(update={"venue_id": pid})
-                validate_plan(venue, self.registry)
+            for v, venue in zip(versions, venues, strict=True):
                 s.add(
                     VenueVersion(
                         project_id=pid,
-                        version=int(v["version"]),
+                        version=v["version"],
                         venue=venue.model_dump(mode="json"),
                         venue_hash=venue_hash(venue),
                         base_version=v.get("base_version"),
                         patch=v.get("patch"),
                         inverse=v.get("inverse"),
-                        message=v.get("message", ""),
-                        author=v.get("author", "user"),
+                        message=str(v.get("message") or ""),
+                        author=str(v.get("author") or "user"),
                     )
                 )
             sid_map: dict[str, str] = {}
@@ -720,13 +827,46 @@ class ProjectService:
                     ev["session_id"] = sid_map[ev["session_id"]]
                     s.add(SessionEventRow.model_validate(ev))
             for r in runs:
-                if s.get(Run, r["id"]) is not None:
-                    continue  # runs are content-addressed: an identical run already exists
                 r = {**r, "project_id": pid, "session_id": sid_map.get(r.get("session_id") or "")}
                 s.add(Run.model_validate(_dates(r)))
             s.commit()
             s.refresh(p)
         return p
+
+    @staticmethod
+    def _unpack_artifacts(
+        z: zipfile.ZipFile, runs_dir: Path, rekey: Callable[[Any], Any], run_ids: set[str]
+    ) -> None:
+        """Replay files of the imported runs, under their new ids (other files are skipped)."""
+        for n in z.namelist():
+            parts = n.split("/")
+            if len(parts) != 3 or parts[0] != "runs" or parts[2] not in IMPORT_ARTIFACTS:
+                continue
+            rid = rekey(parts[1])
+            if rid not in run_ids:
+                continue  # not a run of this export: never written
+            target = (runs_dir / rid / parts[2]).resolve()
+            if runs_dir.resolve() not in target.parents:
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            blob = z.read(n)
+            if target.name == trajpack.DELTA_NAME:  # delta-coded trajectory
+                index = json.loads(z.read(f"runs/{parts[1]}/traj_index.json"))
+                blob = trajpack.decode(blob, index)
+                target = target.with_name("traj.bin")
+            elif target.suffix == ".json":  # result.json names its run and artifact paths
+                blob = json.dumps(rekey(json.loads(blob))).encode()
+            target.write_bytes(blob)
+
+
+def remove_run_files(runs_dir: Path, run_ids: list[str]) -> None:
+    """Delete the folders of these runs under `runs_dir` (ids that are not plain names, or
+    folders outside it, are left alone)."""
+    root = runs_dir.resolve()
+    for rid in run_ids:
+        folder = (runs_dir / rid).resolve()
+        if RUN_FOLDER_RE.match(rid) and folder.parent == root and folder.is_dir():
+            shutil.rmtree(folder, ignore_errors=True)
 
 
 def _describe(patch: VenuePatch) -> str:

@@ -13,7 +13,7 @@ describe("seed range on Your plan", () => {
       agents_not_evacuated: { min: 0, max: 0, median: 0, n: 4 },
     }))!;
     expect(lines).toEqual([
-      "95% out in 4 min 29 s – 4 min 42 s over 4 seeds",
+      "Evacuation time (95%): 4 min 29 s – 4 min 42 s over 4 seeds",
       "Peak density 1.2 – 1.5 people per m² over 4 seeds",
       "Everyone got out in all 4 runs",
     ]);

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // A real case opens its one project: a double click on the tile never builds or opens it twice.
 // The tile always asks the server, which opens a tested project at once.

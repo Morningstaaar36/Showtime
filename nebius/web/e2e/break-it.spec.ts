@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // "Break it yourself" works without the 3D view: every exit of the venue is a toggle in the
 // Simulate panel (keyboard and screen readers included), and blocking one shows the instant

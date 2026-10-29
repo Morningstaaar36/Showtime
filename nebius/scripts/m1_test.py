@@ -108,7 +108,7 @@ def call(method: str, path: str, body: Any = None, timeout: float = 30) -> Any:
         API + path,
         method=method,
         data=json.dumps(body).encode() if body is not None else None,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/json", "X-Showtime": "1"},
     )
     with urllib.request.urlopen(req, timeout=timeout) as response:
         data = response.read()

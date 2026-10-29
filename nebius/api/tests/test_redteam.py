@@ -378,26 +378,32 @@ def test_budget_object() -> None:
 
 
 async def test_reimporting_an_export_keeps_its_history(state: Any) -> None:
-    """Run ids are content-addressed: a second copy must still list the runs its sessions used."""
+    """A copy gets runs of its own (an imported result never takes a content-addressed id), and
+    its sessions' history points at them."""
     p = state.projects.create("Hall", template_id="conference_hall_2f")
-    row = await _run_session(state, p.id, max_rounds=1)
+    await _run_session(state, p.id, max_rounds=1)
     owned = {r.id for r in state.runs.list(p.id)}
     assert owned
-    data = state.projects.export_zip(p.id)
-    copy = state.projects.import_zip(data)
+
+    def used(project_id: str) -> set[str]:
+        return {
+            e.payload["run_id"]
+            for s in state.sessions.list_sessions(project_id)
+            for e in state.sessions.stored_events(s.id)
+            if e.type == "run_finished"
+        }
+
+    copy = state.projects.import_zip(state.projects.export_zip(p.id))
     copy_runs = {r.id for r in state.runs.list(copy.id)}
-    assert {
-        e.payload["run_id"]
-        for e in state.sessions.stored_events(row.id)
-        if e.type == "run_finished"
-    } <= copy_runs
-    assert state.sessions.list_sessions(copy.id)
-    # deleting the original keeps the runs the copy's session still needs
+    assert len(copy_runs) == len(owned) and not copy_runs & owned
+    assert used(copy.id) and used(copy.id) <= copy_runs
+    # deleting the original keeps every run of the copy
     state.projects.delete(p.id)
     assert copy_runs == {r.id for r in state.runs.list(copy.id)}
     # and a re-export of the copy is complete
     again = state.projects.import_zip(state.projects.export_zip(copy.id))
-    assert {r.id for r in state.runs.list(again.id)} == copy_runs
+    assert len({r.id for r in state.runs.list(again.id)}) == len(copy_runs)
+    assert used(again.id) <= {r.id for r in state.runs.list(again.id)}
 
 
 def test_attack_titles_cannot_name_missing_features(registry: Registry, field: Venue) -> None:

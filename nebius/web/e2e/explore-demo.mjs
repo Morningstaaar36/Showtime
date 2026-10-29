@@ -16,6 +16,7 @@ await page.getByPlaceholder("Riverside Festival 2026").fill("Spring open day");
 await page.getByRole("button", { name: "Create project" }).click();
 await page.waitForURL(/\/p\/p_.*\/describe$/);
 const pid = page.url().split("/p/")[1].split("/")[0];
+await page.getByText("More options", { exact: true }).click(); // the test depth is under More options
 await page.getByRole("radio", { name: /Standard/ }).click();
 await page.getByRole("button", { name: "Test this plan" }).click();
 await page.waitForURL(/\/p\/p_[^/]+\?session=/, { timeout: 900_000 });

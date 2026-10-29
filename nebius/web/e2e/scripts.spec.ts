@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // The Scripts page: a script that tries to reach the network is refused before it runs, and the
 // page says why (the sandbox has no network anyway: docs/SANDBOX_PROOF.md).

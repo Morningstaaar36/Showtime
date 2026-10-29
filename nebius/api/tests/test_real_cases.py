@@ -36,6 +36,7 @@ from api.models.venue_spec import VenueSpec
 from api.orchestrator.real_cases import CASE_TEST, open_case
 from api.orchestrator.session import SessionManager
 from api.tests.evidence_fakes import reset_engine, use_test_settings
+from api.tests.http import api_client
 
 S = Settings(_env_file=None)
 FIXTURES = ROOT_DIR / "api" / "tests" / "fixtures" / "real_cases"
@@ -241,7 +242,7 @@ async def test_a_layout_with_problems_opens_in_the_editor(case_state: Callable[.
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     settings = use_test_settings(tmp_path, monkeypatch)
     state = build_state(settings, llm=FakeLLM({}, settings), runner=FakeRunner(settings.runs_dir))
-    with TestClient(create_app(state=state, settings=settings)) as c:
+    with api_client(create_app(state=state, settings=settings)) as c:
         yield c
     reset_engine()
 

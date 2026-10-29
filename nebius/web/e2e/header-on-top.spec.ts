@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 // The sticky header stays on top: the 3D view's floating panels (the floor switch) scroll under
 // it instead of drawing over it. AI at work of a finished test on a venue with several floors.

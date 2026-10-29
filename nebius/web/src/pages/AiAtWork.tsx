@@ -1,7 +1,7 @@
 /** Step 2 of the guided journey (route `/p/:projectId/work`): honest progress of the AI test,
  * the latest finished simulation in 3D, and the attacks and fixes as they arrive. */
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, CircleAlert, Code2, Coins, Cpu, DoorClosed, Filter, Hourglass, Loader2, Repeat2, Scale, ShieldAlert, ShieldCheck, Snail, Sparkles, Square, Swords, TriangleAlert, UsersRound, WifiOff, Wrench, X } from "lucide-react";
+import { Check, CircleAlert, Code2, Cpu, DoorClosed, Filter, Hourglass, Loader2, Repeat2, Scale, ShieldAlert, ShieldCheck, Snail, Sparkles, Square, Swords, TriangleAlert, UsersRound, WifiOff, Wrench, X } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
@@ -20,7 +20,7 @@ import { runOutcome } from "@/lib/evidence";
 import { JourneyShell } from "@/journey/JourneyShell";
 import { type ScenarioKind, scenarioKind } from "@/journey/plan/gallery";
 import { type NodeKey, pipelineNodes, workSteps } from "@/journey/workSteps";
-import { fmtDuration, fmtInt, fmtMoney, fmtTokens } from "@/lib/format";
+import { fmtDuration, fmtInt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { textHumanizer } from "@/lib/venueText";
 import { useReplay } from "@/replay/useReplay";
@@ -127,8 +127,6 @@ export function AiAtWorkPage() {
     fix: view.fixes.length || null,
     judge: null,
   };
-  const budget = view.cost?.budget_tokens ?? 0;
-  const used = view.cost?.tokens_total ?? 0;
   const startedAt = view.phases[0] ? Date.parse(view.phases[0].ts) : null;
   const lastAt = view.phases[view.phases.length - 1] ? Date.parse(view.phases[view.phases.length - 1].ts) : null;
   const elapsed = startedAt != null ? Math.max(0, ((ended ? lastAt ?? now : now) - startedAt) / 1000) : null;
@@ -156,7 +154,7 @@ export function AiAtWorkPage() {
         {/* the pipeline: each agent lights up as its events arrive */}
         <section aria-label={t("work.progress")} className="rounded-[var(--radius-panel)] border border-border bg-surface p-4 shadow-sm">
           <div className="h-2 overflow-hidden rounded-full bg-surface-3" role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} aria-label={t("work.progress")}>
-            <div className={cn("h-full rounded-full transition-all duration-700", failed ? "bg-danger" : "bg-[linear-gradient(90deg,var(--sky),var(--signal),var(--pink))]")} style={{ width: `${percent}%` }} />
+            <div className={cn("h-full rounded-full transition-all duration-700", failed ? "bg-danger" : "bg-signal")} style={{ width: `${percent}%` }} />
           </div>
           <ol className="mt-4 grid grid-cols-5 items-start">
             {nodes.map((n, i) => {
@@ -171,7 +169,7 @@ export function AiAtWorkPage() {
                   )}
                   <span className={cn("relative grid size-14 place-items-center rounded-full border-2 transition-all duration-500 [&_svg]:size-6 max-sm:size-10 max-sm:[&_svg]:size-5",
                     on ? "animate-halo scale-110 border-signal bg-signal text-signal-ink" : done ? "border-signal bg-signal-soft text-signal"
-                      : n.status === "failed" ? "border-danger bg-danger-soft text-danger" : "border-border bg-surface-2 text-line")}>
+                      : n.status === "failed" ? "border-danger bg-danger-soft text-danger" : "border-border bg-surface-2 text-muted")}>
                     {NODE_ICON[n.key]}
                     {nodeCount[n.key] != null && (
                       <span className="absolute -right-1 -top-1 grid min-w-6 place-items-center rounded-full bg-ink px-1.5 text-2xs font-bold text-plan tabular">{nodeCount[n.key]}</span>
@@ -219,12 +217,7 @@ export function AiAtWorkPage() {
                 </div>
               ))}
             </dl>
-            <div className="rounded-[var(--radius-panel)] border border-border bg-surface p-3 shadow-sm">
-              <p className="flex items-center justify-between gap-2 text-xs text-muted"><span className="flex items-center gap-1.5"><Coins className="size-3.5" />{t("work.ai_meter")}</span>
-                <span className="font-semibold text-ink tabular">{fmtMoney(view.cost?.cost_usd ?? session.data?.cost_usd ?? 0)}</span></p>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-3"><div className="h-full rounded-full bg-signal transition-all duration-700" style={{ width: `${budget ? Math.min(100, (used / budget) * 100) : 0}%` }} /></div>
-              <p className="mt-1 text-2xs text-muted tabular">{budget ? t("work.tokens_of", { n: fmtTokens(used), max: fmtTokens(budget) }) : t("work.tokens", { n: fmtTokens(used || (session.data?.tokens ?? 0)) })}</p>
-            </div>
+            {/* the AI's usage and cost: in Hand over and Expert view, not while organizers wait */}
             <ToolCalls feed={view.feed} />
             <SandboxFeed runs={view.sandboxes} />
           </aside>
@@ -238,10 +231,9 @@ export function AiAtWorkPage() {
           {cards.length === 0 ? <p className="text-sm text-muted">{ended ? t("work.no_cards") : t("work.cards_soon")}</p> : (
             <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {visible.map((c) => (
-                <li key={`${c.kind}:${c.id}`} className={cn("animate-deal-in flex min-w-0 gap-3 rounded-[var(--radius-panel)] border-2 bg-surface p-3 text-sm shadow-sm",
-                                                             c.status === "break" ? "border-danger/35" : c.status === "holds" || c.status === "kept" ? "border-egress/30" : "border-border")}>
-                  <span className={cn("grid size-10 shrink-0 place-items-center rounded-[10px] [&_svg]:size-5",
-                                      c.kind === "attack" ? "bg-danger-soft text-danger-strong" : "bg-signal-soft text-signal")} aria-hidden>
+                // the badge says breaks or holds: a red or green border on every card would only shout
+                <li key={`${c.kind}:${c.id}`} className="animate-deal-in flex min-w-0 gap-3 rounded-[var(--radius-panel)] border border-border bg-surface p-3 text-sm shadow-sm">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-surface-2 text-ink [&_svg]:size-5" aria-hidden>
                     {c.kind === "attack" ? KIND_ICON[scenarioKind(c.attack)] : <Wrench />}
                   </span>
                   <div className="min-w-0 flex-1">

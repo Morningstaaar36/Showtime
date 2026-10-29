@@ -49,6 +49,8 @@ from api.adapters.sandbox import (
     failed_result,
     parse_code_output,
     read_result,
+    sim_files,
+    sim_version,
     write_job_files,
 )
 from api.core.settings import Settings
@@ -85,20 +87,6 @@ def sim_build(sim_dir: Path) -> tuple[str, str]:
 _setup_network: contextvars.ContextVar[bool] = contextvars.ContextVar(
     "setup_network", default=False
 )
-
-
-def _sim_files(sim_dir: Path) -> dict[str, bytes]:
-    """The simulation code as files for /app inside the sandbox."""
-    out: dict[str, bytes] = {}
-    for p in sorted(sim_dir.rglob("*")):
-        if (
-            p.is_file()
-            and "tests" not in p.parts
-            and "__pycache__" not in p.parts
-            and p.suffix in (".py", ".json", ".txt")
-        ):
-            out[f"/app/{p.relative_to(sim_dir).as_posix()}"] = p.read_bytes()
-    return out
 
 
 SPAWN_PATH = "/v1/instances"
@@ -186,11 +174,7 @@ class NebiusRunner:
             return {"ok": False, "detail": f"Nebius Sandboxes not reachable: {type(exc).__name__}"}
 
     def _code_hash(self) -> str:
-        h = hashlib.sha256()
-        for k, v in sorted(_sim_files(self.sim_dir).items()):
-            h.update(k.encode())
-            h.update(v)
-        return h.hexdigest()[:16]
+        return sim_version(self.sim_dir)
 
     async def _base_image(self) -> Any:
         """Base node: deps + sim code, cached by code hash (cache/nebius/base_image.json)."""
@@ -220,7 +204,7 @@ class NebiusRunner:
             )
         finally:
             _setup_network.reset(token)
-        img = await img.apply_files(files=_sim_files(self.sim_dir))
+        img = await img.apply_files(files=sim_files(self.sim_dir))
         self._base = img
         self.cache_file.parent.mkdir(parents=True, exist_ok=True)
         self.cache_file.write_text(

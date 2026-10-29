@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "./fixtures";
 
 const created: string[] = [];
 
@@ -82,8 +82,10 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
   test.setTimeout(600_000);
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Plan a safe event in minutes" })).toBeVisible();
-  await page.getByRole("button", { name: /Try a sample/ }).click();
-  await page.getByRole("button", { name: /Conference hall, 2 floors/ }).click();
+  // a template is a sample on Your plans (Home's gallery opens tested samples)
+  await page.goto("/projects");
+  await page.getByRole("button", { name: /^Conference hall, 2 floors/ }).first().click();
+  await page.getByRole("button", { name: "Create project" }).click();
   await expect(page).toHaveURL(/\/describe$/);
   created.push(page.url().split("/p/")[1].split("/")[0]);
 
@@ -110,7 +112,7 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
   await expect(verdict).toBeVisible();
   await expect(verdict.getByText("Evacuation time (95%)")).toBeVisible();
   // what the tests show is the evaluation's own label: never "confirmed" unless it is
-  await expect(verdict).toContainText(/Not confirmed|Partly confirmed|Confirmation failed|Confirmed by full simulations/);
+  await expect(verdict).toContainText(/Not confirmed by simulation|Partly confirmed|Confirmation failed|Confirmed by simulation/);
   // S-05: the badge says why in one line, with a link to Help (one click away, in a popover)
   await verdict.getByRole("button", { name: /why\?$/ }).click();
   await expect(page.getByTestId("verdict-why")).toContainText(/\w+\./);
@@ -126,9 +128,9 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
   expect(handover.ok()).toBeTruthy();
   expect(await handover.text()).toContain("Planning aid, not a safety certification.");
   await page.getByRole("tab", { name: /^Fixes/ }).click();
-  const accept = page.getByRole("button", { name: "Accept these changes" });
+  const accept = page.getByRole("button", { name: "Accept these fixes" });
   // the choice of tested changes is ready once the tested version is known
-  await expect(accept.or(page.getByText("The AI found no change worth making."))).toBeVisible();
+  await expect(accept.or(page.getByText("The AI found no fix worth making."))).toBeVisible();
   if (await accept.isVisible()) {
     // leaving a change out is allowed, and says it was not tested together
     const choices = page.getByRole("checkbox", { name: /^Use “/ });
@@ -147,7 +149,7 @@ test("guided journey: template, correct and lock, test, review and accept", asyn
     // Saving provenance/proposed construction or operations can change the full
     // identity. Saving successfully must not imply that older evidence is current.
     await expect(accept).not.toBeVisible();
-    await expect(page.getByText("These changes are part of the current venue.")).toBeVisible();
+    await expect(page.getByText("These fixes are part of the current venue.")).toBeVisible();
   }
   // nothing on the simple screens shows machine ids or tier jargon
   await expect(page.locator("main")).not.toContainText(/\bTier\b|run_id|door_s1/);
