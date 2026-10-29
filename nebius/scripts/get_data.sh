@@ -4,6 +4,12 @@
 # Jülich bottleneck experiment (Düsseldorf caserne, 2006), CC BY 4.0, https://doi.org/10.34735/ped.2006.2
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# works on a host (curl, unzip, uv) and inside the api image (Python only: make data)
+PY="python3"; command -v uv >/dev/null && [ -f "$ROOT/api/pyproject.toml" ] && [ -z "${IN_IMAGE:-}" ] && PY="uv run python"
+fetch() {  # fetch <url> <file>
+  if command -v curl >/dev/null; then curl -sS --http1.1 -L --retry 3 -o "$2" "$1"
+  else python3 -c 'import sys, urllib.request; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' "$1" "$2"; fi
+}
 DEST="$ROOT/data/incidents"
 mkdir -p "$DEST"
 BASE="https://zenodo.org/api/records/19483010/files"
@@ -11,7 +17,7 @@ for f in accident_data_numeric.csv accident_data_raw.csv number_conversion.csv r
   if [ ! -s "$DEST/$f" ]; then
     echo "downloading $f"
     for i in 1 2 3 4 5; do
-      curl -sS --http1.1 -L --retry 3 -o "$DEST/$f.part" "$BASE/$f/content" && mv "$DEST/$f.part" "$DEST/$f" && break
+      fetch "$BASE/$f/content" "$DEST/$f.part" && mv "$DEST/$f.part" "$DEST/$f" && break
       echo "retry $i"; sleep 2
     done
   fi
@@ -26,7 +32,7 @@ while read -r f remote sum; do
     continue
   fi
   echo "downloading $f"
-  curl -sS -L --retry 3 -o "$VAL/$f.part" "$VAL_BASE/$remote"
+  fetch "$VAL_BASE/$remote" "$VAL/$f.part"
   if ! echo "$sum  $VAL/$f.part" | sha256sum -c --status; then
     echo "checksum mismatch for $f: the archive changed; check it before rerunning make validate" >&2
     rm -f "$VAL/$f.part"
@@ -39,7 +45,7 @@ trajectories_txt.zip 2006bottleneck2_trajectories_txt.zip a66ed94acd83a96b69d16e
 LIST
 if [ ! -s "$VAL/txt/b250.txt" ]; then
   mkdir -p "$VAL/txt"
-  unzip -o -q "$VAL/trajectories_txt.zip" -d "$VAL/txt"
+  python3 -m zipfile -e "$VAL/trajectories_txt.zip" "$VAL/txt"
 fi
 
-cd "$ROOT/api" && uv run python ../scripts/build_incidents.py
+cd "$ROOT/api" && $PY ../scripts/build_incidents.py

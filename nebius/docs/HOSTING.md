@@ -2,9 +2,10 @@
 
 **Can it run on Token Factory itself? No.** Token Factory hosts models (serverless models,
 dedicated endpoints, custom weights), not web apps
-([docs index](https://docs.tokenfactory.nebius.com/llms.txt)). Showtime already *uses* Token
+([docs index](https://docs.tokenfactory.nebius.com/llms.txt)). Showtime is built to use Token
 Factory for every AI call (`LLM_PROVIDER=nebius`) and Nebius Sandboxes for every simulation
-(`SANDBOX_PROVIDER=nebius`); the app itself runs on a small **Nebius AI Cloud** VM with Docker.
+(`SANDBOX_PROVIDER=nebius`) once keys exist; neither has run live yet (no account,
+`docs/LIVE_STATUS.md`). The app itself runs on a small **Nebius AI Cloud** VM with Docker.
 
 ## What you need
 
@@ -16,19 +17,16 @@ Factory for every AI call (`LLM_PROVIDER=nebius`) and Nebius Sandboxes for every
 
 ## Three steps
 
-1. **Set a password and the address** in `.env` (the hosted app is public; the password keeps
-   strangers from spending your model credit):
+1. **Set a password** (the hosted app is public; the password keeps strangers from spending your
+   model credit):
 
    ```bash
-   make cloud-password            # asks for a password, prints its hash
+   make cloud-password            # asks for a user and a password; stores the hash in .env
    ```
 
-   ```dotenv
-   BASIC_AUTH_USER=organizer
-   BASIC_AUTH_HASH=<the hash>
-   SITE_ADDRESS=:80                               # or your domain, e.g. showtime.example.org (HTTPS)
-   WEB_ORIGIN=http://<the VM's address>           # or https://showtime.example.org
-   ```
+   HTTPS needs nothing more: the app gets a name of its own, `<the VM's address>.sslip.io`, and
+   a certificate for it. To use your own domain, set `SITE_ADDRESS=showtime.example.org` in `.env`
+   and point its DNS at the VM.
 
 2. **Commit your changes** (the VM gets the committed code; `.env` is copied separately and
    never enters git).
@@ -41,7 +39,9 @@ Factory for every AI call (`LLM_PROVIDER=nebius`) and Nebius Sandboxes for every
 
    It finds the VM named `showtime`, or asks before creating one (CPU `cpu-d3`, `4vcpu-16gb`,
    50 GiB SSD, Ubuntu 24.04; cloud-init installs Docker), copies the code and `.env` (mode 600)
-   over SSH, builds the images and starts the stack behind Caddy. It prints the address.
+   over SSH, fetches the incident dataset, builds the images and starts the stack behind Caddy.
+   It prints the address and the user name; give judges both, and the password, in the Devpost
+   testing notes.
 
 Run it again after every change: it copies the new code and restarts. Change the size with
 `VM_PRESET=2vcpu-8gb make deploy-nebius` (enough when `SANDBOX_PROVIDER=nebius` runs the
@@ -54,7 +54,8 @@ simulations), or the name with `VM_NAME=...`.
 - **Caddy** on ports 80 and 443: the only open ports. With a domain in `SITE_ADDRESS` it gets an
   HTTPS certificate on its own (point the domain's DNS at the VM first). It asks for the password
   on every page and every API call, and streams live test progress through.
-- **web** and **api** as locally, with no ports of their own.
+- **web** and **api** as locally, with no ports of their own. With `SANDBOX_PROVIDER=nebius` the
+  API gets no Docker socket (`docker-compose.nosocket.yml`).
 - **Simulations**: in Nebius Sandboxes with `SANDBOX_PROVIDER=nebius`, or in Docker on the VM
   (the default), which is why the VM has Docker.
 
@@ -72,6 +73,9 @@ it: `nebius compute instance stop --id <id>`; `make cloud-down` on the VM stops 
   container. Showtime runs two (api, web) plus simulations, and keeps its database on disk, so it
   would need one combined image, a volume and `SANDBOX_PROVIDER=nebius`. The VM is simpler.
 - **Any other server with Docker**: copy the folder and `.env`, then `make cloud-up`.
+- **A quick public link from your own machine** (for a call, not for judging: it lives only while
+  your laptop runs): `make cloud-up`, then `make share` prints an HTTPS link (Cloudflare quick
+  tunnel) to the password-protected app.
 
 ## Not verified
 

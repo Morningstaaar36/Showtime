@@ -5,7 +5,7 @@ SIM_PLATFORM ?= linux/amd64
 API := cd api &&
 .DEFAULT_GOAL := help
 
-.PHONY: help cloud-password cloud-up cloud-down deploy-nebius fix-perms sandbox-proof verify-live setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
+.PHONY: help data share cloud-password cloud-up cloud-down deploy-nebius fix-perms sandbox-proof verify-live setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
         types check lint typecheck test test-sim test-web e2e smoke smoke-nebius demo-precompute \
         clean mem plugins new-plugin calibrate validate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
@@ -25,6 +25,12 @@ get-model: ## Download Nemotron Nano 9B v2 (Q4_K_M GGUF) into ./models
 get-data: ## Download the crowd-accident and validation datasets into ./data
 	@$(ENV) ./scripts/get_data.sh
 
+data: ## The same, inside the api image (needs only Docker); make up runs it when data/ is empty
+	@mkdir -p data
+	@docker run --rm --user $(HOST_UID):$(HOST_GID) -e IN_IMAGE=1 -e HOME=/tmp \
+	  -v "$(CURDIR)/data:/app/data" -v "$(CURDIR)/scripts:/app/scripts:ro" \
+	  --entrypoint bash showtime-api:latest /app/scripts/get_data.sh
+
 probe: ## Check GPU, Docker, LLM (chat + JSON), sim image, weather, search
 	@$(ENV) $(API) uv run python ../scripts/probe.py
 
@@ -42,7 +48,9 @@ up: build-sim ## Start the stack with Docker Compose (api + web) → http://loca
 	@test -f .env || cp .env.example .env
 	@mkdir -p runs cache state data
 	@if [ -n "$$(find runs cache state -maxdepth 3 ! -user $(HOST_UID) -print -quit 2>/dev/null)" ]; then $(MAKE) --no-print-directory fix-perms; fi
-	@docker compose up -d --build
+	@docker compose build
+	@test -s data/incidents/incidents.json || $(MAKE) --no-print-directory data
+	@docker compose up -d
 	@echo "Showtime: http://localhost:5173   (API docs: http://127.0.0.1:8000/api/docs)"
 	@./scripts/needs_local_model.sh .env && echo "Start the local model if it is not running: make llm-up" || true
 
@@ -55,16 +63,22 @@ fix-perms: ## Give runs/, cache/ and state/ back to you (files an older root con
 down: ## Stop the Docker Compose stack
 	@docker compose down
 
-CLOUD := docker compose -f docker-compose.yml -f docker-compose.cloud.yml
+# with Nebius Sandboxes the API needs no Docker socket on the server
+SANDBOX_IN_ENV = $(shell grep -E '^SANDBOX_PROVIDER=' .env 2>/dev/null | cut -d= -f2 | cut -d' ' -f1)
+CLOUD = docker compose -f docker-compose.yml -f docker-compose.cloud.yml $(if $(filter nebius,$(SANDBOX_IN_ENV)),-f docker-compose.nosocket.yml)
 
-cloud-password: ## Print a password hash for BASIC_AUTH_HASH (asks for the password)
-	@read -rsp "Password for the hosted app: " pw && echo && \
-	  docker run --rm caddy:2.8.4 caddy hash-password --plaintext "$$pw"
+cloud-password: ## Set the hosted app's password (asks for it; writes BASIC_AUTH_USER and _HASH to .env)
+	@./deploy/set_password.sh
+
+share: ## A public HTTPS link to this machine's app for a demo (needs make cloud-up running)
+	@docker run --rm --network host cloudflare/cloudflared:2024.10.0 tunnel --no-autoupdate --url http://localhost:80
 
 cloud-up: build-sim ## On a server: the stack behind Caddy (HTTPS + password); see docs/HOSTING.md
 	@test -f .env || { echo ".env is missing: copy it to this server first"; exit 1; }
 	@mkdir -p runs cache state data
-	@$(CLOUD) up -d --build
+	@$(CLOUD) build
+	@test -s data/incidents/incidents.json || $(MAKE) --no-print-directory data
+	@$(CLOUD) up -d
 
 cloud-down: ## On a server: stop the hosted stack
 	@$(CLOUD) down

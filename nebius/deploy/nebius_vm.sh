@@ -25,8 +25,11 @@ for tool in nebius jq ssh git; do command -v "$tool" >/dev/null || die "$tool is
 [ -f "$SSH_KEY.pub" ] || die "no SSH key at $SSH_KEY.pub (ssh-keygen -t ed25519, or set SSH_KEY)"
 # the hosted app is public: it must have a password (names checked only, values never printed)
 for name in BASIC_AUTH_USER BASIC_AUTH_HASH; do
-  grep -q "^$name=." .env || die "$name is not set in .env (make cloud-password gives the hash)"
+  grep -q "^$name=." .env || die "$name is not set in .env: run make cloud-password"
 done
+grep -qE "^BASIC_AUTH_HASH='" .env || die "BASIC_AUTH_HASH must be single-quoted: run make cloud-password"
+# a server has no GPU model running: use a hosted provider (Nebius Token Factory or OpenRouter)
+grep -qE '^LLM_PROVIDER=local\b' .env && die "LLM_PROVIDER=local needs a GPU model on the server: set nebius or openai"
 
 vm_ip() {
   nebius compute instance list --format json |
@@ -62,11 +65,12 @@ for _ in $(seq 90); do "${SSH[@]}" "test -f /var/lib/cloud/instance/boot-finishe
 "${SSH[@]}" "docker info >/dev/null 2>&1" || die "Docker is not ready on $IP yet; run make deploy-nebius again"
 
 echo "Copying the code and .env…"
-git archive --format=tar HEAD |  # run here, it archives this folder only "${SSH[@]}" "mkdir -p $APP_DIR && tar -x -C $APP_DIR"
-"${SSH[@]}" "umask 077 && cat > $APP_DIR/.env" < .env
-"${SSH[@]}" "cd $APP_DIR && make cloud-up"
+# run from this folder, git archive packs this folder only (committed files; .env is not in git)
+git archive --format=tar HEAD | "${SSH[@]}" "mkdir -p $APP_DIR && tar -x -C $APP_DIR"
+# without a domain of its own, the app gets HTTPS on <ip>.sslip.io (a name that resolves to the IP)
 SITE="$(grep -E '^SITE_ADDRESS=' .env | cut -d= -f2- || true)"
-case "$SITE" in
-  ""|:*) echo "Showtime runs at http://$IP" ;;
-  *) echo "Showtime runs at https://$SITE once its DNS points at $IP (until then http://$IP)" ;;
-esac
+case "$SITE" in ""|:*) SITE="${IP//./-}.sslip.io" ;; esac
+{ grep -vE '^(SITE_ADDRESS|WEB_ORIGIN)=' .env; echo "SITE_ADDRESS=$SITE"; echo "WEB_ORIGIN=https://$SITE"; } |
+  "${SSH[@]}" "umask 077 && cat > $APP_DIR/.env"
+"${SSH[@]}" "cd $APP_DIR && make cloud-up"
+echo "Showtime runs at https://$SITE (user: $(grep -E '^BASIC_AUTH_USER=' .env | cut -d= -f2-))"

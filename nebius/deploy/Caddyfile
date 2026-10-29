@@ -1,5 +1,4 @@
 {$SITE_ADDRESS} {
-	encode gzip
 	basic_auth {
 		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
 	}
