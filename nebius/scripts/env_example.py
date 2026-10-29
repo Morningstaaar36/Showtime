@@ -1,9 +1,10 @@
-"""Keep .env.example in step with the settings and the providers, so it cannot drift.
+"""Keep .env.reference (every setting, with its default) in step with the settings and the
+providers, so it cannot drift. .env.example is the short file people copy.
 
     python scripts/env_example.py          # list what is missing (exit 1 if anything is)
     python scripts/env_example.py --write  # append the missing settings as commented defaults
 
-Every Settings field, every provider requirement and every preset key must appear in .env.example
+Every Settings field, every provider requirement and every preset key must appear in .env.reference
 (set, or commented out with its default). Never writes a value from .env.
 """
 
@@ -20,7 +21,7 @@ sys.path.insert(0, str(ROOT))
 from api.adapters.providers import registry  # noqa: E402
 from api.core.settings import Settings  # noqa: E402
 
-EXAMPLE = ROOT / ".env.example"
+EXAMPLE = ROOT / ".env.reference"
 HEADER = "# --- Other settings (defaults shown; kept in step by scripts/env_example.py) ---"
 
 
@@ -69,14 +70,14 @@ def main(argv: list[str]) -> int:
     text = EXAMPLE.read_text()
     gone = missing(text)
     if not gone:
-        print(".env.example documents every setting and provider variable.")
+        print(".env.reference documents every setting and provider variable.")
         return 0
     if "--write" in argv:
         block = "\n".join(f"# {k}={v}" for k, v in sorted(gone.items()))
         sep = "" if text.endswith("\n") else "\n"
         head = "" if HEADER in text else f"\n{HEADER}\n"
         EXAMPLE.write_text(f"{text}{sep}{head}{block}\n")
-        print(f"Added {len(gone)} settings to .env.example.")
+        print(f"Added {len(gone)} settings to .env.reference.")
         return 0
     print("Missing from .env.example: " + ", ".join(sorted(gone)))
     return 1

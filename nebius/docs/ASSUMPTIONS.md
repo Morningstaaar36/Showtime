@@ -1,7 +1,7 @@
 # Assumptions and default values
 
 Every number that shapes a result, where it comes from, and how to change it. Values are set in
-`.env` (see `.env.example`) or in **Settings**; the report prints the same table
+`.env` (every setting is listed in `.env.reference`) or in **Settings**; the report prints the same table
 (`api/core/assumptions.py`).
 
 | Item | Default | Source / reasoning | Setting |

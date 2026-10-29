@@ -60,7 +60,7 @@ LLM.register(
 
 Then:
 1. Add `acme_api_key: str = ""` to `Settings`.
-2. Run `python scripts/env_example.py --write`, which documents `ACME_API_KEY` in `.env.example`.
+2. Run `python scripts/env_example.py --write`, which documents `ACME_API_KEY` in `.env.reference` (every setting; `.env.example` is the short file people copy).
 3. Run `make use-acme`, which writes the preset.
 4. Put the key in `.env`.
 5. Run `make verify-live`.
@@ -124,7 +124,7 @@ back in hits, or rows of the incident dataset.
 
 ## Checks
 
-- `make check`: the registry tests, `test_env_example.py` (no `.env.example` drift), and the
+- `make check`: the registry tests, `test_env_example.py` (no `.env.reference` drift), and the
   characterization tests of the existing providers.
 - `make verify-live`: one real call per service. It writes `docs/LIVE_STATUS.md`, and a service
   without its key is SKIPPED.
