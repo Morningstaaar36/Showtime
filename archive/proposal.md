@@ -495,12 +495,12 @@ The proposal retains the core idea. Its competitive case rests on feasible decis
 
 - [Full implementation roadmap](plan.md)
 - [Reviewed product priorities](PRODUCT_PRIORITIES.md)
-- [Application README](nebius/README.md)
-- [Architecture](nebius/docs/ARCHITECTURE.md)
-- [Assumptions and modeling limits](nebius/docs/ASSUMPTIONS.md)
-- [Handoff and reported status](nebius/docs/HANDOFF.md)
-- [Nebius integration status](nebius/docs/NEBIUS_SWITCH.md)
-- [Red-team demonstration screenshot](nebius/docs/screenshots/redteam.png)
+- [Application README](../nebius/README.md)
+- [Architecture](../nebius/docs/ARCHITECTURE.md)
+- [Assumptions and modeling limits](../nebius/docs/ASSUMPTIONS.md)
+- [Handoff and reported status](../nebius/docs/HANDOFF.md)
+- [Nebius integration status](../nebius/docs/NEBIUS_SWITCH.md)
+- [Red-team demonstration screenshot](../nebius/docs/screenshots/redteam.png)
 
 ### External sources checked during the discussion
 

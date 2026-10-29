@@ -1,7 +1,7 @@
 # P2-04 — fixes tested together and sensitivity: testing guide
 
 What P2-04 (R-02 in `TEAM_TASK_ALLOCATION.md`) adds, and how to check it. Method and limits are
-in [ASSUMPTIONS.md](ASSUMPTIONS.md#sensitivity-how-sure-your-plans-numbers-are).
+in [ASSUMPTIONS.md](../ASSUMPTIONS.md#sensitivity-how-sure-your-plans-numbers-are).
 
 - **Chosen changes tested together.** Accepting only some kept changes on Your plan saves the
   version and starts one run of exactly those changes under the test's worst attack (same tier

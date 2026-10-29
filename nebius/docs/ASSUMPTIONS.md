@@ -18,13 +18,13 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | "At risk" | Above the warning density for more than 30 s | Short peaks are common at doors; sustained warning density marks a plan to watch | `AT_RISK_WARNING_S` |
 | Density measurement | 1 m grid, Gaussian smoothing σ = 0.8 m, divided by walkable fraction | Comparable to a 2–3 m² measurement area | — |
 | Crowd pressure | P = ρ · Var(v): Gaussian-weighted (R = 1 m) local density times the local variance of walking velocities, pooled over 1 s windows on the 1 m grid | Helbing, Johansson & Al-Abideen (2007), Phys. Rev. E 75, 046109 (arXiv:physics/0701203), Eq. 9; per-person form in Yu & Johansson (2007), arXiv:0708.3282, Eq. 5. Velocities are position differences between 0.25 s frames; jumps over 3 m/s (model sidesteps) are dropped | — |
-| Turbulence threshold | 0.02 /s²; pressure is reported (layer, peak, turbulent time) only where the local 1 s density is at least the warning density (3.5 people/m²) | Helbing et al. (2007): "turbulent" crowd motion at the 2006 Hajj began "when the 'pressure' exceeds the value 0.02/s²" (Fig. 3c), about 10 minutes before the disaster; Yu & Johansson use the same value. Both measured it at 5.5–10 people/m², and individual speed differences at low density would otherwise exceed it, hence the density floor. Screening indicator: a speed-based model reproduces irregular motion only partly | sim settings `turbulence_pressure`, `pressure_min_density_ppm2` |
+| Turbulence threshold | 0.02 /s²; pressure is reported (layer, peak, turbulent time) only where the local 1 s density is at least the warning density (3.5 people/m²) | Helbing et al. (2007): "turbulent" crowd motion at the 2006 Hajj began "when the 'pressure' exceeds the value 0.02/s²" (Fig. 3c), about 10 minutes before the disaster; Yu & Johansson use the same value. Both measured it at 5.5–10 people/m², and individual speed differences at low density would otherwise exceed it, hence the density floor. **Indicative** screening indicator: a speed-based model with no pushing forces reproduces irregular motion only partly | sim settings `turbulence_pressure`, `pressure_min_density_ppm2` |
 | Level of service | Fruin walkway LoS by area per person: A ≥ 3.25 m², B 2.32–3.25, C 1.39–2.32, D 0.93–1.39, E 0.46–0.93, F < 0.46 m² (≈ 2.2 people/m²) | Fruin, J. J. (1971), *Pedestrian Planning and Design*; reported as the share of person-seconds in each band, from the density grid at each person's cell | — |
 | Evacuation target without a hazard | Indoor 5 min, open-air 8 min (× safety factor) | Planning targets, not code limits; open-air follows UK Green Guide 8-minute egress practice | `TARGET_EVAC_INDOOR_S`, `TARGET_EVAC_OUTDOOR_S` |
 | Pre-movement time | 60 s | Typical for alerted, awake audiences; set per event | `PRE_MOVEMENT_S` |
 | Safety factor | 1.5 | Common engineering margin on egress time | `SAFETY_FACTOR` |
 | Crowd model | JuPedSim collision-free speed model, Δt 0.025 s (≤ 2,500 people) or 0.05 s | Tordeux et al. (2016). Δt 0.05 s errs on the safe side: ~8% slower than 0.01 s on the 1,200-person hall at the model's own time gap, ~21% slower on a 60-person room at the calibrated 0.25 s gap (`test_time_step_calibration`) | — |
-| Deadlock handling | Door "squeeze" (radius 0.15 m after 4 s without flow) and 1 m sidestep for isolated deadlocks | Known artefact of collision-free models; bodies compress under pressure. Dense jams are left alone | — |
+| Deadlock handling | Door "squeeze" (people within 3 m of a door with a queue but nobody through for 4 s get radius 0.15 m until they are through) and 1 m sidestep for isolated deadlocks | Known artefact of collision-free models; bodies compress under pressure. Dense jams are left alone. Side effect: next to a clogged door, density can exceed what 0.22 m bodies can pack (about 6 people/m²), as at Hillsborough (9.9). Read such peaks as a severe jam, not a measured crush density | — |
 | Door model | 0.6 m passage through the wall; people standing in a doorway leave through it | Prevents side-entry and doorway "plugs" (measured, `docs/PROGRESS.md`) | — |
 | Multi-floor | Each floor runs before the floors its stairs lead to (top down; a basement before street level); stair queue; people re-enter at the far landing | Approximation of stair flow; stairs are not walkable ramps; climbing out of a basement uses the same stair speed as going down | — |
 | Tier 1 queue density | D = 1.9 + 3.5·(1 − e^(−Q/150)) people/m² | Screening formula between SFPE capacity density (1.9) and Weidmann jam density (5.4); calibrated on Tier 3 | — |
@@ -37,7 +37,7 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | Designed venues | Margins 1.5 m (less in small rooms), 2 m clear in front of a stage, features ≥ 3 m from exits, balcony 4.5 m up with a 9 m stair | Solver defaults; every value the AI assumed is listed in the preview | `api/core/venue_builder.py` |
 | Designed buildings | Storeys 3.5 m apart unless the description says otherwise; stairs 1.2 m wide, two near the ends when none are named; an exit on a basement is a stair up to a street door on that wall; an atrium void spans 30% of the width and depth on the upper floors; escalators are obstacles, not ways out | Solver defaults (the model chooses storeys, stairs and headcounts per level; the solver computes the geometry) | `api/core/venue_builder.py`, `api/core/building_gen.py` |
 | T-alley template | Alley 3.2 m wide, 45 m long | Wikipedia, "Seoul Halloween crowd crush" (sources vary 3.2–4 m; we use 3.2 m) | template |
-| Sensitivity: headcount | Every zone × 0.8 and × 1.2 | Planning bracket set by the team (R-02 in `TEAM_TASK_ALLOCATION.md`), not a published forecast error: headcounts on the day differ from the plan both ways | `api/orchestrator/sensitivity.py` (`VARIANTS`) |
+| Sensitivity: headcount | Every zone × 0.8 and × 1.2 | Planning bracket set by the team (R-02 in `archive/TEAM_TASK_ALLOCATION.md` at the repository root), not a published forecast error: headcounts on the day differ from the plan both ways | `api/orchestrator/sensitivity.py` (`VARIANTS`) |
 | Sensitivity: walking speed | Free walking speeds × 0.85 and × 1.15 (level mean and spread, stairs) | Planning bracket set by the team (R-02). It stays inside the spread of the default itself (1.34 ± 0.26 m/s, about ±19%, Weidmann) | `api/orchestrator/sensitivity.py` (`VARIANTS`) |
 
 ## People mix (zone `groups`)
@@ -131,12 +131,14 @@ their operational measures, under the same worst attack, tier and seed as the af
 
 ## Simulator validation (`make validate`, `docs/VALIDATION.md`)
 
-The validation against the Jülich 2006 bottleneck experiment uses **the app defaults above,
-unchanged** (radius 0.22 m, walking speed 1.34 ± 0.26 m/s with 5% slow walkers, Tier 3 Δt 0.025 s,
-4 frames/s output, collision-free speed model with the squeeze and sidestep rules). No parameter
-was tuned to fit the experiment, so there is no before/after pair to report: the published error
-(median 55% lower flow than measured) is the app as shipped. If a parameter is ever changed to
-improve the fit, record it here with the error before and after.
+The validation against the Jülich 2006 bottleneck experiment uses **the app defaults above**
+(radius 0.22 m, walking speed 1.34 ± 0.26 m/s with 5% slow walkers, Tier 3 Δt 0.025 s, 4 frames/s
+output, collision-free speed model with the squeeze and sidestep rules). One parameter was tuned
+on that experiment: the time gap to the person ahead. Before: 1.0 s (the model default), median
+error −55% (too little flow). After: 0.25 s, now the app default, median absolute error 4.0% over
+all ten widths and 4.4% on the five widths not used to choose it. Calibration and test widths come
+from the same experiment, so this is a fit to that experiment, not independent validation
+(`docs/VALIDATION.md`).
 
 Assumptions that apply only to the validation venue (also listed in `api/data/validation.json`):
 

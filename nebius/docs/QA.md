@@ -7,11 +7,16 @@ al., *Transportation Science* 2009).
 - **The result:** with one parameter calibrated (the time gap to the person ahead, 0.25 s, on
   half the widths), the simulator's flow through the door is within about 6 % of the real crowd's
   at every width. The median error is 4.0 %, and 4.4 % on the widths held out from calibration.
+  Those held-out widths come from the same experiment, so this is a close fit to one experiment,
+  not independent validation.
 - **Without calibration:** the model's default let only about half as many people through.
 - **The limits:**
   - one experiment, one group (calm young soldiers) and one kind of layout;
   - no pushing forces;
-  - simulated bodies cannot overlap, so it cannot reach crush densities.
+  - simulated bodies are hard discs that pack to about 6 per m². Only the squeeze rule, which
+    shrinks people at a clogged door so the model does not deadlock, lets density go higher (as
+    at Hillsborough, 9.9 per m²); such peaks flag a severe jam, not a measured crush density
+    ([ASSUMPTIONS.md](ASSUMPTIONS.md)).
 
 Help › *How good is the simulator?* shows this in the app; details are in
 [VALIDATION.md](VALIDATION.md).
@@ -28,6 +33,11 @@ analysis scripts that compute answers from the simulation data. That code is unt
 ever runs inside a throwaway container. Every crowd simulation runs in one too. The same boundary
 lets a crowd be saved at its worst second and many responses run from that point, and a stress
 test fan out over many runs.
+
+**Is every attack written by the AI as code?**
+No. Most attacks are picked by the red team from a menu of scenario events (a blocked exit, a
+surge, smoke on a stair…). It can also write a scenario as a small Python program, at most one
+per round. That code, and the analyst's code, only ever runs in a sealed sandbox.
 
 **What if the AI-written code is malicious?**
 Two layers stop it.
@@ -54,10 +64,11 @@ None of it has run live yet.
   Docker sandboxes.
 - **Switching:** `.env` only. Set `LLM_PROVIDER=nebius` and `NEBIUS_API_KEY`; for the
   sandboxes, also `SANDBOX_PROVIDER=nebius` and `NEBIUS_PROJECT_ID`. `make verify-live` then
-  checks each one live. No code changes: [WHEN_YOU_GET_THE_KEYS.md](WHEN_YOU_GET_THE_KEYS.md).
+  checks each one live. No code changes: [NEBIUS_SWITCH.md](NEBIUS_SWITCH.md).
 
 **What did Tavily add?**
-Nothing live yet: we had no key, so Tavily has not been run live. The plug-in is wired in:
+Nothing live yet: we had no key, so Tavily has not been run live, and we do not claim live
+results for it. The plug-in is wired in (basic-depth search, up to 5 results, cached and capped):
 - the red team searches for incidents like the venue's and may cite only URLs that came back;
 - the evidence desk looks up capacity and guidance;
 - every source carries an origin badge.
@@ -67,8 +78,10 @@ a Tavily key to switch on)", and attacks cite real crowd accidents instead: 388 
 Feliciani dataset (1900–2024) and 7 well-known ones with Wikipedia sources.
 
 **Where do the numbers come from?**
-From the simulator (JuPedSim), formulas and cited data, never from the language model. A number
-check rejects any agent text that quotes a number the tools did not produce. Each number on
+From the simulator (JuPedSim), formulas and cited data, never from the language model. Every
+number in AI text is checked against the computed results: a number that does not appear in the
+tools' output is rejected (small counts up to 10 are allowed). The check cannot tell whether a
+number that does appear is quoted in the right place. Each number on
 screen says whether it is an instant estimate or confirmed by simulation.
 
 **How do you know a fix works?**
@@ -79,21 +92,21 @@ screen says whether it is an instant estimate or confirmed by simulation.
 - "Check with more seeds" gives the range over several random crowds.
 
 **Are the real cases accurate?**
-They are rebuilds, not forensic findings. The designer builds them from published dimensions,
-with at most 3,000 simulated people. They show that the layout and the flows produce dangerous
+They are illustrations, not evidence or forensic findings. Each case's description (sizes, gates,
+how the crowd is split and where each group walks) was written by us from published reports; the
+designer builds the venue from that text, with at most 3,000 simulated people. They show that the layout and the flows produce dangerous
 density near where the real crush was. They reproduce no forces, falls or timeline.
 
-The current designer still gets some things approximate:
-- Itaewon's alley is drawn mirrored;
-- Love Parade's ramp is as wide as the tunnel.
-
-[REAL_CASES.md](REAL_CASES.md) and the Step 5 entry in [BUILD_LOG.md](BUILD_LOG.md) list what
-is approximate.
+The current builds are still approximate in places (Itaewon's two streets side by side instead of
+at the ends of the alley; Love Parade's tunnel turned 90°). [REAL_CASES.md](REAL_CASES.md) lists
+what is approximate. Organizers can add their own cases with **Add a real case** on Home.
 
 **Are the headline results repeatable?**
 They are single live runs, labelled as such: the two-floor conference hall result, the
 real-case densities and the designer fidelity scores. The simulator itself is deterministic per
 seed. The model's choices vary between runs, and every one of them is checked by simulation.
+Model replies are cached by default (`LLM_CACHE_MODE=record_replay`): an identical call on the
+same machine is replayed, and Your plan › *How this plan was made* says how many were.
 
 **What happens when the model is down or out of quota?**
 - The badge says so: the hosted model is paused until a stated time, and whether a local model

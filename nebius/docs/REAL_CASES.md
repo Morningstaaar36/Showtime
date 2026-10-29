@@ -7,10 +7,14 @@ The case's facts and sources travel with the venue (`extensions.real_case`), so 
 Overview shows a compact card: what happened, the sources as links, and where this simulation
 put its peak density.
 
-Nothing about the sites is hand-drawn. `api/data/real_cases.json` holds, per case, a plain
-description (shape, widths, lengths, gates, crowd, who walks where), the sources, the dimensions
-taken from them and what is approximate. The designer writes a `VenueSpec` and the solver
-(`api/core/venue_builder.py`, `api/core/venue_parts.py`) computes the geometry.
+**These cases are illustrations, not evidence.** No site is drawn by hand, but each case's text
+is: `api/data/real_cases.json` holds, per case, a description we wrote from the published reports
+(shape, widths, lengths, gates, the crowd split into groups, and the heading of each group), the
+sources, the dimensions taken from them and what is approximate. The designer agent reads that
+text and writes a `VenueSpec`; the solver (`api/core/venue_builder.py`, `api/core/venue_parts.py`)
+computes the geometry. Because the crowd splits and headings are our reading of the reports,
+where the density peaks is partly set by that reading. Organizers can add their own cases the
+same way ([Adding your own](#adding-your-own)).
 
 **A reconstruction is not a forensic finding.** It uses published dimensions and a small,
 simplified crowd (at most 3,000 simulated people). It shows that the layout and the flows
@@ -32,8 +36,8 @@ therefore the simulator's exit plan send those people only to those exits. Ramps
 
 ## The test that starts when a case opens
 
-The Designer agent builds the venue from the case's description (one call, replayed from the LLM
-cache in `record_replay` mode). The test that follows is the normal AI-designed one: the red team
+The Designer agent builds the venue from the case's description (one call; with the default
+`record_replay` cache mode, a repeat of the same call on this machine is replayed from the cache). The test that follows is the normal AI-designed one: the red team
 attacks the case as it was, the blue team proposes fixes, the simulator confirms them and the
 judge writes the verdict; the rules stand in only when no model answers
 (`api/orchestrator/real_cases.py`, `CASE_TEST`). Its baseline is the case as it happened; the
@@ -52,6 +56,13 @@ venue. Numbers are the simulator's; "where" is the densest cell of the run.
 | Itaewon 2022 | both streets side by side on one floor, with a 3.2 × 45 m alley leading off them to a 3 m opening (not quite the site: see below); 1,200 + 400 people heading for Itaewon-ro, 800 for the upper street | **5.7 /m²** | 98 s | at the top of the alley, where the crowd squeezes into it, 31 s in | in the alley, between the T-junction and Itaewon-ro: **near the same place** |
 | Love Parade 2010 | a 26 m ramp, 130 m long, with the fences narrowing it to 10.6 m, above a tunnel with exits at both ends; 2,300 arriving heading up, 700 leaving heading down | **5.5 /m²** | 56 s | the foot of the ramp, west side, 132 s in | between the staircase and the tunnel at the foot of the ramp: **same place** |
 | Hillsborough 1989 | the Leppings Lane terrace split into pens by the radial fence, perimeter gates of 0.8 m, the tunnel from the concourse | **9.9 /m²** | 894 s of 900 s; 2,788 of 3,000 still inside at the end | at the gate of pen 3, 133 s in | the front of pens 3 and 4 against the perimeter fence, most deaths in pen 3: **same place** |
+
+**Hillsborough's 9.9 /m²** is more than the simulator's 0.22 m bodies can pack (about 6 /m²; the
+model's jam density is about 5.4 /m²). It is possible only because of the squeeze rule: people
+near a door with a queue but nobody through for 4 s get a 0.15 m radius so the model does not
+deadlock ([ASSUMPTIONS.md](ASSUMPTIONS.md)). Read it
+as "a severe, lasting jam at the gate of pen 3", not as a measured crush density. The model has no
+pushing forces, and its crowd-pressure (turbulence) layer is indicative only.
 
 The red team's attacks broke every case further (three of three in each, except where the
 baseline already failed), and no fix the blue team proposed was kept in these one-round tests:
@@ -79,8 +90,10 @@ The earlier runs on scripted designer replies (23 October) gave the same places:
 
 ## Gaps
 
-- One live build per case so far (Itaewon's streets not yet placed at both ends of the alley); a model can answer differently next time (the replies are
-  recorded in the LLM cache, so the app replays the ones above).
+- One live build per case so far (Itaewon's streets not yet placed at both ends of the alley); a
+  model can answer differently next time. With the default `LLM_CACHE_MODE=record_replay`, a case
+  opened again on the same machine replays the recorded designer reply instead of calling the
+  model (the cache is not in git, so a fresh install calls the model).
 - Slopes, crush barriers, falls and police cordons are not modelled; the crowd is capped at
   3,000 simulated people.
 - Jamarat 2006, Mina 2015 and Astroworld 2021 were considered and left out: their published

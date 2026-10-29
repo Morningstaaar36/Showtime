@@ -22,7 +22,8 @@ flowchart TD
 ## Request flow: one Red Team Night
 1. **Baseline** (Tier 3) in the sandbox; result cached by request hash.
 2. **Red team** (Nemotron) reads computed venue facts and 8 similar real incidents and returns
-   attacks as JSON (schema-constrained). Ids are validated; the citation URL is copied from the
+   attacks as JSON (asked for in the prompt, validated with Pydantic, repaired once; at most one
+   attack per round may be a scenario script written as code, the rest are menu attacks). Ids are validated; the citation URL is copied from the
    incident record, never from the model. It is aimed at gaps of the **failure map**, a
    quality-diversity archive over hazard kind × where (see [RAINBOW.md](RAINBOW.md)); rule-based
    attacks fill the gaps it misses.

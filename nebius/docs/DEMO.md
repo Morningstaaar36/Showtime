@@ -1,8 +1,10 @@
 # The 3-minute demo
 
-One story: **AI agents try to break your event plan. Every attack is code the AI wrote, and it
-only ever runs inside a sealed sandbox. A physics simulator, not the AI, decides what breaks.
-Then the AI fixes the plan and the sandbox proves the fix.**
+One story: **AI agents try to break your event plan. The red team can write attacks as code, and
+that code only ever runs in a sealed sandbox. A physics simulator, not the AI, decides what
+breaks. Then the AI proposes fixes, and only the fixes the simulator confirms are kept.**
+
+Judges exploring on their own: [JUDGE_GUIDE.md](JUDGE_GUIDE.md).
 
 [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md) has the same beats with the voice-over and the shot list. The
 voice-over says only what the screen shows.
@@ -16,17 +18,23 @@ voice-over says only what the screen shows.
    - Projects › New project › **School wing** › name it `Spring open day` › Create project;
    - **Standard** › **Test this plan**, and let it finish.
 
-   Check that Your plan › **Sandboxes** lists an **AI-written scenario**. If the red team wrote
+   Check that Your plan › **Sandboxes** lists an **AI-written scenario**. The red team writes at
+   most one per round (its other attacks are picked from a menu of scenario events); if it wrote
    none this time, run **Test again**.
 3. The free OpenRouter tier allows about 50 requests a day, and one test uses 4–8 of them.
    Rehearse once, and keep the rest for the take.
 4. Have a terminal open in `nebius/` for the last beat (`make verify-live`).
+5. **Replayed answers.** With the default `LLM_CACHE_MODE=record_replay`, a model call identical
+   to an earlier one (for example a real case or a sentence you rehearsed) is answered from
+   `cache/llm/` instead of the model. Your plan › **How this plan was made** shows how many calls
+   were answered from the cache. If a beat is replayed, say so; for a fully live take, set
+   `LLM_CACHE_MODE=record` in `.env` and run `make up` (it calls the model and still records).
 
 ## The beats
 
 | Time | Beat | Do this | The screen shows |
 | --- | --- | --- | --- |
-| 0:00–0:20 | **The stakes** | Home › Learn from real cases › **Itaewon 2022** | The case card: "159 people died and 196 were injured", the 3.2 m alley, the sources as links, and where this rebuild's simulation put its peak density |
+| 0:00–0:20 | **The stakes** | Home › Learn from real cases › **Itaewon 2022** | The case card: "159 people died and 196 were injured", the 3.2 m alley, the sources as links, and where this rebuild's simulation put its peak density (an illustration built from a hand-written description, not evidence) |
 | 0:20–0:50 | **Describe a venue, watch it build** | Home › Describe it › type the metro sentence below › **Just draw my venue** | Check your venue: a two-level station in 3D, three stairs, two street exits, 800 people on the platform |
 | 0:50–1:40 | **The agents attack** | Open `Spring open day` › Your plan › **Sandboxes**: the **AI-written scenario** › **Show the code**. Then the header **Sandbox** badge, and the tab's list of runs. Then Expert view › **Scripts** › New script › `import socket` › **Run in sandbox** | The Python the red team wrote and what it did. The sandbox's guarantees. Every run's container, with its state and time. The unsafe script refused with its reason |
 | 1:40–2:10 | **The evidence** | Your plan › Scenarios › **Evidence** panel | The incident-dataset group, each source with its origin badge, and "Web search: off": the slot a Tavily key switches on |

@@ -338,7 +338,7 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
 
 - Guided journey Describe (`/`) → Check your venue (`/p/:id/describe`) → AI at work
   (`/p/:id/work`) → Your plan (`/p/:id`); the studio is Expert view (`/p/:id/expert`), old
-  workspace URLs redirect. Details: [P3_01_GUIDED_JOURNEY.md](P3_01_GUIDED_JOURNEY.md).
+  workspace URLs redirect. Details: [P3_01_GUIDED_JOURNEY.md](archive/P3_01_GUIDED_JOURNEY.md).
 - Collaborative editor: numeric and drag door/barrier edits, existing vs proposed, provenance
   through the P2-01 scene contract, locks, AI patch preview (dry run, 3D outlines, lock
   conflicts), stale-evidence detection by simulation hash.
@@ -357,7 +357,7 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
   Docker test command timed out during collection; latest full pipeline verification is
   incomplete.
 - User requested a snapshot on the new `ridwan` branch before further implementation/tests.
-  See [current branch status](P2_P3_BRANCH_STATUS.md) for exact verification and remaining work.
+  See [current branch status](archive/P2_P3_BRANCH_STATUS.md) for exact verification and remaining work.
 
 ## 2026-10-14 — Integration branch `integration/p2-p3` verified (Linux x86_64)
 
@@ -372,7 +372,7 @@ re-download), then `make setup && make check && make test`, `vitest`, `vite buil
   vitest 33 passed; `vite build` OK; Playwright 6 passed (fake LLM, fake sandbox; the
   operational-plan journey passed 8/8 repeats).
 - Real Docker/JuPedSim, fake LLM (rule-based fallbacks): every step of
-  [P2_02_TESTING.md](P2_02_TESTING.md) passed — preview/apply, stale 409, construction and
+  [P2_02_TESTING.md](archive/P2_02_TESTING.md) passed — preview/apply, stale 409, construction and
   over-allocation refusals, saved action exactly once in a real run, evidence current →
   stale → current with undo, export/import with identical plan hash and actions. A
   conference_hall_2f session found 1 break, accepted fix F1_R1 (new north exit; peak
@@ -772,7 +772,7 @@ rooms, no third floor, no patients or marches, no per-floor replay). Full write-
 ## 2026-10-16 — P2-04: chosen fixes tested together, and the range of Your plan's numbers
 
 Branch `worktree-ridwan+r-02-fixes-together-sensitivity` (R-02 in `TEAM_TASK_ALLOCATION.md`).
-How to test: [P2_04_TESTING.md](P2_04_TESTING.md); method and limits: ASSUMPTIONS.md.
+How to test: [P2_04_TESTING.md](archive/P2_04_TESTING.md); method and limits: ASSUMPTIONS.md.
 
 - **Tested together.** Accepting only some kept fixes simulates exactly those under the worst
   attack (same tier and seed as the after-fixes run). The version is "tested together", and can

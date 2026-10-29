@@ -20,11 +20,13 @@ The organizer:
 - **Describing a venue.** You write one sentence ("a 5-storey mall, 300 shoppers per floor, stairs at
   both ends"). An AI agent turns it into a layout. Ordinary code then draws the exact shapes and checks
   that every person can reach a door.
-- **The AI agents.** Twelve roles, all NVIDIA Nemotron models:
+- **The AI agents.** Eleven agents, all NVIDIA Nemotron models (the AI team page lists twelve
+  entries because the Analyst's two steps are shown separately):
   - the Brief reads your sentence;
   - the Designer lays out the venue;
   - the Editor makes typed changes;
-  - the Router decides what a typed question means;
+  - the Router decides what a typed question means (a small classifier, with a keyword
+    fallback);
   - the What-if planner and the Red team decide what could go wrong;
   - the Blue team decides what to change;
   - the Judge writes the verdict;
@@ -107,13 +109,13 @@ labelled "not run live".
 
 ## 6. The plan for this session
 
-1. **Baseline.** Record what passes and fails today. Done when it is written in `docs/BUILD_LOG.md`.
+1. **Baseline.** Record what passes and fails today. Done when it is written in `docs/archive/BUILD_LOG.md`.
 2. **Known bugs.** Verify and fix each listed bug. Done when each fix has a test that failed before and
    passes now.
 3. **Sandboxes made visible.**
    - attack tests proving the walls hold;
    - a sandbox badge;
-   - a live sandbox feed in "AI at work";
+   - a live sandbox feed in "AI tests it";
    - the best sandbox moments easy to reach.
 
    Done when someone watching can say what runs, where, with what limits, and why a bad script stopped.

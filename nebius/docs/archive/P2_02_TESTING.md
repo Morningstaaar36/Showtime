@@ -57,14 +57,14 @@ physics accuracy, sufficient staffing, or authentic permissions.
 ## Manual API workflow
 
 Use Swagger at `http://127.0.0.1:8000/api/docs`. Example requests are actual files in
-[docs/examples](examples/), so you can open them in an editor if terminal copying is difficult.
+[docs/examples](../examples/), so you can open them in an editor if terminal copying is difficult.
 
-1. Create a fresh project with [the room request](examples/p2-01-room-request.json).
+1. Create a fresh project with [the room request](../examples/p2-01-room-request.json).
    Its first version is 1. Record the returned project ID.
-2. Use `PUT /projects/{id}/plan` with [the organizer setup](examples/p2-02-plan-setup.json).
+2. Use `PUT /projects/{id}/plan` with [the organizer setup](../examples/p2-02-plan-setup.json).
    It fixes exit E1 in place, declares two stewards and one radio, and saves version 2.
 3. Use `POST /projects/{id}/plan/bundles/preview` with
-   [the operational bundle](examples/p2-02-plan-bundle.json). Expect `valid=true` and a
+   [the operational bundle](../examples/p2-02-plan-bundle.json). Expect `valid=true` and a
    candidate with one staggered-release action. A fresh `GET /plan` must still show version 2.
 4. Submit the same body to `POST /projects/{id}/plan/bundles`. Expect version 3.
    `GET /plan` must contain the action; its hash must match the preview's candidate.
@@ -88,7 +88,7 @@ numbers assume a newly created synthetic room. Do not overwrite an unrelated pla
 
 The fast API suite passed in an isolated native macOS ARM64 Python 3.12 environment
 using the repository's frozen dependencies: 185 passed, 1 skipped. Ruff, strict backend
-mypy, import-boundary checks, and schema export passed. See [PROGRESS.md](PROGRESS.md).
+mypy, import-boundary checks, and schema export passed. See [PROGRESS.md](../PROGRESS.md).
 
 Docker Desktop was paused during development. The Docker command and the live browser /
 real-simulator workflow above remain to be checked after unpausing it. Native fake-provider

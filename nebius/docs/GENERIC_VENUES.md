@@ -1,7 +1,7 @@
 # Generic venues: any building, several storeys, any event
 
 Status: 2026-10-15, branch `shahraz`. Owner of this document: Person 1 (Shahraz).
-Work allocation: [TEAM_TASK_ALLOCATION.md §11](../../TEAM_TASK_ALLOCATION.md#11-generic-venues-push-15-october-2026).
+Work allocation: [TEAM_TASK_ALLOCATION.md §11](../../archive/TEAM_TASK_ALLOCATION.md#11-generic-venues-push-15-october-2026).
 
 ## Why
 

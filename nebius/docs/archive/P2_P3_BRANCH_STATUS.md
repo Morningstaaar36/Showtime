@@ -45,7 +45,7 @@ It is work in progress, not a completed or fully verified P2/P3 release. Main wa
 ## Required next work
 
 Items 1–5 were completed on `integration/p2-p3` on 14 October 2026; see
-[PROGRESS.md](PROGRESS.md).
+[PROGRESS.md](../PROGRESS.md).
 A live OpenRouter + real Docker smoke run also passed. Remaining:
 
 1. Complete P2-03 and the remaining separately allocated P2/P3 milestones afterward.

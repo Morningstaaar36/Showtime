@@ -3,26 +3,32 @@
 Written from what we actually ran while building Showtime, with the five headings from the
 hackathon's "How to build a winning project" update for each service. Live use is marked **live**.
 A service we only built against, from its docs and SDK, is marked **not tried live**. Numbers come
-from our logs (`docs/BUILD_LOG.md`, `docs/LIVE_STATUS.md`, `logs/design_probe_*.log`).
+from our logs (`docs/archive/BUILD_LOG.md`, `docs/LIVE_STATUS.md`, `logs/design_probe_*.log`).
 
 ## NVIDIA Nemotron on OpenRouter (live)
 
-Models: `nvidia/nemotron-3.5-lightning:free` (fast, long and fallback roles) and
-`nvidia/nemotron-3-ultra-550b-a55b:free` (main and judge roles).
+Models: `nvidia/nemotron-3.5-lightning:free` (fast, long and fallback roles: red team, what-if
+planner, router) and `nvidia/nemotron-3-ultra-550b-a55b:free` (main and judge roles: brief,
+designer, editor, blue team, explainer, analyst, judge, safety officer). Until about 2026-10-19
+the main role ran on `nvidia/nemotron-3-super-120b-a12b:free`; its free endpoint later returned
+404.
 
-**1. What we used it for.** Twelve agents. Among them, the **Designer** turns one sentence into a
-venue spec that a solver builds and checks. The **Red team** writes attacks, including small
-Python scenario scripts that run in the sandbox. The **Blue team** proposes fixes, the **Judge**
-writes the verdict, and the **Analyst** writes analysis code that runs in the sandbox on the
-simulation data. Every reply is JSON validated with Pydantic, repaired once, and number-checked.
+**1. What we used it for.** Eleven agents. Among them, the **Designer** turns one sentence into a
+venue spec that a solver builds and checks. The **Red team** picks attacks from a menu of
+scenario events and may add one small Python scenario script per round, which runs in the
+sandbox. The **Blue team** proposes fixes, the **Judge** writes the verdict, and the **Analyst**
+writes analysis code that runs in the sandbox on the simulation data. Every structured reply is
+JSON asked for in the prompt, validated with Pydantic and repaired once; every number in prose is
+checked against the computed results.
 
 **2. What worked well.**
 - **Designer fidelity:** on 8 different descriptions (convocation hall, concert, mall, pandal,
   airport concourse, mosque, metro station, street market), every layout built cleanly, and
   32 of 32 requested features were present. That is one live run per prompt, 14 calls in all.
 - **Time per designer call:** median 10 s, from 4 s to 42 s over 13 calls.
-- **Ultra's red-team ideas were specific to the venue** and cited the incident rows we gave it.
-  It also wrote valid scenario scripts against our small script API.
+- **The red team's ideas were specific to the venue** and cited the incident rows we gave it.
+  The red team runs on the fast role (Nemotron 3.5 Lightning in the OpenRouter preset), not on
+  Ultra. It also wrote valid scenario scripts against our small script API.
 - The same OpenAI-compatible adapter serves OpenRouter, Nebius and a local llama-server: only the
   base URL, the key and the model ids change.
 
@@ -31,8 +37,8 @@ simulation data. Every reply is JSON validated with Pydantic, repaired once, and
   4–8 of them. Today the quota ran out on every key we had, with
   `429 Rate limit exceeded: free-models-per-day`. We now pause the hosted model until midnight
   UTC, switch to a spare key, then to the local model. The badge says which one is in use.
-- **Nemotron 3 Super's free endpoint returned 404** during our tests, so the main role runs on
-  Ultra.
+- **Nemotron 3 Super's free endpoint returned 404** in our later tests (it had worked up to
+  about 2026-10-19), so the main role now runs on Ultra.
 - **Reasoning can use up the reply.** With reasoning on, a reply sometimes came back with no
   answer, all tokens spent on reasoning. We retry once with 4,096 tokens.
 - **Some request fields are rejected.** `response_format` with a JSON schema, and extra fields
@@ -52,8 +58,8 @@ simulation data. Every reply is JSON validated with Pydantic, repaired once, and
 slow part was finding which free Nemotron ids actually answer (Super did not).
 `make verify-live` now does that check in one command.
 
-**5. Would we build with it again?** Yes. Ultra's judgement and Lightning's speed suit the
-split between "decide" and "draft". With paid credit or Token Factory, the daily quota would stop
+**5. Would we build with it again?** Yes. Ultra for the main and judge roles and Lightning for
+the fast roles suit the split between "decide" and "draft". With paid credit or Token Factory, the daily quota would stop
 being the limit on testing.
 
 ## NVIDIA Nemotron Nano 9B v2 (local, GGUF Q4_K_M on llama.cpp; live in earlier milestones)
@@ -165,7 +171,9 @@ branching: our branch tree is that snapshot tree.
 
 ## Nebius AI Cloud (not tried)
 
-We did not use a VM.
+We did not use a VM: no Nebius account was available (the sign-up does not list Bangladesh).
+`make deploy-nebius` is written against the Compute quickstart and checked locally only
+([HOSTING.md](HOSTING.md)).
 
 ## Tavily (not tried live)
 

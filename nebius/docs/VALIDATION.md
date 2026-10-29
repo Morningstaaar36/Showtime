@@ -6,6 +6,12 @@ a bottleneck is within about 6% of the real crowd's at every width; median absol
 With the model's out-of-the-box time gap (1.0 s) the simulator let only about half as many people
 through (median error −55%); that first result is kept below for the record.
 
+**Read this as a calibrated fit, not independent validation.** The time gap was chosen on five
+widths of the Jülich 2006 series and tested on the other five widths **of the same experiment**:
+the same participants, the same kind of bottleneck, the same day. The held-out widths show that
+one parameter does not overfit one width; they do not show how the simulator does on other
+crowds or other layouts.
+
 ## What was compared
 
 - **Experiment:** Jülich pedestrian dynamics archive, *Bottleneck, Caserne*: Bergische Kaserne
@@ -94,29 +100,32 @@ and shown in Help › *How good is the simulator?*.
 
 ## Interpretation
 
-- **Calibration fixed a constant factor, not the shape.** Both the real and the simulated flow grow
-  linearly with width; the default time gap scaled the simulated flow down by about 2.2. One
-  parameter, chosen on half the widths and checked on the other half, closes the gap. It is still
-  one experiment with one population; other crowds (hurried, mixed ages) may differ.
+Numbers from `api/data/validation.json` (time gap 0.25 s, seeds 1–3, generated 2026-10-15).
 
-- **The measured flows are plausible.** The specific flow is 1.8–2.2 people/(m·s), close to
-  the J = 1.9·b line that Liddle et al. report for this series, and both grow roughly linearly
-  with width.
-- **The simulator's flow also grows linearly with width, but at about 0.87 people/(m·s).** So
-  the error is a near-constant factor, not a breakdown at some width. This is what the
-  collision-free speed model predicts with JuPedSim's default time gap of 1 s. A person keeps
-  roughly one second of headway to the person in front, so each lane carries at most about one
-  person per second. Real people in a jam accept much shorter gaps and zipper between lanes.
-- **Direction:** times through bottlenecks come out too long, by a factor of about 2 for these
-  conditions. This is cautious for planning. It is not a calibrated safety margin, because
-  real crowds (and other layouts) differ from these participants.
-- **The app's own rules are part of the result.** The squeeze rule fired at t = 4 s in every
-  run, before anyone had reached the exit: 9–15 people near the bottleneck got the 0.15 m
-  radius. At b ≤ 1.2 m it also fired mid-run in 10 of the 12 runs, because the model briefly
-  deadlocks. Both effects *raise* the simulated flow, so without them the gap would be larger.
-- The app's door-flow figure of 1.1–1.5 people/(m·s) (ASSUMPTIONS, measured on short door
-  passages) is higher than the 0.87 measured here in a 4 m long bottleneck with a wide approach.
-  The two setups differ; this check covers the long bottleneck only.
+- **One parameter closes a constant-factor gap.** Both the measured and the simulated flow grow
+  roughly linearly with width. The model's default time gap (1.0 s) scaled the simulated flow down
+  by about half at every width (−50 % to −60 %), because a person keeps about one second of
+  headway to the person ahead, so each lane carries at most about one person per second. Real
+  people in a jam accept much shorter gaps and zipper between lanes. At 0.25 s the simulated
+  specific flow is 1.79–2.09 people/(m·s) against 1.80–2.18 measured, and the error ranges from
+  −4.4 % to +6.2 % (median absolute 4.0 %, mean −0.3 %).
+- **No direction of error to lean on.** With the default gap the simulator was cautious (times
+  through bottlenecks about twice too long). After calibration the errors fall on both sides
+  (flow too low at 1.2, 1.4, 1.8 and 2.5 m; too high at 1.6, 2.0 and 2.2 m), so the result is no
+  longer a built-in safety margin. The app's `SAFETY_FACTOR` (1.5) is the margin.
+- **Calibration and test share one experiment.** The 4.4 % on the held-out widths is a check
+  against overfitting, not evidence for other crowds (hurried, mixed ages, children, patients) or
+  other geometries (doors in a wall, stairs, open fronts), which may differ.
+- **The measured flows are plausible.** The specific flow is 1.8–2.2 people/(m·s), close to the
+  J = 1.9·b line that Liddle et al. report for this series.
+- **The app's own rules are part of the result.** The squeeze and unstick rules
+  ([ASSUMPTIONS.md](ASSUMPTIONS.md)) are on, as in the app. In the first (1.0 s) runs the
+  squeeze rule fired at t = 4 s in every run, and at b ≤ 1.2 m also mid-run in 10 of 12 runs,
+  which *raised* the simulated flow. How often it fires at 0.25 s has not been counted; the
+  calibrated time gap was chosen with the rules on, so the two are calibrated together.
+- The app's door-flow figure of 1.1–1.5 people/(m·s) (ASSUMPTIONS, short door passages) is lower
+  than the about 2.0 measured here in a 4 m long bottleneck with a wide approach. The two setups
+  differ; this check covers the long bottleneck only.
 
 ## Limits
 
@@ -124,7 +133,10 @@ and shown in Help › *How good is the simulator?*.
   press and compress, especially under stress.
 - Motivation is not modelled. The participants were asked to walk normally; hurried or
   competitive crowds flow differently (the 2005 series and others report higher flows).
-- Density cap. Bodies are hard discs of 0.22 m, so the model cannot reach crush densities.
+- Density cap. Bodies are hard discs of 0.22 m, which pack to about 6 per m² at most. Only the
+  squeeze rule, which shrinks people at a clogged door to 0.15 m, lets density go higher, so
+  densities above that flag a severe jam rather than measure a crush.
+- Calibrated and tested on the same experiment (see the top of this page).
 - One experiment, one population (young soldiers, 2006), one geometry type (a straight 4 m
   bottleneck behind a 7 m corridor).
 - Assumed setup. The holding-area size is not published for this series. The venue assumes

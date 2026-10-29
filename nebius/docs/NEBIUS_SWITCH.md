@@ -1,142 +1,200 @@
-# Switching to Nebius (Token Factory + Sandboxes)
+# Switching on Nebius and Tavily
 
-Showtime runs on OpenRouter's free Nemotron models with local Docker sandboxes today, or fully
-locally (Nemotron Nano 9B v2 on your GPU). Switching to Nebius is an `.env` change only; no code
-changes. Each provider is one module in `api/adapters/providers/` (docs/ADDING_A_PROVIDER.md);
-`make verify-live` checks them all, and docs/WHEN_YOU_GET_THE_KEYS.md is the checklist.
+Today Showtime runs on NVIDIA Nemotron through **OpenRouter** (free tier) and on **local Docker**
+sandboxes; web search is off and the red team cites the incident dataset. Three services are
+built and tested with fake clients but **have not run live** (no keys):
 
-## 1. Token Factory (Nemotron in the cloud)
+- Nebius Token Factory (Nemotron in the cloud);
+- Nebius Sandboxes;
+- Tavily web search.
 
-Only `.env` changes:
+Each one switches on with `.env` alone, no code edits. Each provider is one module in
+`api/adapters/providers/` ([ADDING_A_PROVIDER.md](ADDING_A_PROVIDER.md)). `make verify-live`
+shows the state of all of them at any time and writes [LIVE_STATUS.md](LIVE_STATUS.md).
+To host the app itself on a Nebius VM, see [HOSTING.md](HOSTING.md).
 
-```dotenv
-LLM_PROVIDER=nebius
-NEBIUS_API_KEY=...
-```
+## 1. Nebius Token Factory
 
-Leftover values are replaced automatically. Model ids, prices and request extras that are empty
-(no `MODEL_FAST`), or that still hold another provider's preset values (for example OpenRouter's
-`:free` ids from `make use-openrouter`), take the Nebius preset below. Ids you chose yourself are
-kept (`api/core/settings.py`, `_take_provider_preset`; tests in `api/tests/test_env_only_switch.py`).
-`make use-nebius` writes the same values into `.env`, if you want to see them there.
+**Why it matters most:** the hackathon requires the project to run on Nebius Token Factory or
+Nebius AI Cloud.
 
-```bash
-make verify-nebius-llm   # one authenticated request and one tiny chat (PASS / FAIL / SKIPPED)
-make smoke-nebius        # every model role: a plain and a JSON reply, with time, tokens and cost
-make up                  # restart the app (or: make dev-down && make dev)
-```
+### Steps
+
+1. Get an API key from the Token Factory console.
+2. In `.env`, set `NEBIUS_API_KEY=...`.
+3. Run `make verify-nebius-llm`. It makes one authenticated request and one tiny chat with the
+   Nebius preset ids, even while another provider is active.
+   - **A pass looks like:** `| llm | Nebius Token Factory | PASS | NEBIUS: ...; nvidia/... answered 'ready' |`.
+   - **If it fails,** the row says why:
+     - `rejected the API key (HTTP 401)`: the key is wrong.
+     - A model error: the model id has changed. Check the
+       [catalog](https://tokenfactory.nebius.com/model-catalog.md) and edit the preset in
+       `api/data/llm_presets.json` (a data file, not code).
+     - `GET /api/v1/health` (`model_warnings`) also names any id the provider does not serve.
+4. In `.env`, set `LLM_PROVIDER=nebius`. That is the whole switch: model ids, prices and request
+   extras that are empty, or still hold another provider's preset values (for example
+   OpenRouter's `:free` ids), take the Nebius preset on their own. Ids you chose yourself are kept
+   (`api/core/settings.py`, `_take_provider_preset`; tests in `api/tests/test_env_only_switch.py`).
+   `make use-nebius` writes the same values into `.env` if you want to see them there (it keeps
+   your keys and backs up `.env` to `.env.bak`).
+5. Run `make up` (restart), then `make smoke-nebius`: every model role, a plain and a JSON reply,
+   with time, tokens and cost.
+6. Run one real test in the app: **Projects › New project › School wing › Create project**, then
+   **Standard › Test this plan**. The AI badge should read NEBIUS.
 
 `make use-openrouter` and `make use-local` switch back the same way (`make use-list` lists the
-presets the providers declare).
+presets).
 
-The Nebius preset lives in `api/data/llm_presets.json` (edit that file, not the code, when a
-model is renamed or retired). The ids and prices are from the
-[model catalog](https://tokenfactory.nebius.com/model-catalog.md) and the public model info
-(`https://tokenfactory.nebius.com/api/public/models_info`), checked on 2026-10-29. Nemotron 3
+### The preset
+
+`api/data/llm_presets.json` (edit that file when a model is renamed or retired). Ids and prices
+are from the [model catalog](https://tokenfactory.nebius.com/model-catalog.md) and the public model
+info (`https://tokenfactory.nebius.com/api/public/models_info`), checked on 2026-10-29. Nemotron 3
 Nano and Nemotron 3 Super leave Serverless on 2026-11-09
-([deprecations](https://docs.tokenfactory.nebius.com/model-deprecations-november-2026.md)), so
-the preset uses the replacements the notice names:
+([deprecations](https://docs.tokenfactory.nebius.com/model-deprecations-november-2026.md)), so the
+preset uses the replacements the notice names:
 
-| Role | Used for | Model id | USD per 1M in / out |
+| Role | Agents on this role | Model id | USD per 1M in / out |
 | --- | --- | --- | --- |
-| fast | red team drafts, routing, classification | `nvidia/Nemotron-3_5-Lightning` | 0.06 / 0.24 |
+| fast | red team, what-if planner, router | `nvidia/Nemotron-3_5-Lightning` | 0.06 / 0.24 |
 | long | long incident texts | `nvidia/Nemotron-3_5-Lightning` | 0.06 / 0.24 |
-| main | venue edits, blue team, explainer | `nvidia/Nemotron-3.5-Super-VL` | 0.30 / 0.90 |
-| judge | final judgement | `nvidia/Nemotron-3-Ultra-550b-a55b` | 1.00 / 3.00 |
+| main | brief, designer, editor, blue team, explainer, analyst | `nvidia/Nemotron-3.5-Super-VL` | 0.30 / 0.90 |
+| judge | judge, safety officer | `nvidia/Nemotron-3-Ultra-550b-a55b` | 1.00 / 3.00 |
 
-To keep costs lower, set `MODEL_JUDGE` to the Super VL id (and its prices) after switching.
-Not verified live (no key yet): Super VL is listed as an image-to-text model with a text use
-case; `make smoke-nebius` checks every role on the first run.
+To keep costs lower, set `MODEL_JUDGE` to the Super VL id (and its prices) after switching. Super
+VL is listed as an image-to-text model with a text use case; `make smoke-nebius` checks every role
+on the first run.
+
+For comparison, the OpenRouter preset (the one that runs live today) uses
+`nvidia/nemotron-3.5-lightning:free` for fast, long and fallback, and
+`nvidia/nemotron-3-ultra-550b-a55b:free` for main and judge.
 
 **Reasoning:** Nemotron 3 reasons by default (model card: "Reasoning ON (default)"). JSON replies
 need it off, so the preset sets `LLM_EXTRA_BODY={"reasoning_effort":"none"}`, the parameter the
 Token Factory API reference documents. If a model rejects it, the request is retried without it.
 
-**JSON:** the preset asks for JSON in the prompt and validates it with Pydantic, with one repair
-call (`LLM_SUPPORTS_JSON_SCHEMA=false`, the setup proven live on OpenRouter with Nemotron 3 Super).
-With `true` the adapter sends `response_format` JSON schemas.
+**JSON:** both presets set `LLM_SUPPORTS_JSON_SCHEMA=false`: JSON is asked for in the prompt,
+validated with Pydantic, and repaired with one extra call. This is the setup used live on
+OpenRouter. With `true`, the adapter sends `response_format` JSON schemas instead.
 
-**Self-healing requests** (`api/adapters/llm.py`): if Token Factory rejects `response_format`
-(models without the "JSON mode" tag) or the extra request fields, the call is retried once without
-them and the model is remembered; a reply whose reasoning used up every token is retried once with
-more room. `make smoke-nebius` prints what it had to leave out.
+**Self-healing requests** (`api/adapters/llm.py`): if Token Factory rejects `response_format` or
+the extra request fields, the call is retried once without them and the model is remembered; a
+reply whose reasoning used up every token is retried once with more room. `make smoke-nebius`
+prints what it had to leave out.
 
-*Status: base URL verified (the endpoint answers and rejects a wrong key with 401). Live replies:
-**not run live** (no key).*
+**Verified so far:** the base URL answers and rejects a wrong key with 401. Live replies: **not
+run live** (no key).
 
-## 2. Sandboxes (simulations in Nebius)
+## 2. Nebius Sandboxes
+
+### Steps
+
+1. Request Sandboxes access (the Sandboxes page on tokenfactory.nebius.com). It uses the same
+   `NEBIUS_API_KEY`, plus the project that has the access: in `.env`, set `NEBIUS_PROJECT_ID`
+   (Token Factory › Project settings, under the project name). It is sent as the `Project` header.
+2. Run `make verify-nebius-sandbox`. It checks the token, runs one tiny code job (it must answer
+   `{"sum": 2}`) and one network call that must be stopped.
+   - **A pass looks like:** `| sandbox | Nebius Sandboxes | PASS | ran a script in ... s; a network call was stopped: ... |`.
+   - **If it fails:** `not reachable` means check the access and `NEBIUS_SANDBOX_BASE_URL`.
+     "A script reached the network" means the run is **not** safe for AI-written code: keep
+     `SANDBOX_PROVIDER=docker` and report it in [FEEDBACK.md](FEEDBACK.md).
+3. In `.env`, set `SANDBOX_PROVIDER=nebius` and `SANDBOX_MAX_PARALLEL=4`, then `make up`. The
+   sandbox badge should read NEBIUS, with no fallback note.
 
 ```dotenv
 SANDBOX_PROVIDER=nebius
 NEBIUS_API_KEY=...                     # the same Token Factory key
-NEBIUS_PROJECT_ID=...                  # Token Factory › Project settings (sent as the Project header)
+NEBIUS_PROJECT_ID=...                  # Token Factory › Project settings
 NEBIUS_SANDBOX_BASE_URL=https://api.tokenfactory.nebius.com/sandboxes
 SANDBOX_MAX_PARALLEL=4                 # branches simulated in parallel (Beta limit: 50 at once)
 ```
 
-The Sandboxes docs ("Set up access") require the project ID alongside the key. Without it, the
-app says what to set and runs on Docker.
+Without the project ID the app says what to set and runs on Docker.
 
-`api/adapters/nebius_sandbox.py` (`NebiusRunner`) uses **contree-sdk 0.3.6**. Verified against
-the installed SDK source (not against the live service):
+### How the runner works
+
+`api/adapters/nebius_sandbox.py` (`NebiusRunner`) uses **contree-sdk 0.3.6**. Verified against the
+installed SDK source, not against the live service:
 
 | Step | SDK call (verified in source) |
 | --- | --- |
-| Client | `Contree(ContreeConfig(auth=IAMAuth(token=NEBIUS_API_KEY, project_id=NEBIUS_PROJECT_ID, base_url=...)))`, with values from settings, so no exported environment is needed |
+| Client | `Contree(ContreeConfig(auth=IAMAuth(token=NEBIUS_API_KEY, project_id=NEBIUS_PROJECT_ID, base_url=...)))`, with values from settings |
 | No network | every spawn (`POST /v1/instances`) carries `{"networking": {"enabled": false}}` (`network_off`), except the setup run below |
 | Base image | `await client.images.oci(<FROM of sim/Dockerfile>)`, so the cloud runs the local versions |
-| Install deps | `await image.run(shell="pip install ... jupedsim==<pin from sim/Dockerfile>", files={...}, disposable=False)` → child image; the only spawn with the network on (the documented pattern: install with it on, then run without), within `NEBIUS_SETUP_TIMEOUT_S` |
+| Install deps | `await image.run(shell="pip install ... jupedsim==<pin>", files={...}, disposable=False)` → child image; the only spawn with the network on (install with it on, then run without), within `NEBIUS_SETUP_TIMEOUT_S` |
 | Add sim code | `await image.apply_files(files={"/app/...": bytes})` |
 | Venue node (tree root) | `apply_files({"/work/venue.json": ...})` |
 | Each run | `await parent.run(shell="cd /app && python run_sim.py /work", files=..., disposable=False)` |
 | Results | `await image.read("/work/result.json")`, `traj.bin`, `density.bin` |
 
 What the sandboxes run: every crowd simulation, every AI-written scenario script (inside the
-simulation), every analysis script the AI or a user writes (`run_code` jobs), and rewind
-branches. Each run works in its own folder `/work/<run_id>/`, so a branch never sees its parent's
-results; a rewind branch is a snapshot child of the checkpoint run and starts from its
-`checkpoint.json`. Attacks and fixes of a round run in parallel up to `SANDBOX_MAX_PARALLEL`.
-**Protection on Nebius is different.**
-- **Network:** outbound network is on by default in Nebius Sandboxes (Sandboxes docs: "Configure
-  networking and secrets"). The REST spawn request turns it off with `networking.enabled`.
-  contree-sdk 0.3.6 has no argument for it, so the runner adds the field to every spawn request
-  (`network_off` in `api/adapters/nebius_sandbox.py`) except the one setup run that installs the
-  simulator's packages into the base image; no simulation or script ever runs with a network. If a future SDK removes that seam, the
-  runner logs a warning and reports the network as not guaranteed. `make verify-nebius-sandbox`
-  proves it live with a network call that must fail.
-- **Memory and CPU:** these can't be set per run there. The protection instead is:
-- the static check before a script runs;
-- the same check run again inside the sandbox;
-- the in-sandbox budgets (`SCRIPT_*`, `SANDBOX_MEMORY_SHARE`; see `docs/SANDBOX_PROOF.md`).
+simulation), every analysis script the AI or a user writes, and rewind branches. Each run works in
+its own folder `/work/<run_id>/`; a rewind branch is a snapshot child of the checkpoint run. The
+base image id is cached in `cache/nebius/base_image.json` (keyed by a hash of `sim/`).
 
-The runner reports this itself: `GET /api/v1/health` → `providers.sandbox.isolation` says
-`per_job_limits: false`, and `network_off: true` once the client is built with the network
-switch. The sandbox badge says so on screen. How many
-runs it takes at once (`SANDBOX_MAX_PARALLEL`) is the runner's `parallel` capacity, which decides
-the sweep tier and the default seed count; no code checks the provider's name.
+**Protection on Nebius is different from Docker:**
+- **Network:** outbound network is on by default in Nebius Sandboxes. contree-sdk 0.3.6 has no
+  argument for it, so the runner adds `networking.enabled: false` to every spawn request except
+  the setup run. If a future SDK removes that seam, the runner logs a warning and reports the
+  network as not guaranteed. Step 2's network call proves it live.
+- **Memory and CPU** can't be set per run there. The protection instead is the static check
+  before a script runs, the same check again inside the sandbox, and the in-sandbox budgets
+  (`SCRIPT_*`, `SANDBOX_MEMORY_SHARE`; see [SANDBOX_PROOF.md](SANDBOX_PROOF.md)).
+- `make sandbox-proof` attacks the local Docker runner only.
 
-The base image id is cached in `cache/nebius/base_image.json` (keyed by a hash of `sim/`).
-Each run is a child snapshot of the venue node, so branches are real sandbox snapshots.
+The runner reports this itself: `GET /api/v1/health` › `providers.sandbox.isolation` says
+`per_job_limits: false` and `network_off: true`, and the sandbox badge says so on screen.
 
 Tests: `api/tests/test_nebius.py` runs the runner against a fake SDK client (branching, file
 transfer, failures). The live test is skipped without `NEBIUS_API_KEY`.
 
-## 3. Check it
+## 3. Tavily web search
+
+1. Get a free key at tavily.com.
+2. In `.env`, set `TAVILY_API_KEY=...` (`SEARCH_PROVIDER=tavily` is the default).
+3. Run `make verify-tavily`: one search that must come back with a cited result.
+   - **A pass looks like:** `| search | Tavily web search | PASS | 2 results, first: ... (https://...) |`.
+   - **If it fails:** check the key and its monthly quota. Showtime caches every search under
+     `cache/tavily/` and caps calls per session.
+4. Run `make up`. In **AI tests it**, the red team's tool calls should include a web search, and
+   the **Evidence** panel should show a "Live web (Tavily)" group next to "Incident dataset".
+
+What it does once on: the red team searches (basic depth, up to 5 results) for incidents like the
+venue's and may cite only URLs that came back; the evidence desk looks up capacity and guidance
+for the brief.
+
+## 4. Check everything
 
 ```bash
+make verify-live             # all services; writes docs/LIVE_STATUS.md
 make verify-nebius-llm       # Token Factory: one authenticated request, one tiny chat
 make verify-nebius-sandbox   # Sandboxes: one tiny script, one network call that must be stopped
+make verify-tavily           # Tavily: one search with a cited result
 make smoke-nebius            # health, one Tier 2 run in a sandbox, one agent call
 ```
 
-Without `NEBIUS_API_KEY` each prints SKIPPED and exits cleanly; with `SANDBOX_PROVIDER=nebius` and
-no key the app runs on `SANDBOX_FALLBACK` (Docker) and the sandbox badge says so.
+Without a key each prints SKIPPED and exits cleanly, never a fake pass. With
+`SANDBOX_PROVIDER=nebius` and no key, the app runs on `SANDBOX_FALLBACK` (Docker) and the sandbox
+badge says so.
 
-## Status
+## 5. After a live pass, update
+
+- [FEEDBACK.md](FEEDBACK.md): the service's section (what worked, errors, time to first answer).
+- [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md): say "Nebius Token Factory" or "Nebius Sandbox" in the
+  voice-over only now.
+- The status lines in [README](../README.md), [PITCH.md](PITCH.md), [JUDGE_GUIDE.md](JUDGE_GUIDE.md)
+  and the table below.
+
+## Status (2026-10-29)
 
 | Item | Status |
 | --- | --- |
-| LLM adapter (OpenAI-compatible) | Live on OpenRouter (Nemotron 3 Ultra and 3.5 Lightning); Token Factory: **not run live** (no key) |
-| Model ids and prices | From the public model catalog (2026-10-14); `make use-nebius` |
-| Sandboxes runner | Built against SDK source + fake-client tests; **not run live** (no access) |
+| LLM adapter (OpenAI-compatible) | Live on OpenRouter: Nemotron 3 Ultra and 3.5 Lightning (results logged up to 2026-10-19 used Nemotron 3 Super, whose free endpoint later returned 404). Token Factory: **not run live** (no key) |
+| Model ids and prices | Nebius preset from the public model info, checked 2026-10-29 |
+| Sandboxes runner | Built against the SDK source, fake-client tests; **not run live** (no access) |
+| Tavily | Built, cached, capped, fake-client tests; **not run live** (no key) |
 | Parallel branches | `SANDBOX_MAX_PARALLEL` semaphore; local default 1 |
+
+If you get none of the keys, everything works as it does today, and the UI says what is off: the
+AI badge, the sandbox badge (with a fallback note if `SANDBOX_PROVIDER` names one without a key),
+and "Web search: off" in the evidence views.

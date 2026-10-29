@@ -947,12 +947,12 @@ Unchecked boxes express proposed acceptance conditions; this document does not m
 - [Earlier consolidated proposal](proposal.md)
 - [Full implementation roadmap](plan.md)
 - [Reviewed product priorities](PRODUCT_PRIORITIES.md)
-- [Application README](nebius/README.md)
-- [Architecture](nebius/docs/ARCHITECTURE.md)
-- [Assumptions and modeling limits](nebius/docs/ASSUMPTIONS.md)
-- [Handoff and reported status](nebius/docs/HANDOFF.md)
-- [Nebius integration status](nebius/docs/NEBIUS_SWITCH.md)
-- [Red-team demonstration screenshot](nebius/docs/screenshots/redteam.png)
+- [Application README](../nebius/README.md)
+- [Architecture](../nebius/docs/ARCHITECTURE.md)
+- [Assumptions and modeling limits](../nebius/docs/ASSUMPTIONS.md)
+- [Handoff and reported status](../nebius/docs/HANDOFF.md)
+- [Nebius integration status](../nebius/docs/NEBIUS_SWITCH.md)
+- [Red-team demonstration screenshot](../nebius/docs/screenshots/redteam.png)
 
 ### External sources checked during the discussion
 
@@ -970,14 +970,14 @@ This file records the discussion and its corrected conclusions. It does not clai
 
 These references identify sources and code discussed; endpoint availability, licensing, API compatibility, and pricing must be rechecked when implementing.
 
-- [Current scene context construction](nebius/api/agents/context.py)
-- [Nebius sandbox adapter](nebius/api/adapters/nebius_sandbox.py)
-- [Local sandbox contract and job files](nebius/api/adapters/sandbox.py)
-- [Scenario sweep](nebius/api/orchestrator/sweep.py)
-- [Red-team session orchestration](nebius/api/orchestrator/session.py)
-- [Simulation entry point](nebius/sim/run_sim.py)
-- [Nebius adapter fake-client tests](nebius/api/tests/test_nebius.py)
-- [Repository-reported progress and model trials](nebius/docs/PROGRESS.md)
+- [Current scene context construction](../nebius/api/agents/context.py)
+- [Nebius sandbox adapter](../nebius/api/adapters/nebius_sandbox.py)
+- [Local sandbox contract and job files](../nebius/api/adapters/sandbox.py)
+- [Scenario sweep](../nebius/api/orchestrator/sweep.py)
+- [Red-team session orchestration](../nebius/api/orchestrator/session.py)
+- [Simulation entry point](../nebius/sim/run_sim.py)
+- [Nebius adapter fake-client tests](../nebius/api/tests/test_nebius.py)
+- [Repository-reported progress and model trials](../nebius/docs/PROGRESS.md)
 - [NVIDIA Nemotron 3 Super model card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16)
 - [Qwen3-VL model card](https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Instruct)
 - [Qwen3-VL on OpenRouter](https://openrouter.ai/qwen/qwen3-vl-235b-a22b-instruct)

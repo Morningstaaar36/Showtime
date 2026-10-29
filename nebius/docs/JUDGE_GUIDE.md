@@ -1,21 +1,63 @@
-# Judge's walkthrough: 8 steps, about 15 minutes
+# Judge's guide: start here
 
-Start the app: `cd nebius && make up`, then open <http://localhost:5173>. The quickstart is in
-the [README](../README.md#quickstart). Every step works without a key in **Offline** mode, except
-steps 4 and 5, which need the model.
+## 1. What it is
 
-| # | What to click | What you should see | What it proves |
-| --- | --- | --- | --- |
-| 1 | Open <http://localhost:5173>. In the header, click the **Sandbox** badge, then **What it stopped in tests** | The sandbox's guarantees: no network, read-only system, memory, CPU and process limits, no keys. Help › Sandbox shows a table of 14 attacks and what stopped each, in the sandbox's own words, with the date it was recorded | The sandbox is real and was attacked. The table is a recording from `make sandbox-proof`, not text typed in by hand |
-| 2 | Home › **Learn from real cases** › **Itaewon 2022** (double-click if you like: it opens once) | Your plan with the case card: what happened, the sources as links, and where this simulation put its peak density | The designer rebuilds real places from sourced descriptions. The card says what is approximate; it is a rebuild, not a forensic finding |
-| 3 | Home › **Describe it**, type `Metro station: underground platform level 120 x 14 m with 800 waiting passengers, three stairs up to the street-level ticket hall, which has exits on the west and east.`, then **Just draw my venue** | Check your venue: two levels in 3D, three stairs, two street exits, 800 people on the platform | One sentence to any kind of venue (here no stage, two levels). A solver builds the geometry, and checks send errors back to the model |
-| 4 | **Projects** › **New project** › **School wing** › **Create project**, then **Standard** › **Test this plan** | AI at work: the agents' steps and tool calls ("similar real incidents found"), and the **sandbox feed** with every run's container, state and time ("N of M done"). It ends on Your plan | The agents act, and every idea is simulated in its own sandbox. Without a key, choose **Offline**: rules stand in for the AI, and the sandboxes still run |
-| 5 | Your plan › **Sandboxes**: the **AI-written scenario**, then **Show the code**. Then Your plan › **Scenarios** › the **Evidence** panel | The Python the red team wrote, and what happened when it ran. Each scenario's source has an origin badge (incident dataset, or live web with a Tavily key). Web search says it is off without a key | The attack is code the AI wrote, and evidence is labelled. Nothing claims a live web result that did not happen |
-| 6 | Expert view › **Scripts** › **New script**, type `import socket`, then **Run in sandbox** | "Fix these before running:" with the reason (`import of 'socket' is not allowed`). Nothing is sent to the sandbox, and the sandbox has no network anyway (step 1) | Unsafe code is refused before it runs, with its reason shown |
-| 7 | Your plan › **Sandboxes** › **Rewind the worst moment** (then **Stress test at scale**) | The crowd saved at its most dangerous second. "Do nothing" and each response run from that same second, side by side, with the measured difference. Then the stress test counters ("8 of 8 done") | The fix is proved in the sandbox from the same starting point, not asserted by the AI |
-| 8 | Your plan › **Download checklist** and **Download report**; Help › **How good is the simulator?**; the **AI team** page (`/team`) | The handover checklist and report, both with "Planning aid, not a safety certification". The simulator within a few per cent of a real bottleneck experiment. Twelve agents with their models and tools | The output is usable and honest, and every number is traceable. To check the Nebius and Tavily plug-ins, run `make verify-live` in a terminal: they show SKIPPED (no keys), never a fake pass |
+Showtime lets AI agents (NVIDIA Nemotron) try to break an event or building evacuation plan,
+while a crowd simulator (JuPedSim), not the AI, measures what breaks. The AI then proposes fixes,
+and only fixes the simulator shows to help are kept; every run happens in a sealed sandbox.
 
-If something goes wrong:
-- The AI badge says when the hosted model is paused (for example a used-up daily quota) and until
-  when. Use **Offline**.
-- The sandbox badge turns red if Docker is not running: run `make up` again.
+Planning aid, not a safety certification.
+
+## 2. Try it online
+
+| | |
+| --- | --- |
+| Demo URL | **TO FILL IN** (`https://<vm-address>.sslip.io`, from `make deploy-nebius`) |
+| Test login | user **TO FILL IN**, password **TO FILL IN** (also in the Devpost testing notes) |
+| Video (under 3 min) | **TO FILL IN** |
+
+## 3. A 5-minute path through the app
+
+| # | Do this | What you should see |
+| --- | --- | --- |
+| 1 | **Projects › New project › School wing › Create project**, then **Standard › Test this plan** | **AI tests it**: the agents' steps and tool calls, and the sandbox feed with every run's container, state and time. A live test takes a few minutes and ends on **Your plan**; carry on meanwhile |
+| 2 | Click the **Sandbox** badge in the header, then **What it stopped in tests** | The sandbox's limits (no network, read-only system, memory, CPU and process limits, no keys) and 14 recorded attacks on it, each with what stopped it ([SANDBOX_PROOF.md](SANDBOX_PROOF.md)) |
+| 3 | **Home › Describe it**, paste `Metro station: underground platform level 120 x 14 m with 800 waiting passengers, three stairs up to the street-level ticket hall, which has exits on the west and east.` and click **Just draw my venue** | Two levels in 3D, three stairs, two street exits, 800 people. The Designer agent writes the structure; a solver builds the geometry |
+| 4 | Back on the test's **Your plan**: the **Sandboxes** tab (an **AI-written scenario** › **Show the code**, then **Rewind the worst moment**), then **Scenarios** (failure map and **Evidence** panel) | The Python the red team wrote, if it wrote one this time (at most one script per round; the other attacks are picked from a menu of scenario events). "Do nothing" and each fix run from the same worst second, side by side. Each attack's source with its origin badge |
+| 5 | **Download checklist**; **Help › How good is the simulator?**; **Meet the AI team** | The handover checklist; the simulator against a real bottleneck experiment; each agent with its model and tools |
+
+No model available (for example the free daily quota is used up): choose **Offline** above *Test
+this plan*. Rule-based attacks and fixes still run in the sandbox, and nothing is labelled
+AI-written. The four sample projects in **Projects** open with finished tests.
+
+Replayed answers: with the default `LLM_CACHE_MODE=record_replay`, a model call identical to an
+earlier one on the same server is answered from the cache. Your plan › **How this plan was made**
+shows how many calls were answered that way.
+
+## 4. What runs live, and what does not
+
+| Service | Status (checked 2026-10-26, [LIVE_STATUS.md](LIVE_STATUS.md)) |
+| --- | --- |
+| NVIDIA Nemotron on OpenRouter (free tier) | **Live.** Nemotron 3.5 Lightning for the fast roles (red team, what-if planner, router), Nemotron 3 Ultra for the rest |
+| Local Docker sandbox | **Live.** Every simulation and every AI-written script |
+| Nebius Token Factory | Built (a provider preset and one adapter), tested with fake clients. **Not run live** |
+| Nebius Sandboxes | Built against contree-sdk 0.3.6, tested with a fake client. **Not run live** |
+| Tavily web search | Built and tested with a fake client. **Not run live**; without a key the red team cites the incident dataset and the app says web search is off |
+
+Why: we had no Nebius account (the Nebius sign-up does not list Bangladesh, where the team is;
+see [HOSTING.md](HOSTING.md)) and no Tavily key. Each one switches on with `.env` alone and is
+checked by `make verify-live`: [NEBIUS_SWITCH.md](NEBIUS_SWITCH.md).
+
+## 5. Run it yourself
+
+Needs Docker (with Compose v2) and `make`. A free OpenRouter key gives the AI; without one, use
+**Offline**.
+
+```bash
+cd nebius && cp .env.example .env     # then set OPENAI_COMPAT_API_KEY=<your OpenRouter key> in .env
+make up                               # builds and starts everything in Docker (the first build takes a while)
+# open http://localhost:5173
+```
+
+Host it on a server: [HOSTING.md](HOSTING.md). More: [README](../README.md),
+[the pitch and its evidence](PITCH.md), [hard questions](QA.md).
