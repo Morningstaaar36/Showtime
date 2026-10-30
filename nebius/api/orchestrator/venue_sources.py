@@ -7,11 +7,13 @@ from typing import Any, Literal
 
 from api.adapters.osm import OsmUnavailable
 from api.agents.base import AgentEnv
-from api.agents.venue_designer import design_venue
+from api.agents.venue_designer import Progress
 from api.core.building_gen import build_storeys, infer_use, map_levels
 from api.core.geometry import validate_venue
 from api.core.osm_venue import venue_from_osm
 from api.models import EventKind, Location, Venue
+from api.models.venue_spec import VenueSpec
+from api.orchestrator.designing import design_from_text
 
 log = logging.getLogger("showtime.venue_sources")
 _PAD_DEG = 0.0012  # load ~130 m around the outline: crossing paths and the neighbourhood
@@ -41,13 +43,26 @@ async def _locate(st: Any, venue: Venue, place: str | None) -> tuple[Venue, list
     return venue.model_copy(update={"location": loc.model_copy(update={"timezone": tz})}), notes
 
 
-async def design(st: Any, text: str, people: int | None = None) -> dict[str, Any]:
+async def design(
+    st: Any,
+    text: str,
+    people: int | None = None,
+    *,
+    request: str = "",
+    previous: dict[str, Any] | None = None,
+    progress: Progress | None = None,
+) -> dict[str, Any]:
     """Description → venue preview (not saved; the UI creates the project).
 
     `people`: the event's headcount when the caller knows it (the autopilot's brief).
+    `request` + `previous` (an earlier preview's layout, `extensions.generated.spec`): the
+    organizer's change to that layout, in words; the designer revises it and keeps the rest.
     """
     env = AgentEnv(llm=st.llm, project_id=None, on_usage=st.usage.add)
-    out = await design_venue(env, text, people)
+    start = VenueSpec.model_validate(previous) if previous and request.strip() else None
+    out = await design_from_text(
+        st, env, text, people, start=start, request=request, progress=progress
+    )
     if out.venue is None:
         return {"status": "failed", "problems": out.problems, "notes": [], "assumptions": []}
     venue, notes = await _locate(st, out.venue, out.spec.location if out.spec else None)
@@ -59,6 +74,7 @@ async def design(st: Any, text: str, people: int | None = None) -> dict[str, Any
         "problems": out.problems,
         "checks": _checks(venue),
         "model": out.call.model if out.call else "",
+        "design_rounds": (venue.extensions.get("generated") or {}).get("design_rounds", []),
     }
 
 
@@ -72,7 +88,7 @@ async def from_map(
     selected_id: str | None,
     levels: int | None = None,
     use: EventKind | None = None,
-    interior: Literal["open", "rooms"] | None = None,
+    interior: Literal["open", "rooms", "dining"] | None = None,
     floor_height_m: float = 3.5,
     event_kind: EventKind | None = None,
 ) -> dict[str, Any]:

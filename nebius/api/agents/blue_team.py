@@ -12,12 +12,22 @@ from api.agents.base import AgentDef, AgentEnv, audit_decision, call_agent
 from api.agents.context import event_union, events_doc, ids_line, op_union, ops_doc, venue_summary
 from api.agents.red_team import prose_numbers, strip_numbers
 from api.core.extensions import Registry
+from api.core.extensions import geometry as geo
 from api.core.plan import PlanError, apply_fix_bundle
 from api.core.venue_ops import PatchError
 from api.models import Attack, Fix, RunResult, Venue
 from api.models.plan import ObjectConstraint, PlanAction
 
 FIX_OPS = {"add_exit", "resize", "add_barrier_line", "move", "remove_obstacle"}
+# a building with storeys may also be fixed with building work on its ways down
+BUILDING_FIX_OPS = {"add_stairwell", "widen_stair", "add_door"}
+
+
+def fix_ops(venue: Venue) -> set[str]:
+    """The layout edits a fix may use on this venue."""
+    return FIX_OPS | BUILDING_FIX_OPS if len(venue.floors) > 1 else set(FIX_OPS)
+
+
 FIX_EVENTS = {"staggered_release", "marshal_redirect", "one_way"}
 
 
@@ -38,13 +48,13 @@ BLUE_TEAM_AGENT = AgentDef(
 )
 
 
-def _model(registry: Registry, n: int) -> type[BaseModel]:
+def _model(registry: Registry, n: int, ops: set[str]) -> type[BaseModel]:
     events = FIX_EVENTS & set(registry.keys("ScenarioEvent"))
     draft = create_model(
         "FixDraft",
         title=(str, Field(max_length=90)),
         ops=(
-            GenericAlias(list, op_union(registry, FIX_OPS)),
+            GenericAlias(list, op_union(registry, ops & set(registry.keys("PatchOp")))),
             Field(default_factory=list, max_length=3),
         ),
         operational=(
@@ -116,17 +126,42 @@ def check_fix(
     return problems
 
 
-def _result_brief(r: RunResult) -> str:
+def _ways_down(venue: Venue) -> str:
+    """How the upper floors get down: the stairwells and the people above the street."""
+    if len(venue.floors) < 2 or not venue.stairs:
+        return ""
+    seen: set[str] = set()
+    wells: list[str] = []
+    for s in venue.stairs:
+        if s.id in seen:
+            continue
+        group = geo.stairwell(venue, s.id)
+        seen.update(group)
+        widths = sorted({x.width_m for x in venue.stairs if x.id in group})
+        wells.append(f"{s.id.rsplit('_', 1)[0]} ({'/'.join(f'{w:g}' for w in widths)} m wide)")
+    street = min(venue.floors, key=lambda f: abs(f.elevation_m))
+    above = sum(z.people for f in venue.floors if f is not street for z in f.zones)
+    return (
+        f" Ways down: {len(wells)} stairwell(s), {', '.join(wells)}, for {above} people on the "
+        "floors above the street."
+    )
+
+
+def _result_brief(r: RunResult, venue: Venue | None = None) -> str:
     m = r.metrics
     per = ", ".join(f"{p.exit_id}: {p.people} people" for p in m.per_exit)
     hs = "; ".join(
         f"{h.peak_density_ppm2} people/m2 near {h.near or 'open floor'} at {h.t_s:.0f} s"
         for h in r.hotspots[:3]
     )
+    # what the simulator saw where people queued (clogging at a stair or a door)
+    seen = "; ".join(r.notes[:5])
     return (
         f"evacuation time 95%: {m.evac_time_p95_s} s; peak density {m.peak_density_ppm2} "
         f"people/m2; time above danger {m.time_above_danger_s} s; still inside "
         f"{m.agents_not_evacuated}. Exit use: {per}. Hotspots: {hs or 'none'}."
+        + (f" Simulator notes: {seen}." if seen else "")
+        + (_ways_down(venue) if venue is not None else "")
     )
 
 
@@ -140,7 +175,8 @@ async def blue_team(
     id_prefix: str,
 ) -> list[Fix]:
     """Ask for up to n fixes for one attack; invalid fixes are discarded."""
-    model = _model(registry, n)
+    allowed = fix_ops(venue)
+    model = _model(registry, n, allowed)
     events = FIX_EVENTS & set(registry.keys("ScenarioEvent"))
 
     def problems_of(d: Any) -> list[str]:
@@ -181,8 +217,8 @@ async def blue_team(
         "attack": json.dumps(
             {"title": attack.title, "events": [e.model_dump() for e in attack.events]}
         ),
-        "result": _result_brief(result),
-        "ops": ops_doc(registry, FIX_OPS),
+        "result": _result_brief(result, venue),
+        "ops": ops_doc(registry, allowed & set(registry.keys("PatchOp"))),
         "events": events_doc(registry, events),
         "n": str(n),
     }

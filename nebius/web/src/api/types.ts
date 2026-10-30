@@ -77,6 +77,7 @@ export interface ProjectSummary {
   floors: number;
   exits: number;
   venue_name: string;
+  event_kind?: string | null;
 }
 
 export interface Validation {
@@ -184,7 +185,7 @@ export interface ProviderStatus {
   models?: Record<string, string>;
   isolation?: SandboxIsolation;
   time_limit_s?: number;
-  /** what the provider is, in plain words ("Nebius Token Factory", "Local Docker") */
+  /** what the provider is, in plain words ("OpenAI-compatible API", "Local Docker") */
   title?: string;
   /** the AI runs on a hosted service (model ids and prices apply) */
   is_cloud?: boolean;
@@ -351,6 +352,41 @@ export interface VenueDraft {
   checks?: { code: string; severity: "error" | "warning" | "info"; message: string; hint?: string }[];
   model?: string;
   attribution?: string;
+  /** the designer's rounds (also on venue.extensions.generated.design_rounds) */
+  design_rounds?: unknown[];
+}
+
+/** Where a real case's build is (GET /real_cases/{id}/progress). */
+export interface RealCaseProgress {
+  building: boolean;
+  round?: number;
+  of?: number;
+  stage?: "designing" | "checking" | "critiquing" | "revising" | "done";
+}
+
+/** One test of "Let the AI fix it" (GET /sessions/{id}/improve). */
+export interface ImproveIteration {
+  session_id: string;
+  version: number;
+  breaks: number | null;
+  attacks: number | null;
+  kept_fixes: string[];
+  fix_titles: string[];
+  /** the worst attack's numbers before and after this test's fixes (evac_time_p95_s, ...) */
+  before: Record<string, number | null>;
+  after: Record<string, number | null>;
+  applied_version: number | null;
+}
+
+export interface ImproveLoop {
+  id: string;
+  project_id: string;
+  status: "running" | "holds" | "no_fix" | "rounds_used" | "stopped" | "failed";
+  detail: string;
+  max_rounds: number;
+  started_at: string;
+  iterations: ImproveIteration[];
+  current_session_id: string | null;
 }
 
 /** OpenStreetMap search hit. `outline` and `bbox` are [lat, lon]. */

@@ -108,5 +108,5 @@ checks passed in one take.
 
 - [x] `make test` passes (917), and so does CI on GitHub
 - [x] A clean clone works from the README
-- [x] The 3-minute demo, start to finish (Chrome: `explore-demo.mjs`)
+- [x] The live walkthrough (`docs/DEMO.md`), start to finish (Chrome: `explore-demo.mjs`)
 - [ ] Stray shells, servers and background jobs cleaned up

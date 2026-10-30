@@ -421,6 +421,7 @@
       "interior": "Inside",
       "interior_open": "Open floor",
       "interior_rooms": "Rooms and corridors",
+      "interior_dining": "Restaurant floors (kitchen, tables, stairwell)",
       "surroundings": "Include the surroundings",
       "surroundings_hint": "Also analyse the street and open ground around the building: a rally outside, people leaving onto the street.",
       "distance": "Distance around the building",
@@ -558,7 +559,7 @@
     "load_error": "Settings couldn't be loaded.",
     "ai": "AI model",
     "ai_lead": "Where the AI runs and how hard it tests each plan.",
-    "badge_body": "The badge here and in Expert view shows where the AI runs. LOCAL means this computer; NEBIUS means Nebius Token Factory in the cloud. A green dot means the AI is answering; amber means it isn't ready, or a backup model is standing in. Click the badge for details.",
+    "badge_body": "The badge here and in Expert view shows where the AI runs. LOCAL means this computer; any other name (such as OPENROUTER) is the hosted AI service in the cloud. A green dot means the AI is answering; amber means it isn't ready, or a backup model is standing in. Click the badge for details.",
     "search_on": "Live web search is on: the AI also reads recent reports of crowd incidents.",
     "search_off": "Live web search is off: ideas for what could go wrong come from a built-in list of real crowd incidents.",
     "sims": "Simulations",
@@ -588,7 +589,7 @@
     "ready": "Ready",
     "not_ready": "Not ready",
     "off": "Off",
-    "switch_hint": "Switch to Nebius by editing .env: LLM_PROVIDER=nebius, SANDBOX_PROVIDER=nebius and your keys. See docs/NEBIUS_SWITCH.md.",
+    "switch_hint": "Switch the AI by editing .env: make use-openrouter (with OPENAI_COMPAT_API_KEY) or make use-local. See docs/PROVIDERS.md.",
     "default_is": "Default: {v}.",
     "f_max_rounds": "Test rounds",
     "f_max_rounds_hint": "Each round tries new problems on the improved plan. More rounds find more, but take longer.",
@@ -1772,7 +1773,8 @@
     "sandbox_text": "Each scenario and each fix is simulated in its own sealed sandbox ({where}), branched from the plan it tests.",
     "numbers": "Numbers come from the tools, never from the AI",
     "kept": "A fix is kept only if the simulator confirms it",
-    "link": "Meet the AI team"
+    "link": "Meet the AI team",
+    "tool_plan_image": "Plan drawing"
   },
   "realcase": {
     "title": "Learn from real cases",
@@ -1853,7 +1855,12 @@
       "need_location": "Find the place, or enter its latitude and longitude."
     },
     "needs_fixes": "The AI built the site, but it needs a fix before it can be tested",
-    "needs_fixes_hint": "The checks on the right say what to change; then press Test this plan."
+    "needs_fixes_hint": "The checks on the right say what to change; then press Test this plan.",
+    "stage_designing": "Round {n} of {of}: the AI draws the venue",
+    "stage_checking": "Round {n} of {of}: checking the plan",
+    "stage_critiquing": "Round {n} of {of}: the critic reads the plans",
+    "stage_revising": "Round {n} of {of}: revising the layout",
+    "stage_done": "Saving the venue"
   },
   "ui": {
     "app": {
@@ -1991,7 +1998,11 @@
           "label": "Wedding hall",
           "text": "A wedding hall for 300 guests with one main door and a small stage."
         }
-      }
+      },
+      "change_label": "Not right? Tell the AI what to change",
+      "change_placeholder": "e.g. put the stair in the north-east corner, add a fire exit on the west side",
+      "change_button": "Change it",
+      "changing": "Changing…"
     },
     "draftpreview": {
       "you_can_still_create_it": "You can still create it and fix these in the editor.",
@@ -2215,6 +2226,8 @@
       "note": "Note",
       "call_stats": "{tokens} tokens · {s} s",
       "call_stats_partial": "{tokens} tokens · {s} s · repaired/partial",
+      "replayed": "replayed",
+      "replayed_hint": "Answered from the recorded-answer cache (LLM_CACHE_MODE), not asked of the model now.",
       "the_red_team_is_reading": "The red team is reading the plan and similar real incidents…",
       "no_attacks_yet": "No attacks yet."
     },
@@ -2452,5 +2465,46 @@
     "tabs": "Analysis views",
     "untested": "No test yet",
     "untested_body": "Test the plan first. Its scenarios, sandboxes and deeper checks appear here."
+  },
+  "design": {
+    "title": "How the AI designed this",
+    "rounds_kept": "{n} rounds · round {kept} used",
+    "lead": "The AI drew the venue from your words, a plan checker measured it (ways out, walking distance, crowding and an instant evacuation estimate), and the AI revised it. The best round is the one you see.",
+    "site_found": "Real building on the map ({source}): about {w} × {d} m.",
+    "site_none": "No building outline on the map here, so the described size was used.",
+    "round": "Round {n}",
+    "kept": "used",
+    "estimate": "instant estimate {t}",
+    "to_fix": "What the checker sent back",
+    "critic": "What the plan critic saw",
+    "clean": "Nothing to fix.",
+    "critic_off": "Plan critic off: set MODEL_VISION to a model that reads images to turn it on.",
+    "critic_ok": "The plan critic found the plans match the description.",
+    "critic_issues": "The plan critic found points to change.",
+    "critic_no_answer": "The plan critic gave no answer this round.",
+    "code_notes": "Building-code notes: facts about the building as described, kept as they are",
+    "redesign_title": "Not right yet? Tell the AI what to change",
+    "redesign_lead": "The AI revises its own design with your words, checks it again and saves it as a new version you can undo.",
+    "redesign_ph": "e.g. put the kitchen on the east side and make the stair 1.5 m wide",
+    "redesign_go": "Redesign",
+    "redesign_running": "Redesigning · {stage}",
+    "redesign_done": "Redesigned · version {n}",
+    "redesign_failed": "The redesign didn't finish: {why}"
+  },
+  "improve": {
+    "title": "Let the AI fix it",
+    "lead": "The AI saves the fixes the simulator proved as a new version, tests the plan again, and repeats until no attack breaks it. Every step is a version you can open or undo.",
+    "lead_n": "The AI saves the fixes the simulator proved as a new version, tests the plan again, and repeats until no attack breaks it (at most {n} tests). Every step is a version you can open or undo.",
+    "start": "Let the AI fix it",
+    "failed_start": "The AI couldn't start fixing the plan",
+    "stop": "Stop after this test",
+    "test": "Test {n} · version {v}",
+    "testing": "testing…",
+    "breaks": "{b} of {a} attacks broke the plan",
+    "holds": "no attack broke the plan",
+    "applied": "{k} proven fixes saved as version {v}",
+    "worst": "worst attack {a} → {b}",
+    "open": "Open",
+    "watch": "Watch"
   }
 }

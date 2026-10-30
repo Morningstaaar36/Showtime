@@ -7,6 +7,9 @@ import { ccw, insideConvex, pointInRing, splitSegment, subtractConvex } from "./
 export interface Slab {
   /** top face at y = 0, bottom at y = -thickness, side faces round the outline and the openings */
   geometry: THREE.BufferGeometry;
+  /** the same plate split in two: top and bottom faces, and the side faces (the slab's edge band,
+   * drawn darker so each storey reads as a line). Built only when asked for. */
+  parts?: { faces: THREE.BufferGeometry; rim: THREE.BufferGeometry };
   /** the slab's top edges (outline and opening rims), venue metres: for thin ink lines */
   edges: [Pt, Pt][];
   /** the openings that actually cut this slab (counter-clockwise) */
@@ -15,9 +18,10 @@ export interface Slab {
 
 /** A floor plate over `walkable`, `thickness` deep (0 = the top face alone), with each convex
  * opening cut out. Openings may cross the outline (a stair under a mezzanine's edge). */
-export function slabGeometry(walkable: readonly Pt[], openings: readonly (readonly Pt[])[], thickness: number): Slab {
+export function slabGeometry(walkable: readonly Pt[], openings: readonly (readonly Pt[])[], thickness: number, split = false): Slab {
   const ring = ccw(walkable as Pt[]);
   const b = new MeshBuilder();
+  const r = new MeshBuilder();
   const edges: [Pt, Pt][] = [];
   if (ring.length < 3) return { geometry: b.geometry(), edges, openings: [] };
   const [x0, y0, x1, y1] = bounds(ring);
@@ -44,7 +48,7 @@ export function slabGeometry(walkable: readonly Pt[], openings: readonly (readon
     const out: Pt = [(c[1] - a[1]) / len, -(c[0] - a[0]) / len];
     for (const [p, q] of splitSegment(a, c, holes, (m) => !inHole(m))) {
       edges.push([p, q]);
-      if (thickness > 0) b.side(p, q, -thickness, 0, out);
+      if (thickness > 0) r.side(p, q, -thickness, 0, out);
     }
   }
   for (const h of holes) {
@@ -55,11 +59,12 @@ export function slabGeometry(walkable: readonly Pt[], openings: readonly (readon
       const into: Pt = [-(c[1] - a[1]) / len, (c[0] - a[0]) / len];
       for (const [p, q] of splitSegment(a, c, [ring, ...others], (m) => pointInRing(m, ring) && !inHole(m, h))) {
         edges.push([p, q]);
-        if (thickness > 0) b.side(p, q, -thickness, 0, into);
+        if (thickness > 0) r.side(p, q, -thickness, 0, into);
       }
     }
   }
-  return { geometry: b.geometry(), edges, openings: holes };
+  const parts = split ? { faces: b.geometry(), rim: r.geometry() } : undefined;
+  return { geometry: b.add(r).geometry(), edges, openings: holes, parts };
 }
 
 function bounds(poly: readonly Pt[]): [number, number, number, number] {

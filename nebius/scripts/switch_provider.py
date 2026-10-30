@@ -1,5 +1,5 @@
 """Switch the model provider in .env to one of the presets the providers declare
-(api/adapters/providers: nebius, openrouter, local today; a new provider's presets appear here).
+(api/adapters/providers: openrouter, local today; a new provider's presets appear here).
 
 Rewrites only the provider lines (provider, model ids, prices, request extras) and keeps every
 key and other setting. The previous file is saved as .env.bak first.
@@ -30,7 +30,7 @@ def presets() -> dict[str, tuple[str, dict[str, str]]]:
 
 
 def keys_needed(preset: str) -> list[str]:
-    """The secret settings the preset's provider needs (e.g. NEBIUS_API_KEY)."""
+    """The secret settings the preset's provider needs (e.g. OPENAI_COMPAT_API_KEY)."""
     for p in registry("llm").all():
         if preset in p.presets:
             return [r.env for r in p.requirements if r.secret]

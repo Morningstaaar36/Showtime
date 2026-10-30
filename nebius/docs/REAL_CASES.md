@@ -71,7 +71,7 @@ none removed the break without making another outcome worse.
 **What it took to get there** (each fixed in the tools, not by drawing the sites):
 - Nemotron 3.5 Lightning misread the long descriptions (it drew Itaewon as one 80 × 170 m
   street); Nemotron 3 Ultra got them right, so the reasoning agents now run on Ultra
-  (`MODEL_MAIN`), as the hackathon suggests for serious reasoning.
+  (`MODEL_MAIN`).
 - A crowd's heading has to reach the simulator: "Tunnel" now matches "West tunnel end" and
   "East tunnel end", "heading for the ramp" means the ramp's ways out, and a heading that
   matches nothing is sent back to the model instead of being dropped. Without the headings,

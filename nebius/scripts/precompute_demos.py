@@ -41,6 +41,7 @@ from api.orchestrator.session import SessionManager
 DEMOS = {
     "t_alley": {
         "template": "t_alley",
+        "event_kind": "festival",
         "name": "Halloween night · T-shaped alley",
         "description": "Itaewon-inspired street: 1,700 people, a 3.2 m alley meets a 6 m street.",
         "location": {
@@ -58,6 +59,7 @@ DEMOS = {
     },
     "conference_hall": {
         "template": "conference_hall_2f",
+        "event_kind": "conference",
         "name": "Tech summit · two-floor hall",
         "description": "1,200 people, two south doors, a mezzanine on one stair.",
         "config": {
@@ -93,6 +95,7 @@ DEMOS = {
     },
     "festival": {
         "template": "festival_field",
+        "event_kind": "concert",
         "name": "Waterfront Spring Festival · Wellington",
         "description": "6,000 people, 20 m stage with a 12 m roof, storm forecast on the day.",
         "location": {
@@ -148,6 +151,8 @@ async def build(st, key: str) -> None:
     else:
         venue = get_template(spec["template"])
     data = venue.model_dump()
+    if "event_kind" in spec:  # the kind of event: the Home tile that opens this sample
+        data["event_kind"] = spec["event_kind"]
     if "location" in spec:
         data["location"] = spec["location"]
     if "stage" in spec and data.get("stage"):

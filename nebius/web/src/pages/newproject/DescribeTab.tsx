@@ -13,7 +13,13 @@ import { t, tItems } from "@/i18n";
 export function DescribeTab({ onDraft }: { onDraft: (d: VenueDraft | null) => void }) {
   const design = useDesignVenue();
   const [text, setText] = useState("");
+  const [change, setChange] = useState("");
   const run = (value: string) => design.mutate(value, { onSuccess: (d) => onDraft(d.venue ? d : null) });
+  // the organizer's change to the preview: the AI revises that layout and keeps the rest
+  const previous = (design.data?.venue?.extensions as { generated?: { spec?: unknown } } | undefined)?.generated?.spec;
+  const revise = () => design.mutate({ text, request: change, previous }, {
+    onSuccess: (d) => { onDraft(d.venue ? d : null); if (d.venue) setChange(""); },
+  });
   return (
     <div className="space-y-3">
       <div className="grid gap-1.5">
@@ -55,6 +61,21 @@ export function DescribeTab({ onDraft }: { onDraft: (d: VenueDraft | null) => vo
         <ErrorState title={t("ui.describetab.no_layout_came_back")} message={design.data.problems.join(" ") || t("ui.describetab.try_describing_it_in_more")} />
       )}
       {design.data?.venue && <DraftPreview draft={design.data} />}
+      {design.data?.venue && previous != null && (
+        <div className="grid gap-1.5">
+          <Label htmlFor="describe-change">{t("ui.describetab.change_label")}</Label>
+          <div className="flex flex-wrap gap-2">
+            <input id="describe-change" value={change} onChange={(e) => setChange(e.target.value)}
+                   onKeyDown={(e) => { if (e.key === "Enter" && change.trim().length >= 3 && !design.isPending) revise(); }}
+                   placeholder={t("ui.describetab.change_placeholder")}
+                   className="min-h-11 min-w-0 flex-1 rounded-[var(--radius-control)] border border-border bg-surface px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-signal/40" />
+            <Button disabled={change.trim().length < 3 || design.isPending} onClick={revise}>
+              {design.isPending ? <Loader2 className="animate-spin" /> : <Sparkles />}
+              {design.isPending ? t("ui.describetab.changing") : t("ui.describetab.change_button")}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

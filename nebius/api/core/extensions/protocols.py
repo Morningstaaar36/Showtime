@@ -255,7 +255,7 @@ class AgentSpec(Protocol):
     """An LLM role: prompt file, output schema, model role."""
 
     name: str
-    role: Literal["fast", "long", "main", "judge"]
+    role: Literal["fast", "long", "main", "judge", "vision"]
     prompt_file: str
     prompt_version: str
     output_model: type[BaseModel]

@@ -91,9 +91,6 @@ The suite found two real gaps; both are fixed:
 
 ## Limits (honest)
 
-- **Nebius Sandboxes** (`SANDBOX_PROVIDER=nebius`) cannot set a per-job network or memory limit
-  the way Docker does. There, the static check and the in-sandbox budgets are the protection. The
-  Nebius runner has **not been run live** (no access yet).
 - The static check is a filter, not a proof. The container is the boundary, and it is what the
   "inside the container" column tests.
 - The memory cap uses `RLIMIT_DATA`. Native code that maps memory another way is still stopped by

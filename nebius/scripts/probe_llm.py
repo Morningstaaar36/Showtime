@@ -45,7 +45,7 @@ SCHEMA = {
 
 
 def main() -> int:
-    client = OpenAI(base_url=BASE, api_key=os.environ.get("NEBIUS_API_KEY") or "local")
+    client = OpenAI(base_url=BASE, api_key=os.environ.get("OPENAI_COMPAT_API_KEY") or "local")
     ok = True
 
     t0 = time.time()

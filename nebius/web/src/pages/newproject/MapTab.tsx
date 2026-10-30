@@ -15,6 +15,7 @@ import { ErrorState } from "@/components/ui/states";
 import { t } from "@/i18n";
 import { useEventKinds } from "@/lib/eventKinds";
 import { cn } from "@/lib/utils";
+import type { Interior } from "@/lib/venueOps";
 import { useMapConfig } from "@/state/mapConfig";
 import { DraftPreview } from "./DraftPreview";
 
@@ -68,7 +69,7 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
   const [people, setPeople] = useState("");
   const [levels, setLevels] = useState(1);
   const [use, setUse] = useState(""); // "" = guess from the map
-  const [interior, setInterior] = useState<"" | "open" | "rooms">(""); // "" = usual for the use
+  const [interior, setInterior] = useState<"" | Interior>(""); // "" = usual for the use
   const [eventKind, setEventKind] = useState("");
   const [surround, setSurround] = useState(false);
   const [surroundM, setSurroundM] = useState(SURROUND_DEFAULT_M);
@@ -313,10 +314,11 @@ export function MapTab({ onDraft, mapClassName = "h-[380px]", guided = false }: 
               </div>
               <div className="grid gap-1">
                 <Label htmlFor="minterior">{t("editor.map.interior")}</Label>
-                <select id="minterior" className={SELECT_CLS} value={interior} onChange={(e) => setInterior(e.target.value as "" | "open" | "rooms")}>
+                <select id="minterior" className={SELECT_CLS} value={interior} onChange={(e) => setInterior(e.target.value as "" | Interior)}>
                   <option value="">{t("editor.map.use_guess")}</option>
                   <option value="rooms">{t("editor.map.interior_rooms")}</option>
                   <option value="open">{t("editor.map.interior_open")}</option>
+                  <option value="dining">{t("editor.map.interior_dining")}</option>
                 </select>
               </div>
               <div className="grid min-w-[14rem] gap-1.5 sm:basis-full" data-testid="surroundings">

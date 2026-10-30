@@ -22,6 +22,8 @@ import { DropPalette } from "@/journey/DropPalette";
 import { OperationalPlan } from "@/journey/PlanEditor";
 import { JourneyShell } from "@/journey/JourneyShell";
 import { useVenueEdit } from "@/journey/useVenueEdit";
+import { DesignRounds } from "@/journey/DesignRounds";
+import { RedesignBox } from "@/journey/RedesignBox";
 import { ObjectCard, VenueChecklist } from "@/journey/VenueEditor";
 import { FloorsCard } from "@/panels/FloorMenu";
 import { EventKindControl } from "@/panels/ZoneProfile";
@@ -177,6 +179,8 @@ export function CheckVenuePage() {
             {selection && selection.kind !== "hotspot" && selection.kind !== "stair"
               ? <><ObjectCard project={p} scene={scene.data} selection={selection} /><Button variant="link" onClick={() => useUi.getState().select(null)}>{t("check.back_to_list")}</Button></>
               : <><VenueChecklist project={p} scene={scene.data} /><div className="border-t border-border pt-4"><EventKindControl project={p} /></div></>}
+            <RedesignBox projectId={p.id} venue={p.version.venue} />
+            <DesignRounds venue={p.version.venue} />
             <details className="rounded-[10px] border border-border">
               <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-3 text-sm font-semibold">
                 <SlidersHorizontal className="size-4 text-muted" />{t("check.more_options")}

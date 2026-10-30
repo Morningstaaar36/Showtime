@@ -1,5 +1,5 @@
 {
-  "note": "How deep a test goes: the Red Team session settings behind each choice. The web page offers `modes` (Test this plan, Test again); Autopilot uses `autopilot`. Session budgets (runs, wall clock, tokens) come from the settings. Edit this file, not the code.",
+  "note": "How deep a test goes: the Red Team session settings behind each choice. The web page offers `modes` (Test this plan, Test again); Autopilot uses `autopilot`; a real case's first test uses `real_case`. Session budgets (runs, wall clock, tokens) come from the settings. Edit this file, not the code.",
   "default": "standard",
   "modes": [
     {"id": "quick", "minutes": 1, "config": {"max_rounds": 1, "attacks_per_round": 2, "fixes_per_attack": 1, "fix_targets": 1, "agents": "model"}},
@@ -10,5 +10,6 @@
   "autopilot": {
     "quick": {"max_rounds": 1, "attacks_per_round": 3, "fixes_per_attack": 2, "fix_targets": 2},
     "thorough": {"max_rounds": 3, "attacks_per_round": 5, "fixes_per_attack": 2, "fix_targets": 2}
-  }
+  },
+  "real_case": {"max_rounds": 1, "attacks_per_round": 2, "fixes_per_attack": 2, "fix_targets": 1, "agents": "model", "confirm_tier3": false}
 }

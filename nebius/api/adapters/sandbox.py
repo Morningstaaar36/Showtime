@@ -2,8 +2,8 @@
 
 `DockerRunner` (local default) starts one `showtime-sim` container per run with
 `--network=none`, a non-root user and memory/CPU caps. Branching is logical: the parent
-node id is stored on the result so the UI can draw the tree. `NebiusRunner` lives in
-`api/adapters/nebius_sandbox.py` and implements the same protocol.
+node id is stored on the result so the UI can draw the tree. Another sandbox provider (a module
+in `api/adapters/providers/`) builds a runner that implements the same protocol.
 
 Code jobs (`run_code`) run AI- or user-written Python in the same image and the same
 isolation: the inputs and `script.py` go to `/work/<job_id>/` (read-only) and
@@ -239,7 +239,7 @@ def sim_files(sim_dir: Path) -> dict[str, bytes]:
 
 def sim_version(sim_dir: Path) -> str:
     """A hash of the simulation code: it keys cached runs (a changed simulator computes new
-    ones) and the Nebius base image. Empty when there is no sim/ folder to read."""
+    ones). Empty when there is no sim/ folder to read."""
     files = sim_files(sim_dir) if sim_dir.is_dir() else {}
     if not files:
         return ""
@@ -359,6 +359,28 @@ def _acquire_lock(path: Path) -> Any:
         os.chmod(path, 0o666)
     fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
     return fh
+
+
+def _acquire_slot(folder: Path, slots: int) -> Any:
+    """One of `slots` machine-wide simulation slots (file locks shared by every Showtime
+    process): at most `slots` simulations run at once on this machine, whoever starts them."""
+    import fcntl
+    import time
+
+    folder.mkdir(parents=True, exist_ok=True)
+    while True:
+        for i in range(max(1, slots)):
+            path = folder / f".sim.{i}.lock"
+            fh = open(path, "a+")  # noqa: SIM115 - kept open while the slot is held
+            with contextlib.suppress(OSError):
+                os.chmod(path, 0o666)
+            try:
+                fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                fh.close()
+                continue
+            return fh
+        time.sleep(0.25)
 
 
 def _release_lock(fh: Any) -> None:
@@ -517,8 +539,8 @@ class DockerRunner:
 
     async def run(self, job: SimJob, on_progress: ProgressFn | None = None) -> RunResult:
         async with self.sem:
-            # one simulation at a time per machine, across processes (memory budget)
-            lock = await asyncio.to_thread(_acquire_lock, self.runs_dir / ".sim.lock")
+            # at most SANDBOX_MAX_PARALLEL simulations per machine, across processes (memory)
+            lock = await asyncio.to_thread(_acquire_slot, self.runs_dir, self.parallel)
             try:
                 if on_progress is not None:
                     on_progress({"sandbox_started": True})  # it had to wait its turn until now

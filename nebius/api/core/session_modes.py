@@ -1,5 +1,6 @@
 """How deep a test goes (api/data/test_modes.json): the session settings behind each choice the
-page offers, and Autopilot's two depths. Served by GET /test_modes, so the page holds none."""
+page offers, Autopilot's two depths and a real case's first test. Served by GET /test_modes, so
+the page holds none."""
 
 from __future__ import annotations
 
@@ -25,6 +26,9 @@ class SessionModes(BaseModel):
     default: str
     modes: list[SessionMode] = Field(min_length=1)
     autopilot: dict[Literal["quick", "thorough"], dict[str, Any]]
+    # a real case's first test: tier 2 what-ifs keep a crowd that cannot get out (Hillsborough)
+    # inside the session's wall-clock budget
+    real_case: dict[str, Any]
 
     @model_validator(mode="after")
     def _default_exists(self) -> SessionModes:

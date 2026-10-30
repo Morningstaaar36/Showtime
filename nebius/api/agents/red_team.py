@@ -26,7 +26,6 @@ from api.models import Attack, RunResult, Venue
 # marshal_redirect as an attack is misdirection: wrong signs or a marshal sending people the
 # wrong way (the "wrong route" row of the failure map)
 ATTACK_EVENTS = {"block_exit", "surge", "slowdown", "counterflow", "marshal_redirect"}
-DOI = "https://doi.org/10.5281/zenodo.19483010"
 DATA_DIR = ROOT_DIR / "api" / "data"
 SCRIPT_EVENT = "script"
 MAX_SCRIPT_ATTACKS = 1  # per round, on top of the menu attacks
@@ -187,10 +186,11 @@ def _incident_lines(rows: list[IncidentRecord]) -> str:
 
 
 def _source_url(r: IncidentRecord) -> str:
-    url = (r.source_url or "").strip()
-    if url.startswith("http"):
-        return url
-    return f"{DOI}#row={r.row_id}"
+    """The record's web source, else its dataset citation (DOI plus row) from its plugin."""
+    for url in (r.source_url, r.dataset_url):
+        if (url or "").strip().startswith("http"):
+            return (url or "").strip()
+    return (r.source_url or "").strip()
 
 
 def _evidence(r: IncidentRecord) -> str:
@@ -498,6 +498,12 @@ async def red_team(
         if problems_of(d):
             audit_decision(
                 env, "red_team", "discarded attack", {"title": d.title, "problems": problems_of(d)}
+            )
+            continue
+        if not _source_url(rows[d.incident_row]):
+            # hard rule: an attack card without any source is discarded
+            audit_decision(
+                env, "red_team", "discarded attack", {"title": d.title, "problems": ["no source"]}
             )
             continue
         a = to_attack(d, rows, f"A{id_offset + len(attacks) + 1}")

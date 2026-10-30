@@ -185,7 +185,24 @@ METRO: dict[str, Any] = {
 }
 
 # spec, floors, stairs (flights), people per floor in venue order (street level first)
+# a seven-storey restaurant building with one narrow stair (the Bailey Road case)
+RESTAURANTS: dict[str, Any] = {
+    "name": "Restaurant building",
+    "width_m": 22,
+    "depth_m": 14,
+    "exits": [{"wall": "south", "width_m": 1.5, "position": 0.5, "label": "Main entrance"}],
+    "building": {
+        "storeys": 7,
+        "use": "mall",
+        "interior": "dining",
+        "people_per_floor": 45,
+        "levels": [{"level": 0, "people": 30, "name": "Coffee shop"}],
+        "stairs": [{"place": "north", "width_m": 1.2}],
+    },
+}
+
 CASES: dict[str, tuple[dict[str, Any], int, int, list[int]]] = {
+    "restaurants": (RESTAURANTS, 7, 6, [30, *[45] * 6]),
     "office": (OFFICE, 5, 8, [150] * 5),
     "hospital": (HOSPITAL, 4, 6, [40] * 4),
     "mall": (MALL, 3, 4, [600] * 3),
@@ -229,8 +246,11 @@ def test_office_storeys_stack_with_stairs_at_both_ends() -> None:
     assert [f.floor_id for f in v.floors] == ["F0", "F1", "F2", "F3", "F4"]
     assert [f.elevation_m for f in v.floors] == [0, 3.5, 7, 10.5, 14]
     assert v.floors[0].exits and not any(f.exits for f in v.floors[1:])
-    xs = sorted({round(geo.centroid(s.top_polygon)[0]) for s in v.stairs})
-    assert len(xs) == 2 and xs[0] < 10 and xs[1] > 30, "one core near each end"
+    wells = {tuple(geo.stairwell(v, s.id)) for s in v.stairs}
+    assert len(wells) == 2 and all(len(w) == 4 for w in wells), "two cores through every floor"
+    by_id = {s.id: s for s in v.stairs}
+    xs = sorted(sum(geo.centroid(by_id[i].top_polygon)[0] for i in w) / len(w) for w in wells)
+    assert xs[0] < 10 and xs[1] > 30, "one core near each end"
     assert v.event_kind == "office" and v.extensions["building"]["levels"] == 5
 
 
@@ -271,7 +291,9 @@ def test_basement_exits_are_stairs_up_to_street_doors() -> None:
             for s in v.stairs
         )
         assert near < 2.0
-    assert [o.label for o in basement.obstacles] == ["Bar"], "features go where the people are"
+    features = [o.label for o in basement.obstacles if o.label != "Stairwell wall"]
+    assert features == ["Bar"], "features go where the people are"
+    assert any(o.label == "Stairwell wall" for o in basement.obstacles), "stairs are enclosed"
     assert not street.zones
 
 
@@ -286,6 +308,27 @@ def test_atrium_is_open_to_below_and_escalators_run_through_every_level() -> Non
     assert any(
         "Escalators are drawn as obstacles" in a for a in v.extensions["generated"]["assumptions"]
     )
+
+
+def test_dining_floors_have_a_kitchen_tables_a_lift_and_an_enclosed_stairwell() -> None:
+    v = build_venue(VenueSpec.model_validate(RESTAURANTS)).venue
+    assert v.extensions["building"]["interior"] == "dining"
+    for f in v.floors:
+        labels = [o.label for o in f.obstacles]
+        assert {"Kitchen", "Toilets", "Lift (not used in a fire)", "Stairwell wall"} <= set(labels)
+        tables = [o for o in f.obstacles if o.label == "Table"]
+        assert len(tables) >= 6
+        walkable = geo.to_polygon(f.walkable)
+        for z in f.zones:  # people stand in the dining area, never in the kitchen
+            kitchen = next(o for o in f.obstacles if o.label == "Kitchen")
+            assert (
+                geo.to_polygon(z.polygon).intersection(geo.to_polygon(kitchen.polygon)).area < 0.5
+            )
+            assert walkable.contains(geo.to_polygon(z.polygon))
+    # the stairwell keeps a door as wide as the flight: its walls never touch the landings
+    wall = next(o for o in v.floors[1].obstacles if o.label == "Stairwell wall")
+    for s in v.stairs:
+        assert geo.to_polygon(wall.polygon).distance(geo.to_polygon(s.top_polygon)) > 0.2
 
 
 def test_centre_stage_stands_in_the_middle_with_people_all_round() -> None:
@@ -306,7 +349,7 @@ def test_repeated_exit_names_are_numbered() -> None:
 
 def test_features_go_on_their_level_and_upper_exits_are_stairs_to_the_street() -> None:
     v = build_venue(VenueSpec.model_validate(CONCOURSE)).venue
-    assert [o.label for o in v.floors[1].obstacles] == ["Kiosks"]
+    assert [o.label for o in v.floors[1].obstacles if o.label != "Stairwell wall"] == ["Kiosks"]
     assert len({tuple(s.top_polygon[0]) for s in v.stairs}) == 4, "four separate stairs"
     escape = dict(
         CONCOURSE, exits=[*CONCOURSE["exits"], _door("west", 1.4, label="Escape stair", level=1)]

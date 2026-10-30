@@ -3,6 +3,7 @@
  * view and a budget per kind (exits first: they are what an organizer checks). */
 import type { Floor, Venue } from "@/api/types";
 import { floorsBottomUp, polygonArea } from "./geom";
+import { fixtureOf } from "./mesh/fixtures";
 
 interface LabelBudget { exits: number; zones: number; features: number }
 
@@ -28,8 +29,12 @@ export function labelledIds(venue: Venue, view: string, focusFloor: string | nul
   const floors = stacked ? venue.floors.filter((f) => f.floor_id === focus)
     : view === "all" || view === "exploded" ? venue.floors : venue.floors.filter((f) => f.floor_id === view);
   const exits = (stacked ? venue.floors : floors).flatMap((f) => f.exits);
-  const zones = floors.flatMap((f) => f.zones);
-  const features = floors.flatMap((f) => f.obstacles.filter((o) => o.kind !== "wall" && !generic(o.label)));
+  // seen whole, a tall building shows its storeys from outside: the names of rooms and areas
+  // inside would float over the floors above them, so only its doors (and stairs) are named
+  const inside = stacked && view === "all" ? [] : floors;
+  const zones = inside.flatMap((f) => f.zones);
+  // tables come by the dozen: none of them is named in 3D
+  const features = inside.flatMap((f) => f.obstacles.filter((o) => o.kind !== "wall" && !generic(o.label) && fixtureOf(o) !== "table"));
   const total = exits.length + zones.length + features.length;
   if (!stacked && total < declutterFrom) return null;
   if (total < declutterFrom) return new Set([...exits, ...zones, ...features].map((x) => x.id).concat(stairIds(venue, floors)));

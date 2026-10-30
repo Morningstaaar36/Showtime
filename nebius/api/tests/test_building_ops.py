@@ -335,3 +335,51 @@ def test_a_room_in_a_corner_is_not_out_of_bounds(registry: Registry, hall: Venue
     after = patch(registry, hall, {"op": "add_room", "floor_id": "F1", "x": 34, "y": 21,
                                    "width_m": 6, "depth_m": 4, "people": 20})  # fmt: skip
     assert out_of_bounds(hall, after) == []
+
+
+def _restaurants() -> Venue:
+    from api.core.venue_builder import build_venue
+    from api.models.venue_spec import VenueSpec
+    from api.tests.test_venue_designer import RESTAURANTS
+
+    return build_venue(VenueSpec.model_validate(RESTAURANTS)).venue
+
+
+def test_add_stairwell_conformance(registry: Registry) -> None:
+    check_patch_op(registry, _restaurants(), {"op": "add_stairwell", "width_m": 1.5})
+
+
+def test_a_second_stairwell_runs_through_every_floor_to_its_own_street_door(
+    registry: Registry,
+) -> None:
+    from api.core.extensions import geometry as geo
+    from api.core.settings import Settings
+    from api.core.tier1 import run_tier1
+
+    before = _restaurants()
+    after = patch(registry, before, {"op": "add_stairwell", "width_m": 1.5})
+    assert errors(after) == []
+    new = [s for s in after.stairs if s.id.startswith("stairwell_")]
+    assert len(new) == len(after.floors) - 1, "one flight between each pair of floors"
+    street = [e for f in after.floors for e in f.exits if e.label == "Stairwell street door"]
+    assert len(street) == 1
+    old = geo.to_polygon(before.stairs[0].top_polygon)
+    assert geo.to_polygon(new[0].top_polygon).distance(old) > 5, "the two ways down are apart"
+    for f in after.floors:  # enclosed on every floor, and no table stands in its way
+        walls = [o for o in f.obstacles if o.id.startswith("stairwell_1_")]
+        assert walls
+        landing = geo.to_polygon(new[0].top_polygon)
+        assert not any(
+            o.label == "Table" and geo.to_polygon(o.polygon).distance(landing) < 0.5
+            for o in f.obstacles
+        )
+    s = Settings()
+    t_before = run_tier1(before, [], registry, s).metrics.evac_time_p95_s
+    t_after = run_tier1(after, [], registry, s).metrics.evac_time_p95_s
+    assert t_before and t_after and t_after < t_before
+
+
+def test_a_stairwell_needs_floors(registry: Registry, hall: Venue) -> None:
+    one = hall.model_copy(update={"floors": hall.floors[:1], "stairs": []})
+    with pytest.raises(PatchError, match="one floor"):
+        patch(registry, one, {"op": "add_stairwell"})

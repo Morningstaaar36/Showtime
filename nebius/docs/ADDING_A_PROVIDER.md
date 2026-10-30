@@ -1,12 +1,13 @@
 # Adding a provider
 
-Showtime uses three external services:
+Showtime uses three external services. Which ones run today, and where each key goes, is in
+[PROVIDERS.md](PROVIDERS.md).
 
 | Service | What it does | Today's providers |
 | --- | --- | --- |
-| **LLM** | Runs the Nemotron agents | `openai` (OpenRouter and any OpenAI-compatible API), `nebius`, `local`, `fake` |
-| **Sandbox** | Runs simulations and AI-written code | `docker`, `nebius`, `fake` |
-| **Search** | Finds web evidence | `tavily`, `none` |
+| **LLM** | Runs the Nemotron agents | `openai` (OpenRouter and any OpenAI-compatible API), `local`, `fake` |
+| **Sandbox** | Runs simulations and AI-written code | `docker`, `fake` |
+| **Search** | Finds web evidence | `tavily`, `none`, `fake` |
 
 Each provider is **one file** in `api/adapters/providers/`. The file describes the provider and
 registers it. Settings pick a provider by name (`LLM_PROVIDER`, `SANDBOX_PROVIDER`,
@@ -24,7 +25,7 @@ and selects it with no other file edited.
 
 | Field | For |
 | --- | --- |
-| `name`, `aliases`, `title` | The setting value, and the plain name shown in the UI ("Nebius Token Factory") |
+| `name`, `aliases`, `title` | The setting value, and the plain name shown in the UI ("Tavily web search") |
 | `requirements` | Each `.env` variable it needs. A missing one gives a clear "not configured" state in `/api/v1/health`, never a crash |
 | `presets` | `.env` values that `make use-<preset>` writes: model ids, prices, request extras (never keys) |
 | `check_live` | The smallest real call, used by `make verify-live` |

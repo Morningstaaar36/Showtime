@@ -163,3 +163,21 @@ def test_rewind_needs_a_single_floor() -> None:
     assert res["status"] == "ok"
     assert "rewind needs a single-floor venue" in res["notes"]
     assert not (work / "checkpoint.json").exists()
+
+
+WATCH_EVERY_STEP = """
+seen = []
+
+def on_step(view, act):
+    seen.append(view.people_inside)
+    if view.t >= 5 and view.exit_ids:
+        act.slow_down(0.8)
+"""
+
+
+def test_a_script_that_watches_every_step_survives_people_leaving_and_changing_floor() -> None:
+    # people reach the stairs and the street door while the script reads the floor each step
+    res, _ = run(two_floor(), [script(WATCH_EVERY_STEP, every_s=0.25)])
+    m = res["metrics"]
+    assert res["status"] == "ok", res.get("error")
+    assert m["agents_evacuated"] == m["agents_total"]

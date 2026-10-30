@@ -6,6 +6,7 @@
 import { chromium, expect } from "@playwright/test";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const BASE = process.env.BASE ?? "http://127.0.0.1:5173";
 const [out, ...only] = process.argv.slice(2);
@@ -134,7 +135,7 @@ await check("Projects: import a venue JSON and a DXF drawing", async () => {
   const venue = TEMPLATES[0].venue;
   const json = `${out}/qa-venue.json`;
   writeFileSync(json, JSON.stringify({ ...venue, name: "QA imported JSON" }));
-  const dxf = `${out}/qa-drawing.dxf`;
+  const dxf = resolve(`${out}/qa-drawing.dxf`); // the writer runs from nebius/, not web/
   const py = [
     "import ezdxf, sys; from plugins.import_dxf import LAYERS as L",
     "d = ezdxf.new(); m = d.modelspace()",

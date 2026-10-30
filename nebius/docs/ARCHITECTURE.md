@@ -8,8 +8,8 @@ flowchart TD
     AG["api/agents — venue · red team · blue team · judge · explainer"]
     CORE["api/core — contracts · Tier 1 · geometry · countdown · plugin host"]
     PL["plugins/ — ops · events · hazards · rules · incidents · exporters · importers"]
-    LLM["LLM adapter — llama.cpp (local) | Nebius Token Factory"]
-    SBX["Sandbox adapter — Docker (local) | Nebius Sandboxes"]
+    LLM["LLM adapter — llama.cpp (local) | OpenAI-compatible API (OpenRouter)"]
+    SBX["Sandbox adapter — Docker (local)"]
     SIM["sim/ image — JuPedSim + PedPy, network off"]
     DB[("SQLite — projects · versions · runs · sessions · audit")]
     UI <--> API --> ORCH --> AG --> LLM
@@ -18,6 +18,20 @@ flowchart TD
     ORCH --> SBX --> SIM
     ORCH --> DB
 ```
+
+## Request flow: designing a venue from words
+1. **Designer** (Nemotron, `api/agents/venue_designer.py`) writes a layout spec (sizes, walls,
+   storeys, stairs, exits, headcounts; never coordinates). A solver (`api/core/venue_builder.py`,
+   `building_gen.py`, fit-outs from `api/data/fitouts.json`) turns it into exact geometry.
+2. **Site** (`api/orchestrator/site.py`): a named place is looked up on OpenStreetMap; the real
+   building's size goes back to the designer when the drawing strays from it.
+3. **Plan checker** (`api/core/design_review.py`): ways out, walking distance, crowding, fit-out
+   and an instant evacuation estimate. Code limits are recorded as notes, never "fixed".
+4. **Plan critic** (`api/agents/plan_critic.py`, a model that reads images): looks at the drawn
+   plans; an issue counts only if it quotes the description.
+5. **Revise** up to `DESIGN_ROUNDS`; the round that best matches the description is kept, and all
+   rounds are stored on the venue (`extensions.generated.design_rounds`).
+   `api/orchestrator/designing.py` wires these together for descriptions, real cases and Autopilot.
 
 ## Request flow: one Red Team Night
 1. **Baseline** (Tier 3) in the sandbox; result cached by request hash.
@@ -40,6 +54,8 @@ flowchart TD
 8. **Judge** writes the summary; every number must match a computed value or the template text
    is used. **Countdown** from the wind hazard (forecast vs stage limit) or a user-set time.
 9. Everything streams to the UI as `SessionEvent`s (SSE, replayable) and lands in the audit log.
+10. **Let the AI fix it** (`api/orchestrator/improve.py`): the kept fixes become a new version and
+    the same test runs on it, until no attack breaks the plan, no fix holds, or `IMPROVE_ROUNDS`.
 
 ## Key modules
 | Path | Responsibility |

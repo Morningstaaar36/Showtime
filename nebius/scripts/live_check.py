@@ -13,13 +13,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
 import urllib.request
 from typing import Any
 
-API = "http://127.0.0.1:8000/api/v1"
+API = os.environ.get("SHOWTIME_API", "http://127.0.0.1:8000") + "/api/v1"
 
 
 def call(method: str, path: str, body: Any = None, timeout: float = 600) -> Any:

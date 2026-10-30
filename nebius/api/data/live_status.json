@@ -1,15 +1,6 @@
 [
  {
   "kind": "llm",
-  "provider": "nebius",
-  "title": "Nebius Token Factory",
-  "status": "skipped",
-  "detail": "SKIPPED: set NEBIUS_API_KEY Fix: docs/WHEN_YOU_GET_THE_KEYS.md",
-  "ids": "",
-  "checked_at": "2026-10-26T11:04:04+00:00"
- },
- {
-  "kind": "llm",
   "provider": "openai",
   "title": "OpenAI-compatible API",
   "status": "ok",
@@ -27,20 +18,11 @@
   "checked_at": "2026-10-26T11:04:04+00:00"
  },
  {
-  "kind": "sandbox",
-  "provider": "nebius",
-  "title": "Nebius Sandboxes",
-  "status": "skipped",
-  "detail": "SKIPPED: set NEBIUS_API_KEY, NEBIUS_PROJECT_ID Fix: docs/WHEN_YOU_GET_THE_KEYS.md",
-  "ids": "",
-  "checked_at": "2026-10-26T11:04:04+00:00"
- },
- {
   "kind": "search",
   "provider": "tavily",
   "title": "Tavily web search",
   "status": "skipped",
-  "detail": "SKIPPED: set TAVILY_API_KEY Fix: docs/WHEN_YOU_GET_THE_KEYS.md",
+  "detail": "SKIPPED: set TAVILY_API_KEY Fix: docs/PROVIDERS.md",
   "ids": "",
   "checked_at": "2026-10-26T11:04:04+00:00"
  }

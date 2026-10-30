@@ -60,7 +60,7 @@ async def main() -> int:
         )
         report("GPU", code == 0, out.splitlines()[0] if out else "no output")
     else:
-        report("GPU", None, "nvidia-smi not found (Nebius provider does not need a GPU)")
+        report("GPU", None, "nvidia-smi not found (a hosted LLM provider does not need a GPU)")
 
     code, out = sh("docker", "version", "--format", "{{.Server.Version}}")
     report("Docker", code == 0, f"server {out}" if code == 0 else out[:120])

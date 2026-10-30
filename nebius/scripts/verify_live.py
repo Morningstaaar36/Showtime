@@ -1,8 +1,6 @@
 """Check each external service with its smallest real call, and record the result.
 
-    make verify-live              # the active LLM, sandbox and search, plus Nebius and Tavily
-    make verify-nebius-llm        # Nemotron on Nebius Token Factory (needs NEBIUS_API_KEY)
-    make verify-nebius-sandbox    # Nebius Sandboxes (needs NEBIUS_API_KEY and access)
+    make verify-live              # the active LLM, sandbox and search, plus Tavily
     make verify-tavily            # Tavily web search (needs TAVILY_API_KEY)
 
 Each target is a provider from api/adapters/providers with the settings it needs taken from .env.
@@ -42,8 +40,6 @@ class Target:
 
 
 NAMED = {
-    "nebius-llm": Target("nebius-llm", "llm", "nebius"),
-    "nebius-sandbox": Target("nebius-sandbox", "sandbox", "nebius"),
     "tavily": Target("tavily", "search", "tavily"),
 }
 FIELD = {"llm": "llm_provider", "sandbox": "sandbox_provider", "search": "search_provider"}
@@ -86,7 +82,7 @@ async def check(t: Target, base: Settings) -> tuple[Target, LiveCheck, str]:
     missing = spec.missing(s)
     if missing:
         names = ", ".join(r.env for r in missing)
-        return t, LiveCheck("skipped", f"SKIPPED: set {names}", "docs/WHEN_YOU_GET_THE_KEYS.md"), ""
+        return t, LiveCheck("skipped", f"SKIPPED: set {names}", "docs/PROVIDERS.md"), ""
     if spec.check_live is None:
         return t, LiveCheck("skipped", "nothing to check (no live service)"), ""
     try:

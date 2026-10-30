@@ -12,14 +12,14 @@ export function providerWhere(llm: ProviderStatus | undefined): string {
   if (llm?.is_cloud) {
     const title = llm.title ?? "";
     const label = llm.label ?? "";
-    // "Nebius Token Factory" already names NEBIUS; "OpenAI-compatible API" says which: (OPENROUTER)
+    // "Acme Inference" already names ACME; "OpenAI-compatible API" says which: (OPENROUTER)
     const name = !label || title.toLowerCase().includes(label.toLowerCase()) ? title || label : `${title} (${label})`;
     return t("common.provider_cloud", { label: name });
   }
   return t("common.provider_local");
 }
 
-/** LOCAL / NEBIUS / cloud badge. A click (or tap) opens what it means, the AI and simulator
+/** LOCAL / OPENROUTER / cloud badge. A click (or tap) opens what it means, the AI and simulator
  * status, and, in Expert view, the project's AI cost. */
 export function ProviderBadge({ cost }: { cost?: { tokens: number; usd: number } | null }) {
   const { data } = useHealth();

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import math
 from typing import Any, Literal
 
 import shapely
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
 
-from api.models.venue import Floor
+from api.models.venue import Floor, Venue
 
 Wall = Literal["north", "south", "east", "west"]
 EXIT_DEPTH_M = 0.4
@@ -213,3 +214,29 @@ def display_names(*venues: Any) -> dict[str, str]:
                 if label:
                     names[o.id] = label
     return names
+
+
+def stairwell(venue: Venue, stair_id: str) -> list[str]:
+    """The flights in one stairwell with `stair_id`: flights chained where they meet a floor
+    within 4 m of each other (a core whose flights take turns between two lanes lands each
+    one beside the next, while its tops alternate between the core's two ends)."""
+
+    def landing(s: Any, floor_id: str) -> tuple[float, float]:
+        return centroid(s.top_polygon if s.from_floor == floor_id else s.bottom_polygon)
+
+    group = {stair_id}
+    grown = True
+    while grown:
+        grown = False
+        for s in venue.stairs:
+            if s.id in group:
+                continue
+            for t in venue.stairs:
+                if t.id not in group:
+                    continue
+                shared = {s.from_floor, s.to_floor} & {t.from_floor, t.to_floor}
+                if any(math.dist(landing(s, f), landing(t, f)) <= 4.0 for f in shared):
+                    group.add(s.id)
+                    grown = True
+                    break
+    return [s.id for s in venue.stairs if s.id in group]

@@ -41,6 +41,8 @@ export interface AgentLine {
   tokens?: number;
   ms?: number;
   ok?: boolean;
+  /** the answer was replayed from the recorded-answer cache, not asked of the model now */
+  cached?: boolean;
   level?: string;
 }
 
@@ -156,7 +158,7 @@ export function reduce(s: SessionView, a: Action): SessionView {
     }
     case "agent_call":
       next.feed = [...s.feed, { seq: ev.seq, ts: ev.ts, type: "agent_call" as const, agent: String(p.agent), model: String(p.model ?? ""),
-        summary: String(p.summary ?? ""), tokens: Number(p.tokens_in ?? 0) + Number(p.tokens_out ?? 0), ms: Number(p.ms ?? 0), ok: Boolean(p.ok) }].slice(-200);
+        summary: String(p.summary ?? ""), tokens: Number(p.tokens_in ?? 0) + Number(p.tokens_out ?? 0), ms: Number(p.ms ?? 0), ok: Boolean(p.ok), cached: Boolean(p.cached) }].slice(-200);
       break;
     case "tool_call":
       next.feed = [...s.feed, { seq: ev.seq, ts: ev.ts, type: "tool_call" as const, agent: String(p.tool), summary: String(p.summary ?? "") }].slice(-200);

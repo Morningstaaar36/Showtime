@@ -21,8 +21,8 @@ def _needs(tmp_path: Path, env: str | None) -> bool:
 
 def test_the_local_model_is_needed_only_for_the_local_provider(tmp_path: Path) -> None:
     assert _needs(tmp_path, "LLM_PROVIDER=local\n")
-    assert _needs(tmp_path, "LLM_PROVIDER=local   # local | nebius\n")
+    assert _needs(tmp_path, "LLM_PROVIDER=local   # local | openai\n")
     assert not _needs(tmp_path, "LLM_PROVIDER=openai\nOPENAI_COMPAT_API_KEY=x\n")
-    assert not _needs(tmp_path, 'LLM_PROVIDER="nebius"\n')
+    assert not _needs(tmp_path, 'LLM_PROVIDER="openai"\n')
     assert _needs(tmp_path, "# no provider line: the default is local\n")
     assert _needs(tmp_path, None)  # no .env yet

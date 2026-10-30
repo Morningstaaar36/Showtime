@@ -3,15 +3,20 @@
 A building picked on the map arrives as one floor: its footprint, courtyards and exits at the
 mapped entrances. This module stacks the storeys the map (or the organizer) gives, joins them
 with two stair cores, and optionally lays out a corridor with rooms on both sides, the common
-plan of hospitals, schools, offices and housing. Headcounts come from occupant load factors
-(floor area per person by use, docs/ASSUMPTIONS.md); everything is an editable starting point,
-not a survey of the real interior.
+plan of hospitals, schools, offices and housing, or a dining fit-out (restaurants and cafés: a
+kitchen, tables in rows, toilets, a lift and an enclosed stairwell on every floor). Headcounts
+come from occupant load factors (floor area per person by use, docs/ASSUMPTIONS.md); everything
+is an editable starting point, not a survey of the real interior. Sizes live in
+api/data/fitouts.json.
 """
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, Literal, get_args
 
 from shapely.affinity import rotate, translate
@@ -25,11 +30,11 @@ from api.models import Floor, Obstacle, PeopleGroup, Stair, Venue, Zone
 from api.models.venue import EventKind
 from api.models.venue_spec import MAX_LEVELS
 
-Interior = Literal["open", "rooms"]
+Interior = Literal["open", "rooms", "dining"]
+FITOUTS_FILE = Path(__file__).resolve().parents[1] / "data" / "fitouts.json"
 
 AUTO_PEOPLE_MAX = 10_000
 WALL_T = 0.2  # interior wall thickness, metres
-MIN_ROOM_DEPTH = 4.0  # rooms shallower than this are not laid out
 STAIR_W = 1.6  # stair core width across the corridor (flight width ~1.2 m + handrails)
 STAIR_RUN = 2.5  # length of one landing footprint along the corridor
 
@@ -47,11 +52,24 @@ DEFAULT_LOAD_M2 = 1.4
 
 # Corridor width (m) by use: hospital corridors must pass beds (IBC 407.2: 8 ft = 2.44 m);
 # schools 6 ft (1.83 m) and others 44 in (1.12 m) minimum, widened here for two-way flow.
-CORRIDOR_M: dict[str, float] = {"hospital": 2.4, "school": 2.0, "office": 1.8}
-DEFAULT_CORRIDOR_M = 1.8
-ROOM_W: dict[str, float] = {"hospital": 7.0, "school": 8.0, "office": 6.0, "residential": 7.0}
-DEFAULT_ROOM_W = 6.0
-DOOR_W: dict[str, float] = {"hospital": 1.4}  # bed doors; others 1.0 m
+
+
+@lru_cache(maxsize=1)
+def fitouts() -> dict[str, Any]:
+    """How storeys are fitted out, by interior (api/data/fitouts.json)."""
+    data: dict[str, Any] = json.loads(FITOUTS_FILE.read_text())
+    return data
+
+
+def _by_use(table: dict[str, float], use: str | None) -> float:
+    return float(table.get(use or "", table["default"]))
+
+
+def room_width(use: str | None) -> float:
+    """The usual width of one room along the corridor, by use."""
+    return _by_use(fitouts()["rooms"]["room_w_m"], use)
+
+
 ROOMS_BY_DEFAULT = {"hospital", "school", "office", "residential"}
 # Rooms are grouped into a few areas per floor (each side of the corridor in up to this many
 # runs of neighbouring rooms) so a long wing gives "Ward A" to "Ward F", not 40 one-person rooms.
@@ -142,13 +160,30 @@ def level_order(levels: int, basements: int = 0) -> list[int]:
     return [*range(levels), *range(-1, -basements - 1, -1)]
 
 
+def stair_going(storey_m: float) -> float:
+    """Plan length of one straight flight a storey high: (risers - 1) treads (fitouts.json)."""
+    st = fitouts()["stair"]
+    risers = max(2, math.ceil(storey_m / float(st["riser_max_m"]) - 1e-9))
+    return round((risers - 1) * float(st["tread_m"]), 2)
+
+
+def landing_depth(width_m: float) -> float:
+    """A landing is at least as deep as its flight is wide."""
+    return max(float(fitouts()["stair"]["landing_min_m"]), width_m)
+
+
 @dataclass
 class Core:
-    """One stair core: two landings in plan; the flight runs between `a` and `b`.
+    """One stair core, in plan: `a` the half nearer the target, `b` the other half.
 
-    Above street level people come down from `a` to `b`; from a basement they go up from `a`
-    to `b`. A core with a `span` joins only the levels from span[0] to span[1] (an exit stair
-    from a basement or an upper floor to a street door); without one it joins every level.
+    A core of two lanes (a scissor core, `scissor`) holds one straight flight per storey: the
+    flights take turns between the lanes, and on each level they land at one end of the core,
+    the `b` end on even levels (street level among them) and the `a` end on odd ones, so the
+    flight from above arrives beside the flight on down. A core one lane wide (an older or a
+    hand-drawn one) has a landing in each half and stacks its flights from `a` down to `b`.
+
+    A core with a `span` joins only the levels from span[0] to span[1] (an exit stair from a
+    basement or an upper floor to a street door); without one it joins every level.
     """
 
     a: Polygon
@@ -159,6 +194,68 @@ class Core:
     def joins(self, lower: int, upper: int) -> bool:
         """Whether this core links level `lower` with level `upper`."""
         return self.span is None or (self.span[0] <= lower and upper <= self.span[1])
+
+    @property
+    def shaft(self) -> Polygon:
+        """The whole core: both landings and the flights between them."""
+        rect = unary_union([self.a, self.b]).minimum_rotated_rectangle
+        return rect if isinstance(rect, Polygon) else unary_union([self.a, self.b]).envelope
+
+    def _axes(self) -> tuple[Point, tuple[float, float], tuple[float, float], float, float]:
+        """Origin (the `a` end, on the axis), unit vectors along and across, length, width."""
+        ca, cb = self.a.centroid, self.b.centroid
+        d = math.hypot(cb.x - ca.x, cb.y - ca.y) or 1.0
+        u = ((cb.x - ca.x) / d, (cb.y - ca.y) / d)
+        n = (-u[1], u[0])
+        pts = list(self.shaft.exterior.coords)[:-1]
+        along = [(x - ca.x) * u[0] + (y - ca.y) * u[1] for x, y in pts]
+        across = [(x - ca.x) * n[0] + (y - ca.y) * n[1] for x, y in pts]
+        p0, q0, q1 = min(along), min(across), max(across)
+        mid = (q0 + q1) / 2
+        origin = Point(ca.x + u[0] * p0 + n[0] * mid, ca.y + u[1] * p0 + n[1] * mid)
+        return origin, u, n, max(along) - p0, q1 - q0
+
+    @property
+    def scissor(self) -> bool:
+        """Two lanes wide: one flight per storey, the flights taking turns between the lanes."""
+        gap = float(fitouts()["stair"]["lane_gap_m"])
+        return self._axes()[4] >= 2 * self.width_m + gap - 0.05
+
+    def _box(self, p0: float, p1: float, q0: float, q1: float) -> Polygon:
+        o, u, n, _, _ = self._axes()
+        corners = [(p0, q0), (p1, q0), (p1, q1), (p0, q1)]
+        return orient(
+            Polygon([(o.x + u[0] * p + n[0] * q, o.y + u[1] * p + n[1] * q) for p, q in corners]),
+            1.0,
+        )
+
+    def landing(self, level: int, lane: int | None = None) -> Polygon:
+        """Where this core's flights meet `level`: the end landing used there (one lane of it,
+        or the whole width with `lane` None). A one-lane core: its `a` half on every level."""
+        if not self.scissor:
+            return self.a
+        _, _, _, length, width = self._axes()
+        depth = min(landing_depth(self.width_m), length / 2)
+        p0, p1 = (length - depth, length) if level % 2 == 0 else (0.0, depth)
+        if lane is None:
+            return self._box(p0, p1, -width / 2, width / 2)
+        gap = float(fitouts()["stair"]["lane_gap_m"])
+        q0, q1 = (-width / 2, -gap / 2) if lane % 2 == 0 else (gap / 2, width / 2)
+        return self._box(p0, p1, q0, q1)
+
+    def flight(self, frm: int, to: int) -> tuple[Polygon, Polygon]:
+        """The landings (on level `frm`, on level `to`) of the flight joining two levels next to
+        each other: people go from the first to the second."""
+        if not self.scissor:
+            return self.a, self.b
+        lane = min(frm, to) % 2
+        return self.landing(frm, lane), self.landing(to, lane)
+
+    def length_m(self, storey_m: float) -> float:
+        """Walking length of one storey's flight: its slope and a landing."""
+        if not self.scissor:
+            return round(math.hypot(2 * STAIR_RUN + 1, storey_m), 2)
+        return round(math.hypot(stair_going(storey_m), storey_m) + landing_depth(self.width_m), 2)
 
 
 @dataclass
@@ -174,6 +271,27 @@ class StoreyPlan:
     floor_names: dict[int, str] = field(default_factory=dict)  # "Lobby", "Platform"
 
 
+def _core_shapes(
+    s: float, t: float, sign: int, width_m: float, storey_m: float, compact: bool
+) -> tuple[Polygon, Polygon]:
+    """A core's two halves in a building's local frame, starting at `s` and running along the
+    long axis in direction `sign`, centred at `t` across it. Two lanes wide unless `compact`."""
+    if compact:  # one lane: two landings STAIR_RUN long, 0.5 m apart
+        half = (width_m + 0.4) / 2
+        a = box(min(s, s + sign * STAIR_RUN), t - half, max(s, s + sign * STAIR_RUN), t + half)
+        s2 = s + sign * (STAIR_RUN + 0.5)
+        b = box(min(s2, s2 + sign * STAIR_RUN), t - half, max(s2, s2 + sign * STAIR_RUN), t + half)
+        return a, b
+    half = (2 * width_m + float(fitouts()["stair"]["lane_gap_m"])) / 2
+    length = 2 * landing_depth(width_m) + stair_going(storey_m)
+    m = s + sign * length / 2
+    e = s + sign * length
+    return (
+        box(min(s, m), t - half, max(s, m), t + half),
+        box(min(m, e), t - half, max(m, e), t + half),
+    )
+
+
 def place_core(
     foot: Polygon,
     target: tuple[float, float],
@@ -181,16 +299,17 @@ def place_core(
     avoid: Any = None,
     *,
     corridor: bool = False,
+    storey_m: float = 3.5,
 ) -> Core | None:
     """A stair core as close to `target` (x, y) as fits inside `foot` and clear of `avoid`.
 
-    The flight runs along the building's long axis, pointing away from the nearer end; with
-    `corridor` it stays on the long axis, where the corridor of a room layout runs. Landing
-    `a` is the one nearer the target.
+    The core runs along the building's long axis, pointing away from the nearer end; with
+    `corridor` it stays on the long axis, where the corridor of a room layout runs. Half `a` is
+    the one nearer the target. Two lanes (one flight per storey, see `Core`) where they fit,
+    else one lane.
     """
     fr = _Frame(foot)
     inside = foot.buffer(-0.3)
-    half = (width_m + 0.4) / 2
     loc = fr.to_local(Point(target))
     tx, ty = loc.x, 0.0 if corridor else loc.y
     sign = 1 if tx <= (fr.s0 + fr.s1) / 2 else -1
@@ -202,16 +321,16 @@ def place_core(
         else [fr.t0 + i * step for i in range(int(fr.depth / step) + 1)]
     )
     cands = sorted(((s, t) for s in ss for t in ts), key=lambda c: math.dist(c, (tx, ty)))
-    for s, t in cands:
-        a = box(min(s, s + sign * STAIR_RUN), t - half, max(s, s + sign * STAIR_RUN), t + half)
-        s2 = s + sign * (STAIR_RUN + 0.5)
-        b = box(min(s2, s2 + sign * STAIR_RUN), t - half, max(s2, s2 + sign * STAIR_RUN), t + half)
-        aw, bw = fr.to_world(a), fr.to_world(b)
-        if not (inside.contains(aw) and inside.contains(bw)):
-            continue
-        if avoid is not None and not avoid.is_empty and avoid.intersects(aw.union(bw)):
-            continue
-        return Core(aw, bw, round(width_m, 2))
+    for compact in (False, True):
+        for s, t in cands:
+            a, b = _core_shapes(s, t, sign, width_m, storey_m, compact)
+            aw, bw = fr.to_world(a), fr.to_world(b)
+            both = aw.union(bw)
+            if not inside.contains(both):
+                continue
+            if avoid is not None and not avoid.is_empty and avoid.intersects(both):
+                continue
+            return Core(aw, bw, round(width_m, 2))
     return None
 
 
@@ -259,41 +378,34 @@ def _parts(g: Any) -> list[Polygon]:
     return [p for p in getattr(g, "geoms", []) if isinstance(p, Polygon) and not p.is_empty]
 
 
-def _cores(fr: _Frame, foot: Any, corridor_w: float) -> list[tuple[Polygon, Polygon]]:
-    """Up to two stair cores (top landing, bottom landing), one near each end of the building.
+def _cores(fr: _Frame, foot: Any, flight_m: float, storey_m: float) -> list[Core]:
+    """Up to two stair cores, one near each end of the building.
 
     Each core is searched from its end toward the middle, on the long axis first and then
-    sideways, until both landings fit inside the floor (an L-shape or a courtyard moves them).
+    sideways, until it fits inside the floor (an L-shape or a courtyard moves it): two lanes
+    wide where that fits anywhere, else one lane.
     """
-    half = min(STAIR_W, corridor_w - 0.2) / 2
     inside = foot.buffer(-0.3)
     offsets = [0.0]
     for k in range(1, int(fr.depth // 2) + 1):
         offsets += [float(k), -float(k)]
-    out: list[tuple[Polygon, Polygon]] = []
+    out: list[Core] = []
     for sign, start in ((1, fr.s0 + 1.0), (-1, fr.s1 - 1.0)):
         found = None
-        steps = int(fr.length * 0.45)
-        for i in range(steps):
-            s = start + sign * i
-            for t in offsets:
-                top = box(
-                    min(s, s + sign * STAIR_RUN), t - half, max(s, s + sign * STAIR_RUN), t + half
-                )
-                s2 = s + sign * (STAIR_RUN + 0.5)
-                bottom = box(
-                    min(s2, s2 + sign * STAIR_RUN),
-                    t - half,
-                    max(s2, s2 + sign * STAIR_RUN),
-                    t + half,
-                )
-                top_w, bottom_w = fr.to_world(top), fr.to_world(bottom)
-                if inside.contains(top_w) and inside.contains(bottom_w):
-                    found = (top_w, bottom_w)
+        for compact in (False, True):
+            for i in range(int(fr.length * 0.45)):
+                s = start + sign * i
+                for t in offsets:
+                    a, b = _core_shapes(s, t, sign, flight_m, storey_m, compact)
+                    aw, bw = fr.to_world(a), fr.to_world(b)
+                    if inside.contains(aw.union(bw)):
+                        found = Core(aw, bw, flight_m)
+                        break
+                if found:
                     break
             if found:
                 break
-        if found and not any(found[0].distance(o[0]) < 8 for o in out):
+        if found and not any(found.shaft.distance(o.shaft) < 4 for o in out):
             out.append(found)
     return out
 
@@ -344,6 +456,231 @@ def _group_rooms(fr: _Frame, rooms: list[Polygon], allowed: Any) -> list[Polygon
             if parts:
                 out.append(parts[0])
     return out
+
+
+FITOUT_LIFT = "Lift (not used in a fire)"
+
+
+@dataclass
+class _Fitout:
+    """One floor's dining fit-out: the obstacles, and the area people do not stand in (tables
+    excluded: people sit between them, and the simulator places them only where it is free)."""
+
+    obstacles: list[Obstacle]
+    taken: Any
+
+
+def enclose_stair(
+    c: Core, foot: Polygon, centre: Point, exits: list[Any] | None = None, level: int = 0
+) -> tuple[Any, Polygon]:
+    """Walls enclosing a stair core, with a door as wide as the flight on the long side facing
+    the floor, beside the landing the flights use on `level` (the middle of a one-lane core),
+    and a gap at any street door beside it; and the outline."""
+    sw = fitouts()["stairwell"]
+    shell = c.shaft.buffer(sw["gap_m"], join_style=2)
+    pts = list(shell.exterior.coords)[:4]
+    edges = sorted(((pts[i], pts[(i + 1) % 4]) for i in range(4)), key=lambda e: -math.dist(*e))
+    (ax, ay), (bx, by) = min(
+        edges[:2],
+        key=lambda e: centre.distance(Point((e[0][0] + e[1][0]) / 2, (e[0][1] + e[1][1]) / 2)),
+    )
+    side = LineString([(ax, ay), (bx, by)])
+    at = c.landing(level).centroid if c.scissor else Point((ax + bx) / 2, (ay + by) / 2)
+    door = side.interpolate(side.project(at)).buffer(
+        (c.width_m + sw["door_extra_m"]) / 2, cap_style=3
+    )
+    ring = shell.exterior.buffer(sw["wall_m"] / 2, cap_style=2, join_style=2).intersection(foot)
+    gaps = [door, *(geo.to_polygon(e.polygon).buffer(0.6) for e in exits or [])]
+    return ring.difference(unary_union(gaps)), shell
+
+
+def stairwell_walls(fid: str, walls: list[Any], height: float, first: int = 1) -> list[Obstacle]:
+    out: list[Obstacle] = []
+    for w in walls:
+        for p in sorted(_parts(w), key=lambda p: (p.centroid.x, p.centroid.y)):
+            if p.area >= 0.05:
+                out.append(
+                    Obstacle(
+                        id=f"{fid.lower()}_stairwell_{first + len(out)}",
+                        kind="wall",
+                        polygon=geo.to_points(orient(Polygon(p.exterior), 1.0)),
+                        height_m=height,
+                        label="Stairwell wall",
+                    )
+                )
+    return out
+
+
+def _stairwells_only(
+    foot: Polygon, cores: list[Core], exits: list[Any], fid: str, floor_height_m: float, level: int
+) -> _Fitout:
+    """An open floor's stairs, each in an enclosed stairwell with a door facing the floor."""
+    walls, shells = [], []
+    for c in cores:
+        ring, shell = enclose_stair(c, foot, foot.centroid, exits, level)
+        walls.append(ring)
+        shells.append(shell)
+    obstacles = stairwell_walls(fid, walls, round(floor_height_m - 0.3, 2))
+    return _Fitout(obstacles, unary_union(shells) if shells else None)
+
+
+def _clear_box(
+    fr: _Frame, cands: list[tuple[float, float, float, float]], inside: Any, keep_clear: Any
+) -> Polygon | None:
+    """The first candidate box (local s0, t0, s1, t1) that fits inside the floor, clear of
+    `keep_clear`; else the largest box left of one once its overlap is cut off across the
+    building (a kitchen shortened to keep a street door free), never a curved leftover."""
+    best: tuple[float, Polygon] | None = None
+    for s0, t0, s1, t1 in cands:
+        for q0, q1 in _free_spans(fr, (s0, s1), (t0, t1), keep_clear):
+            cand = fr.to_world(box(s0, q0, s1, q1)).intersection(inside)
+            if not isinstance(cand, Polygon) or cand.is_empty:
+                continue
+            if keep_clear is not None and cand.intersection(keep_clear).area > 0.05:
+                continue
+            if (q0, q1) == (t0, t1):
+                return cand
+            if best is None or cand.area > best[0]:
+                best = (cand.area, cand)
+    return best[1] if best is not None else None
+
+
+def _free_spans(
+    fr: _Frame, s_rng: tuple[float, float], t_rng: tuple[float, float], keep_clear: Any
+) -> list[tuple[float, float]]:
+    """The whole span `t_rng` when the box is clear, else the parts of it, across the building,
+    that no part of `keep_clear` inside the box's length reaches."""
+    t0, t1 = t_rng
+    if keep_clear is None or keep_clear.is_empty:
+        return [t_rng]
+    hit = fr.to_local(keep_clear).intersection(box(s_rng[0], t0, s_rng[1], t1))
+    if hit.is_empty or hit.area < 0.05:
+        return [t_rng]
+    spans = []
+    for p in _parts(hit) or [hit]:
+        _, y0, _, y1 = p.bounds
+        spans.append((y0, y1))
+    spans.sort()
+    free, at = [], t0
+    for y0, y1 in spans:
+        if y0 > at:
+            free.append((at, y0))
+        at = max(at, y1)
+    if at < t1:
+        free.append((at, t1))
+    return sorted(free, key=lambda q: -(q[1] - q[0]))
+
+
+def _dining_fitout(
+    fr: _Frame,
+    foot: Polygon,
+    cores: list[Core],
+    exits: list[Any],
+    fid: str,
+    floor_height_m: float,
+    level: int,
+) -> _Fitout:
+    """A restaurant floor: each stair in an enclosed stairwell with a door, a lift beside it,
+    a kitchen and toilets at the end away from the stairs (kept off the street doors), and
+    tables in rows with a main aisle kept clear."""
+    fit = fitouts()["dining"]
+    lift_m, table_m, pitch = fit["lift_m"], fit["table_m"], fit["table_pitch_m"]
+    tall = round(floor_height_m - 0.3, 2)
+    obstacles: list[Obstacle] = []
+    inside = foot.buffer(-0.3)
+    centre = foot.centroid
+    walls: list[Any] = []
+    shells: list[Polygon] = []
+    for c in cores:
+        ring, shell = enclose_stair(c, foot, centre, exits, level)
+        walls.append(ring)
+        shells.append(shell)
+    # the way into each stairwell and out of each street door stays clear (square, not round,
+    # so what is fitted round it keeps straight walls)
+    doors = [geo.to_polygon(e.polygon).buffer(fit["exit_clear_m"], join_style=2) for e in exits]
+    blocked = unary_union([*shells, *doors])
+
+    def add(kind: str, label: str, poly: Polygon, height: float) -> None:
+        obstacles.append(
+            Obstacle(
+                id=f"{fid.lower()}_{label.split()[0].lower()}_{len(obstacles) + 1}",
+                kind=kind,
+                polygon=geo.to_points(orient(poly, 1.0)),
+                height_m=height,
+                label=label,
+            )
+        )
+
+    # a lift beside the first stairwell, along the building's long axis
+    lift: Polygon | None = None
+    if shells:
+        sh = fr.to_local(shells[0])
+        x0, y0, x1, y1 = sh.bounds
+        for lx in (x1 + 0.3, x0 - 0.3 - lift_m):
+            for ly in (y0, y1 - lift_m):
+                cand = fr.to_world(box(lx, ly, lx + lift_m, ly + lift_m))
+                if inside.contains(cand) and not cand.intersects(blocked):
+                    lift = cand
+                    break
+            if lift is not None:
+                break
+    if lift is not None:
+        add("other", FITOUT_LIFT, lift, tall)
+        blocked = blocked.union(lift)
+
+    # kitchen and toilets at the end of the long axis farther from the stairwells (the other
+    # end when that one is taken); a street door there shortens them across, never cuts a curve
+    core_s = fr.to_local(unary_union(shells)).centroid.x if shells else fr.s1
+    lo, hi = fit["kitchen_m"]
+    depth = min(max(fr.length * fit["kitchen_share"], lo), hi)
+    tw, td = fit["toilets_m"]
+    keep_clear = blocked.buffer(fit["clear_of_rooms_m"], join_style=2)
+    ends = sorted((fr.s0, fr.s1), key=lambda e: -abs(core_s - e))
+    kitchen = toilets = None
+    for end in ends:
+        sign = 1 if end == fr.s0 else -1
+        k_s = (min(end, end + sign * depth), max(end, end + sign * depth))
+        kitchen = _clear_box(fr, [(k_s[0], fr.t0, k_s[1], fr.t1)], inside, keep_clear)
+        if kitchen is None or kitchen.area < 4:
+            continue
+        ks = fr.to_local(kitchen).bounds
+        inner = ks[2] if sign > 0 else ks[0]  # the kitchen's side facing the dining room
+        t_s = (min(inner, inner + sign * tw), max(inner, inner + sign * tw))
+        taken = keep_clear.union(kitchen.buffer(0.01))
+        toilets = _clear_box(
+            fr,
+            [(t_s[0], fr.t1 - td, t_s[1], fr.t1), (t_s[0], fr.t0, t_s[1], fr.t0 + td)],
+            inside,
+            taken,
+        )
+        break
+    taken_parts: list[Any] = [*shells, *([lift] if lift is not None else [])]
+    rooms: list[Polygon] = []
+    for kind, label, poly in (("other", "Kitchen", kitchen), ("booth", "Toilets", toilets)):
+        if poly is not None and poly.area >= 4:
+            add(kind, label, poly, tall)
+            taken_parts.append(poly)
+            rooms.append(poly)
+    blocked = unary_union([blocked, *rooms])
+
+    # tables in rows, clear of walls, doors, stairs and the main aisle
+    edge = fit["clear_of_walls_m"]
+    room = foot.buffer(-edge).difference(blocked.buffer(fit["clear_of_rooms_m"]))
+    tables = 0
+    half = table_m / 2
+    s = fr.s0 + edge + half
+    while s < fr.s1 - edge and tables < fit["max_tables"]:
+        t = fr.t0 + edge + half
+        while t < fr.t1 - edge and tables < fit["max_tables"]:
+            if abs(t) > fit["main_aisle_m"] / 2 + half:
+                cand = fr.to_world(box(s - half, t - half, s + half, t + half))
+                if room.contains(cand):
+                    add("seating", "Table", cand, fit["table_height_m"])
+                    tables += 1
+            t += pitch
+        s += pitch
+    obstacles += stairwell_walls(fid, walls, tall, len(obstacles) + 1)
+    return _Fitout(obstacles, unary_union(taken_parts) if taken_parts else None)
 
 
 def _wall_obstacles(floor_id: str, walls: Any, height: float) -> list[Obstacle]:
@@ -414,7 +751,8 @@ def _storeys(
     solids = [o for o in ground.obstacles]  # courtyards and light wells, on every floor
     solid = unary_union([geo.to_polygon(o.polygon) for o in solids]) if solids else None
     fr = _Frame(foot)
-    corridor_w = CORRIDOR_M.get(use or "", DEFAULT_CORRIDOR_M)
+    rooms_fit = fitouts()["rooms"]
+    corridor_w = _by_use(rooms_fit["corridor_m"], use)
     solid_free = foot.difference(solid.buffer(0.5)) if solid is not None else foot
     basements = plan.basements
     order = level_order(levels, basements)
@@ -422,9 +760,8 @@ def _storeys(
     if plan.cores is not None:
         cores = list(plan.cores) if multi else []
     else:
-        found = _cores(fr, solid_free, corridor_w) if multi else []
         flight = round(min(STAIR_W, corridor_w - 0.2) - 0.4, 2)
-        cores = [Core(a, b, flight) for a, b in found]
+        cores = _cores(fr, solid_free, flight, floor_height_m) if multi else []
     for lower in sorted(order)[:-1]:
         if not any(c.joins(lower, lower + 1) for c in cores):
             raise ValueError("No room for a stair inside this building outline.")
@@ -435,7 +772,7 @@ def _storeys(
         return [c for c in cores if c.span is None or c.span[0] <= k <= c.span[1]]
 
     def core_area(k: int) -> Any:
-        shapes = [g for c in cores_at(k) for g in (c.a, c.b)]
+        shapes = [c.shaft for c in cores_at(k)]
         return unary_union(shapes).buffer(0.4) if shapes else None
 
     walls: Any = None
@@ -444,14 +781,14 @@ def _storeys(
     # grouped into areas like a map import, so a hotel floor is not 30 two-person zones)
     explicit_rooms = plan.rooms_per_floor is not None and plan.rooms_per_floor <= MAX_OWN_ROOMS
     if interior == "rooms":
-        if fr.depth < corridor_w + 2 * MIN_ROOM_DEPTH or fr.length < 12:
+        if fr.depth < corridor_w + 2 * rooms_fit["min_room_depth_m"] or fr.length < 12:
             notes.append(
                 f"The building is {fr.depth:.0f} m deep: too shallow for rooms on both sides of "
                 "a corridor, so its floors were left open. Add rooms and walls in the editor."
             )
             interior = "open"
         else:
-            room_w = ROOM_W.get(use or "", DEFAULT_ROOM_W)
+            room_w = room_width(use)
             if plan.rooms_per_floor is not None:
                 per_side = math.ceil(plan.rooms_per_floor / 2)
                 room_w = fr.length / per_side
@@ -460,7 +797,8 @@ def _storeys(
                         f"Laid out {2 * per_side} rooms per floor ({per_side} on each side of "
                         "the corridor); merge two in the editor if one fewer is right."
                     )
-            walls, band = _room_walls(fr, foot, corridor_w, room_w, DOOR_W.get(use or "", 1.0))
+            door_w = _by_use(rooms_fit["door_w_m"], use)
+            walls, band = _room_walls(fr, foot, corridor_w, room_w, door_w)
 
     load = LOAD_M2.get(use or "", DEFAULT_LOAD_M2)
     floors: dict[int, Floor] = {}
@@ -487,6 +825,18 @@ def _storeys(
             o.model_copy(update={"id": o.id if k == 0 else f"{o.id}_{fid.lower()}"}) for o in solids
         ]
         obstacles += extra
+        fit: _Fitout | None = None
+        if interior == "dining":
+            fit = _dining_fitout(fr, foot, cores_at(k), exits_k, fid, floor_height_m, k)
+        elif multi and interior in fitouts()["stairwell"]["interiors"] and cores_at(k):
+            fit = _stairwells_only(foot, cores_at(k), exits_k, fid, floor_height_m, k)
+        if fit is not None:
+            # the layout already places its own lifts here: the fit-out does not add another
+            words = tuple(fitouts()["dining"].get("lift_words", ()))
+            own = any(any(w in (o.label or "").lower() for w in words) for o in [*solids, *extra])
+            obstacles += [
+                o for o in fit.obstacles if not (own and o.label == FITOUT_LIFT and words)
+            ]
         if floor_walls is not None:
             obstacles += _wall_obstacles(fid, floor_walls, floor_height_m - 0.3)
         free = foot
@@ -500,6 +850,8 @@ def _storeys(
             free = free.difference(cores_k)
         if extra_area is not None:
             free = free.difference(extra_area)
+        if fit is not None and fit.taken is not None:
+            free = free.difference(fit.taken.buffer(0.3))
         rooms = [p for p in _parts(free) if p.area >= 6]
         if band is not None and not explicit_rooms:  # the floor without corridor and stairs
             allowed = foot.buffer(-0.4).difference(band.buffer(0.3))
@@ -531,7 +883,7 @@ def _storeys(
     elif band is not None:
         word = AREA_WORD.get(use or "", "Rooms")
     else:
-        word = "Floor area"
+        word = "Dining area" if interior == "dining" else "Floor area"
     word = plan.zone_word or word
     kept = [
         (fi, p, share)
@@ -557,25 +909,21 @@ def _storeys(
         )
 
     stairs: list[Stair] = []
-    length = round(math.hypot(2 * STAIR_RUN + 1, floor_height_m), 2)
     for idx, c in enumerate(cores):
         letter = chr(ord("a") + idx)
-        links = [(f"F{i}", f"F{i - 1}", str(i)) for i in range(1, levels) if c.joins(i - 1, i)]
-        links += [
-            (floor_id(k), floor_id(k + 1), f"b{-k}")
-            for k in range(-basements, 0)
-            if c.joins(k, k + 1)
-        ]
+        links = [(i, i - 1, str(i)) for i in range(1, levels) if c.joins(i - 1, i)]
+        links += [(k, k + 1, f"b{-k}") for k in range(-basements, 0) if c.joins(k, k + 1)]
         for frm, to, tag in links:
+            top, bottom = c.flight(frm, to)
             stairs.append(
                 Stair(
                     id=f"stair_{letter}_{tag}",
-                    from_floor=frm,
-                    to_floor=to,
-                    top_polygon=geo.to_points(orient(c.a, 1.0)),
-                    bottom_polygon=geo.to_points(orient(c.b, 1.0)),
+                    from_floor=floor_id(frm),
+                    to_floor=floor_id(to),
+                    top_polygon=geo.to_points(orient(top, 1.0)),
+                    bottom_polygon=geo.to_points(orient(bottom, 1.0)),
                     width_m=c.width_m,
-                    length_m=length,
+                    length_m=c.length_m(floor_height_m),
                 )
             )
     return [floors[k] for k in order], stairs, notes, interior
@@ -694,6 +1042,11 @@ def build_storeys(
                 why.append(
                     "Rooms and a corridor were laid out as a typical plan, not the real "
                     "interior: check walls and doors on site."
+                )
+            if layout == "dining":
+                why.append(
+                    "Each floor was fitted out as a typical restaurant (kitchen, toilets, tables, "
+                    "a lift and an enclosed stairwell), not the real interior: check it on site."
                 )
             return out, notes + why
         notes.append(

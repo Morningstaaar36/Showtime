@@ -2,14 +2,16 @@
 
 [![Licence: Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
 
-> **Judges: start here → [docs/JUDGE_GUIDE.md](docs/JUDGE_GUIDE.md)** (demo link, a 5-minute
-> path, what runs live, and how to run it yourself in three commands).
+> This is the full feature tour. Start with the [main README](../README.md) (what it does, the
+> Bailey Road example, quickstart, architecture); a 5-minute path is in
+> [docs/JUDGE_GUIDE.md](docs/JUDGE_GUIDE.md).
 
 **AI agents try to break your event plan. The red team can write attacks as code, and that code
 only ever runs in a sealed sandbox. A physics simulator, not the AI, decides what breaks. Then the
 AI proposes fixes, and only the fixes the simulator confirms are kept.**
 
-- **Agents that act:** eleven NVIDIA Nemotron agents. They build the venue from one sentence,
+- **Agents that act:** twelve NVIDIA Nemotron agents. They build the venue from one sentence
+  (designing, checking and revising it in rounds),
   attack it (menu attacks, plus at most one scenario written as code per round), look up real
   incidents, propose fixes and write their own analysis code.
 - **Sandboxes at the core:** every simulation and every AI-written script runs in a throwaway
@@ -23,9 +25,9 @@ AI proposes fixes, and only the fixes the simulator confirms are kept.**
 
 ![AI tests it: the red team's attacks running in sandboxes, live](docs/screenshots/step7/work-sandbox-feed.png)
 
-**Run it:** [quickstart](#quickstart) · **Status:** it runs now on local Docker sandboxes and on
-NVIDIA Nemotron through OpenRouter. Nebius Token Factory, Nebius Sandboxes and Tavily web search
-are built as plug-ins, but **not run live** (no keys yet: [live status](docs/LIVE_STATUS.md)).
+**Run it:** [quickstart](#quickstart) · **Status:** it runs on local Docker sandboxes and on
+NVIDIA Nemotron through OpenRouter (or a local llama.cpp server). Tavily web search is built as a
+plug-in but **not run live** (no key yet: [live status](docs/LIVE_STATUS.md)).
 
 > Planning aid, not a safety certification.
 
@@ -139,26 +141,26 @@ The AI team page lists twelve entries because the Analyst's planning and answeri
 shown separately; the Router is a small classifier with a keyword fallback. Tools produce every
 number: a layout solver turns a design into exact geometry, an instant estimate screens ideas in
 milliseconds, and the JuPedSim crowd simulator tests every scenario and every fix in its own
-sealed sandbox (Docker with no network today; a Nebius Sandboxes runner is built behind the same
-interface, not run live). A number checker rejects agent text that quotes a number the tools did
+sealed sandbox (a Docker container with no network). A number checker rejects agent text that quotes a number the tools did
 not produce. Venues come from a sentence, a map, a template or a real case's description (the
 templates and real-case descriptions are written by hand); the agents and tools do the rest. The
 live team, with the model each agent runs on, is at `/team` in the app and `GET /api/v1/agents`.
 
 **Models.** Roles map to models in `.env` (`MODEL_FAST`, `MODEL_LONG`, `MODEL_MAIN`,
-`MODEL_JUDGE`), filled from the provider presets in `api/data/llm_presets.json`:
+`MODEL_JUDGE`, `MODEL_VISION`), filled from the provider presets in `api/data/llm_presets.json`:
 
-| Role | Agents | OpenRouter preset (runs live) | Nebius Token Factory preset (not run live) |
-| --- | --- | --- | --- |
-| fast | Red team, What-if planner, Router | Nemotron 3.5 Lightning (free) | Nemotron 3.5 Lightning |
-| long | long incident texts | Nemotron 3.5 Lightning (free) | Nemotron 3.5 Lightning |
-| main | Brief, Designer, Editor, Blue team, Explainer, Analyst | Nemotron 3 Ultra (free) | Nemotron 3.5 Super VL |
-| judge | Judge, Safety officer | Nemotron 3 Ultra (free) | Nemotron 3 Ultra |
+| Role | Agents | OpenRouter preset (runs live) |
+| --- | --- | --- |
+| fast | Red team, What-if planner, Router | Nemotron 3.5 Lightning (free) |
+| long | long incident texts | Nemotron 3.5 Lightning (free) |
+| main | Brief, Designer, Editor, Blue team, Explainer, Analyst | Nemotron 3 Ultra (free) |
+| judge | Judge, Safety officer | Nemotron 3 Ultra (free) |
+| vision | Plan critic (reads the drawn floor plans) | Nemotron 3.5 Super VL (free) |
 
 Results logged up to 2026-10-19 used Nemotron 3 Super on OpenRouter, until its free endpoint
 returned 404. `MODEL_FALLBACK` is tried when a role's model fails at the provider, and
-`OPENAI_COMPAT_API_KEY_FALLBACK` when a key runs out. JSON is asked for in the prompt (both
-presets set `LLM_SUPPORTS_JSON_SCHEMA=false`), validated with Pydantic and repaired with one extra
+`OPENAI_COMPAT_API_KEY_FALLBACK` when a key runs out. JSON is asked for in the prompt (the
+preset sets `LLM_SUPPORTS_JSON_SCHEMA=false`), validated with Pydantic and repaired with one extra
 call. Model replies are cached: with the default `LLM_CACHE_MODE=record_replay`, a call identical
 to an earlier one is replayed from `cache/llm/`, and Your plan › *How this plan was made* says
 how many were.
@@ -178,21 +180,21 @@ simulated).
 | **Who is in the crowd** | Older people, children, wheelchair users and patients in beds walk at cited speeds and take their real width, down the stairs too. The replay draws each kind with its own shape. | The 4-floor hospital takes 207 s to get 95 % out with its patients and staff, against 109 s if everyone moved like a healthy adult. |
 | **Scenarios for buildings** | 18 named what-ifs with targets picked from the venue: a stairwell lost to smoke, firefighters climbing the stairs, phased evacuation, a power cut, a gate closed, a late surge… | 3-storey office, 300 people: losing one stairwell raises the time to get 95 % out from 104 s to 174 s (+68 %). |
 
-## How NVIDIA and Nebius technology is used
+## Technology used
 
 | Technology | Role in Showtime |
 | --- | --- |
-| **NVIDIA Nemotron** (Nano 9B v2 locally; Nemotron 3.5 Lightning and 3 Ultra hosted on OpenRouter) | Eleven agents (see *How it works*), among them: **Brief** (one sentence → event brief for the Copilot), **Designer** (description → layout spec that a solver builds and the checks verify), **Editor** (text → validated edit ops; 12/12 on our scripted edits with the local model), **Red team** (attacks grounded in incidents), **Blue team** (fixes), **Judge** (final plan text, number-checked), **Explainer** ("Ask the venue"). Roles map to models as in the table above. JSON is asked for in the prompt, validated with Pydantic and repaired once. |
-| **Nebius Token Factory** | A provider plug-in (`api/adapters/providers/llm_nebius.py`, preset ids in `api/data/llm_presets.json`): `LLM_PROVIDER=nebius` plus the key selects it and its Nemotron preset; `make verify-nebius-llm` makes one real call. Built and tested with fake clients; **not run live** (no key yet). Today the same OpenAI-compatible adapter runs Nemotron on OpenRouter. |
-| **Nebius Sandboxes** (contree-sdk) | A sandbox plug-in (`SANDBOX_PROVIDER=nebius`): every scenario as a child snapshot of the venue image (attack → fix branches), run in parallel. Built against the SDK and tested with a fake client; **not run live** (no access yet; `make verify-nebius-sandbox`). Today every run is a local Docker container with `--network=none`, a read-only system, memory, CPU and process limits ([docs/SANDBOX_PROOF.md](docs/SANDBOX_PROOF.md)). |
+| **NVIDIA Nemotron** (Nano 9B v2 locally; Nemotron 3.5 Lightning, 3 Ultra and 3.5 Super VL hosted on OpenRouter) | Twelve agents (see *How it works*), among them: **Brief** (one sentence → event brief for the Copilot), **Designer** (description → layout spec that a solver builds and the checks verify, revised in rounds), **Plan critic** (reads the drawn floor plans; may only raise what the description states), **Editor** (text → validated edit ops; 12/12 on our scripted edits with the local model), **Red team** (attacks grounded in incidents), **Blue team** (fixes), **Judge** (final plan text, number-checked), **Explainer** ("Ask the venue"). Roles map to models as in the table above. JSON is asked for in the prompt, validated with Pydantic and repaired once. |
 | **LangGraph** | The Event Copilot is a compiled `StateGraph` with conditional routes, checkpointing and custom streaming; `GET /api/v1/copilot/graph` serves its structure, which the UI draws live. |
 | **Tavily** | A search plug-in: the red team searches (basic depth, up to 5 results) for incidents like the venue's and may cite only URLs that came back; the evidence desk looks up capacity and guidance for the brief. Cached, capped per session, every source labelled with its origin. Built and tested with a fake client only; **not run live** (no key; `make verify-tavily`), so we claim no live results. Without a key the app says web search is off and the red team cites the incident dataset. |
 | **JuPedSim, PedPy, Pynite, Open-Meteo** | Crowd simulation, crowd metrics, stage frame model, gust forecasts. |
 | **OpenStreetMap, OpenFreeMap, MapLibre** | Real sites: place search (Nominatim), buildings, water, paths and entrances (Overpass, with OpenFreeMap vector tiles as fallback), the 3D picking map and the street-map ground in the 3D view. |
 
-See [docs/NEBIUS_SWITCH.md](docs/NEBIUS_SWITCH.md) for what was verified and how to switch, and
-[docs/HOSTING.md](docs/HOSTING.md) to host the app on a Nebius AI Cloud VM (`make deploy-nebius`;
-Token Factory hosts models, not apps).
+Every simulation and every AI-written script runs in a local Docker container with
+`--network=none`, a read-only system, memory, CPU and process limits
+([docs/SANDBOX_PROOF.md](docs/SANDBOX_PROOF.md)). Providers and keys:
+[docs/PROVIDERS.md](docs/PROVIDERS.md); hosting on any Linux server:
+[docs/HOSTING.md](docs/HOSTING.md).
 
 ## Quickstart
 
@@ -211,8 +213,8 @@ tour for organizers is in [docs/TESTING_GUIDE.md](docs/TESTING_GUIDE.md); the pr
 in [docs/DEMO.md](docs/DEMO.md). Stop with `make down`. To host it on a server (HTTPS and a
 password): [docs/HOSTING.md](docs/HOSTING.md).
 
-**Switch to Nebius or add Tavily:** `.env` only, then `make verify-live`
-([docs/NEBIUS_SWITCH.md](docs/NEBIUS_SWITCH.md)).
+**Another provider or Tavily:** `.env` only, then `make verify-live`
+([docs/PROVIDERS.md](docs/PROVIDERS.md)).
 
 ### Developer setup
 
@@ -244,7 +246,7 @@ Every default (walking speed, body size, flows, thresholds, wind coefficients) i
 its source in [docs/ASSUMPTIONS.md](docs/ASSUMPTIONS.md) and printed in each report. The engine
 was calibrated against published flows (door flow 1.1–1.5 people per metre per second) and its
 known artefacts were measured and fixed (doorway plugs, corner deadlocks), see
-[docs/PROGRESS.md](docs/PROGRESS.md). The time gap to the person ahead was calibrated on the
+[docs/archive/PROGRESS.md](docs/archive/PROGRESS.md). The time gap to the person ahead was calibrated on the
 Jülich 2006 bottleneck series and checked on other widths of the same series
 ([docs/VALIDATION.md](docs/VALIDATION.md)). Instant estimates are compared with simulations per
 template (`make calibrate`) and the ratio is printed in reports.
@@ -260,10 +262,10 @@ journeys, against the running app). CI runs the same checks: `.github/workflows/
 [Judge's guide](docs/JUDGE_GUIDE.md) · [Pitch](docs/PITCH.md) · [Hard questions](docs/QA.md) ·
 [Demo script](docs/DEMO.md) · [Testing guide](docs/TESTING_GUIDE.md) · [User guide](docs/USER_GUIDE.md) ·
 [Architecture](docs/ARCHITECTURE.md) · [Extending](docs/EXTENDING.md) ·
-[Assumptions](docs/ASSUMPTIONS.md) · [Nebius switch](docs/NEBIUS_SWITCH.md) · [Hosting](docs/HOSTING.md) ·
+[Assumptions](docs/ASSUMPTIONS.md) · [Providers](docs/PROVIDERS.md) · [Hosting](docs/HOSTING.md) ·
 [Real cases](docs/REAL_CASES.md) · [Validation](docs/VALIDATION.md) · [Live status](docs/LIVE_STATUS.md) ·
-[Handoff](docs/HANDOFF.md) · [Security](SECURITY.md) · history: [progress log](docs/PROGRESS.md), [archive](docs/archive/) ·
-[Licences](docs/LICENSES.md) · [Feedback on Nebius & NVIDIA tools](docs/FEEDBACK.md)
+[Handoff](docs/HANDOFF.md) · [Security](SECURITY.md) · history: [progress log](docs/archive/PROGRESS.md), [archive](docs/archive/) ·
+[Licences](docs/LICENSES.md)
 
 ## License
 

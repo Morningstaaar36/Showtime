@@ -32,9 +32,7 @@ async def sandbox_check(settings: Any) -> LiveCheck:
     runner = build_runner(settings)
     health = await runner.health()
     if not health.get("ok"):
-        return LiveCheck(
-            "failed", str(health.get("detail", "")), "See docs/WHEN_YOU_GET_THE_KEYS.md."
-        )
+        return LiveCheck("failed", str(health.get("detail", "")), "See docs/PROVIDERS.md.")
     ok = await runner.run_code(CodeJob("verify_ok", "user_script", "output = {'sum': 1 + 1}\n"))
     if ok.status != "ok" or (ok.output or {}).get("sum") != 2:
         return LiveCheck(

@@ -1,7 +1,7 @@
 """Application container: settings, plugins, providers and services.
 
 This is the only place that decides which provider implementation to use, so switching
-to Nebius is a matter of `.env` values (LLM_PROVIDER, SANDBOX_PROVIDER).
+providers is a matter of `.env` values (LLM_PROVIDER, SANDBOX_PROVIDER).
 """
 
 from __future__ import annotations
@@ -137,7 +137,10 @@ def build_runner(settings: Settings) -> SandboxRunner:
 
 def build_osm(settings: Settings) -> OpenStreetMap:
     """The map services, all from settings (servers, tiles, the largest area to load)."""
-    urls = lambda v: [u.strip() for u in v.split(",") if u.strip()]  # noqa: E731
+
+    def urls(v: str) -> list[str]:
+        return [u.strip() for u in v.split(",") if u.strip()]
+
     return OpenStreetMap(
         settings.nominatim_url,
         settings.overpass_url,

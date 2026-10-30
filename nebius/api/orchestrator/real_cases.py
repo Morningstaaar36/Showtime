@@ -15,21 +15,10 @@ import logging
 from typing import Any
 
 from api.agents.base import AgentEnv
-from api.agents.venue_designer import design_venue
 from api.core.real_cases import EXTENSION_KEY, RealCase, case_of
+from api.core.session_modes import session_modes
 from api.orchestrator.case_library import find_case
-
-# one round, two what-ifs, two fixes for the worst; tier 2 for the what-ifs keeps a crowd
-# that cannot get out (Hillsborough) inside the session's wall-clock budget
-CASE_TEST: dict[str, Any] = {
-    "max_rounds": 1,
-    "attacks_per_round": 2,
-    "fixes_per_attack": 2,
-    "fix_targets": 1,
-    "agents": "model",
-    "confirm_tier3": False,
-}
-
+from api.orchestrator.designing import design_from_text
 
 log = logging.getLogger("showtime.real_cases")
 
@@ -38,6 +27,13 @@ log = logging.getLogger("showtime.real_cases")
 _building: dict[str, asyncio.Lock] = {}
 # (project id, version) -> the case it was built from, or None: venues are read once
 _case_of_version: dict[tuple[str, int], str | None] = {}
+# case id -> where its build is ({round, of, stage}), while it is being built
+_progress: dict[str, dict[str, Any]] = {}
+
+
+def build_progress(case_id: str) -> dict[str, Any] | None:
+    """Where the case's build is (design round and stage), or None when it isn't building."""
+    return _progress.get(case_id)
 
 
 class CaseBuildFailed(Exception):
@@ -112,7 +108,7 @@ async def _open_case(st: Any, case_id: str) -> dict[str, Any]:
 
         if st.projects.get(pid).current_version > 1:
             if validate_venue(st.projects.venue(pid)).ok:
-                row = st.sessions.start(pid, CASE_TEST)
+                row = st.sessions.start(pid, session_modes().real_case)
                 return {"project_id": pid, "session_id": row.id, "status": "testing"}
             return {"project_id": pid, "session_id": None, "status": "needs_fixes", "problems": []}
         st.projects.delete(pid)  # untouched and still broken: design it again
@@ -120,11 +116,23 @@ async def _open_case(st: Any, case_id: str) -> dict[str, Any]:
     deadline = float(st.settings.case_build_timeout_s)
     try:
         # the case's crowd is data: a layout that holds another number goes back to the model
-        out = await asyncio.wait_for(design_venue(env, case.description, case.people), deadline)
+        out = await asyncio.wait_for(
+            design_from_text(
+                st,
+                env,
+                case.description,
+                case.people,
+                location=case.location,
+                progress=lambda e: _progress.__setitem__(case_id, e),
+            ),
+            deadline,
+        )
     except TimeoutError as exc:
         raise CaseBuildFailed(
             [f"The designer took longer than {deadline:g} s; try again."]
         ) from exc
+    finally:
+        _progress.pop(case_id, None)
     if out.venue is None:
         raise CaseBuildFailed(out.problems)
     venue = out.venue.model_copy(
@@ -144,7 +152,7 @@ async def _open_case(st: Any, case_id: str) -> dict[str, Any]:
             "status": out.status,
             "problems": out.problems,
         }
-    row = st.sessions.start(p.id, CASE_TEST)
+    row = st.sessions.start(p.id, session_modes().real_case)
     return {"project_id": p.id, "session_id": row.id, "status": "testing"}
 
 

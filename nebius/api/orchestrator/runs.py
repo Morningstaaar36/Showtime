@@ -11,6 +11,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 import re
 import time
 from collections.abc import Callable
@@ -90,6 +91,15 @@ def run_id_for(payload: dict[str, Any]) -> str:
     """Deterministic id from the request content."""
     blob = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
     return "r_" + hashlib.sha256(blob.encode()).hexdigest()[:12]
+
+
+def quick_horizon(st: Any, t1: RunResult) -> float:
+    """How long a quick (tier 2) run simulates: at least TIER2_MAX_SIM_S, and long enough for
+    everyone to get out by the instant estimate (times TIER2_HORIZON_FACTOR), so a tall building
+    is not cut off half-way down; never past MAX_SIM_S. Rounded to 30 s so runs stay cached."""
+    est = t1.metrics.evac_time_max_s or t1.metrics.evac_time_p95_s or 0.0
+    want = math.ceil(est * float(st.tier2_horizon_factor) / 30.0) * 30.0
+    return float(min(st.max_sim_s, max(st.tier2_max_sim_s, want)))
 
 
 class RunService:
@@ -239,7 +249,7 @@ class RunService:
         if speed_factor is not None and abs(speed_factor - 1.0) > 1e-9:
             for k in ("walk_speed_mean", "walk_speed_sd", "stair_speed"):
                 settings_payload[k] = round(float(settings_payload[k]) * speed_factor, 4)
-        max_sim = st.tier2_max_sim_s if tier == 2 else st.max_sim_s
+        max_sim = quick_horizon(st, t1) if tier == 2 else st.max_sim_s
         validate_run_horizon(patched, max_sim, self.registry)
         payload = {
             "v": venue_hash(patched),

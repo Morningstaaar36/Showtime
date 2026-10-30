@@ -1,7 +1,6 @@
 # Agent evaluation: rules only, model only, hybrid (S-01 / P3-07)
 
-Status: 2026-10-17, branch `saif`. Owner: Saif. The Nebius repeat of the model-only arm is
-Shahraz's N-01.
+Status: 2026-10-17, branch `saif`. Owner: Saif.
 
 ## Question
 
@@ -40,7 +39,7 @@ judge and analyst run in every arm and are not compared.
 | Evaluation | the session's own evaluation status (confirmed, partly, not confirmed, failed) |
 
 Not measured: compute and hosting cost (local Docker on a laptop; the sim image is amd64 and runs
-emulated on ARM, so wall times are slow and say nothing about Nebius Sandboxes), and energy.
+emulated on ARM, so wall times are slow and say nothing about a native amd64 machine), and energy.
 Simulation results reused from an earlier arm (same plan, same seed, same events) cost no new
 compute; the wall column shows it.
 
@@ -79,6 +78,6 @@ Raw sessions: `docs/evaluation/20261016T204751Z-*`.
   2. **Venues that break.** At 100–400 people nothing broke, so the blue team had nothing to fix.
      The next run should use headcounts at which the baseline or an attack crosses the danger
      density (for example `t_alley` at its template headcount, or `conference_hall_2f` at 1,200)
-     on a machine that runs the amd64 sim image natively, or with the Nebius sandbox.
+     on a machine that runs the amd64 sim image natively.
 - Free OpenRouter models are rate-limited (requests per minute and per day); a full run is about
   6–10 red/blue calls per model session, plus judge and analyst calls.

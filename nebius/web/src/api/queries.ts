@@ -1,6 +1,6 @@
 /** TanStack Query hooks for every server resource. */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, configureTimeouts } from "./client";
+import { ApiError, api, configureTimeouts } from "./client";
 import { CHECK_POLL_MS, HEALTH_POLL_MS, RUN_POLL_MS, SESSION_POLL_MS, SWEEP_POLL_MS } from "./poll";
 import { useMapConfig } from "@/state/mapConfig";
 import type { ImportKind } from "@/lib/importTypes";
@@ -17,11 +17,13 @@ import type {
   Features,
   Fix,
   GlossaryItem,
+  ImproveLoop,
   PatchInput,
   PatchPreview,
   Health,
   ProjectDetail,
   ProjectSummary,
+  RealCaseProgress,
   RunOut,
   RunResult,
   SceneSnapshot,
@@ -366,8 +368,14 @@ export function useOpenRealCase() {
   });
 }
 
+/** A description → a venue preview. With `request` and `previous` (an earlier preview's layout,
+ * venue.extensions.generated.spec) the AI changes that layout as asked instead of starting over. */
+export type DesignAsk = string | { text: string; request?: string; previous?: unknown };
 export function useDesignVenue() {
-  return useMutation({ mutationFn: (text: string) => api.post<VenueDraft>("/venues/design", { text }) });
+  return useMutation({
+    mutationFn: (ask: DesignAsk) =>
+      api.post<VenueDraft>("/venues/design", typeof ask === "string" ? { text: ask } : ask),
+  });
 }
 
 /** A selected building or area on the map → venue preview (not saved yet). */
@@ -380,7 +388,7 @@ interface FromMapBody {
   selected_id?: string | null;
   levels?: number | null;
   use?: string | null;
-  interior?: "open" | "rooms" | null;
+  interior?: "open" | "rooms" | "dining" | null;
   /** the street and open ground around a building, in metres */
   surroundings_m?: number | null;
   event_kind?: string | null;
@@ -719,4 +727,82 @@ interface AgentsOut {
 /** The AI team (GET /agents): every Nemotron agent, its model, job and tools. */
 export function useAgents() {
   return useQuery({ queryKey: ["agents"], queryFn: () => api.get<AgentsOut>("/agents"), staleTime: 60_000 });
+}
+
+/** Where a real case's build is while the AI designs its venue (polled while it builds). */
+export function useRealCaseProgress(caseId: string | null | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["real_case_progress", caseId], enabled: !!caseId && enabled,
+    queryFn: () => api.get<RealCaseProgress>(`/real_cases/${caseId}/progress`),
+    refetchInterval: enabled ? CHECK_POLL_MS : false,
+  });
+}
+
+export interface RedesignJob {
+  project_id: string;
+  request?: string;
+  status: "none" | "designing" | "done" | "failed";
+  stage?: { round?: number; of?: number; stage?: string };
+  version?: number | null;
+  problems?: string[];
+  error?: string | null;
+}
+
+/** The project's latest redesign by prompt; polls while the AI is redesigning. */
+export function useRedesign(projectId: string) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: ["redesign", projectId],
+    queryFn: async () => {
+      const out = await api.get<RedesignJob>(`/projects/${projectId}/redesign`);
+      if (out.status === "done") for (const key of [["project"], ["versions"], ["projects"]]) void qc.invalidateQueries({ queryKey: key });
+      return out;
+    },
+    refetchInterval: (q) => (q.state.data?.status === "designing" ? CHECK_POLL_MS : false),
+  });
+}
+
+export function useStartRedesign(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (request: string) => api.post<RedesignJob>(`/projects/${projectId}/redesign`, { request }),
+    onSuccess: (out) => qc.setQueryData(["redesign", projectId], out),
+  });
+}
+
+/** "Let the AI fix it": the loop this test belongs to (null when there is none); polls while it runs. */
+export function useImprove(sessionId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: ["improve", sessionId], enabled: !!sessionId,
+    queryFn: async () => {
+      try {
+        const out = await api.get<ImproveLoop>(`/sessions/${sessionId}/improve`);
+        if (out.status !== "running") {
+          for (const key of [["sessions"], ["project"], ["versions"]]) void qc.invalidateQueries({ queryKey: key });
+        }
+        return out;
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) return null;
+        throw e;
+      }
+    },
+    refetchInterval: (q) => (q.state.data?.status === "running" ? CHECK_POLL_MS : false),
+  });
+}
+
+export function useStartImprove(sessionId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<ImproveLoop>(`/sessions/${sessionId}/improve`, {}),
+    onSuccess: (out) => qc.setQueryData(["improve", sessionId], out),
+  });
+}
+
+export function useStopImprove(sessionId: string | null | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<ImproveLoop>(`/sessions/${sessionId}/improve/stop`, {}),
+    onSuccess: (out) => qc.setQueryData(["improve", sessionId], out),
+  });
 }

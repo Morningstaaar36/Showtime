@@ -47,8 +47,9 @@ class _Transport:
 def _client(tmp_path: Path, transport: _Transport, **kw: Any) -> LLMClient:
     s = Settings(
         _env_file=None,
-        llm_provider="nebius",
-        nebius_api_key="k",
+        llm_provider="openai",
+        openai_compat_base_url="https://llm.example/v1",
+        openai_compat_api_key="k",
         model_fast="nvidia/nemotron-3-super-120b-a12b",
         price_fast_in=1.0,
         price_fast_out=1.0,

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton, Spinner } from "@/components/ui/misc";
 import { EmptyState, ErrorState } from "@/components/ui/states";
 import { TabsContent } from "@/components/ui/tabs";
+import { ImprovePanel } from "@/journey/ImprovePanel";
 import { t } from "@/i18n";
 import { AskAnything } from "@/journey/AskAnything";
 import type { ProposalPreview } from "@/journey/AskChange";
@@ -416,6 +417,9 @@ export function YourPlanPage() {
           </div>
         )}
         {status === "stopped" && <p role="status" className="rounded-[10px] border border-caution/40 bg-caution-soft p-3 text-sm">{t("yourplan.partial", { reason: summary?.stopped_reason ?? "" })}</p>}
+        {sessionId && status === "finished" && (
+          <ImprovePanel projectId={p.id} sessionId={sessionId} breaks={summary?.scoreboard?.[0]?.breaks ?? 0} />
+        )}
 
         <Tabs value={tab} onValueChange={(v) => go(v as PlanTab)} className="space-y-4">
           <TabsPrimitiveList aria-label={t("plan.tabs")}

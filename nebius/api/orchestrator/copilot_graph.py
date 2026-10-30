@@ -207,6 +207,12 @@ async def locate(state: CopilotState, config: RunnableConfig) -> CopilotState:
     }
 
 
+DESIGN_STAGE = {
+    "critiquing": "Design round {n} of {of}: checking the plans",
+    "revising": "Design round {n} of {of}: revising the layout",
+}
+
+
 async def design(state: CopilotState, config: RunnableConfig) -> CopilotState:
     """Designer agent + solver: a venue from words."""
     w = get_stream_writer()
@@ -218,8 +224,17 @@ async def design(state: CopilotState, config: RunnableConfig) -> CopilotState:
     )
     if b.place and b.place.lower() not in desc.lower():
         desc += f", in {b.place}"
+
     # the brief's layout text may leave the headcount out: the designer is held to it
-    draft = await venue_sources.design(_metered(config), desc, people=b.attendees or None)
+    def progress(e: dict[str, Any]) -> None:
+        if e.get("stage") in ("critiquing", "revising"):
+            detail = DESIGN_STAGE[e["stage"]].format(n=e["round"], of=e["of"])
+            w(_step("site", "running", "Designing the venue from your description", detail,
+                    node="design"))  # fmt: skip
+
+    draft = await venue_sources.design(
+        _metered(config), desc, people=b.attendees or None, progress=progress
+    )
     if draft.get("venue") is None:
         w(
             _step(
@@ -395,8 +410,11 @@ async def sweep_node(state: CopilotState, config: RunnableConfig) -> CopilotStat
     return {"sweep_runs": runs}
 
 
-def _fallback_review(est: dict[str, Any]) -> dict[str, Any]:
-    """Rule-based actions when the language model is unavailable."""
+NO_URGENT_ACTIONS = "No urgent actions: the safety officer found nothing to change first."
+
+
+def _fallback_review(est: dict[str, Any], reason: str) -> dict[str, Any]:
+    """Rule-based actions when the language model gave no usable review (`reason` says why)."""
     actions = []
     for ln in est.get("lines", []):
         if ln["status"] != "warn":
@@ -429,7 +447,7 @@ def _fallback_review(est: dict[str, Any]) -> dict[str, Any]:
                 }
             )
     return {
-        "summary": "Rule-based review (the language model was not available).",
+        "summary": f"Rule-based review ({reason}).",
         "actions": actions,
     }
 
@@ -455,14 +473,23 @@ async def _review(
         "what_if_instant_estimates": sweep.instant_matrix(st, venue),
         "plan_checks": checks,
     }
+    result: dict[str, Any] | None = None
+    reason = "the language model was not available"
     try:
         call = await review_plan(_env(st), facts)
-        checked = keep_checked(call.output, facts) if call.output else None
-        result = checked.model_dump(mode="json") if checked and checked.actions else None
+        if call.output is not None:
+            checked = keep_checked(call.output, facts)
+            if checked.actions or not call.output.actions:
+                # the model's review, including a valid "nothing urgent" answer
+                result = checked.model_dump(mode="json")
+                if not checked.actions:
+                    result["summary"] = (checked.summary or "").strip() or NO_URGENT_ACTIONS
+            else:
+                reason = "every suggestion of the model quoted numbers not in the plan"
     except AgentUnavailable:
-        result = None
+        pass
     if result is None:
-        result = _fallback_review(est)
+        result = _fallback_review(est, reason)
     save_review(st, project_id, result)
     return result
 

@@ -1,0 +1,304 @@
+{
+ "case": "Bailey Road 2024 \u00b7 Dhaka",
+ "started": "2026-10-30 16:05",
+ "project": "p_4f7b04cbf3",
+ "design_rounds": [
+  {
+   "round": 1,
+   "summary": "indoor 22\u00d714 m, 7 storeys, 1 exits, 290 people",
+   "problems": [],
+   "fixes": [],
+   "notes": [],
+   "critic": "issues",
+   "critique": [
+    "Add a street door exit on every upper restaurant floor, as described; the plan shows none on floors 1-6.",
+    "Add one stair flight per storey with landings at each end on every floor, as described; the plan draws only one flight total on the upper floors."
+   ],
+   "critique_dropped": [
+    "Show two lifts on every floor, as described; the plan draws only one lift per floor.",
+    "Show the stair as about 1.2 m wide, as described; the plan draws it much wider."
+   ],
+   "evac_s": 115.0,
+   "not_out": 0,
+   "per_floor": [
+    {
+     "floor": "Coffee shop",
+     "people": 30,
+     "area_m2": 141.8,
+     "people_per_m2": 0.21,
+     "farthest_walk_m": 15.5,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 1",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 10.7,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 2",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 13.8,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 3",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 10.7,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 4",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 13.8,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 5",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 10.7,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 6",
+     "people": 35,
+     "area_m2": 138.5,
+     "people_per_m2": 0.25,
+     "farthest_walk_m": 13.8,
+     "ways_out": 1
+    }
+   ],
+   "kept": true
+  },
+  {
+   "round": 2,
+   "summary": "indoor 22\u00d714 m, 7 storeys, 1 exits, 290 people",
+   "problems": [],
+   "fixes": [],
+   "notes": [],
+   "critic": "issues",
+   "critique": [
+    "Show two lifts on every floor; the plan draws only one lift per floor.",
+    "Add a street door exit on every upper restaurant floor; the plan shows exits only on the ground floor.",
+    "Add a second stair flight touching each upper restaurant floor; the plan shows only one stair flight per upper floor.",
+    "Add a stair flight touching the coffee shop; the plan shows none touching the ground floor."
+   ],
+   "critique_dropped": [],
+   "evac_s": 115.0,
+   "not_out": 0,
+   "per_floor": [
+    {
+     "floor": "Coffee shop",
+     "people": 30,
+     "area_m2": 141.8,
+     "people_per_m2": 0.21,
+     "farthest_walk_m": 15.5,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 1",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 10.7,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 2",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 13.8,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 3",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 10.7,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 4",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 13.8,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 5",
+     "people": 45,
+     "area_m2": 138.5,
+     "people_per_m2": 0.32,
+     "farthest_walk_m": 10.7,
+     "ways_out": 1
+    },
+    {
+     "floor": "Restaurant floor 6",
+     "people": 35,
+     "area_m2": 138.5,
+     "people_per_m2": 0.25,
+     "farthest_walk_m": 13.8,
+     "ways_out": 1
+    }
+   ],
+   "kept": false
+  }
+ ],
+ "site": {
+  "lat": 23.7409,
+  "lon": 90.4078,
+  "source": "no building outline",
+  "width_m": null,
+  "depth_m": null,
+  "turned_deg": 0.0,
+  "levels": null,
+  "notes": [
+   "OpenStreetMap has no building outline at this point; the described size was used."
+  ]
+ },
+ "venue": {
+  "floors": 7,
+  "stair_flights": 6,
+  "exits": 1,
+  "people": 290
+ },
+ "first_test": {
+  "session": "s_25beb34fd7",
+  "status": "finished",
+  "scoreboard": [
+   {
+    "round": 1,
+    "breaks": 3,
+    "attacks": 3,
+    "coverage": 0.125,
+    "qd_score": 3.961
+   }
+  ],
+  "before": {
+   "evac_time_p95_s": null,
+   "evac_time_estimate_s": 248.7,
+   "peak_density_ppm2": 2.88,
+   "time_above_danger_s": 0.0,
+   "agents_not_evacuated": 152,
+   "agents_total": 290
+  },
+  "after": null,
+  "kept_fixes": [
+   "F1_1"
+  ],
+  "attacks": [
+   "Adaptive scenario density barrier",
+   "Crowd surge into Dining area \u00b7 Coffee shop from late arrivals",
+   "South door blocked during exit rush"
+  ],
+  "fixes": {
+   "F1_1": "Add second stairwell at south-west corner"
+  },
+  "evaluation": "unconfirmed",
+  "evaluation_reasons": [
+   "The kept fixes were not confirmed with full simulations."
+  ],
+  "calls": 3
+ },
+ "improve": {
+  "id": "s_25beb34fd7",
+  "project_id": "p_4f7b04cbf3",
+  "status": "no_fix",
+  "detail": "Test 2: 1 of 3 attacks broke the plan and no fix the AI proposed held up in the simulator. Edit the venue by hand, or describe the change you have in mind.",
+  "max_rounds": 3,
+  "started_at": "2026-10-30T10:08:33.801628+00:00",
+  "iterations": [
+   {
+    "session_id": "s_25beb34fd7",
+    "version": 1,
+    "breaks": 3,
+    "attacks": 3,
+    "kept_fixes": [
+     "F1_1"
+    ],
+    "fix_titles": [
+     "Add second stairwell at south-west corner"
+    ],
+    "before": {
+     "evac_time_p95_s": null,
+     "evac_time_estimate_s": 248.7,
+     "peak_density_ppm2": 2.88,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 152,
+     "agents_total": 290
+    },
+    "after": {},
+    "applied_version": 2
+   },
+   {
+    "session_id": "s_34901bf3e2",
+    "version": 2,
+    "breaks": 1,
+    "attacks": 3,
+    "kept_fixes": [],
+    "fix_titles": [],
+    "before": {
+     "evac_time_p95_s": null,
+     "evac_time_estimate_s": 289.8,
+     "peak_density_ppm2": 2.5,
+     "time_above_danger_s": 0.0,
+     "agents_not_evacuated": 38,
+     "agents_total": 290
+    },
+    "after": {},
+    "applied_version": null
+   }
+  ],
+  "current_session_id": "s_34901bf3e2"
+ },
+ "final_test": {
+  "session": "s_34901bf3e2",
+  "status": "finished",
+  "scoreboard": [
+   {
+    "round": 1,
+    "breaks": 1,
+    "attacks": 3,
+    "coverage": 0.115,
+    "qd_score": 3.003
+   }
+  ],
+  "before": {
+   "evac_time_p95_s": null,
+   "evac_time_estimate_s": 289.8,
+   "peak_density_ppm2": 2.5,
+   "time_above_danger_s": 0.0,
+   "agents_not_evacuated": 38,
+   "agents_total": 290
+  },
+  "after": null,
+  "kept_fixes": [],
+  "attacks": [
+   "Smoke front descending stairwell_1",
+   "South stairwell door blocked during exit rush",
+   "Late surge onto upper restaurant floors"
+  ],
+  "fixes": {
+   "F1_1": "Add a new stairwell at south-west corner",
+   "F1_2": "Staggered release of upper floors to reduce stairwell congestion"
+  },
+  "evaluation": "unconfirmed",
+  "evaluation_reasons": [
+   "No fixes were kept, so there was nothing to confirm."
+  ],
+  "calls": 3
+ }
+}

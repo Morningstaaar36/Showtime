@@ -25,8 +25,6 @@ from api.orchestrator.rewind import live_or_interrupted, load_record, now_iso, n
 
 log = logging.getLogger("showtime.stress")
 
-MAX_RUNS = 120
-TIER = 2  # quick simulations
 _TASKS: dict[str, asyncio.Task[None]] = {}
 
 AttackSource = Literal["session", "rules"]
@@ -87,9 +85,10 @@ def plan_runs(
         notes.append("No finished test yet, so there are no kept changes to add.")
     seed_list = [int(st.settings.default_seed) + i for i in range(seeds)]
     total = len(chosen) * len(variants) * len(seed_list)
-    if total > MAX_RUNS:
+    max_runs = int(st.settings.stress_max_runs)
+    if total > max_runs:
         raise StressError(
-            f"That is {total} simulations, more than the {MAX_RUNS} allowed at once. "
+            f"That is {total} simulations, more than the {max_runs} allowed at once. "
             "Choose fewer seeds or leave out the kept changes."
         )
     return venue, version, chosen, variants, seed_list, notes, session.id if session else None
@@ -107,6 +106,7 @@ def start_stress(
         st, project_id, attacks, seeds, include_fixes
     )
     sid = f"st_{uuid.uuid4().hex[:10]}"
+    tier = int(st.settings.stress_tier)
     rows: list[dict[str, Any]] = []
     jobs: list[tuple[SimJob, str]] = []
     for a in chosen:
@@ -127,7 +127,7 @@ def start_stress(
                     "error": None,
                 }
                 try:
-                    job = st.runs.build_job(venue, tier=TIER, seed=seed, attack=a, fix=fx)
+                    job = st.runs.build_job(venue, tier=tier, seed=seed, attack=a, fix=fx)
                 except (PlanError, PatchError, ValueError) as exc:
                     problems = getattr(exc, "problems", None) or [str(exc)]
                     row.update(status="failed", error=f"Couldn't be set up: {problems[0]}")
@@ -147,7 +147,7 @@ def start_stress(
         "attacks_from": attacks,
         "seeds": seed_list,
         "include_fixes": include_fixes,
-        "tier": TIER,
+        "tier": int(st.settings.stress_tier),
         "status": "running" if jobs else "done",
         "created_at": now_iso(),
         "finished_at": None if jobs else now_iso(),

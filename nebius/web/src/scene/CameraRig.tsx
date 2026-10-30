@@ -27,9 +27,13 @@ export function CameraRig({ venue, resetNonce, exploded, focusFloor = null }: {
     const [x0, y0, x1, y1] = focus ? floorBounds(venue, focus) : venueBounds(venue);
     const bottom = focus ? floorY(venue, focus, exploded) : 0;
     const top = focus ? bottom : Math.max(...venue.floors.map((f) => floorY(venue, f.floor_id, exploded)));
-    const box = new THREE.Box3(new THREE.Vector3(x0, bottom, -y1), new THREE.Vector3(x1, top + 3, -y0));
+    // the top storey's walls (and roof) stand about a storey over its floor
+    const box = new THREE.Box3(new THREE.Vector3(x0, bottom, -y1), new THREE.Vector3(x1, top + 3.5, -y0));
     const sphere = box.getBoundingSphere(new THREE.Sphere());
-    sphere.radius *= 0.86; // the sphere is loose for flat venues; tighten so the venue fills the view
+    // the sphere is loose for a flat venue: tighten it so the venue fills the view; a tall stack of
+    // floors fills its sphere, so it keeps the whole sphere (and its top stays in view)
+    const tall = (top + 3.5 - bottom) / Math.max(x1 - x0, y1 - y0, 1);
+    sphere.radius *= tall > 0.5 ? 1.0 : 0.86 + 0.28 * tall;
     void c.rotateTo(0.5, 0.9, false);
     void c.fitToSphere(sphere, true);
   }, [venue.venue_id, resetNonce, exploded, focusFloor]); // eslint-disable-line react-hooks/exhaustive-deps

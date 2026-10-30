@@ -16,9 +16,8 @@ Screenshots are in `docs/screenshots/step7/` unless the row says otherwise.
 | 7 | Phone width 320 px | AI at work scrolled sideways (419 px) | `minmax(0,1fr)` grid column (8f7c291) | `release-quality.spec.ts` |
 | 8 | axe, light theme | Sandbox feed state words below AA contrast | Darker text shades (37d551a) | `release-quality.spec.ts` |
 | 9 | Fresh install, real case | While the first test ran, the case's sources were hidden | The case card shows at once (3bbf8ca) | Checked in Chrome on a fresh install (`clean-clone-real-case.png`) |
-| 10 | Code review against the Nebius docs | Sandboxes need `NEBIUS_PROJECT_ID`; the network is on by default; leftover model ids broke the `.env` switch | The project ID is sent; the network is off per run; presets fill leftovers (ae14871) | `test_env_only_switch.py` |
 | 11 | Scan of the components | 229 UI strings were written in components instead of the locale file | All are in `en.json`; whole sentences with variables (4e54b3d) | `src/i18n/literals.test.ts` (TypeScript parser) |
-| 12 | Demo tour in a visible window | The tour typed into the middle of the example script | The tour clears the box first (`demo-tour.mjs`) | A headless run of the whole tour |
+| 12 | Demo tour in a visible window | The tour typed into the middle of the example script | The tour cleared the box first (in a tour script since removed) | A headless run of the whole tour, at the time |
 | 13 | Palette drag in `qa-visible.mjs` | A door dropped a little inside the venue was refused ("drop it near a wall") | It goes on the nearest outer wall (f979a2b) | `dragDrop.test.ts` (`onNearestWall`) |
 | 14 | Simulate panel, keyboard only | Exits could be blocked only by clicking them in 3D | Exit toggles in the panel (636c0ac) | `break-it.spec.ts` |
 | 15 | `qa-crawl.mjs`, Welcome | A request to a removed endpoint (`/agents`) answered 404 on every visit | The page reads the AI team from `/health` (3677aef) | The crawl: 106 screens, no failed requests |
@@ -38,8 +37,7 @@ Screenshots are in `docs/screenshots/step7/` unless the row says otherwise.
 | 29 | Real cases in Chrome: Shanghai Bund 2014 typed into the new form | The geocoder did not know the square and the form saved the case at 0, 0 | The form asks for a location before saving (1a307d7) | `realCases.test.ts` (`missingField`) |
 | 30 | Real cases in Chrome: Kanjuruhan 2022 | The designer had no way to draw a locked gate, so it dropped all three | Exits take `"closed": true` and are built blocked; designer prompt v12 (b29cf28) | `test_venue_designer.py::test_a_locked_exit_is_drawn_but_closed` |
 | 31 | Real cases in Chrome | A layout that needed fixing opened in the editor without saying why; a second click skipped the server, so it was never designed again | The editor opens with the designer's problems; tiles always ask the server (1a307d7) | `real-cases.spec.ts`, `test_saved_cases.py` |
-| 32 | Review against the Nebius Sandboxes docs | Every spawn ran without a network, the setup pip install too, so no Nebius run could finish | Only the setup run keeps the network; the base image and pins come from `sim/Dockerfile` (fa8f5c5) | `test_env_only_switch.py` |
-| 33 | Token Factory deprecation notice | Nemotron 3 Nano and Super leave Serverless on 2026-11-09 | Presets are data (`api/data/llm_presets.json`) with Lightning and 3.5 Super VL; documented `reasoning_effort` (c2f1d59) | `test_env_only_switch.py` |
+| 33 | A model provider's deprecation notice | Two Nemotron models were about to be retired by a hosted provider | Presets are data (`api/data/llm_presets.json`), changed without code edits (c2f1d59) | `test_env_only_switch.py` |
 | 34 | Code scan | The HTML report judged runs with its own 5 s, 5 people and 3.5 per m² | One break rule in the plugin SDK, built from the settings (2beea83) | `test_report_evidence.py::test_the_report_judges_with_the_servers_rules` |
 | 35 | Code scan | The simulator fell back to a 1.0 s time gap (setting 0.25) and a hardcoded counterflow inflow | One table of sim defaults, kept equal to the settings (71e41b7) | `test_sim_defaults.py` |
 | 36 | Code scan | A rule-written power cut slowed people to 60% where ASSUMPTIONS.md says 70%; "Ask anything" used smoke 0.6 against 0.5 | Both use the scenario library's cited speeds (fcff918, 7954e09) | `test_session_modes.py` |
@@ -47,3 +45,5 @@ Screenshots are in `docs/screenshots/step7/` unless the row says otherwise.
 | 38 | Code scan | Two densities for a new crowd (palette 2 per m², drawn area 1.5); page copies of targets, seed, speeds, item sizes and test depths | All from the server (`settings.editor`, `speed_presets`, `/test_modes`) (96c442c) | `editorDefaults.test.ts`, `speedPresets.test.ts`, `testModes.test.ts` |
 | 39 | Code scan | 60+ UI strings bypassed en.json in patterns the guard missed; examples named real places | The guard covers them; strings moved; examples are generic (661ed9b, 78c82ef) | `literals.test.ts` |
 | 40 | Sim tests at the production time gap | The 0.05 s step is ~21% slower than 0.01 s on a small room (documented: 8%, measured at the old gap) | Documented and tested at the calibrated gap (71e41b7) | `sim/tests/test_sim.py::test_time_step_calibration` |
+
+Rows 10 and 32 covered a cloud sandbox runner that has since been removed.

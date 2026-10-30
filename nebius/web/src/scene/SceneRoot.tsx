@@ -131,6 +131,7 @@ export function SceneRoot(p: SceneProps) {
           venue={onlyFloor ? p.venue : shown}
           focusFloor={onlyFloor}
           stacked={stacked}
+          seeThroughRoof={!!showAgents}
           palette={palette}
           onMap={!!site}
           exploded={layers.exploded}

@@ -90,7 +90,9 @@ Upper levels
   - use: what the building is (office, hospital, school, mall, residential, transit, religious,
     conference, concert, sports, airport, campus, other).
   - interior: "rooms" for rooms off a corridor (wards, classrooms, offices, hotel rooms), "atrium"
-    for a well open through the upper floors, else "open". rooms_per_floor when the description
+    for a well open through the upper floors, "dining" for restaurants, cafés, food courts and
+    bars (each floor gets a kitchen, toilets, tables in rows, a lift and the stairs in an enclosed
+    stairwell), else "open". rooms_per_floor when the description
     counts rooms; room_label names one room ("Classroom", "Guest room").
   - stairs: one entry per stair core: "place" is the wall it is near or "centre", width_m about 1.0
     when narrow, 1.2 normally, 1.8 or more when wide. "At each end" means west and east when the

@@ -20,12 +20,13 @@ from fastapi.testclient import TestClient
 from api.adapters.llm import FakeLLM
 from api.adapters.sandbox import ProgressFn, SimJob
 from api.app.state import build_state
+from api.core.settings import Settings
 from api.models import RunResult
 from api.orchestrator.sensitivity import (
-    VARIANTS,
     SensitivityError,
     sensitivity_status,
     start_sensitivity,
+    variants,
 )
 from api.orchestrator.session import SessionManager
 from api.orchestrator.together import start_together_check
@@ -33,6 +34,8 @@ from api.tests.evidence_fakes import SimLikeRunner, reset_engine, use_test_setti
 from api.tests.test_api import client as client
 from api.tests.test_seeds import _baseline_session
 from api.tests.test_together import kept_three_session
+
+VARIANTS = variants(Settings())  # the default shares
 
 BASE_SPEED = 1.34
 

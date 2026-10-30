@@ -49,6 +49,8 @@ def _incidents() -> list[IncidentRecord]:
             event_type="Entertainment",
             description="",
             source_url="",
+            # the incident plugin cites a row without a web link by its dataset DOI
+            dataset_url="https://doi.org/10.5281/zenodo.19483010#row=9",
             keywords=["stairs"],
         ),
     ]
@@ -161,6 +163,30 @@ async def test_red_team_falls_back_to_doi_when_row_has_no_link(
     assert str(attacks[0].inspired_by.source_url).startswith(
         "https://doi.org/10.5281/zenodo.19483010#row=9"
     )
+
+
+async def test_red_team_discards_an_attack_without_any_source(
+    registry: Registry, hall: Venue
+) -> None:
+    rows = [r.model_copy(update={"dataset_url": None}) for r in _incidents()]
+    llm = FakeLLM(
+        {
+            "red_team": lambda m: {
+                "attacks": [
+                    {
+                        "title": "Stair rush",
+                        "incident_row": 9,
+                        "rationale": "x",
+                        "events": [
+                            {"type": "surge", "zone_id": "mezzanine", "extra_people": 50, "at_s": 0}
+                        ],
+                    }
+                ]
+            }
+        }
+    )
+    attacks = await red_team(AgentEnv(llm=llm, audit=False), registry, hall, None, rows, 2, set())
+    assert attacks == []
 
 
 async def test_red_team_invalid_json_returns_nothing(registry: Registry, hall: Venue) -> None:

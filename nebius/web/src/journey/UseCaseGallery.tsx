@@ -10,36 +10,32 @@ import { RealCaseRow } from "./RealCases";
 interface UseCase {
   id: string;
   icon: React.ReactNode;
+  /** the kinds of event (Venue.event_kind) whose tested sample this tile opens */
+  kinds: string[];
+  /** floors in the tile's example description, shown while no sample is ready */
   floors?: number;
 }
 
 const USE_CASES: UseCase[] = [
-  { id: "concert", icon: <Music /> },
-  { id: "hospital", icon: <Hospital />, floors: 4 },
-  { id: "school", icon: <School />, floors: 3 },
-  { id: "stadium", icon: <Trophy /> },
-  { id: "pandal", icon: <Landmark /> },
-  { id: "mall", icon: <ShoppingBag />, floors: 4 },
-  { id: "nightclub", icon: <Disc3 /> },
-  { id: "parade", icon: <Flag /> },
-  { id: "conference", icon: <Presentation />, floors: 2 },
+  { id: "concert", icon: <Music />, kinds: ["concert"] },
+  { id: "hospital", icon: <Hospital />, kinds: ["hospital"], floors: 4 },
+  { id: "school", icon: <School />, kinds: ["school"], floors: 3 },
+  { id: "stadium", icon: <Trophy />, kinds: ["sports"] },
+  { id: "pandal", icon: <Landmark />, kinds: ["religious"] },
+  { id: "mall", icon: <ShoppingBag />, kinds: ["mall"], floors: 4 },
+  { id: "nightclub", icon: <Disc3 />, kinds: [] },
+  { id: "parade", icon: <Flag />, kinds: ["festival", "march", "rally"] },
+  { id: "conference", icon: <Presentation />, kinds: ["conference"], floors: 2 },
 ];
 
-/** The sample project each tile opens. A sample built from a template carries the template's id
- * (ProjectSummary.template_id), so that is what we match. The hospital sample was not built from
- * a template and the server tags samples with nothing else, so it is still found by its name
- * (the packs in cache/demos); rename that sample and this pattern must follow. */
-const SAMPLE_OF: Record<string, { template: string } | { name: RegExp }> = {
-  concert: { template: "festival_field" },
-  hospital: { name: /riverside|ward block/i },
-  parade: { template: "t_alley" },
-  conference: { template: "conference_hall_2f" },
-};
-
+/** The sample project a tile opens: a sample whose venue is that kind of event. */
 function sampleFor(uc: UseCase, projects: ProjectSummary[] | undefined): ProjectSummary | undefined {
-  const match = SAMPLE_OF[uc.id];
-  if (!match) return undefined;
-  return (projects ?? []).find((p) => p.sample && ("template" in match ? p.template_id === match.template : match.name.test(p.name)));
+  return (projects ?? []).find((p) => p.sample && !!p.event_kind && uc.kinds.includes(p.event_kind));
+}
+
+/** Floors on the tile: the sample's own venue once it exists, else the example description's. */
+function floorsOf(uc: UseCase, sample: ProjectSummary | undefined): number {
+  return sample ? sample.floors : (uc.floors ?? 1);
 }
 
 export function UseCaseGallery({ projects, onSample, onDescribe }: {
@@ -64,9 +60,9 @@ export function UseCaseGallery({ projects, onSample, onDescribe }: {
                       className="group flex h-full w-full flex-col overflow-hidden rounded-[var(--radius-panel)] border-2 border-transparent bg-surface text-left shadow-sm transition hover:-translate-y-0.5 hover:border-signal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-signal">
                 <span className="relative grid h-24 place-items-center bg-surface-2 text-ink sm:h-28">
                   <span className="grid size-14 place-items-center rounded-full bg-surface shadow-sm transition group-hover:scale-110 [&_svg]:size-7">{uc.icon}</span>
-                  {uc.floors && (
+                  {floorsOf(uc, sample) > 1 && (
                     <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-surface/85 px-2 py-0.5 text-2xs font-semibold text-ink tabular">
-                      <Building2 className="size-3" aria-hidden />{t("home.uc_floors", { n: uc.floors })}
+                      <Building2 className="size-3" aria-hidden />{t("home.uc_floors", { n: floorsOf(uc, sample) })}
                     </span>
                   )}
                   {sample && <span className="absolute right-2 top-2 rounded-full bg-ink px-2 py-0.5 text-2xs font-semibold text-plan">{t("home.uc_tested")}</span>}

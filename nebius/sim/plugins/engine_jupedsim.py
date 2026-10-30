@@ -408,6 +408,15 @@ class FloorRun:
         p = self.sim.agent(jid).position
         return (float(p[0]), float(p[1]))
 
+    def live_positions(self) -> list[tuple[float, float]]:
+        """Where everyone still in this floor's simulation stands, read from the simulation
+        itself: a scenario script never asks for a person who has already left."""
+        return [
+            (float(ag.position[0]), float(ag.position[1]))
+            for ag in self.sim.agents()
+            if ag.id in self.agents
+        ]
+
     def best_exit(self, pos: tuple[float, float], exclude: set[str] | None = None) -> str | None:
         """Open exit minimising walk time + queue time (people already heading there)."""
         best, best_cost = None, math.inf

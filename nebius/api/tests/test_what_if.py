@@ -88,4 +88,4 @@ def test_the_ai_team_is_listed_with_models_and_tools(client: Any) -> None:  # no
     assert {"designer", "red_team", "blue_team", "judge", "what_if"} <= names
     for a in out["agents"]:
         assert a["model"] and a["decides"] and all(t in out["tools"] for t in a["tools"])
-    assert out["sandbox"]["provider"] in ("docker", "nebius", "fake")
+    assert out["sandbox"]["provider"] in ("docker", "fake")

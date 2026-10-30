@@ -92,10 +92,10 @@ def test_a_registered_sandbox_and_search_are_selectable_by_name(
 def test_an_unknown_provider_fails_at_startup_listing_the_valid_names(tmp_path: Path) -> None:
     with pytest.raises(
         ValueError,
-        match=r"LLM_PROVIDER: Unknown llm provider 'nebulous'.*fake, local, nebius, openai",
+        match=r"LLM_PROVIDER: Unknown llm provider 'nebulous'.*fake, local, openai",
     ):
         Settings(_env_file=None, llm_provider="nebulous")
-    with pytest.raises(ValueError, match=r"SANDBOX_PROVIDER: .*docker, fake, nebius"):
+    with pytest.raises(ValueError, match=r"SANDBOX_PROVIDER: .*docker, fake\."):
         Settings(_env_file=None, sandbox_provider="kubernetes")
     with pytest.raises(ValueError, match=r"SEARCH_PROVIDER: .*none, tavily"):
         Settings(_env_file=None, search_provider="bing")
@@ -108,28 +108,28 @@ def test_an_alias_names_the_same_provider() -> None:
     )
 
 
-def test_nebius_and_tavily_are_selected_by_env_alone(
+def test_a_hosted_llm_a_sandbox_and_tavily_are_selected_by_env_alone(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """With fake clients only: no live call (NOT a live test of Nebius or Tavily)."""
+    """With fake clients only: no live call (NOT a live test of OpenRouter or Tavily)."""
     base = use_test_settings(tmp_path, monkeypatch)
     s = Settings(
         _env_file=None,
         **{
             **base.model_dump(),
-            "llm_provider": "nebius",
-            "sandbox_provider": "nebius",
+            "llm_provider": "openai",
+            "sandbox_provider": "docker",
             "search_provider": "tavily",
-            "nebius_api_key": "nb",
-            "nebius_project_id": "project-e00x",
+            "openai_compat_base_url": "https://openrouter.ai/api/v1",
+            "openai_compat_api_key": "or",
             "tavily_api_key": "tv",
             "model_fast": "nvidia/x",
             "offline": False,  # the test settings are offline; nothing here calls out
         },
     )
     try:
-        assert LLMClient(s).base_url.startswith("https://api.tokenfactory.nebius.com")
-        assert build_runner(s).provider == "nebius"
+        assert LLMClient(s).base_url.startswith("https://openrouter.ai")
+        assert build_runner(s).provider == "docker"
         st = build_state(s, llm=LLMClient(s))
         assert st.search.live is True
     finally:

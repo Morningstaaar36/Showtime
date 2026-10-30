@@ -38,9 +38,9 @@ def preset(name: str) -> dict[str, str]:
 class Requirement:
     """One thing a provider needs, by its .env name."""
 
-    env: str  # e.g. NEBIUS_API_KEY
-    setting: str  # the Settings attribute it fills, e.g. nebius_api_key
-    what: str  # plain words: "your Nebius Token Factory API key"
+    env: str  # e.g. OPENAI_COMPAT_API_KEY
+    setting: str  # the Settings attribute it fills, e.g. openai_compat_api_key
+    what: str  # plain words: "your API key"
     secret: bool = False
 
 
@@ -59,7 +59,7 @@ class Provider:
 
     kind: Kind
     name: str
-    title: str  # plain name for people: "Nebius Token Factory"
+    title: str  # plain name for people: "OpenAI-compatible API"
     requirements: tuple[Requirement, ...] = ()
     aliases: tuple[str, ...] = ()
     # .env values `make use-<preset>` writes (model ids, prices, request extras); never keys

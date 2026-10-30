@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info, Layers, Trees, Users } from "lucide-react";
 import type { Pt, VenueDraft } from "@/api/types";
 import { VenueThumb } from "@/components/VenueThumb";
+import { DesignRounds } from "@/journey/DesignRounds";
 import { Badge } from "@/components/ui/badge";
 import { bbox } from "@/scene/geom";
 import { t } from "@/i18n";
@@ -76,6 +77,7 @@ export function DraftPreview({ draft, surroundingsAsked = 0 }: { draft: VenueDra
             </ul>
           </div>
         )}
+        <DesignRounds venue={v} />
         {(draft.model || draft.attribution) && (
           <p className="text-2xs text-muted">{draft.model ? t("ui.draftpreview.layout_by", { model: draft.model }) : draft.attribution}</p>
         )}

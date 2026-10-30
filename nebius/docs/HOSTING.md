@@ -1,85 +1,71 @@
-# Hosting Showtime on Nebius
+# Hosting Showtime on a server
 
-**Can it run on Token Factory itself? No.** Token Factory hosts models (serverless models,
-dedicated endpoints, custom weights), not web apps
-([docs index](https://docs.tokenfactory.nebius.com/llms.txt)). Showtime is built to use Token
-Factory for every AI call (`LLM_PROVIDER=nebius`) and Nebius Sandboxes for every simulation
-(`SANDBOX_PROVIDER=nebius`) once keys exist; neither has run live yet (no account,
-`docs/LIVE_STATUS.md`). The app itself runs on a small **Nebius AI Cloud** VM with Docker.
+Showtime runs on any Linux server (a cloud VM or a machine of your own) with Docker and Compose
+v2. On the server it sits behind Caddy, which adds HTTPS and one password for the whole app.
 
 ## What you need
 
-- A Nebius AI Cloud account and the `nebius` CLI:
-  `curl -sSL https://artifacts.nebius.cloud/cli/install.sh | bash`, then `nebius profile create`
-  ([CLI](https://docs.nebius.com/cli/install.md)).
-- An SSH key (`ssh-keygen -t ed25519`), `jq` and `git`.
-- Your `.env`, working locally (keys for Token Factory, Sandboxes and Tavily).
+- A server with Docker, Compose v2, `make` and `git`. About 4 vCPUs and 16 GB RAM is
+  comfortable, because the simulations run in Docker on the same machine. Ports 80 and 443 open.
+- Your `.env`, working locally (the AI key, and the Tavily key if you use it;
+  [PROVIDERS.md](PROVIDERS.md)). On a server, use a hosted AI such as OpenRouter:
+  `LLM_PROVIDER=local` needs the llama.cpp server running on that machine's GPU.
 
-## Three steps
+A new cloud VM can be set up with `deploy/cloud-init.yaml`: a cloud-init template that installs
+Docker, `make` and `git`. Replace `__USER__` with your user name and `__KEY__` with your SSH public
+key, then pass it as the VM's user data.
+
+## Steps
 
 1. **Set a password** (the hosted app is public; the password keeps strangers from spending your
-   model credit):
+   model credit). On your machine or on the server:
 
    ```bash
-   make cloud-password            # asks for a user and a password; stores the hash in .env
+   make cloud-password            # asks for a user and a password; stores the bcrypt hash in .env
    ```
 
-   HTTPS needs nothing more: the app gets a name of its own, `<the VM's address>.sslip.io`, and
-   a certificate for it. To use your own domain, set `SITE_ADDRESS=showtime.example.org` in `.env`
-   and point its DNS at the VM.
+   The password needs at least 10 characters and is never stored, only its hash.
 
-2. **Commit your changes** (the VM gets the committed code; `.env` is copied separately and
-   never enters git).
+2. **Choose the address.** In `.env`, set `SITE_ADDRESS`:
+   - a domain, `SITE_ADDRESS=showtime.example.org`: point its DNS at the server first, and Caddy
+     gets an HTTPS certificate for it on its own;
+   - no domain: `SITE_ADDRESS=<the server's IP>.sslip.io` is a name that already points at that
+     IP, so Caddy can get a certificate for it too;
+   - `SITE_ADDRESS=:80` (the default): plain HTTP, for a private network only.
 
-3. **Deploy:**
+   Set `WEB_ORIGIN` to the same public URL (for example `https://showtime.example.org`).
+
+3. **Copy the code and `.env` to the server** (for example `git clone`, then `scp .env`). Keep
+   `.env` out of git, and readable by you only (`chmod 600 .env`; `make cloud-password` does this).
+
+4. **Start it** on the server, in the project folder:
 
    ```bash
-   make deploy-nebius
+   make cloud-up
    ```
 
-   It finds the VM named `showtime`, or asks before creating one (CPU `cpu-d3`, `4vcpu-16gb`,
-   50 GiB SSD, Ubuntu 24.04; cloud-init installs Docker), copies the code and `.env` (mode 600)
-   over SSH, fetches the incident dataset, builds the images and starts the stack behind Caddy.
-   It prints the address and the user name; give judges both, and the password, in the Devpost
-   testing notes.
+   It builds the sandbox image and the app, fetches the incident dataset if `data/` is empty, and
+   starts the stack. Give people the address, the user name and the password.
 
-Run it again after every change: it copies the new code and restarts. Change the size with
-`VM_PRESET=2vcpu-8gb make deploy-nebius` (enough when `SANDBOX_PROVIDER=nebius` runs the
-simulations), or the name with `VM_NAME=...`.
+After a change, copy the new code and run `make cloud-up` again. `make cloud-down` stops it.
 
-## What runs on the VM
+## What runs on the server
 
-`make cloud-up` (`docker-compose.yml` + `docker-compose.cloud.yml`):
+`make cloud-up` uses `docker-compose.yml` plus `docker-compose.cloud.yml`:
 
 - **Caddy** on ports 80 and 443: the only open ports. With a domain in `SITE_ADDRESS` it gets an
-  HTTPS certificate on its own (point the domain's DNS at the VM first). It asks for the password
-  on every page and every API call, and streams live test progress through.
-- **web** and **api** as locally, with no ports of their own. With `SANDBOX_PROVIDER=nebius` the
-  API gets no Docker socket (`docker-compose.nosocket.yml`).
-- **Simulations**: in Nebius Sandboxes with `SANDBOX_PROVIDER=nebius`, or in Docker on the VM
-  (the default), which is why the VM has Docker.
+  HTTPS certificate on its own. It asks for the password on every page and every API call, and
+  streams live test progress through. Its certificates are kept in `state/caddy/`.
+- **web** and **api** as locally, with no ports of their own. Behind the password the API answers
+  to any host name (`ALLOWED_HOSTS=*`), so a server reached by its IP works too.
+- **Simulations** in Docker on the same server, which is why it needs Docker. The API mounts the
+  Docker socket to start them ([SECURITY.md](../SECURITY.md)).
 
-## Costs
+## A quick public link from your own machine
 
-Compute is billed per hour while the VM runs: $0.015 per vCPU-hour and $0.0045 per GiB-hour
-from 2026-10-01 ([pricing](https://docs.nebius.com/compute/resources/pricing.md)), so about
-$0.13/h for `4vcpu-16gb` or $0.07/h for `2vcpu-8gb`, plus the disk. Stop it when you don't need
-it: `nebius compute instance stop --id <id>`; `make cloud-down` on the VM stops the app only.
+For a call, not for lasting use (it lives only while your machine runs): `make cloud-up`, then
+`make share` prints an HTTPS link (a Cloudflare quick tunnel) to the password-protected app.
 
-## Other ways
+## Checked so far
 
-- **Serverless AI endpoint** (`nebius ai endpoint create --image ... --container-port 80`,
-  [docs](https://docs.nebius.com/serverless/endpoints/manage.md)): a managed HTTPS address for one
-  container. Showtime runs two (api, web) plus simulations, and keeps its database on disk, so it
-  would need one combined image, a volume and `SANDBOX_PROVIDER=nebius`. The VM is simpler.
-- **Any other server with Docker**: copy the folder and `.env`, then `make cloud-up`.
-- **A quick public link from your own machine** (for a call, not for judging: it lives only while
-  your laptop runs): `make cloud-up`, then `make share` prints an HTTPS link (Cloudflare quick
-  tunnel) to the password-protected app.
-
-## Not verified
-
-No Nebius account was available while this was written (sign-up does not list Bangladesh), so
-`make deploy-nebius` has not created a VM yet. The CLI flags come from the Nebius Compute
-[quickstart](https://docs.nebius.com/compute/quickstart.md); `make cloud-up` was checked locally
-(`docker compose config`, `caddy validate`).
+`make cloud-up` was checked locally (`docker compose config`, `caddy validate`).

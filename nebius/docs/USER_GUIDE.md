@@ -77,7 +77,7 @@ assumptions with sources, calibration of instant estimates. **Export PDF** uses 
 print dialog. Also: evacuation map (SVG), data bundle (JSON), project file (.showtime.zip).
 
 ### Settings
-Providers (local or Nebius), API keys status (keys stay on the server), budgets, thresholds,
+Providers (local or hosted), API keys status (keys stay on the server), budgets, thresholds,
 units (metric/imperial), plugins, theme. Invalid values are refused with a reason.
 
 ### Help

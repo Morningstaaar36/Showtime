@@ -3,7 +3,7 @@
 Showtime is a multi-agent system. The agents decide: what the venue is, what could go wrong,
 what to change and how to explain it. Deterministic tools do everything that produces a
 number: a layout solver turns a design into geometry, the crowd simulator runs every scenario
-in a sealed sandbox (Docker locally, Nebius Sandboxes in the cloud), and a number checker
+in a sealed sandbox (a local Docker container), and a number checker
 rejects any text that quotes a number the tools did not produce.
 """
 
@@ -17,6 +17,7 @@ from api.agents.base import AgentDef
 from api.agents.blue_team import BLUE_TEAM_AGENT
 from api.agents.event_brief import BRIEF_AGENT
 from api.agents.judge import EXPLAINER_AGENT, JUDGE_AGENT
+from api.agents.plan_critic import PLAN_CRITIC_AGENT
 from api.agents.red_team import RED_TEAM_AGENT
 from api.agents.router import ROUTER_AGENT
 from api.agents.safety_officer import OFFICER_AGENT
@@ -36,6 +37,7 @@ Tool = Literal[
     "scenario_events",  # scenario events (blocked exit, surge, smoke, ...)
     "number_check",  # every number in a text must come from the tools
     "code_sandbox",  # the agent's own analysis code, run in a sealed sandbox
+    "plan_image",  # the floor plans drawn as an image, for a model that reads images
 ]
 
 
@@ -62,8 +64,16 @@ TEAM: tuple[Member, ...] = (
         DESIGNER_AGENT,
         "Designer",
         "build",
-        "Designs the venue or building: floors, rooms, stairs, exits and crowd.",
-        ("solver",),
+        "Designs the venue or building: floors, rooms, stairs, exits and crowd, then revises it "
+        "from the plan checker and the critic.",
+        ("solver", "map", "instant_estimate"),
+    ),
+    Member(
+        PLAN_CRITIC_AGENT,
+        "Plan critic",
+        "build",
+        "Looks at the drawn floor plans and sends back what does not match the description.",
+        ("plan_image",),
     ),
     Member(
         VENUE_AGENT,
@@ -98,7 +108,7 @@ TEAM: tuple[Member, ...] = (
         JUDGE_AGENT,
         "Judge",
         "judge",
-        "Writes the final verdict; every number it quotes is checked.",
+        "Suggests follow-ups, every number checked; the verdict is computed from the results.",
         ("number_check",),
     ),
     Member(

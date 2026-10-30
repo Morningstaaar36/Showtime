@@ -232,6 +232,13 @@ def evaluate(
         else:
             status = "unconfirmed"
             reasons.append("The before and after runs are not simulations.")
+    elif not had_breaks and before is not None and bb == "completed_simulation":
+        # nothing broke, and the worst attack itself was simulated to the end with everyone out
+        status = "confirmed"
+        reasons.append(
+            "No attack broke the plan, and the worst of them was simulated to the end with no "
+            "one left inside."
+        )
     else:
         status = "failed" if bb == "unknown" else "unconfirmed"
         if not had_breaks:

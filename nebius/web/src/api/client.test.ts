@@ -45,7 +45,7 @@ describe("request timeout", () => {
 
 describe("timeouts come from the server", () => {
   beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); configureTimeouts({ read_timeout_s: 60, write_timeout_s: 330 }); });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); configureTimeouts({ read_timeout_s: 60, write_timeout_s: 960 }); });
 
   it("uses WEB_READ_TIMEOUT_S once /health has sent it", async () => {
     configureTimeouts({ read_timeout_s: 2, write_timeout_s: 9 });

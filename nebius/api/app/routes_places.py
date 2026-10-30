@@ -8,7 +8,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from api.adapters.llm import BudgetExceeded, LLMError
 from api.adapters.osm import OsmUnavailable
@@ -28,6 +28,10 @@ class DesignIn(BaseModel):
     """A plain-language description of the venue."""
 
     text: str = Field(min_length=10, max_length=2000)
+    # a change to an earlier preview, in words, and that preview's layout
+    # (venue.extensions.generated.spec): the designer revises it instead of starting over
+    request: str = Field(default="", max_length=1000)
+    previous: dict[str, Any] | None = None
 
 
 class FromMapIn(BaseModel):
@@ -42,7 +46,7 @@ class FromMapIn(BaseModel):
     # (default: from its map tags), rooms off a corridor or open floors, storey height
     levels: int | None = Field(default=None, ge=1, le=MAX_LEVELS)
     use: EventKind | None = None
-    interior: Literal["open", "rooms"] | None = None
+    interior: Literal["open", "rooms", "dining"] | None = None
     floor_height_m: float = Field(default=3.5, ge=2.4, le=8.0)
     # open areas: what happens there (a rally, a festival, ...)
     event_kind: EventKind | None = None
@@ -58,7 +62,13 @@ def _osm_error(exc: OsmUnavailable) -> ApiException:
 async def design_venue(body: DesignIn, st: AppState = Depends(get_state)) -> dict[str, Any]:
     """Designer agent + solver: description → venue preview with checks."""
     try:
-        return await venue_sources.design(st, body.text)
+        return await venue_sources.design(
+            st, body.text, request=body.request, previous=body.previous
+        )
+    except ValidationError as exc:
+        raise ApiException(
+            422, "bad_layout", "The earlier layout could not be read.", "Describe it again."
+        ) from exc
     except BudgetExceeded as exc:
         raise ApiException(429, "budget", str(exc), "Raise the token budget in Settings.") from exc
     except (LLMError, AgentUnavailable) as exc:

@@ -5,7 +5,7 @@ import { BookOpenText, Copy, ExternalLink, History, Loader2, Pencil, Plus, Trash
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
-import { useDeleteRealCase, useOpenRealCase, useRealCases } from "@/api/queries";
+import { useDeleteRealCase, useOpenRealCase, useRealCaseProgress, useRealCases } from "@/api/queries";
 import { Confirm } from "@/components/ui/alert-dialog";
 import { t } from "@/i18n";
 import { fmtNum } from "@/lib/format";
@@ -26,7 +26,12 @@ export function RealCaseRow() {
   // the button disables only after the next render, so a double click's second click still
   // fires: a ref is set at once and lets one request through per opening
   const opening = useRef(false);
+  const building = open.isPending ? open.variables ?? null : null;
+  const progress = useRealCaseProgress(building, !!building);
   if (!cases.data) return null;
+  const stage = progress.data?.building && progress.data.stage
+    ? t(`realcase.stage_${progress.data.stage}`, { n: progress.data.round ?? 1, of: progress.data.of ?? 1 })
+    : t("realcase.building");
   // always through the server: it opens a tested project at once, and designs again a layout
   // that was never fixed or tested (a model's second answer may get it right)
   const pick = (id: string) => {
@@ -60,7 +65,7 @@ export function RealCaseRow() {
                 <span className="font-semibold leading-snug">{c.title}</span>
                 <span className="text-xs text-muted">{c.lesson}</span>
                 <span className="mt-auto inline-flex items-center gap-1 pt-1.5 text-xs font-semibold text-signal">
-                  {busy ? <><Loader2 className="size-3.5 animate-spin" aria-hidden />{t("realcase.building")}</>
+                  {busy ? <><Loader2 className="size-3.5 animate-spin" aria-hidden /><span role="status">{stage}</span></>
                     : c.project_id ? t("home.uc_open") : t("realcase.open")}
                 </span>
               </button>

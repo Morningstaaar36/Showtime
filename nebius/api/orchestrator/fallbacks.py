@@ -30,6 +30,10 @@ WRONG_WAY_AT_S = 15
 REDIRECT_FRACTION = 0.4  # people stewards move to the quietest exit (a fix)
 REDIRECT_AT_S = 20
 STAGGER_DELAY_S = 60
+STAIR_FIX_STEP_M = 0.8  # a narrow stairwell widened by this much...
+STAIR_FIX_MAX_WIDTH_M = 2.4  # ...up to this width
+NEW_EXIT_MIN_WIDTH_M = 2.5  # an added exit is as wide as the widest one, within these bounds
+NEW_EXIT_MAX_WIDTH_M = 8.0
 
 
 def _counterflow_people(total: int) -> int:
@@ -459,8 +463,6 @@ def _stair_fixes(
     registry: Registry, venue: Venue, attack: Attack, check_fix: Any
 ) -> list[tuple[str, list[dict[str, Any]], list[dict[str, Any]], str, str]]:
     """Wider stairwells and a phased evacuation, for buildings with stairs."""
-    from plugins.ops_core.structure import stairwell
-
     out: list[tuple[str, list[dict[str, Any]], list[dict[str, Any]], str, str]] = []
     if not venue.stairs:
         return out
@@ -476,10 +478,10 @@ def _stair_fixes(
     seen: set[str] = set()
     # the flights into the ground floor, narrowest first: each one is a stairwell to widen
     for st in sorted(into_ground, key=lambda s: s.width_m):
-        if st.id in seen or st.width_m >= 2.4:
+        if st.id in seen or st.width_m >= STAIR_FIX_MAX_WIDTH_M:
             continue
-        seen.update(stairwell(venue, st.id))
-        width = round(min(st.width_m + 0.8, 2.4), 1)
+        seen.update(geo.stairwell(venue, st.id))
+        width = round(min(st.width_m + STAIR_FIX_STEP_M, STAIR_FIX_MAX_WIDTH_M), 1)
         ops = [{"op": "widen_stair", "stair_id": st.id, "width_m": width}]
         if not check_fix(registry, venue, ops, []):
             out.append(
@@ -494,6 +496,22 @@ def _stair_fixes(
             )
         if len(out) >= 2:
             break
+    # one stairwell for everyone above the street: a second one, with its own street door
+    wells = {tuple(sorted(geo.stairwell(venue, s.id))) for s in into_ground}
+    if len(wells) == 1:
+        ops = [{"op": "add_stairwell", "width_m": STAIR_FIX_MAX_WIDTH_M / 2}]
+        if not check_fix(registry, venue, ops, []):
+            out.insert(
+                0,
+                (
+                    "layout",
+                    ops,
+                    [],
+                    "Add a second stairwell with its own street door",
+                    "Everyone above the street depends on one stair; a second, enclosed one "
+                    "away from it keeps a way down when the first is lost.",
+                ),
+            )
     # phased evacuation: the floor in trouble leaves first, the floors above wait a minute
     floors = {f.floor_id: f for f in venue.floors}
     hit: str | None = None
@@ -552,7 +570,7 @@ def rule_fixes(
     spot = _wall_for_new_exit(venue, floor.floor_id)
     if spot is not None:
         wall, center = spot
-        width = round(min(max(widest, 2.5), 8.0), 1)
+        width = round(min(max(widest, NEW_EXIT_MIN_WIDTH_M), NEW_EXIT_MAX_WIDTH_M), 1)
         for shift in (0.0, -6.0, 6.0, -12.0, 12.0):
             ops = [
                 {

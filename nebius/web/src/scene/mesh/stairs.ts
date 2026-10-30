@@ -33,7 +33,9 @@ export function stairPlacement(venue: Venue, stair: Stair, exploded = false): St
   const [yTop, yBot] = up ? [yTo, yFrom] : [yFrom, yTo];
   const upper = (up ? stair.bottom_polygon : stair.top_polygon) as Pt[];
   const lower = (up ? stair.top_polygon : stair.bottom_polygon) as Pt[];
-  const c = stairRun(upper, lower);
+  // the plan is the same in every view: placed by the real rise, not the spread-apart one
+  const elev = (id: string) => venue.floors.find((f) => f.floor_id === id)?.elevation_m ?? 0;
+  const c = stairRun(upper, lower, Math.abs(elev(stair.from_floor) - elev(stair.to_floor)));
   return {
     foot: [c.bx, c.by], angle: c.angle, run: c.run, rise: yTop - yBot, yBot, yTop, width: stair.width_m,
     upperFloor: up ? stair.to_floor : stair.from_floor, lowerFloor: up ? stair.from_floor : stair.to_floor,

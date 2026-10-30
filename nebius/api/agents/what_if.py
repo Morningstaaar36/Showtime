@@ -17,7 +17,14 @@ from api.agents.base import AgentCall, AgentDef, AgentEnv, call_agent
 from api.agents.context import event_union, events_doc, ids_line, readable, venue_summary
 from api.agents.limits import EventLimits, event_problems
 from api.core.extensions import Registry
-from api.core.scenarios import CATEGORY_LABELS, Built, Category, Resolved, ScenarioSpec
+from api.core.scenarios import (
+    CATEGORY_LABELS,
+    Builder,
+    Built,
+    Category,
+    Resolved,
+    ScenarioSpec,
+)
 from api.models import ScenarioEventIn, Venue
 
 MAX_WHAT_IFS = 6
@@ -137,11 +144,16 @@ async def design_what_ifs(
         "Choose the what-ifs for this venue.",
         output_model=model,
         validate=validate,
-        summarize=lambda o: f"{len(o.scenarios)} what-ifs",
+        summarize=lambda o: f"{len(getattr(o, 'scenarios', []))} what-ifs",
     )
+    picked: Any = call.output
+
+    def _fixed(b: Built) -> Builder:
+        return lambda _f: b
+
     out: list[Resolved] = []
     seen: set[str] = set()
-    for i, d in enumerate(call.output.scenarios if call.output is not None else []):
+    for i, d in enumerate(picked.scenarios if picked is not None else []):
         if problems_of(d):
             continue  # still wrong after the repair round: left out
         if d.use is not None:
@@ -159,7 +171,7 @@ async def design_what_ifs(
             icon=CATEGORY_ICON.get(d.category, "sparkles"),
             category=d.category,
             applies_to=(),
-            build=lambda _f, b=built: b,
+            build=_fixed(built),
             label=title,
         )
         out.append(Resolved(spec, built))

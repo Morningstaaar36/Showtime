@@ -1,5 +1,6 @@
 #cloud-config
-# A Showtime host (deploy/nebius_vm.sh fills in the user and the SSH key): Docker, make and git.
+# A Showtime host: Docker, make and git. Replace __USER__ and __KEY__ (your SSH public key)
+# before passing this file to a VM as its user data (docs/HOSTING.md).
 users:
   - name: __USER__
     groups: [sudo, docker]

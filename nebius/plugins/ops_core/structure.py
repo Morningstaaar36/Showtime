@@ -436,18 +436,6 @@ class WidenStairParams(_P):
     restore: dict[str, float] | None = None  # used by undo: stair id -> previous width
 
 
-def stairwell(venue: Venue, stair_id: str) -> list[str]:
-    """The flights stacked with `stair_id` in one stairwell (tops within 4 m of each other)."""
-    base = next(s for s in venue.stairs if s.id == stair_id)
-    cx, cy = geo.centroid(base.top_polygon)
-    out = []
-    for s in venue.stairs:
-        x, y = geo.centroid(s.top_polygon)
-        if (x - cx) ** 2 + (y - cy) ** 2 <= 16.0:
-            out.append(s.id)
-    return out
-
-
 class WidenStairOp:
     name = "widen_stair"
     description = (
@@ -466,7 +454,7 @@ class WidenStairOp:
     def _targets(self, venue: Venue, params: WidenStairParams) -> dict[str, float]:
         if params.restore is not None:
             return dict(params.restore)
-        ids = stairwell(venue, params.stair_id) if params.whole_stairwell else [params.stair_id]
+        ids = geo.stairwell(venue, params.stair_id) if params.whole_stairwell else [params.stair_id]
         return {sid: params.width_m for sid in ids}
 
     def apply(self, venue: Venue, params: WidenStairParams) -> Venue:

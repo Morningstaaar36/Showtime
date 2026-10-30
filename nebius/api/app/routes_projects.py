@@ -29,6 +29,7 @@ from api.db.models import Project, VenueVersion
 from api.models import Attack, Fix, RunResult, ScenarioEventIn, Venue, VenuePatch
 from api.models.scene import SceneFacts, SceneSnapshot
 from api.orchestrator.projects import validation_for
+from api.orchestrator.redesign import RedesignError, redesign_status, start_redesign
 
 router = APIRouter(prefix="/api/v1")
 log = logging.getLogger("showtime.api")
@@ -53,6 +54,7 @@ def project_out(st: AppState, p: Project) -> dict[str, Any]:
         "people": venue.total_people(),
         "floors": len(venue.floors),
         "venue_name": venue.name,
+        "event_kind": venue.event_kind,
         "exits": sum(len(f.exits) for f in venue.floors),
         # plan drawing for the card (without heavy extras such as map surroundings)
         "thumb": venue.model_dump(mode="json", exclude={"extensions"}),
@@ -285,6 +287,30 @@ def preview_patch(
         "validation": validation_for(res.venue),
         "warnings": [w.model_dump() for w in res.warnings],
     }
+
+
+class RedesignIn(BaseModel):
+    request: str = Field(min_length=3, max_length=600)
+
+
+@router.post("/projects/{project_id}/redesign", status_code=202)
+def redesign(
+    project_id: str, body: RedesignIn, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """Redesign the venue with the organizer's words (the design rounds run in the background;
+    the result is saved as a new version)."""
+    st.projects.version(project_id)  # 404 for an unknown project
+    try:
+        return start_redesign(st, project_id, body.request).as_dict()
+    except RedesignError as exc:
+        raise ApiException(409, "redesign", str(exc)) from exc
+
+
+@router.get("/projects/{project_id}/redesign")
+def redesign_progress(project_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """The project's latest redesign: designing (round, stage), done (the version) or failed."""
+    job = redesign_status(project_id)
+    return job.as_dict() if job is not None else {"status": "none", "project_id": project_id}
 
 
 @router.post("/projects/{project_id}/undo")

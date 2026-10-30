@@ -202,14 +202,29 @@ interface StairRun {
   angle: number;
 }
 
-/** Where a stair climbs: from the bottom landing's centre to the top landing's centre. When both
- * landings sit on the same footprint (a stairwell drawn as one box), the climb runs along the
- * footprint's long side. */
-export function stairRun(top: Pt[] | number[][], bottom: Pt[] | number[][]): StairRun {
+/** Steepest pitch (rise over run) drawn as a flight between the landings' facing edges. */
+const MAX_FLIGHT_PITCH = 0.9;
+
+/** Where a stair climbs. The flight runs from the bottom landing's edge facing the top landing to
+ * the top landing's edge facing the bottom one, so the landings stay level floor; when that gap is
+ * too short for a walkable pitch (landings drawn as parts of one stair footprint) it runs centre
+ * to centre. When both landings sit on the same footprint (a stairwell drawn as one box), the
+ * climb runs along the footprint's long side. `rise` is the height the flight climbs. */
+export function stairRun(top: Pt[] | number[][], bottom: Pt[] | number[][], rise = 0): StairRun {
   const [tx, ty] = centroid(top);
   const [bx, by] = centroid(bottom);
   const d = Math.hypot(tx - bx, ty - by);
-  if (d >= 0.5) return { bx, by, tx, ty, run: d, angle: Math.atan2(ty - by, tx - bx) };
+  if (d >= 0.5) {
+    const ux = (tx - bx) / d, uy = (ty - by) / d;
+    const along = (p: number[]) => (p[0] - bx) * ux + (p[1] - by) * uy;
+    const foot = Math.max(...bottom.map(along));
+    const head = Math.min(...top.map(along));
+    const gap = head - foot;
+    if (rise > 0.3 && gap >= 0.5 && rise / gap <= MAX_FLIGHT_PITCH) {
+      return { bx: bx + ux * foot, by: by + uy * foot, tx: bx + ux * head, ty: by + uy * head, run: gap, angle: Math.atan2(uy, ux) };
+    }
+    return { bx, by, tx, ty, run: d, angle: Math.atan2(ty - by, tx - bx) };
+  }
   const [x0, y0, x1, y1] = bbox(top);
   const alongX = x1 - x0 >= y1 - y0;
   const run = Math.max(alongX ? x1 - x0 : y1 - y0, 1);

@@ -781,10 +781,16 @@ def apply_fix_bundle(venue: Venue, fix: Any, registry: Registry) -> Venue:
     if fix is None:
         validate_plan(venue, registry)
         return venue
+    configured = PLAN_KEY in venue.extensions
+    # new_objects only sets a configured plan's policy for the objects a fix adds; with no plan
+    # there is no policy to set (and accepting the fix marks those objects proposed anyway)
     structured = bool(
-        fix.actions or fix.replace_actions or fix.remove_action_ids or fix.new_objects
+        fix.actions
+        or fix.replace_actions
+        or fix.remove_action_ids
+        or (fix.new_objects and configured)
     )
-    enforced = PLAN_KEY in venue.extensions and plan_data(venue).enforce_constraints
+    enforced = configured and plan_data(venue).enforce_constraints
     if enforced and fix.operational:
         validate_operational(venue, fix.operational, registry)  # unallocated measures are refused
     if structured or enforced:

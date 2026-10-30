@@ -1,0 +1,63 @@
+{
+  "note": "How the building generator fits out each storey, by interior. Sizes in metres. Edit this file, not the code: a new interior or use is added here. Sources: typical small-restaurant and corridor plans (Neufert, Architects' Data; NFPA 101 aisle widths); they are a starting layout, not the real building.",
+  "stair": {
+    "about": "A stair core joins every pair of floors with one straight flight a storey high. Flights take turns between two lanes side by side (a scissor core), so on each floor the flight from above lands where the flight below starts. Risers and treads after Approved Document K / IBC 1011.5 (riser at most 0.18 m, tread at least 0.28 m); landings at least as deep as the flight is wide.",
+    "riser_max_m": 0.18,
+    "tread_m": 0.28,
+    "landing_min_m": 1.2,
+    "lane_gap_m": 0.1
+  },
+  "stairwell": {
+    "gap_m": 0.35,
+    "wall_m": 0.2,
+    "door_extra_m": 0.3,
+    "interiors": [
+      "open",
+      "dining"
+    ]
+  },
+  "rooms": {
+    "corridor_m": {
+      "hospital": 2.4,
+      "school": 2.0,
+      "office": 1.8,
+      "default": 1.8
+    },
+    "room_w_m": {
+      "hospital": 7.0,
+      "school": 8.0,
+      "office": 6.0,
+      "residential": 7.0,
+      "default": 6.0
+    },
+    "door_w_m": {
+      "hospital": 1.4,
+      "default": 1.0
+    },
+    "min_room_depth_m": 4.0
+  },
+  "dining": {
+    "table_m": 0.9,
+    "table_pitch_m": 2.4,
+    "table_height_m": 0.75,
+    "main_aisle_m": 1.8,
+    "max_tables": 48,
+    "clear_of_walls_m": 1.0,
+    "clear_of_rooms_m": 1.2,
+    "kitchen_share": 0.22,
+    "kitchen_m": [
+      3.0,
+      7.0
+    ],
+    "toilets_m": [
+      3.0,
+      2.4
+    ],
+    "lift_m": 2.0,
+    "exit_clear_m": 2.0,
+    "lift_words": [
+      "lift",
+      "elevator"
+    ]
+  }
+}

@@ -4,12 +4,16 @@ import * as THREE from "three";
 import type { Floor, Obstacle, Pt, StageParams, Venue } from "@/api/types";
 import { floorLevels, levelName } from "@/lib/venueOps";
 import { exitName } from "@/lib/venueText";
-import { bbox, doorwayOf, FENCE_M, shapeOf, wallThickness, WALL_INDOOR_M, WALL_T } from "../geom";
+import { bbox, centroid, doorwayOf, FENCE_M, shapeOf, wallThickness, WALL_INDOOR_M, WALL_T } from "../geom";
 import type { ScenePalette } from "../palette";
 import { dropSlivers, MeshBuilder } from "./builder";
 import { columnGeometry, DOOR_HEAD_M, floorBelow, guardRailGeometry, guardRailRuns, outerEdges, outerWallGeometry } from "./floor";
+import { facadeGeometry, roofGeometry } from "./facade";
+import { bakeInstances, fixtureOf, isStairVoid, kitchenGeometry, liftGeometry, tableMatrix, tablePlacements, tableUnitGeometry, toiletGeometry } from "./fixtures";
 import { slabGeometry } from "./slab";
 import { stairGeometry, stairOpenings, stairPlacement } from "./stairs";
+
+export { fixtureOf, isStairVoid, isStairwellWall } from "./fixtures";
 
 /** Default heights of obstacles by kind (metres), when an obstacle has none of its own. */
 export const OBSTACLE_HEIGHT: Record<string, number> = {
@@ -19,19 +23,30 @@ export const OBSTACLE_HEIGHT: Record<string, number> = {
 
 export const SLAB_M = 0.3;
 
-/** A footprint kept clear for a stair (its label names a stair): drawn as a faint void in 3D and
- * left out of the exported model, where the stair itself stands. */
-export function isStairVoid(o: Obstacle): boolean {
-  return (o.label ?? o.id).toLowerCase().includes("stair");
-}
 /** Storey height of the top floor (nothing above it to measure to). */
 const TOP_STOREY_M = 3.2;
 
 /** Floor-to-floor height: to the next floor up, or a default for the top floor. */
-function storeyHeight(venue: Venue, floor: Floor): number {
+export function storeyHeight(venue: Venue, floor: Floor): number {
   const e = floor.elevation_m ?? 0;
   const above = venue.floors.map((f) => f.elevation_m ?? 0).filter((x) => x > e + 0.01);
   return above.length ? Math.min(...above) - e : TOP_STOREY_M;
+}
+
+/** Whether a floor has another floor plate above it. */
+export function hasFloorAbove(venue: Venue, floor: Floor): boolean {
+  const e = floor.elevation_m ?? 0;
+  return venue.floors.some((f) => (f.elevation_m ?? 0) > e + 0.01);
+}
+
+/** An indoor building of several storeys: outer walls are a full-height facade with windows. */
+export function hasFacade(venue: Venue): boolean {
+  return venue.mode !== "outdoor" && venue.floors.length > 1;
+}
+
+/** Facade top of a storey: up to the underside of the slab above (or of the roof). */
+export function facadeHeight(venue: Venue, floor: Floor): number {
+  return Math.max(DOOR_HEAD_M + 0.3, storeyHeight(venue, floor) - SLAB_M);
 }
 
 /** "Floor 1", the floor's own name first. */
@@ -87,7 +102,9 @@ function stageGeometry(o: Obstacle, stage: StageParams | null): { deck: THREE.Bu
   return { deck, frame: b.geometry() };
 }
 
-type Materials = Record<"floor" | "wall" | "rail" | "glass" | "stair" | "exit" | "blocked" | "obstacle" | "booth" | "barrier" | "stage" | "frame" | "water", THREE.Material>;
+type Materials = Record<"floor" | "slabEdge" | "wall" | "rail" | "glass" | "window" | "spandrel" | "mullion" | "roof" | "stair" | "exit" | "blocked"
+  | "obstacle" | "booth" | "barrier" | "stage" | "frame" | "water" | "kitchen" | "kitchenFloor" | "toilets" | "sanitary" | "lift" | "table" | "chair"
+  | "counter", THREE.Material>;
 
 function materials(p: ScenePalette): Materials {
   const m = (name: string, color: string, extra: THREE.MeshStandardMaterialParameters = {}) =>
@@ -99,6 +116,11 @@ function materials(p: ScenePalette): Materials {
     blocked: m("Blocked exit", p.danger), obstacle: m("Fixture", p.obstacle), booth: m("Booth", p.booth),
     barrier: m("Barrier", p.barrier, { roughness: 0.5, metalness: 0.35 }), stage: m("Stage deck", p.stageDeck),
     frame: m("Stage frame", p.stageFrame, { roughness: 0.5, metalness: 0.5 }), water: m("Water", "#7fb2e0", { transparent: true, opacity: 0.85 }),
+    slabEdge: m("Slab edge", p.slabEdge), window: m("Window glass", p.glass, { transparent: true, opacity: 0.4, roughness: 0.08, metalness: 0.1 }),
+    spandrel: m("Spandrel", p.spandrel), mullion: m("Window frame", p.mullion, { roughness: 0.45, metalness: 0.5 }), roof: m("Roof", p.roof),
+    kitchen: m("Kitchen counter", p.kitchen, { roughness: 0.35, metalness: 0.5 }), kitchenFloor: m("Kitchen floor", p.kitchenFloor),
+    toilets: m("Washroom tiles", p.toilets, { roughness: 0.3 }), sanitary: m("Sanitary ware", p.sanitary, { roughness: 0.3 }), lift: m("Lift shaft", p.lift, { roughness: 0.3, metalness: 0.7 }),
+    table: m("Table", p.table, { roughness: 0.6 }), chair: m("Chair", p.chair), counter: m("Counter", p.counter, { roughness: 0.5 }),
   };
 }
 
@@ -116,6 +138,7 @@ export function buildVenueModel(venue: Venue, palette: ScenePalette): THREE.Grou
   const root = new THREE.Group();
   root.name = venue.name || "Venue";
   const lowest = Math.min(...venue.floors.map((f) => f.elevation_m ?? 0));
+  const facade = hasFacade(venue);
   for (const floor of venue.floors) {
     const g = new THREE.Group();
     g.name = floorName(venue, floor);
@@ -123,18 +146,37 @@ export function buildVenueModel(venue: Venue, palette: ScenePalette): THREE.Grou
     const add = (m: THREE.Mesh | null) => { if (m) g.add(m); };
     const isLowest = (floor.elevation_m ?? 0) <= lowest + 0.01;
     const storey = storeyHeight(venue, floor);
-    const hasAbove = venue.floors.some((f) => (f.elevation_m ?? 0) > (floor.elevation_m ?? 0) + 0.01);
-    const wallH = outdoor ? FENCE_M : Math.max(DOOR_HEAD_M + 0.3, storey - (hasAbove ? SLAB_M : 0));
-    const slab = slabGeometry(floor.walkable as Pt[], stairOpenings(venue, floor.floor_id), isLowest ? 0.2 : SLAB_M);
-    add(mesh("Floor slab", slab.geometry, mats.floor));
+    const hasAbove = hasFloorAbove(venue, floor);
+    const wallH = outdoor ? FENCE_M : facade ? facadeHeight(venue, floor) : Math.max(DOOR_HEAD_M + 0.3, storey - (hasAbove ? SLAB_M : 0));
+    const slab = slabGeometry(floor.walkable as Pt[], stairOpenings(venue, floor.floor_id), isLowest ? 0.2 : SLAB_M, true);
+    slab.geometry.dispose();
+    add(mesh("Floor slab", slab.parts!.faces, mats.floor));
+    add(mesh("Slab edge", slab.parts!.rim, mats.slabEdge));
     const below = floorBelow(venue, floor);
     const edges = outerEdges(floor, below);
-    const walls = outerWallGeometry(edges, { height: wallH, thickness: outdoor ? 0.08 : WALL_T });
-    add(mesh(outdoor ? "Fence" : "Outer walls", walls.body, outdoor ? mats.barrier : mats.wall));
+    if (facade) {
+      const f = facadeGeometry(edges, { height: wallH, thickness: WALL_T }, false);
+      add(mesh("Facade sill", f.sill, mats.wall));
+      for (const side of f.sides) {
+        add(mesh("Facade spandrel", side.spandrel, mats.spandrel));
+        add(mesh("Facade glass", side.glass, mats.window));
+        add(mesh("Window frames", side.frame, mats.mullion));
+      }
+      const roof = roofGeometry(venue, floor, storey, SLAB_M, WALL_T);
+      if (roof) {
+        add(mesh("Roof", roof.deck, mats.roof));
+        add(mesh("Roof edge", roof.band, mats.slabEdge));
+        add(mesh("Parapet", roof.parapet, mats.wall));
+      }
+    } else {
+      const walls = outerWallGeometry(edges, { height: wallH, thickness: outdoor ? 0.08 : WALL_T });
+      add(mesh(outdoor ? "Fence" : "Outer walls", walls.body, outdoor ? mats.barrier : mats.wall));
+    }
     const rails = guardRailGeometry(guardRailRuns(venue, floor, edges));
     add(mesh("Guard rail", rails.frame, mats.rail));
     add(mesh("Guard rail glass", rails.glass, mats.glass));
     if (below) add(mesh("Columns", columnGeometry(edges.open, (floor.elevation_m ?? 0) - (below.elevation_m ?? 0), SLAB_M), mats.wall));
+    const [fcx, fcy] = centroid(floor.walkable as Pt[]);
     for (const o of floor.obstacles) {
       if (isStairVoid(o)) continue;
       const name = o.label ?? o.id;
@@ -145,9 +187,42 @@ export function buildVenueModel(venue: Venue, palette: ScenePalette): THREE.Grou
         continue;
       }
       const h = o.kind === "wall" && !outdoor && !o.height_m ? wallH : o.height_m ?? OBSTACLE_HEIGHT[o.kind ?? "other"] ?? 1.4;
-      const mat = o.id.startsWith("water_") ? mats.water : o.kind === "wall" ? mats.wall
+      const fx = fixtureOf(o);
+      if (fx === "table") continue;
+      if (fx === "kitchen") {
+        const k = kitchenGeometry(o.polygon as Pt[], h, [fcx, fcy]);
+        add(mesh(name, k.walls, mats.wall));
+        k.cap.dispose();
+        add(mesh(`${name} counters`, k.counters, mats.kitchen));
+        add(mesh(`${name} floor`, k.floor, mats.kitchenFloor));
+        continue;
+      }
+      if (fx === "toilets") {
+        const w = toiletGeometry(o.polygon as Pt[], h, [fcx, fcy]);
+        add(mesh(name, w.walls, mats.wall));
+        w.cap.dispose();
+        add(mesh(`${name} fittings`, w.fittings, mats.sanitary));
+        add(mesh(`${name} floor`, w.floor, mats.toilets));
+        continue;
+      }
+      if (fx === "lift") {
+        const l = liftGeometry(o.polygon as Pt[], o.height_m ?? (hasAbove ? storey - SLAB_M : storey), [fcx, fcy]);
+        add(mesh(name, l.shaft, mats.lift));
+        add(mesh(`${name} doors`, l.doors, mats.mullion));
+        continue;
+      }
+      const mat = fx === "counter" ? mats.counter
+        : o.id.startsWith("water_") ? mats.water : o.kind === "wall" ? mats.wall
         : o.kind === "barrier" || o.kind === "fence" ? mats.barrier : o.kind === "booth" || o.kind === "bar" ? mats.booth : mats.obstacle;
       add(mesh(name, obstacleGeometry(o, h), mat));
+    }
+    const tables = tablePlacements(floor.obstacles);
+    if (tables.length) {
+      const unit = tableUnitGeometry();
+      const ms = tables.map((t) => tableMatrix(t));
+      add(mesh("Tables", bakeInstances(unit.table, ms), mats.table));
+      add(mesh("Chairs", bakeInstances(unit.chairs, ms), mats.chair));
+      unit.table.dispose(); unit.chairs.dispose();
     }
     for (const e of floor.exits) {
       const fg = exitFrameGeometry(floor, e, outdoor ? 2.8 : DOOR_HEAD_M);

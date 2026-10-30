@@ -18,7 +18,7 @@ def assumptions(settings: Any) -> list[dict[str, str]]:
         {
             "name": "Body size",
             "value": f"radius {s.agent_radius} m",
-            "source": "Calibrated so jam density matches Weidmann's 5.4 people per m² (docs/PROGRESS.md)",
+            "source": "Calibrated so jam density matches Weidmann's 5.4 people per m² (docs/archive/PROGRESS.md)",
         },
         {
             "name": "Exit capacity (instant estimate)",
@@ -66,7 +66,7 @@ def assumptions(settings: Any) -> list[dict[str, str]]:
         {
             "name": "Crowd model",
             "value": "JuPedSim collision-free speed model, Δt 0.025–0.05 s",
-            "source": "JuPedSim 1.4 (Tordeux et al. 2016); Δt calibration in docs/PROGRESS.md",
+            "source": "JuPedSim 1.4 (Tordeux et al. 2016); Δt calibration in docs/archive/PROGRESS.md",
         },
         {
             "name": "Wind pressure",

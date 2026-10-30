@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 from api.core.extensions import Registry
 from api.core.extensions import geometry as geo
 from api.core.plan import PLAN_KEY, plan_data
-from api.models import Venue, VenuePatch
+from api.models import Exit, Obstacle, Venue, VenuePatch, Zone
 
 # Fields that exist for undo or geometry plumbing, not for agents.
 INTERNAL_FIELDS: dict[str, set[str]] = {
@@ -256,7 +256,8 @@ def _labels(venue: Venue) -> dict[str, str]:
     out: dict[str, str] = {}
     for f in venue.floors:
         out[f.floor_id] = f.name or f.floor_id
-        for item in (*f.obstacles, *f.exits, *f.zones):
+        items: tuple[Obstacle | Exit | Zone, ...] = (*f.obstacles, *f.exits, *f.zones)
+        for item in items:
             out[item.id] = item.label or item.id.replace("_", " ")
     for st in venue.stairs:
         out[st.id] = "the stair " + st.id.replace("_", " ")

@@ -20,8 +20,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-API = "http://127.0.0.1:8000/api/v1"
-WEB = "http://127.0.0.1:5173"
+API = os.environ.get("SHOWTIME_API", "http://127.0.0.1:8000") + "/api/v1"
+WEB = os.environ.get("SHOWTIME_WEB", "http://127.0.0.1:5173")
 
 
 def run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess:

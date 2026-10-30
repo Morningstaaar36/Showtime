@@ -26,6 +26,7 @@ from plugins.ops_core.common import (
     _restore_annotations,
     _write_annotation_state,
 )
+from plugins.ops_core.stairwell import STAIRWELL_OPS
 from plugins.ops_core.structure import STRUCTURE_OPS
 
 
@@ -761,6 +762,7 @@ ALL_OPS: list[Any] = [
     SetEventOp(),
     SetAnnotationOp(),
     *STRUCTURE_OPS,
+    *STAIRWELL_OPS,
 ]
 
 

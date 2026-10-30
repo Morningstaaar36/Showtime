@@ -85,6 +85,7 @@ async def health(st: AppState = Depends(get_state)) -> dict[str, Any]:
                 "models": {
                     r: st.settings.model_for(r)  # type: ignore[arg-type]
                     for r in ("fast", "long", "main", "judge")
+                    + (("vision",) if st.settings.model_vision else ())
                 },
             },
             "sandbox": {

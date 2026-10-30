@@ -20,11 +20,12 @@ describe("3D labels", () => {
   it("labels everything on a small one-floor venue", () => {
     expect(labelledIds(venue([floor("F0", 0)]), "all", null)).toBeNull();
   });
-  it("labels only the focus floor (and every exit) when three floors are stacked", () => {
+  it("names only the doors and the focus floor's stairs when three floors are stacked", () => {
     const v = venue([floor("F1", 3.5), floor("F0", 0), floor("F2", 7)], [{ id: "s1", from_floor: "F1", to_floor: "F0" }]);
-    expect([...labelledIds(v, "all", null)!].sort()).toEqual(["F0e0", "F0z0", "F1e0", "F2e0", "s1"]);
-    expect(labelledIds(v, "all", "F2")!.has("F2z0")).toBe(true);
-    expect(labelledIds(v, "all", "F2")!.has("F0z0")).toBe(false);
+    // seen whole, room and area names would float over the storeys above them
+    expect([...labelledIds(v, "all", null)!].sort()).toEqual(["F0e0", "F1e0", "F2e0", "s1"]);
+    expect(labelledIds(v, "all", "F2")!.has("F2z0")).toBe(false);
+    expect(labelledIds(v, "all", "F2")!.has("s1")).toBe(false);
     // a hall and its mezzanine read fine together
     expect(labelledIds(venue([floor("F0", 0), floor("F1", 3.5)]), "all", null)).toBeNull();
     // spread apart, the same: the floors' names would still overlap

@@ -1,9 +1,0 @@
-# With SANDBOX_PROVIDER=nebius every simulation runs in Nebius Sandboxes, so the API needs no
-# Docker socket: on a public server, leave it out (make cloud-up adds this file on its own).
-services:
-  api:
-    volumes: !reset
-      - ./runs:/app/runs
-      - ./cache:/app/cache
-      - ./state:/app/state
-      - ./data:/app/data:ro

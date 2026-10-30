@@ -8,9 +8,9 @@ LayoutVLM), so the model only chooses sizes, walls and regions and a solver does
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_LEVELS = 40  # storeys a generated or described building may have
 
@@ -123,6 +123,17 @@ class ZoneSpec(_Spec):
 
 class FeatureSpec(_Spec):
     """An obstacle placed in a region or against a wall."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _known_kind(cls, data: object) -> object:
+        """A kind the solver does not know ("kitchen", "lift") is an "other" feature that keeps
+        the model's word as its label, instead of failing the whole design."""
+        if isinstance(data, dict):
+            kind = data.get("kind")
+            if isinstance(kind, str) and kind not in get_args(FeatureKind):
+                data = {**data, "kind": "other", "label": data.get("label") or kind[:40]}
+        return data
 
     kind: FeatureKind = "other"
     label: str | None = Field(default=None, max_length=40)
@@ -237,7 +248,8 @@ class BuildingSpec(_Spec):
     storeys: int = Field(default=1, ge=1, le=MAX_LEVELS, description="levels from street level up")
     basements: int = Field(default=0, ge=0, le=3, description="levels below street level")
     use: BuildingUse | None = None
-    interior: Literal["open", "rooms", "atrium"] = "open"
+    # dining: each floor a restaurant (kitchen, toilets, tables, a lift, an enclosed stairwell)
+    interior: Literal["open", "rooms", "atrium", "dining"] = "open"
     rooms_per_floor: int | None = Field(default=None, ge=2, le=60)
     room_label: str | None = Field(default=None, max_length=30, description="'Guest room', 'Ward'")
     people_per_floor: int | None = Field(

@@ -318,7 +318,7 @@ class ScriptRunner:
 
     # --------------------------------------------------------------------- view
     def _view(self, ctx: Any) -> types.SimpleNamespace:
-        pos = np.asarray([ctx.position(jid) for jid in ctx.agents], dtype=float).reshape(-1, 2)
+        pos = np.asarray(ctx.live_positions(), dtype=float).reshape(-1, 2)
         xs, ys = pos[:, 0], pos[:, 1]
         zones: dict[str, dict[str, Any]] = {}
         for zid, area in ctx.zones.items():
@@ -347,7 +347,7 @@ class ScriptRunner:
             t=round(float(ctx.t), 2),
             zones=zones,
             exits=exits,
-            people_inside=len(ctx.agents),
+            people_inside=len(pos),
             zone_ids=tuple(zones),
             exit_ids=tuple(exits),
         )

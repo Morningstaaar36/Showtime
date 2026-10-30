@@ -17,7 +17,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 
-LlmRole = Literal["fast", "long", "main", "judge"]
+LlmRole = Literal["fast", "long", "main", "judge", "vision"]
 
 
 class Settings(BaseSettings):
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     # new module there, no edit here) ---
     llm_provider: str = "local"
     sandbox_provider: str = "docker"
-    # used while the chosen sandbox is not configured (e.g. Nebius before you have a key)
+    # used while the chosen sandbox is not configured (e.g. a cloud sandbox without its key)
     sandbox_fallback: str = "docker"
     search_provider: str = "tavily"  # without TAVILY_API_KEY it is off: the incident dataset only
 
@@ -65,18 +65,23 @@ class Settings(BaseSettings):
     llm_pause_s: float = Field(default=600.0, ge=0)
     llm_server_errors_to_pause: int = Field(default=3, ge=1)
     # building a real case's venue from its description (the designer agent)
-    case_build_timeout_s: float = Field(default=360.0, gt=0)
+    # (all its design rounds: each may take a minute or two on a free hosted model)
+    case_build_timeout_s: float = Field(default=900.0, gt=0)
+    # the designer's rounds: design, check, simulate, critique, revise (1: no revision)
+    design_rounds: int = Field(default=3, ge=1, le=5)
+    # "Let the AI fix it": at most this many tests, each applying the fixes the one before proved
+    improve_rounds: int = Field(default=3, ge=1, le=6)
     llm_reasoning: bool = False
     # a `fast`-role answer that stays invalid after its repair round is retried once on `main`
     llm_escalate: bool = True
 
-    # --- Nebius Token Factory ---
-    nebius_api_key: str = ""
-    nebius_base_url: str = "https://api.tokenfactory.nebius.com/v1"
+    # --- Hosted models (a cloud LLM provider: model ids per role, USD per 1M tokens) ---
     model_fast: str = ""
     model_long: str = ""
     model_main: str = ""
     model_judge: str = ""
+    # a model that reads images (the floor-plan critic); empty: the critic is off
+    model_vision: str = ""
     # a second model for any role whose model fails at the provider (removed, overloaded, 404)
     model_fallback: str = ""
     price_fast_in: float = 0.0
@@ -87,11 +92,14 @@ class Settings(BaseSettings):
     price_main_out: float = 0.0
     price_judge_in: float = 0.0
     price_judge_out: float = 0.0
+    price_vision_in: float = 0.0
+    price_vision_out: float = 0.0
 
     # --- Any other OpenAI-compatible API (LLM_PROVIDER=openai; uses MODEL_* and PRICE_*) ---
     openai_compat_base_url: str = ""
     openai_compat_api_key: str = ""
-    # a second key for the same API, used once the first is out of credit or rate limited
+    # spare keys for the same API, comma-separated, each used in turn once the key before it is
+    # out of credit, rate limited or expired
     openai_compat_api_key_fallback: str = ""
     openai_compat_label: str = "CLOUD"
     # Extra JSON fields for every hosted chat request, e.g. OpenRouter's
@@ -119,14 +127,8 @@ class Settings(BaseSettings):
         """LLM_EXTRA_BODY parsed (empty when unset)."""
         return dict(json.loads(self.llm_extra_body)) if self.llm_extra_body.strip() else {}
 
-    # --- Nebius Sandboxes ---
-    nebius_sandbox_base_url: str = "https://api.tokenfactory.nebius.com/sandboxes"
-    # the Token Factory project that runs the sandboxes (Project settings, under the project
-    # name); sent with every request alongside NEBIUS_API_KEY
-    nebius_project_id: str = ""
-    # the one-time setup run that installs the simulator into the base sandbox image (s)
-    nebius_setup_timeout_s: int = Field(default=900, ge=60)
-    sandbox_max_parallel: int = Field(default=1, ge=1, le=16)
+    # --- Sandbox ---
+    sandbox_max_parallel: int = Field(default=2, ge=1, le=16)  # simulations at once
     # extra random crowds the seed check runs when the organizer doesn't choose: fewer when the
     # sandbox runs one at a time, more when it runs several at once (at most seeds_extra_max)
     seeds_extra_serial: int = Field(default=3, ge=1)
@@ -220,6 +222,9 @@ class Settings(BaseSettings):
     max_sim_s: float = 900.0
     max_wall_s: float = 600.0
     tier2_max_sim_s: float = 180.0
+    # a quick run lasts at least tier2_max_sim_s and this many times the instant estimate of
+    # getting everyone out (capped at max_sim_s), so tall buildings finish instead of stopping
+    tier2_horizon_factor: float = Field(default=3.0, ge=1.0, le=6.0)
     tier2_frame_hz: float = Field(default=2.0, gt=0)  # replay frames per second of a quick run
     walk_speed_mean: float = Field(default=1.34, gt=0, le=3.0)
     walk_speed_sd: float = 0.26
@@ -259,6 +264,13 @@ class Settings(BaseSettings):
     safety_factor: float = Field(default=1.5, ge=1.0, le=5.0)
     pre_movement_s: float = Field(default=60.0, ge=0, le=3600.0)
     default_seed: int = 42
+    # stress test at scale: at most this many simulations at once, at this tier (2: quick)
+    stress_max_runs: int = Field(default=120, ge=1, le=2000)
+    stress_tier: Literal[2, 3] = 2
+    # "How sure are these numbers?": the plan tested again with this many per cent fewer and more
+    # people, and walking this many per cent slower and faster
+    sensitivity_people_pct: float = Field(default=20.0, gt=0, lt=100)
+    sensitivity_speed_pct: float = Field(default=15.0, gt=0, lt=100)
 
     # --- Session budgets (the Settings page may change some: each has an upper bound, so a
     # request to the API can't lift them past what this server is willing to spend) ---
@@ -295,7 +307,7 @@ class Settings(BaseSettings):
     # how long the web app waits for a read, and for a write that may start an agent, before
     # it says the server took too long (sent to the app in /health)
     web_read_timeout_s: float = Field(default=60.0, gt=0)
-    web_write_timeout_s: float = Field(default=330.0, gt=0)
+    web_write_timeout_s: float = Field(default=960.0, gt=0)
     # more web origins allowed to call the API (comma-separated), besides WEB_ORIGIN: the app on
     # 127.0.0.1 and the Vite preview server by default
     cors_origins: str = "http://127.0.0.1:5173,http://localhost:4173"
@@ -348,6 +360,11 @@ class Settings(BaseSettings):
             raise ValueError(
                 "WEB_WRITE_TIMEOUT_S must be at least AGENT_STEP_TIMEOUT_S, or the app gives up "
                 "on a request while its agent is still allowed to work."
+            )
+        if self.web_write_timeout_s < self.case_build_timeout_s:
+            raise ValueError(
+                "WEB_WRITE_TIMEOUT_S must be at least CASE_BUILD_TIMEOUT_S, or the app gives up "
+                "on a real case while its venue is still being designed."
             )
         from api.adapters.providers import sandbox_provider
 
@@ -469,6 +486,7 @@ class Settings(BaseSettings):
             "long": self.model_long or self.model_fast,
             "main": self.model_main or self.model_fast,
             "judge": self.model_judge or self.model_main or self.model_fast,
+            "vision": self.model_vision,
         }
         return mapping[role]
 

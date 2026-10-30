@@ -7,7 +7,7 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | Item | Default | Source / reasoning | Setting |
 | --- | --- | --- | --- |
 | Free walking speed | 1.34 ± 0.26 m/s, 5% slow walkers at 0.7 m/s | Weidmann (1993); SFPE Handbook of Fire Protection Engineering, ch. 59 (Gwynne & Rosenbaum) | `WALK_SPEED_MEAN`, `WALK_SPEED_SD` |
-| Body radius | 0.22 m | Calibrated: at 0.22 m the model's jam density matches Weidmann's 5.4 people/m² and door flow is 1.1–1.5 people/m/s (measured, `docs/PROGRESS.md`) | `AGENT_RADIUS` |
+| Body radius | 0.22 m | Calibrated: at 0.22 m the model's jam density matches Weidmann's 5.4 people/m² and door flow is 1.1–1.5 people/m/s (measured, `docs/archive/PROGRESS.md`) | `AGENT_RADIUS` |
 | Time gap to the person ahead | 0.25 s | Calibrated on the Jülich 2006 bottleneck series (widths 0.9, 1.1, 1.4, 1.8, 2.2 m), held-out median absolute error 4.4%; the model default 1.0 s gave −55% flow (`docs/VALIDATION.md`) | `AGENT_TIME_GAP` |
 | Door/gate capacity (instant estimate) | 1.3 people per metre per second | SFPE maximum specific flow for doors and corridors | `SPECIFIC_FLOW` |
 | Stair travel and throughput | 0.6 m/s along the stair, 1.0 people/m/s | Conservative values below SFPE stair flows; stairs are a FIFO queue (approximation) | `STAIR_SPEED`, `STAIR_FLOW` |
@@ -25,7 +25,7 @@ Every number that shapes a result, where it comes from, and how to change it. Va
 | Safety factor | 1.5 | Common engineering margin on egress time | `SAFETY_FACTOR` |
 | Crowd model | JuPedSim collision-free speed model, Δt 0.025 s (≤ 2,500 people) or 0.05 s | Tordeux et al. (2016). Δt 0.05 s errs on the safe side: ~8% slower than 0.01 s on the 1,200-person hall at the model's own time gap, ~21% slower on a 60-person room at the calibrated 0.25 s gap (`test_time_step_calibration`) | — |
 | Deadlock handling | Door "squeeze" (people within 3 m of a door with a queue but nobody through for 4 s get radius 0.15 m until they are through) and 1 m sidestep for isolated deadlocks | Known artefact of collision-free models; bodies compress under pressure. Dense jams are left alone. Side effect: next to a clogged door, density can exceed what 0.22 m bodies can pack (about 6 people/m²), as at Hillsborough (9.9). Read such peaks as a severe jam, not a measured crush density | — |
-| Door model | 0.6 m passage through the wall; people standing in a doorway leave through it | Prevents side-entry and doorway "plugs" (measured, `docs/PROGRESS.md`) | — |
+| Door model | 0.6 m passage through the wall; people standing in a doorway leave through it | Prevents side-entry and doorway "plugs" (measured, `docs/archive/PROGRESS.md`) | — |
 | Multi-floor | Each floor runs before the floors its stairs lead to (top down; a basement before street level); stair queue; people re-enter at the far landing | Approximation of stair flow; stairs are not walkable ramps; climbing out of a basement uses the same stair speed as going down | — |
 | Tier 1 queue density | D = 1.9 + 3.5·(1 − e^(−Q/150)) people/m² | Screening formula between SFPE capacity density (1.9) and Weidmann jam density (5.4); calibrated on Tier 3 | — |
 | Wind pressure | q = 0.613·Kz·Kzt·Kd·V², Kz 1.0, Kzt 1.0, Kd 0.85, G 0.85, uplift 0.8, roof dead load 0.25 kN/m² | ASCE 7 velocity pressure form; screening only | plugin config |

@@ -1,4 +1,4 @@
-"""LLM provider: any OpenAI-compatible endpoint (local llama.cpp, Nebius Token Factory or other).
+"""LLM provider: any OpenAI-compatible endpoint (local llama.cpp, OpenRouter or another API).
 
 - Roles (fast/long/main/judge) map to model ids from settings; nothing is hardcoded.
 - Structured output: JSON schema via `response_format` when supported, otherwise
@@ -227,7 +227,7 @@ class LLMClient:
         # request features a hosted model rejected once ("schema", "extra"), per model:
         # later calls leave them out instead of failing again
         self._unsupported: set[tuple[str, str]] = set()
-        self._on_spare_key = False  # switched to OPENAI_COMPAT_API_KEY_FALLBACK
+        self._spare_index = 0  # 0: the first key; n: the n-th key of OPENAI_COMPAT_API_KEY_FALLBACK
         self._health_cache: tuple[float, dict[str, Any]] | None = None
         self.model_warnings: list[str] = []  # model ids the provider does not serve (startup)
         self.daily = DailyBudget.of(settings)
@@ -247,22 +247,28 @@ class LLMClient:
         """Key for the active provider; a server that needs none gets a placeholder."""
         if self.spec.key is None:
             return "local"
-        if self._on_spare_key and self.spec.spare_key is not None:
-            return self.spec.spare_key(self.settings)
+        if self._spare_index:
+            return self._spare_keys()[self._spare_index - 1]
         return self.spec.key(self.settings)
 
+    def _spare_keys(self) -> list[str]:
+        """The spare keys, in the order they are tried (a comma-separated list)."""
+        raw = self.spec.spare_key(self.settings) if self.spec.spare_key else ""
+        return [k.strip() for k in raw.split(",") if k.strip()]
+
     def _switch_to_spare_key(self, reason: str) -> bool:
-        """Move to the spare key when the first one ran out of credit or hit a quota."""
-        spare = self.spec.spare_key(self.settings) if self.spec.spare_key else ""
-        if self._on_spare_key or not spare:
+        """Move to the next spare key when the current one ran out of credit or hit a quota."""
+        spares = self._spare_keys()
+        if self._spare_index >= len(spares) or not QUOTA_RE.search(reason):
             return False
-        if not QUOTA_RE.search(reason):
-            return False
-        self._on_spare_key = True
+        self._spare_index += 1
         self._client = None
         self._health_cache = None
         log.warning(
-            "first API key unavailable (%s); using the spare key", self.redact(reason)[:120]
+            "API key unavailable (%s); using spare key %d of %d",
+            self.redact(reason)[:120],
+            self._spare_index,
+            len(spares),
         )
         return True
 
@@ -309,6 +315,8 @@ class LLMClient:
         if not served:
             return []
         roles: list[LlmRole] = ["fast", "long", "main", "judge"]
+        if self.settings.model_vision:
+            roles.append("vision")
         by_model: dict[str, list[str]] = {}
         for role in roles:
             by_model.setdefault(self.model_for(role), []).append(role)
@@ -365,10 +373,10 @@ class LLMClient:
             out = await self._hosted_health()
             # an expired, revoked or empty first key: the spare key takes over here too, so the
             # badge (and the first-run checklist) tells the truth about what calls will use
-            if not out["ok"] and self._switch_to_spare_key(str(out.get("detail", ""))):
+            while not out["ok"] and self._switch_to_spare_key(str(out.get("detail", ""))):
                 out = await self._hosted_health()
-                if out["ok"]:
-                    out["detail"] = f"{out['detail']} (spare key)"
+            if out["ok"] and self._spare_index:
+                out["detail"] = f"{out['detail']} (spare key {self._spare_index})"
             ttl = HEALTH_TTL_OK_S if out["ok"] else HEALTH_TTL_FAIL_S
             self._health_cache = (now + ttl, out)
             out = dict(out)
@@ -443,7 +451,9 @@ class LLMClient:
             if openrouter:
                 import httpx
 
-                resp = await asyncio.wait_for(client.get("/key", cast_to=httpx.Response), 5)
+                resp = await asyncio.wait_for(
+                    client.get("/key", cast_to=httpx.Response), self.settings.health_timeout_s
+                )
                 info = _json_or_empty(resp).get("data") or {}
                 left = info.get("limit_remaining") if isinstance(info, dict) else None
                 if isinstance(left, int | float) and left <= 0:
@@ -476,10 +486,10 @@ class LLMClient:
     def redact(self, text: str) -> str:
         """`text` with the configured keys and anything key-shaped masked."""
         for key in (
-            self.settings.nebius_api_key,
             self.settings.openai_compat_api_key,
-            self.settings.openai_compat_api_key_fallback,
+            *self.settings.openai_compat_api_key_fallback.split(","),
         ):
+            key = key.strip()
             if key and len(key) >= 6:
                 text = text.replace(key, "***")
         return KEY_RE.sub(lambda m: m.group(1) + "***", text)

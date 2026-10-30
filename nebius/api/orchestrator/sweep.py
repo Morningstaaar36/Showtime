@@ -1,8 +1,7 @@
 """Scenario sweep: the same plan under several what-ifs, each simulated in its own sandbox.
 
-Locally the Docker sandbox runs them one after another; with Nebius Sandboxes every scenario is
-a branch of the plan's run and they run in parallel (SANDBOX_MAX_PARALLEL). Results feed the
-scenario matrix in Simulate and the Copilot's review.
+The Docker sandbox runs them one after another, or several at once with SANDBOX_MAX_PARALLEL.
+Results feed the scenario matrix in Simulate and the Copilot's review.
 """
 
 from __future__ import annotations

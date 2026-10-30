@@ -1,6 +1,6 @@
 """S-01 / P3-07: rules-only vs model-only vs hybrid red/blue sessions on the same venues, with the
 same constraints, seed and simulation budget. Runs against a running API (the provider set in its
-.env: OpenRouter for this study, Nebius for N-01) and writes the raw numbers and a Markdown table.
+.env: OpenRouter for this study) and writes the raw numbers and a Markdown table.
 
   python scripts/evaluate_agents.py [--base http://127.0.0.1:8000] [--arms rules,model,hybrid]
                                     [--venues school_wing,conference_hall_2f:300,t_alley:400]

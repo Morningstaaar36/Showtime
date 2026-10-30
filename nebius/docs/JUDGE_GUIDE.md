@@ -1,4 +1,4 @@
-# Judge's guide: start here
+# Try it: start here
 
 ## 1. What it is
 
@@ -10,11 +10,10 @@ Planning aid, not a safety certification.
 
 ## 2. Try it online
 
-| | |
-| --- | --- |
-| Demo URL | **TO FILL IN** (`https://<vm-address>.sslip.io`, from `make deploy-nebius`) |
-| Test login | user **TO FILL IN**, password **TO FILL IN** (also in the Devpost testing notes) |
-| Video (under 3 min) | **TO FILL IN** |
+If someone hosts Showtime for you, they give you its address and a user name and password: the
+whole hosted app sits behind a password, because the API spends model credit. To host it
+yourself on any server with Docker, see [HOSTING.md](HOSTING.md). To run it on your own
+machine, see section 5.
 
 ## 3. A 5-minute path through the app
 
@@ -40,13 +39,11 @@ shows how many calls were answered that way.
 | --- | --- |
 | NVIDIA Nemotron on OpenRouter (free tier) | **Live.** Nemotron 3.5 Lightning for the fast roles (red team, what-if planner, router), Nemotron 3 Ultra for the rest |
 | Local Docker sandbox | **Live.** Every simulation and every AI-written script |
-| Nebius Token Factory | Built (a provider preset and one adapter), tested with fake clients. **Not run live** |
-| Nebius Sandboxes | Built against contree-sdk 0.3.6, tested with a fake client. **Not run live** |
 | Tavily web search | Built and tested with a fake client. **Not run live**; without a key the red team cites the incident dataset and the app says web search is off |
 
-Why: we had no Nebius account (the Nebius sign-up does not list Bangladesh, where the team is;
-see [HOSTING.md](HOSTING.md)) and no Tavily key. Each one switches on with `.env` alone and is
-checked by `make verify-live`: [NEBIUS_SWITCH.md](NEBIUS_SWITCH.md).
+Why: we had no Tavily key. It switches on with `.env` alone and is checked by
+`make verify-live`; where each key goes is in [PROVIDERS.md](PROVIDERS.md). The AI can also run
+on a local llama.cpp server (`make use-local`, `make llm-up`).
 
 ## 5. Run it yourself
 

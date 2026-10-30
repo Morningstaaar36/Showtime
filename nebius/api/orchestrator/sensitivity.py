@@ -50,13 +50,17 @@ class Variant:
     speed: float = 1.0
 
 
-VARIANTS = (
-    Variant("as_tested", "As tested"),
-    Variant("people_minus_20", "20% fewer people", people=0.8),
-    Variant("people_plus_20", "20% more people", people=1.2),
-    Variant("speed_minus_15", "Walking 15% slower", speed=0.85),
-    Variant("speed_plus_15", "Walking 15% faster", speed=1.15),
-)
+def variants(settings: Any) -> tuple[Variant, ...]:
+    """The plan as tested, then each assumption changed by the configured share."""
+    pp = float(settings.sensitivity_people_pct)
+    sp = float(settings.sensitivity_speed_pct)
+    return (
+        Variant("as_tested", "As tested"),
+        Variant(f"people_minus_{pp:g}", f"{pp:g}% fewer people", people=1 - pp / 100),
+        Variant(f"people_plus_{pp:g}", f"{pp:g}% more people", people=1 + pp / 100),
+        Variant(f"speed_minus_{sp:g}", f"Walking {sp:g}% slower", speed=1 - sp / 100),
+        Variant(f"speed_plus_{sp:g}", f"Walking {sp:g}% faster", speed=1 + sp / 100),
+    )
 
 
 def _key(session_id: str) -> str:
@@ -120,7 +124,7 @@ def start_sensitivity(st: Any, session: Any) -> dict[str, Any]:
         return job
 
     items: list[dict[str, Any]] = []
-    for v in VARIANTS:
+    for v in variants(st.settings):
         job = build(v)
         if v.key == "as_tested" and job.request.run_id == key.run_id:
             items.append({"variant": v.key, "run_id": key.run_id, "original": True})
@@ -149,7 +153,7 @@ def start_sensitivity(st: Any, session: Any) -> dict[str, Any]:
 
 
 def _item(st: Any, it: dict[str, Any], target_s: float) -> dict[str, Any]:
-    v = next((x for x in VARIANTS if x.key == it.get("variant")), None)
+    v = next((x for x in variants(st.settings) if x.key == it.get("variant")), None)
     out: dict[str, Any] = {
         "variant": it.get("variant"),
         "label": v.label if v else str(it.get("variant")),
@@ -212,7 +216,7 @@ def sensitivity_status(st: Any, session: Any) -> dict[str, Any]:
         "key": key,
         "variants": [
             {"variant": v.key, "label": v.label, "people_factor": v.people, "speed_factor": v.speed}
-            for v in VARIANTS
+            for v in variants(st.settings)
         ],
     }
     record = _load(st, session.id)

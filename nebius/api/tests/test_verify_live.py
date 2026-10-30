@@ -31,12 +31,13 @@ async def test_missing_keys_are_skipped_without_a_call(
     vl = _script()
     monkeypatch.setattr(vl, "STATUS_FILE", tmp_path / "LIVE_STATUS.md")
     monkeypatch.setattr(vl, "RESULTS_FILE", tmp_path / "live_status.json")
-    base = Settings(_env_file=None, nebius_api_key="", tavily_api_key="", cache_dir=tmp_path)
-    rows = [await vl.check(vl.NAMED[k], base) for k in ("nebius-llm", "nebius-sandbox", "tavily")]
-    assert [r.status for _, r, _ in rows] == ["skipped"] * 3
-    assert rows[0][1].detail == "SKIPPED: set NEBIUS_API_KEY"
-    assert rows[2][1].detail == "SKIPPED: set TAVILY_API_KEY"
-    vl.write_status(rows, ["nebius-llm"])
+    base = Settings(_env_file=None, openai_compat_api_key="", tavily_api_key="", cache_dir=tmp_path)
+    llm = vl.Target("openai-llm", "llm", "openai")
+    rows = [await vl.check(t, base) for t in (llm, vl.NAMED["tavily"])]
+    assert [r.status for _, r, _ in rows] == ["skipped"] * 2
+    assert rows[0][1].detail == "SKIPPED: set OPENAI_COMPAT_API_KEY"
+    assert rows[1][1].detail == "SKIPPED: set TAVILY_API_KEY"
+    vl.write_status(rows, ["tavily"])
     text = (tmp_path / "LIVE_STATUS.md").read_text()
     assert "not been run live" in text and "SKIPPED" in text
 

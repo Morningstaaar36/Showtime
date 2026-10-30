@@ -6,6 +6,83 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed and added (finishing round; Oct 30, afternoon)
+- **One honest verdict for tall buildings.** A quick (tier 2) run stopped at 180 s, so a
+  seven-storey building was judged "fails, 42 people still inside" while the fix loop said "no
+  attack broke the plan". A quick run now lasts as long as the building needs: its instant
+  estimate times `TIER2_HORIZON_FACTOR` (3: an instant estimate underrates stairs), at least `TIER2_MAX_SIM_S`, at most `MAX_SIM_S`.
+- **Simulations really run side by side.** One machine-wide lock file let a single simulation run
+  at a time whatever `SANDBOX_MAX_PARALLEL` said; it is now that many lock slots (default 2; 3 fit
+  a 16 GB machine).
+- **Redesign a saved plan in words** (`POST /projects/{id}/redesign`, Check your venue: "Not
+  right yet? Tell the AI what to change"): the designer revises its own stored design in the same
+  rounds, and the result is a new version you can undo.
+- **A final plan confirmed by full simulations:** every retest of "Let the AI fix it" confirms its
+  kept fixes with full runs, and a plan no attack broke counts as confirmed when its worst attack
+  was simulated to the end with everyone out.
+- **The plan critic gets each floor's exact counts** (people, exits, stair flights, fixtures) with
+  the drawing, so it no longer reports labels it misread ("45 people drawn as 35").
+- **Tests never touch the app's database.** A test that built the app state marked the running
+  app's live test as "stopped"; every test session now has its own database and run folder.
+- `make live-case CASE=…` runs any real case end to end through the running app (build, test, let
+  the AI fix it) and writes the record next to the case file.
+
+### Added (an AI design loop, real sites, and AI fixes until the plan holds; Oct 30)
+- **Design rounds** (`DESIGN_ROUNDS`, default 3): the designer draws the venue from words, a plan
+  checker measures it (`api/core/design_review.py`: ways out, walking distance, crowding, the
+  fit-out the use needs, an instant evacuation estimate), a model that reads images looks at the
+  drawn plans (`api/agents/plan_critic.py`, `MODEL_VISION`; off when empty), and the designer
+  revises. The best round is kept and every round is shown in "How the AI designed this" (Check
+  your venue and the describe preview). Building-code limits (one stair for 45 people) are noted,
+  never "fixed": a real case stays the building it was.
+- **The real site** (`api/orchestrator/site.py`): a description or case that names a place has
+  its building looked up on OpenStreetMap; its real size goes back to the designer, and the notes
+  say when the map had no outline.
+- **Change it in words:** under a described preview, "Not right? Tell the AI what to change"
+  revises that layout and keeps the rest (`POST /venues/design` with `request` and `previous`).
+- **Let the AI fix it** (`POST /sessions/{id}/improve`, `IMPROVE_ROUNDS`, default 3): the
+  simulator-proven fixes become a new version, the plan is tested again, and the loop repeats until
+  no attack breaks it or no fix holds; each test is a normal session and version (Your plan).
+- **Buildings that read as buildings:** dining fit-outs (kitchen, tables, toilets, lift) and
+  enclosed stairwells, sizes from `api/data/fitouts.json`; an `add_stairwell` fix the blue team may
+  propose; facades, slabs and fixtures in 3D.
+- Real cases show their design round while they build (`GET /real_cases/{id}/progress`).
+
+### Fixed (found by building Bailey Road from scratch; Oct 30)
+- The plan critic could invent requirements ("add a street exit on floor 6"). The designer
+  followed them, and the round that drifted furthest from the description was kept because its
+  estimate was one second better. Now each critic issue must quote the description (others are
+  dropped and listed), the critic is told which floors the image shows, and rounds are ranked by
+  how well they match the description, never by a faster evacuation.
+- The critic's plan image drew only stair landings, so it reported "no stair"; flights and their
+  treads are drawn now.
+- A fix that declared its new door as proposed construction (`new_objects`) was refused with
+  "Configure the organizer plan first" on any venue without an organizer plan.
+- The blue team never learned that the upper floors queue at one stair: its brief now has the
+  simulator's notes (where people clogged) and the building's ways down, so it proposes a second
+  stairwell where one is needed.
+- A scenario script that read the crowd every step could crash the simulation (`unknown Agent`)
+  once people left; scripts now read positions from the simulation itself.
+- A layout that placed its own lifts got a second lift from the dining fit-out.
+- Stairs in generated buildings: one flight per storey in a scissor core with a walkable pitch
+  (they were 49° and stacked), the floor's own flights highlighted in the one-floor view, square
+  kitchens and toilets, toilets with cubicles, and the camera fitting tall buildings.
+
+### Removed (Nebius and the demo video; Oct 30)
+- **Nebius:** the Token Factory LLM provider (`LLM_PROVIDER=nebius`), the Nebius Sandboxes
+  runner (`SANDBOX_PROVIDER=nebius`, `api/adapters/nebius_sandbox.py`) and the `contree-sdk`
+  dependency, every `NEBIUS_*` setting, the Nebius preset in `api/data/llm_presets.json`,
+  `make smoke-nebius`, `make deploy-nebius` (`deploy/nebius_vm.sh`), `make use-nebius`,
+  `make verify-nebius-llm` / `verify-nebius-sandbox`, `docker-compose.nosocket.yml`, and the
+  Nebius-only docs (`NEBIUS_SWITCH.md`, `WHEN_YOU_GET_THE_KEYS.md`, `FEEDBACK.md`). The AI runs
+  on NVIDIA Nemotron through OpenRouter (or any OpenAI-compatible API) or a local llama.cpp
+  server; simulations run in local Docker. The provider registries stay, so another provider is
+  still one module in `api/adapters/providers/` ([docs/PROVIDERS.md](docs/PROVIDERS.md)).
+  If your `.env` has `NEBIUS_*` lines, delete them (they are ignored).
+- **Demo-video tooling:** `scripts/demo_cut.py`, `web/e2e/record-demo.mjs`, `web/e2e/demo-tour.mjs`,
+  `web/e2e/explore-scripts-beat.mjs`, `docs/VIDEO_SCRIPT.md` and the hackathon submission
+  checklists. `docs/REVIEW.md` and `docs/PROGRESS.md` moved to `docs/archive/`.
+
 ### Added (sandboxes, evidence, providers, any venue; Oct 25–26)
 - **Sandboxes you can see:**
   - a header badge with what each sandbox guarantees;

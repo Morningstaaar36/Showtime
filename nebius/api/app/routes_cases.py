@@ -21,6 +21,7 @@ from api.orchestrator.case_library import (
 )
 from api.orchestrator.real_cases import (
     CaseBuildFailed,
+    build_progress,
     case_projects,
     current_project,
     open_case,
@@ -88,6 +89,17 @@ def delete_real_case(case_id: str, st: AppState = Depends(get_state)) -> None:
         raise _read_only(case_id) from exc
     except KeyError as exc:
         raise _not_found(case_id) from exc
+
+
+@router.get("/real_cases/{case_id}/progress")
+def real_case_progress(case_id: str, st: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Where the case's build is while its venue is designed (round, rounds, stage)."""
+    try:
+        find_case(st, case_id)
+    except KeyError as exc:
+        raise _not_found(case_id) from exc
+    p = build_progress(case_id)
+    return {"building": p is not None, **(p or {})}
 
 
 @router.post("/real_cases/{case_id}/open")

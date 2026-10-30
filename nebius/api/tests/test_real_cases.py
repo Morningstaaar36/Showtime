@@ -29,11 +29,12 @@ from api.core.extensions import Registry
 from api.core.extensions import geometry as geo
 from api.core.geometry import validate_venue
 from api.core.real_cases import EXTENSION_KEY, get_case, list_cases
+from api.core.session_modes import session_modes
 from api.core.settings import ROOT_DIR, Settings
 from api.core.tier1 import run_tier1
 from api.models import Venue
 from api.models.venue_spec import VenueSpec
-from api.orchestrator.real_cases import CASE_TEST, open_case
+from api.orchestrator.real_cases import open_case
 from api.orchestrator.session import SessionManager
 from api.tests.evidence_fakes import reset_engine, use_test_settings
 from api.tests.http import api_client
@@ -214,7 +215,8 @@ async def test_opening_a_case_builds_it_once_and_lets_the_ai_test_it(
     row = st.sessions.get(out["session_id"])
     assert row.status == "finished", row.error
     assert row.config["agents"] == "model"
-    assert {k: row.config[k] for k in CASE_TEST} == CASE_TEST
+    case_test = session_modes().real_case
+    assert {k: row.config[k] for k in case_test} == case_test
     called = [agent for agent, _ in st.llm.calls]
     assert called[0] == "designer" and called.count("designer") == 1
     assert "red_team" in called, "the AI is asked to attack the case"
@@ -265,6 +267,8 @@ async def test_a_case_whose_first_build_needed_fixes_is_built_again_and_tested(
     for z in bad["zones"]:
         z["people"] = 20_000  # far too many to place: the build needs fixes
     st = case_state({"designer": [bad, bad, good]})
+    # one design round: the first build keeps the model's broken answer (more rounds revise it)
+    st.base_settings = st.base_settings.model_copy(update={"design_rounds": 1})
     first = await open_case(st, "itaewon_2022")
     assert first["status"] == "needs_fixes" and first["session_id"] is None
     again = await open_case(st, "itaewon_2022")
@@ -295,13 +299,13 @@ async def test_a_double_click_builds_a_case_once(
     from api.orchestrator import real_cases as rc
 
     st = case_state({"designer": [_spec("love_parade_2010"), _spec("love_parade_2010")]})
-    real = rc.design_venue
+    real = rc.design_from_text
 
     async def slow(*a: Any, **kw: Any) -> Any:
         await asyncio.sleep(0.05)  # the model takes a while: the second click lands meanwhile
         return await real(*a, **kw)
 
-    monkeypatch.setattr(rc, "design_venue", slow)
+    monkeypatch.setattr(rc, "design_from_text", slow)
     first, second = await asyncio.gather(
         open_case(st, "love_parade_2010"), open_case(st, "love_parade_2010")
     )
@@ -320,7 +324,7 @@ async def test_a_case_build_that_hangs_stops_at_its_deadline(
     async def hangs(*a: Any, **kw: Any) -> Any:
         await asyncio.sleep(3600)
 
-    monkeypatch.setattr(rc, "design_venue", hangs)
+    monkeypatch.setattr(rc, "design_from_text", hangs)
     st = case_state({})
     st.base_settings = st.base_settings.model_copy(update={"case_build_timeout_s": 0.1})
     with pytest.raises(rc.CaseBuildFailed, match="took longer than"):

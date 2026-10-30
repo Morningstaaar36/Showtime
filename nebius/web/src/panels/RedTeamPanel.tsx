@@ -393,6 +393,7 @@ function ActivityFeed({ view }: { view: SessionView }) {
             <p className="font-medium">
               {l.type === "agent_call" ? t("ui.redteampanel.agent_name", { agent: l.agent ?? "" }) : l.type === "tool_call" ? l.agent : t("ui.redteampanel.note")}
               {l.type === "agent_call" && <span className="ml-1.5 font-normal text-muted tabular">{t(l.ok === false ? "ui.redteampanel.call_stats_partial" : "ui.redteampanel.call_stats", { tokens: fmtTokens(l.tokens), s: ((l.ms ?? 0) / 1000).toFixed(1) })}</span>}
+              {l.type === "agent_call" && l.cached && <span className="ml-1.5 rounded-full bg-surface-3 px-1.5 text-2xs font-semibold text-muted" title={t("ui.redteampanel.replayed_hint")}>{t("ui.redteampanel.replayed")}</span>}
             </p>
             <p className="text-muted">{l.summary}</p>
           </div>

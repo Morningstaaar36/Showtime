@@ -55,16 +55,14 @@ in the sandbox's own words (network unreachable, read-only file system, `MemoryE
 after 5 s, process limit). In every scenario-script case the crowd simulation still finished.
 See [SANDBOX_PROOF.md](SANDBOX_PROOF.md) and the Sandbox section of Help.
 
-**What is not live on Nebius?**
-None of it has run live yet.
-- **Built and tested with fake clients:** the Nebius Token Factory provider and the Nebius
-  Sandboxes runner. `make verify-live` reports both as SKIPPED: no key, no access
-  ([LIVE_STATUS.md](LIVE_STATUS.md)).
-- **What runs today:** NVIDIA Nemotron (3.5 Lightning and 3 Ultra) through OpenRouter, and local
-  Docker sandboxes.
-- **Switching:** `.env` only. Set `LLM_PROVIDER=nebius` and `NEBIUS_API_KEY`; for the
-  sandboxes, also `SANDBOX_PROVIDER=nebius` and `NEBIUS_PROJECT_ID`. `make verify-live` then
-  checks each one live. No code changes: [NEBIUS_SWITCH.md](NEBIUS_SWITCH.md).
+**What runs live, and what does not?**
+- **Live today:** NVIDIA Nemotron (3.5 Lightning and 3 Ultra) through OpenRouter, and local
+  Docker sandboxes ([LIVE_STATUS.md](LIVE_STATUS.md)). The AI can also run on a local llama.cpp
+  server.
+- **Built, not run live:** Tavily web search (no key; see below).
+- **Switching:** `.env` only (`make use-openrouter`, `make use-local`, or any OpenAI-compatible
+  API through `OPENAI_COMPAT_*`). `make verify-live` then checks each service live. No code
+  changes: [PROVIDERS.md](PROVIDERS.md).
 
 **What did Tavily add?**
 Nothing live yet: we had no key, so Tavily has not been run live, and we do not claim live

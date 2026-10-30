@@ -82,9 +82,11 @@ class FelicianiIncidents:
                                     "setting",
                                     "date",
                                     "crowd_size",
-                                    "dataset_url",
                                 )
                             },
+                            # the row's citation: the dataset DOI plus the row number
+                            "dataset_url": r.get("dataset_url")
+                            or f"{self.citation_url}#row={r.get('row_id')}",
                             "city": "",
                             "keywords": r.get("keywords", []),
                             "name": _name(r),

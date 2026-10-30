@@ -8,7 +8,7 @@ import type { EventKind, PeopleGroup } from "@/types/generated";
 export type EventKindId = NonNullable<EventKind>;
 export type PeopleKind = PeopleGroup["kind"];
 export type Direction = "north" | "south" | "east" | "west";
-export type Interior = "open" | "rooms";
+export type Interior = "open" | "rooms" | "dining";
 type Floor = Venue["floors"][number];
 
 export const EVENT_KINDS: EventKindId[] = [

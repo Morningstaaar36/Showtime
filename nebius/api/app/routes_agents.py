@@ -19,7 +19,7 @@ from api.app.routes_projects import _after_edit
 from api.app.state import AppState
 from api.core.venue_ops import PatchError
 from api.models import RunResult, ScenarioEventIn, Venue
-from api.orchestrator import together
+from api.orchestrator import improve, together
 from api.orchestrator.session import (
     FixConflict,
     FixSelectionError,
@@ -49,6 +49,7 @@ TOOL_LABELS: dict[str, str] = {
     "scenario_events": "Scenario events (blocked exit, surge, smoke, …)",
     "number_check": "Number check (only numbers the tools produced)",
     "code_sandbox": "Its own analysis code, run in a sealed sandbox",
+    "plan_image": "The floor plans, drawn to scale as an image it reads",
 }
 
 
@@ -287,6 +288,50 @@ def session_archive(session_id: str, st: AppState = Depends(get_state)) -> dict[
             "Sessions started before the failure map existed have none: run the red team again.",
         )
     return {"session_id": session_id, "status": row.status, **snap}
+
+
+class ImproveIn(BaseModel):
+    """How many tests the loop may run (default IMPROVE_ROUNDS)."""
+
+    rounds: int | None = Field(default=None, ge=1, le=6)
+
+
+@router.post("/sessions/{session_id}/improve")
+async def improve_session(
+    session_id: str, body: ImproveIn | None = None, st: AppState = Depends(get_state)
+) -> dict[str, Any]:
+    """Let the AI fix it: accept this test's proven fixes, test again, until the plan holds.
+
+    Async on purpose: the loop runs as a task on the server's event loop.
+    """
+    try:
+        loop = improve.start_improve(st, session_id, body.rounds if body else None)
+    except improve.ImproveError as exc:
+        raise ApiException(404, "not_found", str(exc)) from exc
+    return loop.as_dict()
+
+
+@router.get("/sessions/{session_id}/improve")
+def get_improve(session_id: str) -> dict[str, Any]:
+    """The loop this test belongs to: each test, what broke, the fixes kept and applied."""
+    loop = improve.loop_for(session_id)
+    if loop is None:
+        raise ApiException(
+            404,
+            "no_loop",
+            "The AI has not been asked to fix this plan.",
+            "Press “Let the AI fix it”.",
+        )
+    return loop.as_dict()
+
+
+@router.post("/sessions/{session_id}/improve/stop")
+def stop_improve(session_id: str) -> dict[str, Any]:
+    """Stop the loop after the test that is running now."""
+    loop = improve.stop_improve(session_id)
+    if loop is None:
+        raise ApiException(404, "no_loop", "The AI has not been asked to fix this plan.")
+    return loop.as_dict()
 
 
 @router.post("/sessions/{session_id}/stop")

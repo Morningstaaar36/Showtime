@@ -3,9 +3,9 @@
 A finished red-team session names its worst attack. Rewind reruns that attack on the tested
 plan with a checkpoint at the moment of peak danger, then starts every branch from that
 checkpoint: "do nothing" plus each response (the kept changes' staff measures and a few
-quick actions). Locally the runner copies the checkpoint into each branch's folder; on Nebius
-every branch is a snapshot child of the checkpoint run. All branches run in parallel (the
-runner bounds how many) and each is compared with "do nothing" from the same second.
+quick actions). The runner copies the checkpoint into each branch's folder. All branches run
+in parallel (the runner bounds how many) and each is compared with "do nothing" from the same
+second.
 
 Records are kept as internal user settings (`_rewind:<id>`), so no table changes.
 """

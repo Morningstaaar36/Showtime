@@ -18,8 +18,6 @@ from shapely.geometry import Polygon, box
 from shapely.ops import unary_union
 
 from api.core.building_gen import (
-    DEFAULT_ROOM_W,
-    ROOM_W,
     Core,
     StoreyPlan,
     build_storeys,
@@ -27,6 +25,7 @@ from api.core.building_gen import (
     floor_name,
     level_order,
     place_core,
+    room_width,
     split_holes,
 )
 from api.core.extensions import geometry as geo
@@ -761,7 +760,7 @@ def _room_doors(spec: VenueSpec, b: BuildingSpec, exits: list[ExitSpec]) -> list
     if b.rooms_per_floor is not None:
         n = math.ceil(b.rooms_per_floor / 2)
     else:
-        n = max(1, round(length / ROOM_W.get(b.use or "", DEFAULT_ROOM_W)))
+        n = max(1, round(length / room_width(b.use)))
     out: list[ExitSpec] = []
     for e in exits:
         if e.wall in long_walls:
@@ -879,7 +878,7 @@ def _build_building(spec: VenueSpec, b: BuildingSpec, venue_id: str) -> BuildRes
         ground,
         levels=b.storeys,
         use=b.use,
-        interior="rooms" if rooms else "open",
+        interior=b.interior if b.interior in ("rooms", "dining") else "open",
         floor_height_m=b.floor_height_m,
         plan=plan,
     )
@@ -984,6 +983,7 @@ def _stair_cores(
             width,
             unary_union([*keep_clear, *taken()]),
             corridor=b.interior == "rooms",
+            storey_m=b.floor_height_m,
         )
         if core is None:
             problems.append(
@@ -1002,6 +1002,7 @@ def _stair_cores(
             (c.x, c.y),
             min(max(door.width_m, 0.8), 4.0),
             unary_union([*keep_clear[1:], others, door_poly.buffer(0.3), *taken()]),
+            storey_m=b.floor_height_m,
         )
         if core is None:
             problems.append(f"No room for the stair to “{door.label}”: make the building larger.")

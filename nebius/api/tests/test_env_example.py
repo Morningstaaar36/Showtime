@@ -29,8 +29,8 @@ def test_env_example_documents_everything() -> None:
 def test_presets_and_keys_come_from_the_providers() -> None:
     sp = _load("switch_provider")
     known = sp.presets()
-    assert {"nebius", "openrouter", "local"} <= set(known)
-    assert sp.keys_needed("nebius") == ["NEBIUS_API_KEY"]
+    assert {"openrouter", "local"} <= set(known)
+    assert sp.keys_needed("local") == []
     assert sp.keys_needed("openrouter") == ["OPENAI_COMPAT_API_KEY"]
     ensure_loaded()
     LLM.register(
@@ -38,7 +38,7 @@ def test_presets_and_keys_come_from_the_providers() -> None:
             kind="llm",
             name="acme",
             title="Acme",
-            requirements=(Requirement("ACME_KEY", "nebius_api_key", "key", True),),
+            requirements=(Requirement("ACME_KEY", "openai_compat_api_key", "key", True),),
             presets={"acme": {"LLM_PROVIDER": "acme", "MODEL_FAST": "acme/m"}},
         )
     )

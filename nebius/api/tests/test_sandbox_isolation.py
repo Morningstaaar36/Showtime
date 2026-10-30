@@ -7,8 +7,7 @@ from pathlib import Path
 import pytest
 
 from api.adapters.llm import FakeLLM
-from api.adapters.nebius_sandbox import NebiusRunner
-from api.adapters.sandbox import DockerRunner, FakeRunner
+from api.adapters.sandbox import DockerRunner, FakeRunner, Isolation
 from api.app.main import create_app
 from api.app.state import build_state
 from api.tests.evidence_fakes import reset_engine, use_test_settings
@@ -25,12 +24,8 @@ def test_docker_isolation_matches_the_flags_it_runs_with(tmp_path: Path) -> None
     )
 
 
-def test_nebius_says_it_cannot_set_per_job_limits(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    settings = use_test_settings(tmp_path, monkeypatch)
-    iso = NebiusRunner(settings, client=object()).isolation
-    assert iso.kind == "cloud" and iso.per_job_limits is False and iso.network_off is None
+def test_a_cloud_sandbox_without_per_job_limits_says_so() -> None:
+    iso = Isolation("cloud", None, None, None, False, None, False, per_job_limits=False)
     assert "static check" in iso.summary()
 
 

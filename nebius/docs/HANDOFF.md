@@ -1,6 +1,6 @@
 # Showtime — Handoff
 
-Updated 2026-10-29. Judges start at [JUDGE_GUIDE.md](JUDGE_GUIDE.md).
+Updated 2026-10-30. To try it, start at [JUDGE_GUIDE.md](JUDGE_GUIDE.md).
 
 ## Start it
 
@@ -35,9 +35,10 @@ full organizer walkthrough.
 starts it, about 6.4 GB VRAM). Free OpenRouter keys allow about 50 requests a day; when the
 hosted model is paused, the badge says so.
 
-## Switch to Nebius
+## Switch providers
 
-Only `.env` changes; steps, checks and status in [NEBIUS_SWITCH.md](NEBIUS_SWITCH.md).
+Only `.env` changes (`make use-openrouter`, `make use-local`, `make use-list`); where each key
+goes, and how to check it, in [PROVIDERS.md](PROVIDERS.md).
 
 ## Status
 
@@ -63,9 +64,7 @@ Only `.env` changes; steps, checks and status in [NEBIUS_SWITCH.md](NEBIUS_SWITC
 | Sample projects with finished sessions (4) | Done | Installed on first start from `cache/demos/` |
 | DXF / JSON import | Done | DXF uses JuPedSim `jps-*` layer names |
 | Validation vs the Jülich 2006 bottleneck experiment | Done | [VALIDATION.md](VALIDATION.md): calibrated and checked on the same experiment |
-| Hosting on a Nebius VM (`make deploy-nebius`) | Built | Not run: no Nebius account ([HOSTING.md](HOSTING.md)) |
-| Nebius Token Factory adapter | Built, fake-client tests | **Not run live**: no key |
-| Nebius Sandboxes runner | Built against contree-sdk 0.3.6 source, fake-client tests | **Not run live**: no access |
+| Hosting on a server (`make cloud-up`: Caddy, HTTPS, password) | Built | Checked locally (`docker compose config`, `caddy validate`) ([HOSTING.md](HOSTING.md)) |
 | Tavily search | Built, cached, capped, fake-client tests | **Not run live**: no key; dataset fallback works |
 | IFC import | Not done | |
 
@@ -89,18 +88,18 @@ in a document.
 - Tier 1 is optimistic for open-air crowds queuing across a wide front; the calibration ratio is
   printed in every report.
 - Wind reanalysis smooths out thunderstorm downbursts; enter a manual gust when storms are likely.
-- The API container mounts the Docker socket to launch sims (not with `SANDBOX_PROVIDER=nebius`;
-  see SECURITY.md).
+- The API container mounts the Docker socket to launch sims (see SECURITY.md; `make dev` runs
+  the API natively instead).
 - Model replies are cached by default (`LLM_CACHE_MODE=record_replay`): an identical call is
   replayed from `cache/llm/`. Your plan › *How this plan was made* counts them.
 
 ## Unverified items (need human check)
 
-- Nebius Token Factory, Nebius Sandboxes and Tavily with real keys (`make verify-live`). The
-  Nebius preset ids were checked against the public model info on 2026-10-29.
+- Tavily with a real key (`make verify-tavily`).
 - Feliciani dataset licence: the Zenodo record lists CC BY 4.0. Confirm before redistributing
   derived data (we download at setup, never commit it).
 - Template dimensions are illustrative (the T-alley follows published Itaewon measurements; see
   ASSUMPTIONS).
 
-History: [PROGRESS.md](PROGRESS.md) and [archive/](archive/).
+History: [archive/PROGRESS.md](archive/PROGRESS.md), [archive/REVIEW.md](archive/REVIEW.md) and
+the rest of [archive/](archive/).

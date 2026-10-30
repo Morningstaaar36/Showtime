@@ -76,11 +76,11 @@ opening files). The checker is a first filter; the sandbox is the real wall. I c
 containers really have no network, a read-only system, all rights dropped, a 2 GB memory cap, and no
 API keys inside.
 
-What a judge can see today: "AI-written scenario" cards with "Show the code", the Scripts page where you
+What a visitor can see today: "AI-written scenario" cards with "Show the code", the Scripts page where you
 can try your own script (an unsafe one is refused with a reason), and the AI team page listing the
 sandbox limits.
 
-What a judge cannot see today: a live view of the boxes starting, running and finishing, and why a
+What a visitor cannot see today: a live view of the boxes starting, running and finishing, and why a
 particular script was stopped while the test runs. Step 3 adds that.
 
 ## 4. Tavily today and after this session
@@ -103,8 +103,8 @@ labelled "not run live".
 - **A provider.** The company or program that does a job for Showtime.
   - Today the AI models come from **OpenRouter** (free Nemotron models) and the sandboxes are **Docker**
     on this machine.
-  - Later, the models can come from **Nebius Token Factory** and the sandboxes from
-    **Nebius Sandboxes**.
+  - The models can also run on this machine (llama.cpp), or come from any other OpenAI-compatible
+    service.
   - Web search is a third kind of provider (Tavily).
 
 ## 6. The plan for this session
@@ -130,7 +130,7 @@ labelled "not run live".
    provider needs one new file and verify-live runs cleanly with no keys.
 7. **Browser test and fixes.** Eight flows in Chrome, each logged pass or fail with a screenshot. Done
    when every flow passes or its failure is explained.
-8. **The story.** README, pitch, demo, video script, judge guide and Q&A all tell the same, true story.
+8. **The story.** README, pitch, demo, try-it guide and Q&A all tell the same, true story.
    Done when every claim matches what ran.
 9. **Final check.** Every check, a fresh clone, and a plain-English report.
 
@@ -139,18 +139,14 @@ labelled "not run live".
 - **The free model limit.** OpenRouter's free models allow about 50 requests a day per account, and a
   red-team test uses several. Two of the three keys may be on the same account. If they run out, live
   checks wait for the next day; tests use recorded replies and fakes.
-- **Nebius.** I cannot run anything on Nebius without a key and Sandboxes access. Nebius Sandboxes cannot
-  set a per-box network or memory limit the way Docker does (from the docs; to be confirmed live). On
-  Nebius, the code checker and the limits inside the box are the protection.
-- **The hackathon rule (R1)** asks that the project runs on Nebius Token Factory or AI Cloud. Until you
-  have a key, that requirement is not met. It is the single most important key to get.
 - **Decisions for you.** Nothing blocks me now. I will ask before pushing, deploying or deleting anything.
 
 **How adding a key will work.** Each outside service (models, sandboxes, search) sits behind a small,
 fixed interface. Each provider is one file that says which settings it needs, what it can do, and how to
 make one tiny test call. The app picks the provider by its name in `.env`. With no key, it uses what works
 today (OpenRouter, Docker, the incident dataset) and says so on screen. When you get a key:
-1. Add it to `.env` and set the provider name (for example `LLM_PROVIDER=nebius` or `TAVILY_API_KEY=...`).
+1. Add it to `.env` and set the provider name (for example `make use-openrouter` and `OPENAI_COMPAT_API_KEY=...`, or `TAVILY_API_KEY=...`;
+   [PROVIDERS.md](PROVIDERS.md)).
 2. Run `make verify-live`. It makes one small real call per service and prints a pass/fail table with the
    exact fix for anything missing.
 

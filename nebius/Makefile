@@ -5,8 +5,8 @@ SIM_PLATFORM ?= linux/amd64
 API := cd api &&
 .DEFAULT_GOAL := help
 
-.PHONY: help data share cloud-password cloud-up cloud-down deploy-nebius fix-perms sandbox-proof verify-live setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
-        types check lint typecheck test test-sim test-web e2e smoke smoke-nebius demo-precompute \
+.PHONY: help data share cloud-password cloud-up cloud-down fix-perms sandbox-proof verify-live setup get-llm get-model get-data probe llm-up llm-down up down dev dev-down build-sim \
+        types check lint typecheck test test-sim test-web e2e smoke live-case demo-precompute \
         clean mem plugins new-plugin calibrate validate screenshots m1-test-init m1-test-up m1-test-start m1-test-down m1-test-status m1-test-logs m1-test-smoke m1-test-p2-02
 
 help: ## Show this help
@@ -63,9 +63,7 @@ fix-perms: ## Give runs/, cache/ and state/ back to you (files an older root con
 down: ## Stop the Docker Compose stack
 	@docker compose down
 
-# with Nebius Sandboxes the API needs no Docker socket on the server
-SANDBOX_IN_ENV = $(shell grep -E '^SANDBOX_PROVIDER=' .env 2>/dev/null | cut -d= -f2 | cut -d' ' -f1)
-CLOUD = docker compose -f docker-compose.yml -f docker-compose.cloud.yml $(if $(filter nebius,$(SANDBOX_IN_ENV)),-f docker-compose.nosocket.yml)
+CLOUD = docker compose -f docker-compose.yml -f docker-compose.cloud.yml
 
 cloud-password: ## Set the hosted app's password (asks for it; writes BASIC_AUTH_USER and _HASH to .env)
 	@./deploy/set_password.sh
@@ -82,9 +80,6 @@ cloud-up: build-sim ## On a server: the stack behind Caddy (HTTPS + password); s
 
 cloud-down: ## On a server: stop the hosted stack
 	@$(CLOUD) down
-
-deploy-nebius: ## Create a Nebius VM (if needed), copy the code and .env, start it (docs/HOSTING.md)
-	@./deploy/nebius_vm.sh
 
 dev: ## Run API + Vite dev server natively (lighter on memory; hot reload)
 	@./scripts/dev_up.sh
@@ -160,14 +155,14 @@ sandbox-proof: ## Attack the real sandbox and record what stopped each attack (H
 smoke: ## End-to-end smoke test against the running API (small crowd)
 	@$(ENV) $(API) uv run python ../scripts/smoke.py
 
+live-case: ## A real case end to end with the AI: build, test, let the AI fix it (CASE=path.json)
+	@$(ENV) $(API) uv run python ../scripts/live_case.py $(abspath $(CASE))
+
 verify-live: ## Smallest real call to every external service; writes docs/LIVE_STATUS.md (SKIPPED without a key)
 	@$(ENV) $(API) uv run python ../scripts/verify_live.py
 
-verify-%: ## verify-nebius-llm, verify-nebius-sandbox, verify-tavily: one service
+verify-%: ## verify-tavily: one service
 	@$(ENV) $(API) uv run python ../scripts/verify_live.py $*
-
-smoke-nebius: ## Smoke test against Nebius Token Factory + Sandboxes (skips without keys)
-	@$(ENV) $(API) uv run python ../scripts/smoke_nebius.py
 
 use-%: ## Point .env at a provider preset (make use-list); keeps keys, backs up .env
 	@python3 scripts/switch_provider.py $*

@@ -1,5 +1,6 @@
-"""Code and security review (docs/REVIEW.md section 5): imports, the run cache, sessions, the
-daily model budget, cross-site writes and clean-up. Fake LLM and fake sandbox: no Docker."""
+"""Code and security review (docs/archive/REVIEW.md section 5): imports, the run cache,
+sessions, the daily model budget, cross-site writes and clean-up. Fake LLM and fake sandbox:
+no Docker."""
 
 from __future__ import annotations
 

@@ -1,0 +1,50 @@
+{
+  "title": "Bailey Road 2024 · Dhaka",
+  "incident": "Green Cozy Cottage restaurant building fire",
+  "date": "2024-02-29",
+  "place": "Bailey Road, Dhaka",
+  "deaths": 46,
+  "people": 290,
+  "toll": "46 people died; about 75 were rescued alive, some from the roof by crane.",
+  "event_kind": "mall",
+  "location": {
+    "lat": 23.7409,
+    "lon": 90.4078,
+    "timezone": "Asia/Dhaka"
+  },
+  "description": "Green Cozy Cottage, a seven-storey building on New Bailey Road, Dhaka, on a busy Thursday night, 29 February 2024, about 21:50: a ground floor and six floors above it. A coffee shop is on the ground floor and a restaurant on every floor above, each with its own kitchen. The building stands on a narrow plot, roughly 22 m along the road and 14 m deep. There is only one staircase, so narrow that two people can barely pass (about 1.2 m), and two lifts that cannot be used in a fire; there is no fire exit. The only way out is the street door onto New Bailey Road. About 290 people are inside: around 30 in the coffee shop and around 45 on each restaurant floor, all heading for the street.",
+  "what_happened": "A fire on the ground floor spread fast through gas cylinders kept on every floor and on the staircase. Smoke filled the only staircase, so people on the upper floors could not get down; many fled to the roof and were taken off by crane.",
+  "lesson": "One staircase and no fire exit leaves every upper floor with no way out once that stair fills with smoke.",
+  "sources": [
+    {
+      "label": "Wikipedia, 2024 Dhaka Bailey Road fire (seven storeys, 21:50, 46 deaths, no fire exit, gas cylinders on every floor and staircase)",
+      "url": "https://en.wikipedia.org/wiki/2024_Dhaka_Bailey_Road_fire"
+    },
+    {
+      "label": "Prothom Alo (2024-03-01): coffee shop on the ground floor, people on the roof rescued by crane, 75 rescued alive",
+      "url": "https://en.prothomalo.com/bangladesh/city/eik8soces2"
+    },
+    {
+      "label": "Prothom Alo: the building had two lifts and one staircase",
+      "url": "https://en.prothomalo.com/amp/story/bangladesh/tafmjshjbs"
+    },
+    {
+      "label": "The Business Standard: the staircase was too narrow for more than two people side by side",
+      "url": "https://www.tbsnews.net/node/802074"
+    },
+    {
+      "label": "Dhaka Tribune: fire service says a short circuit on the ground floor started it, a gas leak spread it",
+      "url": "https://www.dhakatribune.com/bangladesh/dhaka/343643/fire-service-short-circuit-ignited-bailey-rd"
+    }
+  ],
+  "dimensions": [
+    "Seven storeys (Wikipedia; Prothom Alo).",
+    "One staircase and two lifts (Prothom Alo); no fire exit (Wikipedia).",
+    "The staircase fit no more than two people side by side (The Business Standard); drawn 1.2 m wide."
+  ],
+  "approximations": [
+    "The building's plan is not published: the 22 x 14 m footprint, the 3.5 m storey height, the stair's corner and each floor's kitchen, tables and toilets are a typical restaurant layout, not the real one.",
+    "290 people is an estimate of a busy Thursday night: about 75 were rescued alive and 46 died, and others got out on their own.",
+    "The roof is not drawn as a refuge; the fire is simulated by the red team as the staircase lost to smoke and people slowed down."
+  ]
+}

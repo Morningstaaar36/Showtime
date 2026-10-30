@@ -26,7 +26,7 @@ from api.models import Usage
 
 log = logging.getLogger("showtime.agents")
 PROMPT_DIR = Path(__file__).resolve().parent / "prompts"
-Role = Literal["fast", "long", "main", "judge"]
+Role = Literal["fast", "long", "main", "judge", "vision"]
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -133,16 +133,24 @@ async def call_agent(
     validate: Callable[[T], list[str]] | None = None,
     summarize: Callable[[T], str] | None = None,
     reasoning: bool = False,
+    images: list[str] | None = None,
 ) -> AgentCall[T]:
     """Run one agent: call, validate ids, one repair round, audit, emit `agent_call`.
 
     A `fast`-role call that is still invalid after its repair round is retried once on the
-    `main` model (model escalation, `LLM_ESCALATE`).
+    `main` model (model escalation, `LLM_ESCALATE`). `images` (data URLs) go with the user
+    message, for a model that reads images.
     """
     model_cls: type[T] = output_model or spec.output_model  # type: ignore[assignment]
+    content: Any = user
+    if images:
+        content = [
+            {"type": "text", "text": user},
+            *({"type": "image_url", "image_url": {"url": url}} for url in images),
+        ]
     messages = [
         {"role": "system", "content": spec.system_prompt(values)},
-        {"role": "user", "content": user},
+        {"role": "user", "content": content},
     ]
     t0 = time.perf_counter()
     deadline = _step_deadline(env)

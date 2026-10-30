@@ -248,6 +248,42 @@ async def test_spare_key_takes_over_when_the_first_is_out_of_credit(
 
 
 @pytest.mark.asyncio
+async def test_spare_keys_are_used_in_turn_until_one_answers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import openai
+
+    class _NoQuota(_Transport):
+        async def _create(self, **kwargs: Any) -> Any:
+            raise RuntimeError("Error code: 429 - Rate limit exceeded: free-models-per-day")
+
+    made: list[str] = []
+
+    def factory(**kw: Any) -> Any:
+        made.append(kw["api_key"])
+        return _Transport() if kw["api_key"] == "sk-third-123456" else _NoQuota()
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", factory)
+    c = LLMClient(
+        _settings(
+            tmp_path,
+            openai_compat_api_key_fallback="sk-second-123456, sk-third-123456",
+            llm_fallback="none",
+        ),
+        transport=_NoQuota(),
+    )
+    reply = await c.chat("fast", [{"role": "user", "content": "hi"}])
+    assert reply.text == "Hello." and made == ["sk-second-123456", "sk-third-123456"]
+    assert c.api_key == "sk-third-123456"
+    assert "sk-second-123456" not in c.redact("failed with sk-second-123456")
+    # every key used up: the next quota error is not hidden
+    monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kw: _NoQuota())
+    c._client = None
+    with pytest.raises(LLMError):
+        await c.chat("fast", [{"role": "user", "content": "again"}])
+
+
+@pytest.mark.asyncio
 async def test_spare_key_is_not_used_for_other_errors(tmp_path: Path) -> None:
     class _Broken(_Transport):
         async def _create(self, **kwargs: Any) -> Any:
@@ -277,7 +313,7 @@ async def test_health_switches_to_the_spare_key_when_the_first_expired(
     )
     c = LLMClient(s, transport=_Probe(fail=_Unauthorized("401 API key expired")))
     out = await c.health()
-    assert out["ok"] is True and "spare key" in out["detail"]
+    assert out["ok"] is True and "spare key 1" in out["detail"]
     assert c.api_key == "sk-spare-123456" and spare.calls == ["/key"]
 
 
@@ -400,7 +436,7 @@ async def test_a_pause_expires(tmp_path: Path) -> None:
 
 def test_an_empty_model_id_fails_at_startup_naming_the_variable(tmp_path: Path) -> None:
     # an OpenAI-compatible API other than the preset's (OpenRouter) has no model ids to offer;
-    # Nebius does, so an empty MODEL_FAST there takes its preset (test_env_only_switch.py)
+    # OpenRouter does, so an empty MODEL_FAST there takes its preset (test_env_only_switch.py)
     with pytest.raises(ValueError, match="MODEL_FAST"):
         _settings(tmp_path, llm_provider="openai", model_fast="  ")
 
